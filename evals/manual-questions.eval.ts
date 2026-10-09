@@ -6,6 +6,7 @@ import { getNotionEnvContract } from "@/lib/notion";
 import { runStarterAnswer } from "@/lib/starters/answer";
 import { fakeEmbeddingTarget } from "../test/ai/fake-embeddings";
 import { buildFixture } from "./fixtures";
+import { judgeAnswer } from "./manual-answer-judge";
 import { seedEvalManual, stopEvalManualServer } from "./manual-fixture";
 import { seedEvalManualQuestions } from "./manual-questions-fixture";
 import {
@@ -32,6 +33,9 @@ import {
  * - **End to end** (`EVAL_MQ_E2E=1`): one real chat turn per public question
  *   (~$0.001–0.003 each). A failed answer fails the run, as `npm run eval`
  *   does.
+ *
+ * - **Judged** (`EVAL_MQ_JUDGE=1`, with `EVAL_MQ_E2E=1`): Opus grades each
+ *   answer against the manual's answer (~$0.005 each). Reported, never failed.
  *
  * Options: `EVAL_MQ_TOOL=<slug>`, `EVAL_MQ_K=8`, `EVAL_MQ_LIMIT=N`,
  * `EVAL_MQ_RERANK=0`, `EVAL_MQ_OFFLINE=1` (fixtures only: fake embeddings, no
@@ -80,6 +84,9 @@ describe("manual question eval", () => {
       ...(target ? { target } : {}),
       ...(options.e2e
         ? { answer: (question) => runStarterAnswer({ question: question.question, toolId: question.toolId }) }
+        : {}),
+      ...(options.judge
+        ? { judge: (question, answer) => judgeAnswer({ machine: question.toolName, question: question.question, reference: question.expectedAnswer, answer }) }
         : {}),
       reportDir: REPORT_DIR,
       log: (line) => console.info(line),

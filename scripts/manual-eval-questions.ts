@@ -10,23 +10,28 @@
  *
  * - **A dry run by default.** It lists the searchable manuals that need
  *   questions, says how many each would get, and prints the estimated cost at
- *   Luna's list price. It calls no model and writes nothing. `--apply` calls
- *   job `evalQuestions` (Luna on flex) once per manual and stores the
- *   questions; each line and the summary print the Gateway-reported cost.
+ *   the job's model's list price (`src/lib/ai/list-prices.ts`). It calls no
+ *   model and writes nothing. `--apply` calls job `evalQuestions` (Opus) once
+ *   per manual and stores the questions; each line and the summary print the
+ *   Gateway-reported cost.
+ * - **Resumable.** Each manual is stored as it finishes. A manual already
+ *   asked by the same model about the same text is skipped, so after a failure
+ *   or an interrupted run, the same command picks up where it stopped.
  * - **Target** is the import scripts' order (`src/lib/import/target.ts`):
  *   `DATABASE_URL`, else `PGLITE_DATA_DIR` (stop the dev server first: the
  *   local database is single-process).
  * - **Which manuals:** every ready, searchable current PDF of a machine that
  *   is not archived. `--tool` takes one machine's slug. A manual whose text
- *   is unchanged since its questions were written is skipped; the same text
- *   already asked about on another machine is copied, at no cost. `--force`
- *   writes new questions for every one.
+ *   and model are unchanged since its questions were written is skipped; the
+ *   same text already asked about on another machine is copied, at no cost.
+ *   `--force` writes new questions for every one.
  * - `MANUAL_EVAL_QUESTIONS` sets how many per manual (default 4, `0` is off).
  *
  * Output: one line per manual (machine, document id, what happened, tokens,
  * cost), then totals.
  */
 import { fileURLToPath } from "node:url";
+import { estimateUsd } from "../src/lib/ai/list-prices.ts";
 import { listDocumentsForQuestions, type DocumentQuestionTarget } from "../src/lib/data/manual-eval-questions.ts";
 import { PgliteLockedError } from "../src/lib/db/pglite-lock.ts";
 import type { Db } from "../src/lib/db/types.ts";
@@ -73,20 +78,6 @@ export function parseArgs(argv: readonly string[]): EvalQuestionsBackfillOptions
   return options;
 }
 
-// ── Cost ────────────────────────────────────────────────────────────
-
-/**
- * Luna's list price (gateway spec 2026-09-23): $0.10 per million input
- * tokens, $0.50 per million output. Flex is cheaper, so the estimate is an
- * upper bound for the default model.
- */
-export const LUNA_USD_PER_M_INPUT = 0.1;
-export const LUNA_USD_PER_M_OUTPUT = 0.5;
-
-export function estimateUsd(inputTokens: number, outputTokens: number): number {
-  return (inputTokens * LUNA_USD_PER_M_INPUT + outputTokens * LUNA_USD_PER_M_OUTPUT) / 1_000_000;
-}
-
 // ── The run ─────────────────────────────────────────────────────────
 
 export interface EvalQuestionsBackfillReport {
@@ -102,8 +93,10 @@ export interface EvalQuestionsBackfillReport {
   outputTokens: number;
   /** Gateway-reported dollars (`--apply`); null when none was reported. */
   cost: number | null;
-  /** The dry run's estimate at Luna's list price. */
-  estimatedUsd: number;
+  /** The model the estimate is priced at: the job's. */
+  model: string;
+  /** The dry run's estimate at `model`'s list price; null when it has none. */
+  estimatedUsd: number | null;
   ms: number;
 }
 
@@ -120,6 +113,7 @@ export interface RunEvalQuestionsBackfillInput {
 /** One manual at a time, each reported as it finishes. A failure is counted and the run goes on. */
 export async function runEvalQuestionsBackfill(input: RunEvalQuestionsBackfillInput): Promise<EvalQuestionsBackfillReport> {
   const { generateDocumentQuestions } = await import("../src/lib/manuals/eval-questions.ts");
+  const { modelIdFor } = await import("../src/lib/ai/models.ts");
   const log = input.log ?? (() => {});
   const started = Date.now();
   const report: EvalQuestionsBackfillReport = {
@@ -134,7 +128,8 @@ export async function runEvalQuestionsBackfill(input: RunEvalQuestionsBackfillIn
     inputTokens: 0,
     outputTokens: 0,
     cost: null,
-    estimatedUsd: 0,
+    model: modelIdFor("evalQuestions"),
+    estimatedUsd: null,
     ms: 0,
   };
   for (const [n, doc] of input.documents.entries()) {
@@ -179,7 +174,7 @@ export async function runEvalQuestionsBackfill(input: RunEvalQuestionsBackfillIn
         break;
     }
   }
-  report.estimatedUsd = estimateUsd(report.inputTokens, report.outputTokens);
+  report.estimatedUsd = estimateUsd(report.model, report.inputTokens, report.outputTokens);
   report.ms = Date.now() - started;
   return report;
 }
@@ -212,15 +207,23 @@ export function summarise(report: EvalQuestionsBackfillReport, apply: boolean): 
   if (!apply) {
     return (
       `Dry run: ${report.planned} manual(s) would get ${report.questions} question(s) (${rest}). ` +
-      `About ${report.inputTokens} input and ${report.outputTokens} output tokens: ~$${report.estimatedUsd.toFixed(4)} at Luna's list price ` +
-      `(flex is cheaper). Run again with --apply to write them.`
+      `About ${report.inputTokens} input and ${report.outputTokens} output tokens: ${priced(report)}. ` +
+      `Run again with --apply to write them.`
     );
   }
   return (
     `Wrote ${report.questions} question(s) for ${report.written + report.copied} manual(s) (${rest}). ` +
     `${report.inputTokens}/${report.outputTokens} tokens, ` +
-    `${report.cost === null ? "cost not reported" : `Gateway cost $${report.cost.toFixed(4)}`} in ${(report.ms / 1000).toFixed(1)}s.`
+    `${report.cost === null ? "cost not reported" : `Gateway cost $${report.cost.toFixed(4)}`} in ${(report.ms / 1000).toFixed(1)}s.` +
+    (report.failed ? ` Run the same command again to retry the ${report.failed} that failed; the rest are skipped.` : "")
   );
+}
+
+/** The estimate, at the model's list price, for a summary line. */
+export function priced(report: { model: string; estimatedUsd: number | null }): string {
+  return report.estimatedUsd === null
+    ? `no list price for ${report.model} to estimate from`
+    : `~$${report.estimatedUsd.toFixed(4)} at ${report.model}'s list price`;
 }
 
 // ── The command ─────────────────────────────────────────────────────
@@ -255,10 +258,7 @@ async function main(): Promise<void> {
     return;
   }
   console.log(`Target: ${describeImportTarget(target)}${options.apply ? "" : " — dry run, no model call, nothing is written"}`);
-  console.log(`Questions: up to ${count} a manual, job evalQuestions (${model}, flex)${options.force ? ", every manual again (--force)" : ""}`);
-  if (!options.apply && model !== "openai/gpt-6-luna") {
-    console.log("Note: MODEL_EVAL_QUESTIONS names another model; the estimate below uses Luna's list price.");
-  }
+  console.log(`Questions: up to ${count} a manual, job evalQuestions (${model})${options.force ? ", every manual again (--force)" : ""}`);
 
   let opened;
   try {

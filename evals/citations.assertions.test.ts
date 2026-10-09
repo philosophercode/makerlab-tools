@@ -190,6 +190,28 @@ describe("cites_only_tool and rule 6", () => {
     expect(onlyTool("[it](https://blob.test/other.pdf#page=3)", calls, "trotec-speedy-400").detail).toContain("no search_manual result");
   });
 
+  it("counts a link from the machine's own record — and not one from another machine's", () => {
+    const calls = [scoped(["tool-trotec-speedy-400"], "none", [trotec])];
+    const details = (id: string, slug: string, url: string) => ({
+      name: "get_tool_details",
+      input: { tool: slug },
+      output: { found: true, id, slug, links: [{ label: "Operator guide", url }] },
+    });
+    const text = "Lower it ([focus](#cite-7a7a7a7a-5)). See the [full manual](https://blob.test/speedy-guide.pdf#page=5).";
+    expect(onlyTool(text, [...calls, details("tool-trotec-speedy-400", "trotec-speedy-400", "https://blob.test/speedy-guide.pdf")], "trotec-speedy-400").ok).toBe(true);
+    const other = onlyTool(text, [...calls, details("tool-form-4", "form-4", "https://blob.test/speedy-guide.pdf")], "trotec-speedy-400");
+    expect(other.ok).toBe(false);
+    expect(other.detail).toContain("own record");
+  });
+
+  it("judges a link to a searched passage's whole document as that passage's document", () => {
+    const calls = [scoped([], "all", [form4, trotec])];
+    expect(onlyTool(`See the [whole manual](${TROTEC_DOC}).`, calls, "trotec-speedy-400").ok).toBe(true);
+    const other = onlyTool(`See the [whole manual](${DOC}).`, calls, "trotec-speedy-400");
+    expect(other.ok).toBe(false);
+    expect(other.detail).toContain("a document of Form 4");
+  });
+
   it("counts an attached manual's page only on that machine's page", () => {
     const text = "[Focus (Trotec Speedy 400 Operator Guide, p. 5)](#cite-5d2e7b41-5)";
     expect(onlyTool(text, [], "trotec-speedy-400", { attachedManuals: [guide], toolId: "trotec-speedy-400" }).ok).toBe(true);

@@ -31,6 +31,8 @@ export interface EvalFixtureResource {
   label: string;
   href: string;
   kind?: string;
+  /** The manufacturer's link when `href` is the archive's copy of it. */
+  sourceHref?: string;
 }
 
 /** One catalog machine, flattened for assertions. */
@@ -214,6 +216,7 @@ function toFixtureTool(tool: MakerLabTool): EvalFixtureTool {
       label: link.label,
       href: link.href,
       kind: link.kind,
+      ...(link.sourceHref ? { sourceHref: link.sourceHref } : {}),
     })),
   };
 }

@@ -1131,3 +1131,50 @@ per search. A retrieval-only run costs a query embedding and a rerank per questi
   The end-to-end check allows one page either side.
 - **A document the model found nothing to ask about stores no rows**, so a later passage
   rebuild asks again (a fraction of a cent).
+
+### 2026-10-08 — English passages only (eval questions and tool skills)
+
+**What changed.** The eval questions and the tool skill writer are given **English passages only**
+(`looksEnglish`, `src/lib/manuals/language.ts`: common English words against common French,
+Spanish, Portuguese, Italian, German and Dutch ones, and non-Latin scripts; no model). The eval
+question prompt also says to write in English and skip a passage that is not.
+
+**Why.** The first production eval run (2026-10-08, 199 Opus-written questions on 49 machines)
+found the right document first for 97% of questions and the expected page in the top 8 for 93%,
+but only 89 of 188 chat answers cited the expected page. Reading the misses: most were right
+answers citing the English page, scored against a question written from the French or Spanish
+section of a multilingual manual (Ryobi, Festool, Dremel, DeWalt, Singer) — sometimes a French or
+Spanish question, sometimes an English question translated from one. 1,525 of 4,135 production
+passages are not English. Search and chat are unchanged: a student may ask in any language.
+
+**Rerun.** The questions are regenerated once with `--force` (the passages offered changed, not the
+text or the model). Skills need no `--force`: their input hash covers the passages, so
+`tools:skills -- --apply` rewrites only the tools whose passages changed.
+
+### 2026-10-08 — Links from the machine's own record (`cites_only_tool`)
+
+**What changed.** `cites_only_tool` also accepts a link from the machine's own record — its
+resources, the manufacturer's original behind an archived copy (`sourceHref`), or what its
+`get_tool_details` returned in the turn — and judges a link to a searched passage's whole document
+(its address without `#page=`) as that passage's document. Links are compared without the
+fragment. A link to another machine's documents, or one nothing backs, still fails.
+
+**Why.** After the English-passages fix, 32 of the 58 failed answers in the production eval failed
+on this check alone, and they were good answers: each cited the right page through
+`search_manual`, then added "see the full manual" or "follow the SOP" with the link the tool's
+record gives. That link is the machine's own document — what the rule ("an answer cites only its
+machine's documents", 2026-10-06) is there to allow — so failing it measured the harness, not the
+chat.
+
+### 2026-10-08 — A judge for the answer (`EVAL_MQ_JUDGE=1`)
+
+**What changed.** With `EVAL_MQ_E2E=1`, `EVAL_MQ_JUDGE=1` has job `evalQuestions` (Opus — the
+writer that read the passage and wrote the expected answer) grade each chat answer against the
+manual's answer: **correct**, **partial**, **wrong** or **declined**, with a one-line reason
+(`evals/manual-answer-judge.ts`; the answer is fenced as untrusted data). The report counts the
+verdicts beside the page checks and lists every answer not judged correct. It never fails the run.
+
+**Why.** The page checks say where an answer points, not whether it is right. Reading the
+production misses, most were right: an answer from the lab's SOP (which the chat puts first by
+design), or from another page or section that says the same. A judged "correct" is the number a
+person can quote; the page checks stay as the stricter measure of citation precision.

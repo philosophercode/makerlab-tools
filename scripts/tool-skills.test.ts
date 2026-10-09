@@ -80,7 +80,7 @@ describe("runToolSkillsBackfill", () => {
     expect(report.estimatedUsd).toBeGreaterThan(0);
     expect(lines[0]).toMatch(/^\[1\/3\] bench-vise: skipped \(nothing to write from/);
     expect(lines[1]).toMatch(/^\[2\/3\] form-4: would write version 1 from \d+ manual passage\(s\), ~\d+\/4000 tokens$/);
-    expect(summarise(report, false)).toMatch(/^Dry run: 2 tool\(s\) would get a skill \(0 up to date, 1 with nothing to write from\)\. About \d+ input and 8000 output tokens: ~\$0\.\d{4} at Luna's list price/);
+    expect(summarise(report, false)).toMatch(/^Dry run: 2 tool\(s\) would get a skill \(0 up to date, 1 with nothing to write from\)\. About \d+ input and 8000 output tokens: ~\$\d+\.\d{4} at anthropic\/claude-opus-5\.5's list price/);
     expect(recordedCalls(model)).toHaveLength(0);
     expect(await db.select().from(toolSkills)).toHaveLength(0);
   });
@@ -113,6 +113,19 @@ describe("runToolSkillsBackfill", () => {
   it("counts a failure and goes on", async () => {
     const report = await runToolSkillsBackfill({ db, tools: await listToolsForSkills(db), apply: true, model: textModel("no JSON here") });
     expect(report).toMatchObject({ written: 0, failed: 2 });
+    expect(summarise(report, true)).toContain("Run the same command again to retry the 2 that failed");
     expect(describeOutcome({ status: "failed", toolId: "x", reason: "unreadable", kind: null, transient: false, recorded: true })).toBe("failed (unreadable)");
+  });
+
+  it("resumes: the same command after a failure writes only the tool that failed", async () => {
+    // The second tool's answer cannot be read.
+    const flaky = textModel((i) => (i === 0 ? ANSWER : "no JSON here"));
+    const first = await runToolSkillsBackfill({ db, tools: await listToolsForSkills(db), apply: true, model: flaky });
+    expect(first).toMatchObject({ written: 1, failed: 1 });
+
+    const model = textModel(ANSWER);
+    const again = await runToolSkillsBackfill({ db, tools: await listToolsForSkills(db), apply: true, model });
+    expect(again).toMatchObject({ written: 1, upToDate: 1, failed: 0 });
+    expect(recordedCalls(model)).toHaveLength(1);
   });
 });

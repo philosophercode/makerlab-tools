@@ -41,10 +41,12 @@ afterAll(async () => {
 
 describe("parseManualQuestionEvalEnv", () => {
   it("reads the options, with defaults, and refuses what cannot work", () => {
-    expect(parseManualQuestionEvalEnv({})).toEqual({ e2e: false, fixtures: false, offline: false, tool: null, k: 8, limit: null, rerank: true });
+    expect(parseManualQuestionEvalEnv({})).toEqual({ e2e: false, fixtures: false, offline: false, tool: null, k: 8, limit: null, rerank: true, judge: false });
+    expect(parseManualQuestionEvalEnv({ EVAL_MQ_E2E: "1", EVAL_MQ_JUDGE: "1" })).toMatchObject({ e2e: true, judge: true });
+    expect(() => parseManualQuestionEvalEnv({ EVAL_MQ_JUDGE: "1" })).toThrow(/EVAL_MQ_E2E/);
     expect(
       parseManualQuestionEvalEnv({ EVAL_MQ_E2E: "1", EVAL_MQ_TOOL: "form-4", EVAL_MQ_K: "5", EVAL_MQ_LIMIT: "20", EVAL_MQ_RERANK: "0" })
-    ).toEqual({ e2e: true, fixtures: false, offline: false, tool: "form-4", k: 5, limit: 20, rerank: false });
+    ).toEqual({ e2e: true, fixtures: false, offline: false, tool: "form-4", k: 5, limit: 20, rerank: false, judge: false });
     expect(parseManualQuestionEvalEnv({ EVAL_MQ_FIXTURES: "1", EVAL_MQ_OFFLINE: "true" })).toMatchObject({ offline: true, rerank: false });
     expect(() => parseManualQuestionEvalEnv({ EVAL_MQ_OFFLINE: "1" })).toThrow(/EVAL_MQ_FIXTURES/);
     expect(() => parseManualQuestionEvalEnv({ EVAL_MQ_FIXTURES: "1", EVAL_MQ_OFFLINE: "1", EVAL_MQ_E2E: "1" })).toThrow(/offline/);
@@ -144,9 +146,30 @@ describe("runManualQuestionEval on the fixtures, offline", () => {
       }
     );
     expect(asked).toHaveLength(2);
-    expect(e2e.report.endToEnd?.totals).toMatchObject({ asked: 2, passed: 1, failed: 1, skipped: 0 });
+    expect(e2e.report.endToEnd?.totals).toMatchObject({ asked: 2, passed: 1, failed: 1, skipped: 0, judged: null });
     expect(e2e.file).toBeNull();
     expect(formatManualQuestionReport(e2e.report)).toMatch(/End to end .* 1\/2 passed/);
+
+    // Judged: a verdict per answer, counted beside the page checks; a judge that fails is "no verdict", not a crash.
+    let call = 0;
+    const judged = await runManualQuestionEval(
+      { ...options, offline: false, e2e: true, judge: true, tool: "form-4", limit: 3 },
+      {
+        db: await getDb(),
+        fixture: buildFixture(await getCatalogTools()),
+        target,
+        answer: async (q) => ({ text: `About ${q.question}`, toolCalls: [], usageEvents: [] }),
+        judge: async (q, answer) => {
+          expect(answer).toBe(`About ${q.question}`);
+          call += 1;
+          if (call === 3) throw new Error("no verdict in the reply");
+          return { verdict: call === 1 ? "correct" : "declined", reason: "stub", cost: 0.004 };
+        },
+      }
+    );
+    expect(judged.report.endToEnd?.totals.judged).toEqual({ correct: 1, partial: 0, wrong: 0, declined: 1, error: 1 });
+    expect(judged.report.endToEnd?.totals.judgeCost).toBeCloseTo(0.008, 10);
+    expect(formatManualQuestionReport(judged.report)).toMatch(/judged against the manual's answer: correct 1\/3 · partial 0 · wrong 0 · declined 1 · no verdict 1/);
   });
 
   it("says how to write questions when there are none", async () => {

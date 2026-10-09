@@ -41,7 +41,7 @@ function clearOverrides() {
 beforeEach(clearOverrides);
 
 describe("MODEL_JOBS", () => {
-  it("defaults every language job to Luna — chat passed the eval gate after its prompt was tuned — and no image job touches product photos", () => {
+  it("defaults the language jobs to Luna — chat passed the eval gate after its prompt was tuned — but writing from the manuals to Opus, and no image job touches product photos", () => {
     expect(modelIdFor("chat")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchSearch")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchRead")).toBe("openai/gpt-6-luna");
@@ -51,9 +51,9 @@ describe("MODEL_JOBS", () => {
     expect(modelIdFor("nameSuggest")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("descriptionShorten")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("starterGrade")).toBe("openai/gpt-6-luna");
-    expect(modelIdFor("evalQuestions")).toBe("openai/gpt-6-luna");
-    // Tool skills, on the research family (tool skills spec 2026-10-07).
-    expect(modelIdFor("skillWrite")).toBe("openai/gpt-6-luna");
+    // Eval questions and tool skills are written by Opus (amendment "Opus writes from the manuals").
+    expect(modelIdFor("evalQuestions")).toBe("anthropic/claude-opus-5.5");
+    expect(modelIdFor("skillWrite")).toBe("anthropic/claude-opus-5.5");
     // The quick report form's triage (quick report spec §3.3).
     expect(modelIdFor("reportTriage")).toBe("openai/gpt-6-luna");
     // The generative background redraw was retired (amendment "No generative redraw").
@@ -159,9 +159,11 @@ describe('service tiers (amendment "Manuals as text and flex tier for research")
     expect(serviceTierFor("descriptionShorten")).toBe("flex");
     expect(serviceTierFor("starterGrade")).toBe("flex");
     expect(serviceTierFor("reportTriage")).toBe("flex");
-    expect(serviceTierFor("skillWrite")).toBe("flex");
     expect(serviceTierFor("ocr")).toBe("flex");
     expect(serviceTierFor("chat")).toBeNull();
+    // Opus writes from the manuals, and flex is OpenAI's: no hint (amendment "Opus writes from the manuals").
+    expect(serviceTierFor("evalQuestions")).toBeNull();
+    expect(serviceTierFor("skillWrite")).toBeNull();
     // A student waits on a reranked search.
     expect(serviceTierFor("rerank")).toBeNull();
     expect(providerOptionsFor("researchSearch")).toEqual({ gateway: { serviceTier: "flex" } });

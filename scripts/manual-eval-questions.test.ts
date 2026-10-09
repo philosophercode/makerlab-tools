@@ -7,7 +7,8 @@ import { createPgliteDb } from "../src/lib/db/pglite.ts";
 import { attachments, manualEvalQuestions, resources, tools } from "../src/lib/db/schema/index.ts";
 import type { Db } from "../src/lib/db/types.ts";
 import { buildDocumentPassages } from "../src/lib/manuals/passages.ts";
-import { estimateUsd, parseArgs, runEvalQuestionsBackfill, summarise } from "./manual-eval-questions.ts";
+import { estimateUsd } from "../src/lib/ai/list-prices.ts";
+import { parseArgs, runEvalQuestionsBackfill, summarise } from "./manual-eval-questions.ts";
 
 /**
  * The eval question backfill (manual text spec amendment 2026-10-07): a dry
@@ -55,7 +56,7 @@ describe("parseArgs", () => {
 });
 
 describe("runEvalQuestionsBackfill", () => {
-  it("dry run: estimates tokens and dollars at Luna's list price, calls nothing, writes nothing", async () => {
+  it("dry run: estimates tokens and dollars at the job's model's list price, calls nothing, writes nothing", async () => {
     const model = textModel("{}");
     const documents = await listDocumentsForQuestions(db);
     expect(documents.map((d) => d.toolSlug)).toEqual(["form-4", "trotec-speedy-400"]);
@@ -63,9 +64,10 @@ describe("runEvalQuestionsBackfill", () => {
     const report = await runEvalQuestionsBackfill({ db, documents, apply: false, model, log: (line) => lines.push(line) });
     expect(report).toMatchObject({ documents: 2, planned: 2, questions: 2, written: 0 });
     expect(report.inputTokens).toBeGreaterThan(0);
-    expect(report.estimatedUsd).toBeCloseTo(estimateUsd(report.inputTokens, report.outputTokens), 10);
+    expect(report.model).toBe("anthropic/claude-opus-5.5");
+    expect(report.estimatedUsd).toBeCloseTo(estimateUsd(report.model, report.inputTokens, report.outputTokens)!, 10);
     expect(lines[0]).toMatch(/^\[1\/2\] form-4 · document [0-9a-f-]+: would ask for 1 question\(s\) from 2 passages/);
-    expect(summarise(report, false)).toMatch(/^Dry run: 2 manual\(s\) would get 2 question\(s\).*~\$0\.0\d+ at Luna's list price.*--apply/);
+    expect(summarise(report, false)).toMatch(/^Dry run: 2 manual\(s\) would get 2 question\(s\).*~\$\d+\.\d{4} at anthropic\/claude-opus-5\.5's list price.*--apply/);
     expect(recordedCalls(model)).toHaveLength(0);
     expect(await db.select().from(manualEvalQuestions)).toHaveLength(0);
   });
@@ -83,10 +85,19 @@ describe("runEvalQuestionsBackfill", () => {
     expect(again).toMatchObject({ written: 0, upToDate: 1 });
   });
 
-  it("counts a failure and goes on", async () => {
+  it("counts a failure and goes on; the same command again retries only what failed", async () => {
     const documents = await listDocumentsForQuestions(db);
-    const report = await runEvalQuestionsBackfill({ db, documents, apply: true, model: textModel("no json here") });
-    expect(report).toMatchObject({ failed: 2, written: 0 });
-    expect(summarise(report, true)).toContain("2 failed");
+    const answer = JSON.stringify({ questions: [{ passage: "P1", question: "How do I swap the tank?", answer: "Lift it out, slide the new one in.", answerable_from_passage: true }] });
+    // The second manual's answer cannot be read.
+    const flaky = textModel((i) => (i === 0 ? answer : "no json here"));
+    const report = await runEvalQuestionsBackfill({ db, documents, apply: true, model: flaky });
+    expect(report).toMatchObject({ failed: 1, written: 1 });
+    expect(summarise(report, true)).toContain("1 failed");
+    expect(summarise(report, true)).toContain("Run the same command again to retry the 1 that failed");
+
+    const resumed = textModel(answer);
+    const again = await runEvalQuestionsBackfill({ db, documents, apply: true, model: resumed });
+    expect(again).toMatchObject({ upToDate: 1, written: 1, failed: 0 });
+    expect(recordedCalls(resumed)).toHaveLength(1);
   });
 });
