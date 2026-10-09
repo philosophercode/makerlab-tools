@@ -192,6 +192,8 @@
     "onlyImages": "仅支持图片文件。",
     "uploadFailed": "照片上传失败",
     "uploadsUnavailable": "照片上传当前不可用。您仍可以不带照片发送消息。",
+    "photoUnsupported": "不支持此照片格式，请尝试 JPEG 或 PNG。",
+    "photoTooLarge": "照片太大，无法上传，请尝试更小的照片或 JPEG。",
     "toolRunningAria": "工具运行中",
     "typingAria": "MakerLAB AI 正在输入",
     "readingManualsAria": "正在阅读手册",

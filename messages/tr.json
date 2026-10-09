@@ -192,6 +192,8 @@
     "onlyImages": "Yalnızca görsel dosyaları desteklenir.",
     "uploadFailed": "Fotoğraf yüklenemedi",
     "uploadsUnavailable": "Fotoğraf yükleme şu anda kullanılamıyor. Mesajınızı fotoğrafsız da gönderebilirsiniz.",
+    "photoUnsupported": "Bu fotoğraf biçimi desteklenmiyor — JPEG veya PNG deneyin.",
+    "photoTooLarge": "Bu fotoğraf yüklemek için çok büyük — daha küçük bir fotoğraf veya JPEG deneyin.",
     "toolRunningAria": "Araç çalışıyor",
     "typingAria": "MakerLAB AI yazıyor",
     "readingManualsAria": "Kılavuzlar okunuyor",

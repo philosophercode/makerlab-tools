@@ -44,6 +44,15 @@ the size it is shown. The rules:
   original (optimized, AVIF/WebP, 31-day `minimumCacheTTL`; `/api/dev-blob/`
   URLs unoptimized). The daily sweep deletes an orphan's thumbnails with it;
   `data:push` nulls them in the hosted copy (backfill there).
+- **Chat photos go up small** (data platform spec amendment 2026-10-08): the
+  browser decodes a picked photo once with its own `createImageBitmap` and a
+  canvas — no library sent down — and uploads a JPEG of at most 2048 px
+  (~0.3–1 MB, against 2–5 MB for a phone's original) plus a 1568 px copy on the
+  message for the model; photos are prepared one at a time, uploads overlap.
+  Only a HEIC the browser cannot read (outside Safari) goes up as taken,
+  capped at 4 MB to stay under Vercel's 4.5 MB request body; the route converts
+  it with `heic-decode` (~2 MB of WebAssembly, server-only, external, imported
+  on the first HEIC — about 0.7 s and ~350 MB for a 12 MP photo).
 - **Not in the first load:** the assistant (`ChatPanel` — AI SDK, sheet,
   composer) mounts the first time the chat opens (`ChatFab`, preloaded on
   hover/focus of the button); the ⌘K dialog (`CommandPaletteDialog`, cmdk)

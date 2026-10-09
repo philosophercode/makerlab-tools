@@ -192,6 +192,8 @@
     "onlyImages": "נתמכים קבצי תמונה בלבד.",
     "uploadFailed": "העלאת התמונה נכשלה",
     "uploadsUnavailable": "העלאת תמונות אינה זמינה כרגע. עדיין אפשר לשלוח את ההודעה בלי תמונה.",
+    "photoUnsupported": "פורמט התמונה הזה אינו נתמך — אפשר לנסות JPEG או PNG.",
+    "photoTooLarge": "התמונה גדולה מדי להעלאה — אפשר לנסות תמונה קטנה יותר או JPEG.",
     "toolRunningAria": "הכלי פועל",
     "typingAria": "MakerLAB AI מקליד",
     "readingManualsAria": "קורא מדריכים",

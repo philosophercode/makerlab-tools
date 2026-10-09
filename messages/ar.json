@@ -192,6 +192,8 @@
     "onlyImages": "يُسمح بملفات الصور فقط.",
     "uploadFailed": "فشل رفع الصورة",
     "uploadsUnavailable": "رفع الصور غير متاح حاليًا. لا يزال بإمكانك إرسال رسالتك بدون صورة.",
+    "photoUnsupported": "صيغة هذه الصورة غير مدعومة — جرّب JPEG أو PNG.",
+    "photoTooLarge": "هذه الصورة أكبر من أن تُرفع — جرّب صورة أصغر أو بصيغة JPEG.",
     "toolRunningAria": "الأداة قيد التشغيل",
     "typingAria": "MakerLAB AI يكتب",
     "readingManualsAria": "جارٍ قراءة الأدلة",

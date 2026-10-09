@@ -192,6 +192,8 @@
     "onlyImages": "केवल छवि फ़ाइलें समर्थित हैं।",
     "uploadFailed": "फ़ोटो अपलोड विफल",
     "uploadsUnavailable": "फ़ोटो अपलोड अभी उपलब्ध नहीं है। आप बिना फ़ोटो के भी अपना संदेश भेज सकते हैं।",
+    "photoUnsupported": "यह फ़ोटो फ़ॉर्मैट समर्थित नहीं है — JPEG या PNG आज़माएँ।",
+    "photoTooLarge": "यह फ़ोटो अपलोड करने के लिए बहुत बड़ी है — छोटी फ़ोटो या JPEG आज़माएँ।",
     "toolRunningAria": "उपकरण चल रहा है",
     "typingAria": "MakerLAB AI टाइप कर रहा है",
     "readingManualsAria": "मैनुअल पढ़ रहा है",
