@@ -17,7 +17,7 @@ offers — generated from the server's own tool definitions and grouped by who m
 use them — and a **Try it** form that runs the public, read-only tools right
 there, as an anonymous caller, so you can see what an assistant would get back.
 Personal access tokens and connected apps are managed on **profile menu →
-Connect an AI assistant** (`/account/tokens`).
+Connect AI assistant (MCP)** (`/account/tokens`).
 
 ## Just browsing? No account needed
 
@@ -41,7 +41,7 @@ https://<your-deployment>/api/mcp/signed-in
 The client sends you to MakerLab to sign in with Google, then to a consent page
 ("*Claude* wants to access MakerLab Tools as you") where you can also choose
 **read-only**. The connection then appears under **Connected apps** on
-**profile menu → Connect an AI assistant** (`/account/tokens`), where you can
+**profile menu → Connect AI assistant (MCP)** (`/account/tokens`), where you can
 disconnect it.
 
 Either way the assistant gets exactly your role's permissions and never more.
@@ -51,7 +51,7 @@ Either way the assistant gets exactly your role's permissions and never more.
 A **personal access token** is the fallback for a client or script that can't
 sign in with OAuth: Claude Desktop's `claude_desktop_config.json` through the
 `mcp-remote` bridge, a CI job, your own script, or an older client. Get one from
-**profile menu → Connect an AI assistant → New token**. Name it after the device
+**profile menu → Connect AI assistant (MCP) → New token**. Name it after the device
 and tick **Read-only** if the assistant only needs to look things up. **Every
 token expires 90 days after you make it (one semester)** — there is no choice
 of expiry, and no token that never expires; the page shows the date before you
@@ -244,16 +244,18 @@ and marks the ones your account can use.
 
 | Tool | No account | Student | Staff (SuperMaker, Director) | Try asking |
 |---|---|---|---|---|
-| `list_tools`, `search_tools`, `get_tool_details` | ✓ | ✓ | ✓ (also drafts and archived tools, marked) | "What can cut acrylic?" |
-| `get_unit_details` | ✓ | ✓ | ✓ | "Is Prusa #2 working?" |
+| `list_tools`, `search_tools`, `get_tool_details` | ✓ (units by name, serials as their last four: `•••• 9831`) | ✓ (units by name, serials as their last four: `•••• 9831`) | ✓ (also drafts and archived tools, marked; whole unit serials) | "What can cut acrylic?" |
+| `get_unit_details` | ✓ (serial's last four only) | ✓ (serial's last four only) | ✓ (whole serial) | "Is Prusa #2 working?" |
 | `get_maintenance_history` | ✓ (no names) | ✓ (no names) | ✓ (reporter names) | "Has the Trotec been repaired lately?" |
-| `search_manual` | ✓ (public manuals) | ✓ (public manuals) | ✓ (staff SOPs too) | "How do I replace the Form 4 resin tank?" |
+| `search_manual` (one named machine; several only to compare) | ✓ (public manuals) | ✓ (public manuals) | ✓ (staff SOPs too) | "How do I replace the Form 4 resin tank?" |
+| `get_tool_skill` (the lab's cited operating guide for one machine, AI-written from its sources) | ✓ | ✓ | ✓ (drafts too) | "Walk me through a first cut on the Trotec" |
 | `report_issue` | — | ✓ | ✓ | "Report that Prusa #1's nozzle is clogged" |
 | `report_correction` | — | ✓ | ✓ | "The Trotec's bed size on its page is wrong" |
 | `list_my_reports` | — | ✓ | ✓ | "What happened to the tickets I filed?" |
 | `create_tool` | — | — | ✓ (draft only) | "Add a draft for our new drill press" |
 | `list_intake_queue` | — | — | ✓ | "What's waiting in intake?" |
 | `list_open_tickets` | — | — | ✓ | "What maintenance is open, worst first?" |
+| `list_maintenance_due` | — | — | ✓ | "What recurring maintenance is due today?" |
 | `update_ticket` | — | — | ✓ | "Mark the Trotec focus ticket resolved" |
 | `propose_change` | — | — | ✓ (a proposal) | "Propose a clearer description for the Form 4" |
 | `list_corrections`, `list_project_queue`, `get_tool_units`, `list_imports` | — | — | ✓ | "Which units does the Prusa have?" |
@@ -289,13 +291,21 @@ change itself**. Each of these tools stores a **proposal** and answers
 | Intake | `approve_pending_items`, `add_pending_as_unit`, `rename_pending_item`, `edit_pending_items` |
 | Imported lists | `edit_import_row`, `set_import_hints`, `merge_import_row`, `decide_import_suggestions` |
 
-The proposal waits in **Assistant proposals** (`/admin/proposals`, in the admin
-section bar) for **7 days**. Only you — the person the token or connection acts
+The proposal waits in **Assistant proposals** (`/admin/proposals`, the
+**MCP** tab under the admin's Settings) for **7 days**. Only you — the person the token or connection acts
 as — see it there, and only you can press **Confirm**, signed in to the site.
 The card shows exactly what will change, read from the database, not from the
 assistant's words; confirming checks your permission and every rule again, as
 the button on the page would. A token can never confirm anything: the confirm
 button works with your browser session only.
+
+When an assistant proposes many changes to manuals and links, the **Manuals**
+tab of the inbox groups them by machine: the machine's documents now, then each
+change with its before and after and an **Open PDF** button. Decide a machine
+with **Confirm all for this tool** (or the `y` key) and the next one comes up;
+`?` lists the keys. A machine's changes are confirmed together, oldest first, so
+they do not conflict with each other. If someone edited that machine in the
+meantime, the change is not applied and the row says so.
 
 At most 50 proposals from MCP wait at once (counted apart from the assistant in
 the site, so a busy client never blocks it). The inbox does not yet say which

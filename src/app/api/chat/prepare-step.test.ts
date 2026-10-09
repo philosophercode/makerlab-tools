@@ -19,8 +19,20 @@ function active(steps: StepLike[]): string[] {
 }
 
 describe("chatPrepareStep", () => {
-  it("pins the caps at five Exa searches and five page reads per turn", () => {
-    expect(CHAT_TOOL_CAPS).toEqual({ exa_search: 5, read_page: 5 });
+  it("pins the caps at five Exa searches, five page reads, two tickets, one row of tool cards, one illustration and one row of suggested replies per turn", () => {
+    expect(CHAT_TOOL_CAPS).toEqual({ exa_search: 5, read_page: 5, report_issue: 2, show_tool: 1, make_illustration: 1, suggest_replies: 1 });
+  });
+
+  it("withdraws suggest_replies after its one call (amendment 2026-10-07 \"Suggested replies\")", () => {
+    const tools = ["get_tool_details", "suggest_replies"];
+    expect(chatPrepareStep(tools)({ steps: [] }).activeTools).toEqual(tools);
+    expect(chatPrepareStep(tools)({ steps: [step("suggest_replies")] }).activeTools).toEqual(["get_tool_details"]);
+  });
+
+  it("withdraws show_tool and make_illustration after their one call (amendment 2026-10-07)", () => {
+    const tools = ["get_tool_details", "show_tool", "make_illustration"];
+    expect(chatPrepareStep(tools)({ steps: [] }).activeTools).toEqual(tools);
+    expect(chatPrepareStep(tools)({ steps: [step("show_tool"), step("make_illustration")] }).activeTools).toEqual(["get_tool_details"]);
   });
 
   it("offers every tool before anything has been called", () => {
@@ -45,9 +57,14 @@ describe("chatPrepareStep", () => {
     expect(active(five)).toEqual(["get_unit_details", "report_issue", "exa_search"]);
   });
 
-  it("never caps the capability tools", () => {
-    const busy = Array.from({ length: 9 }, () => step("get_unit_details", "report_issue"));
+  it("never caps the read-only capability tools", () => {
+    const busy = Array.from({ length: 9 }, () => step("get_unit_details"));
     expect(active(busy)).toEqual([...TOOLS]);
+  });
+
+  it("drops report_issue once two tickets were filed this turn (security fix 2026-10-05)", () => {
+    expect(active([step("report_issue")])).toContain("report_issue");
+    expect(active([step("report_issue"), step("report_issue")])).toEqual(["get_unit_details", "read_page", "exa_search"]);
   });
 
   it("drops both web tools once both are spent, keeping the order of the rest", () => {

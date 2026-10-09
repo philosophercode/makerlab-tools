@@ -24,7 +24,7 @@ import { setCorrectionStatus } from "./actions";
  */
 
 export const metadata = {
-  title: "Corrections",
+  title: "Page corrections",
 };
 
 export default async function AdminCorrectionsPage() {

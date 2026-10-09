@@ -39,6 +39,10 @@ import { checkRateLimit } from "../../../../lib/rate-limit";
  * `tools.approve` on top of `tools.add`, which is what lets a SuperMaker clean
  * up somebody else's batch on the review page.
  *
+ * **A name must say what the item is** (data platform spec amendment "No
+ * empty items"): a placeholder such as "Unknown" or "Equipment not specified"
+ * is refused by `updatePendingTool` as `placeholder_name`, 422.
+ *
  * Every refusal is a {@link PendingApiError} JSON body: a `code` a client
  * renders through `intake.table.errors.<code>` or `admin.intake.errors.<code>`,
  * plus an English `error` that is a fallback for a caller with no messages
@@ -117,9 +121,9 @@ function toPatch(body: ValidatedBody): PendingToolPatch {
 }
 
 /** The HTTP status a data-layer refusal reason gets (contracts §13). */
-function statusFor(reason: "not_found" | "not_editable" | "invalid_field"): number {
+function statusFor(reason: "not_found" | "not_editable" | "invalid_field" | "placeholder_name"): number {
   if (reason === "not_editable") return 409;
-  if (reason === "invalid_field") return 422;
+  if (reason === "invalid_field" || reason === "placeholder_name") return 422;
   return 404;
 }
 
@@ -194,7 +198,9 @@ export async function PATCH(
           ? "This item has moved on since this page opened — it may be researching, approved or discarded."
           : reason === "invalid_field"
             ? "That value does not make sense for this item."
-            : "No such item.";
+            : reason === "placeholder_name"
+              ? "That name does not say what the item is. Give its make and model, or a plain description."
+              : "No such item.";
       return Response.json(errorBody(reason, message), { status: statusFor(reason) });
     }
 

@@ -37,22 +37,36 @@ test.describe("Sign-in", () => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: "Tools", exact: true })
+      page.getByRole("heading", { name: "MakerLAB AI", level: 1 })
     ).toBeVisible();
+
+    // The home rests on the category tiles (student home spec 2026-10-07,
+    // amendment "One page: the list at rest", revised): a tile opens its
+    // tools on the same page, and a card opens the tool.
+    await page
+      .getByRole("list", { name: "Categories" })
+      .getByRole("link", { name: /3D Printing/ })
+      .click();
+    await expect(page).toHaveURL(/\/\?category=3D\+Printing$/);
 
     await page
       .getByRole("link")
       .filter({
-        has: page.getByRole("heading", { name: "Form 4", level: 2 }),
+        has: page.getByRole("heading", { name: "Form 4", level: 3 }),
       })
       .click();
 
-    // The full detail page, not a sign-in wall: name, units and serial all render.
+    // The full detail page, not a sign-in wall: name and units render. A
+    // student sees each serial's last four only, masked; the whole serial is
+    // staff-only (data platform spec amendment 2026-10-06).
     await expect(page).toHaveURL(/\/tools\/form-4$/);
     await expect(
       page.getByRole("heading", { name: "Form 4", level: 1 })
     ).toBeVisible();
-    await expect(page.getByText("ML-F4-001")).toBeVisible();
+    const units = page.getByRole("table", { name: "Physical Machines" });
+    await expect(units.getByText("Form 4 // A")).toBeVisible();
+    await expect(units.getByText("•••• -001")).toBeVisible();
+    await expect(page.getByText("ML-F4-001")).toHaveCount(0);
 
     // Nothing redirected to the rejected-domain page or any sign-in route.
     await expect(page).not.toHaveURL(/\/auth\//);
@@ -106,9 +120,11 @@ test.describe("Sign-in", () => {
     await expect(nav.getByRole("menuitem", { name: /sign out/i })).toBeVisible();
 
     // `tools.add` and any admin-surface permission are not granted to `user`
-    // (auth/permissions), so the profile menu holds Sign out alone.
+    // (auth/permissions): no ADMIN in the bar (2026-10-07), and the profile
+    // menu holds Account, Connect AI assistant (MCP) and Sign out.
+    await expect(nav.getByRole("link", { name: /^admin$/i })).toHaveCount(0);
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toHaveCount(0);
-    await expect(nav.getByRole("menuitem", { name: /^admin$/i })).toHaveCount(0);
+    await expect(nav.getByRole("menuitem", { name: /admin/i })).toHaveCount(0);
     // Refresh left the header for /admin on 2026-09-23.
     await expect(nav.getByRole("button", { name: "Refresh catalog" })).toHaveCount(0);
   });
@@ -125,15 +141,21 @@ test.describe("Sign-in", () => {
     await page.goto("/");
 
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
-    // Add and Admin are in the profile menu; Refresh is on /admin (2026-09-23).
+    // ADMIN is in the bar (2026-10-07); Add is in the profile menu.
+    await expect(nav.getByRole("link", { name: /^admin$/i })).toHaveAttribute("href", "/admin");
     await nav.getByRole("button", { name: /signed in as/i }).click();
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toBeVisible();
-    await expect(nav.getByRole("menuitem", { name: /^admin$/i })).toBeVisible();
+    await expect(nav.getByRole("menuitem", { name: /admin/i })).toHaveCount(0);
 
+    // Add is among the overview's quick actions; Refresh catalog moved to
+    // Settings › General (admin sections spec 2026-10-07).
     await page.goto("/admin");
     const actions = page.getByRole("group", { name: "Admin actions" });
     await expect(actions.getByRole("button", { name: /add equipment/i })).toBeVisible();
-    await expect(actions.getByRole("button", { name: "Refresh catalog" })).toBeVisible();
+
+    await page.goto("/admin/settings");
+    const catalog = page.getByRole("region", { name: "Catalog", exact: true });
+    await expect(catalog.getByRole("button", { name: "Refresh catalog" })).toBeVisible();
   });
 
   test("a cookie signed with the wrong secret is nobody", async ({

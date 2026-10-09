@@ -129,7 +129,7 @@ const SAMPLE_LABEL = {
 /**
  * The defaults a newly chosen size brings (owner decision 2026-09-29): on the
  * 1-inch preset, and on a custom size whose code would fall under the 25 mm
- * floor, the wordmark and the extra line start off so the code gets the room.
+ * floor, the logo and the extra line start off so the code gets the room.
  * Applied only when the size changes; either can be switched back on.
  */
 export function withSizeDefaults(settings: QrLabelSettings): QrLabelSettings {

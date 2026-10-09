@@ -1,7 +1,9 @@
 // Ready-made MakerLabTool / MakerLabUnit fixtures for component + integration
 // tests. These are the *resolved* domain objects (the shape getCatalogTools
 // returns), not raw Notion pages — use test/fixtures/notion.ts for the Notion
-// API layer.
+// API layer. Units here carry `serial`, as a staff viewer's do; the catalogue
+// reads themselves give everyone else only `serialMasked` (data platform spec
+// amendment 2026-10-06).
 import type {
   MakerLabTool,
   MakerLabUnit,

@@ -31,6 +31,16 @@ approval. Do not mint one.
 - **Capabilities declare `requiredPermission`**, enforced once by
   `capabilitiesForIdentity` in `src/lib/capabilities/access.ts` — never inside a
   tool's `run()`.
+- **Students see only the last four characters of a unit's serial**; whole
+  serials are staff-only (`catalog.view_serials`, admins and super admins;
+  data platform spec amendment 2026-10-06). The catalogue reads build units
+  with no `serial` field, only `serialMasked` (`•••• 9831`,
+  `src/lib/serial-mask.ts`; nothing for a serial of four characters or fewer),
+  so cached pages, the kiosk and every prompt carry no whole serial.
+  `src/lib/unit-serials.ts` swaps in the whole serial for staff on the tool
+  page, in the chat's focused tool and in `get_unit_details` /
+  `get_tool_details`. Like reporter names, that is a field narrowed in a
+  result, not a refused tool.
 - **`AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` are retired.** Nothing reads them.
   The one env list left is **`AUTH_SUPER_ADMIN_EMAILS`, a floor, not a roster**
   (`src/lib/auth/super-admins.ts`): a listed address is created as
@@ -57,6 +67,20 @@ approval. Do not mint one.
   without them `/api/auth/sign-in/social` answers 503 and the header says
   sign-in is not set up. With neither, nobody is signed in and the catalogue and
   chat are unchanged. **Sign-in unlocks; it never gates the front door.**
+- **A refused sign-in is a page with a way out** (auth spec amendment 2026-10-07).
+  Every Google sign-in sends `prompt=select_account`, so Google shows its account
+  chooser instead of reusing whichever account the browser holds. When the create
+  hook refuses an address (outside the domain, or blocked) it leaves a ten-minute,
+  HttpOnly, `AUTH_SECRET`-signed cookie, `makerlab.refused_sign_in`, naming the
+  address and the page the sign-in started from (`src/lib/auth/refused-sign-in.ts`).
+  `/auth/rejected` and `/auth/blocked` read it (`readRefusedSignIn`, inside Suspense)
+  and say "<address> can't be used: <why>", then offer **Use a different Google
+  account**: sign out, then Google sign-in again back to that page
+  (`switchGoogleAccount`). The address is never put in a URL. The after-hook's
+  refusal of an existing out-of-domain row deletes the session it was given, row and
+  cookie, before redirecting. With `hd` in force (no `AUTH_ALLOWED_EMAILS`), Better
+  Auth's claim check refuses a personal account first with `unable_to_get_user_info`,
+  and the auth route sends that to `/auth/rejected` too.
 - **Testing a role needs no Google.** `test/utils/session.ts` seeds a `user` and
   a `session` row and mints the cookie Better Auth would have set; the demo seed
   ships one account per role for E2E. See `test/README.md`.

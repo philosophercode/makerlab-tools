@@ -18,16 +18,24 @@ import type {
 
 // ── Unit lookup ────────────────────────────────────────────────────
 
-/** A flattened, label-addressable view of a single physical unit. */
+/**
+ * A flattened, label-addressable view of a single physical unit. No full
+ * serial: the catalogue's units carry only the masked last four
+ * (`serialMasked`), and a tool that may show the whole serial to staff reads
+ * it with `serialsForViewer` (amendment 2026-10-06).
+ */
 export interface UnitLookupEntry {
   id: string;
   label: string;
+  /** The tool the unit belongs to, so a lookup can prefer the tool being looked at. */
+  toolId: string;
   toolName: string;
   toolSlug: string;
   status: MakerLabUnit["status"];
   condition: MakerLabUnit["condition"];
   location: string;
-  serial: string;
+  /** `•••• 9831`, when the unit has a serial longer than four characters. */
+  serialMasked?: string;
   dateAcquired: string | null;
 }
 
@@ -40,32 +48,42 @@ export function buildUnitLookup(tools: MakerLabTool[]): UnitLookupEntry[] {
     tool.units.map((unit) => ({
       id: unit.id,
       label: unit.name,
+      toolId: tool.id,
       toolName: tool.name,
       toolSlug: tool.slug,
       status: unit.status,
       condition: unit.condition,
       location: unit.location,
-      serial: unit.serial,
+      ...(unit.serialMasked ? { serialMasked: unit.serialMasked } : {}),
       dateAcquired: unit.dateAcquired,
     }))
   );
 }
 
 /**
- * Resolve a unit by label: exact (case-insensitive) match first, then the first
- * substring match, else null.
+ * Resolve a unit by label, or by its id. The id is exact (a scanned unit
+ * label names one, QR codes spec amendment 2026-10-06) and wins outright.
+ * Otherwise an exact (case-insensitive) label match comes before the first
+ * substring match, and with `preferToolId` — the tool whose page the person
+ * is on — that tool's units are searched first, so "#2" or a label two tools
+ * share resolves to the machine in front of them rather than the first one
+ * in the catalogue. Null when nothing matches.
  */
 export function findUnit(
   units: UnitLookupEntry[],
-  label: string
+  label: string,
+  options: { preferToolId?: string | null } = {}
 ): UnitLookupEntry | null {
   const needle = label.trim().toLowerCase();
   if (!needle) return null;
-  return (
-    units.find((u) => u.label.toLowerCase() === needle) ||
-    units.find((u) => u.label.toLowerCase().includes(needle)) ||
-    null
-  );
+  const byId = units.find((u) => u.id.toLowerCase() === needle);
+  if (byId) return byId;
+  const byLabel = (pool: UnitLookupEntry[]) =>
+    pool.find((u) => u.label.toLowerCase() === needle) ||
+    pool.find((u) => u.label.toLowerCase().includes(needle)) ||
+    null;
+  const preferred = options.preferToolId ? byLabel(units.filter((u) => u.toolId === options.preferToolId)) : null;
+  return preferred || byLabel(units);
 }
 
 // ── Tool lookup / summaries ────────────────────────────────────────

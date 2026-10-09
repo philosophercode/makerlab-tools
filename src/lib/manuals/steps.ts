@@ -1,6 +1,8 @@
 import { FatalError, RetryableError } from "workflow";
 import { isTransientDbError } from "../mirror/steps.ts";
+import { getDb } from "../db/client.ts";
 import { archiveManual, type ArchiveManualResult } from "./archive.ts";
+import { generateDocumentQuestions, type EvalQuestionsOutcome } from "./eval-questions.ts";
 import { indexResourceManuals, type IndexManualOutcome } from "./index-document.ts";
 
 /**
@@ -87,9 +89,45 @@ export async function indexManualStep(resourceId: string): Promise<IndexManualOu
 indexManualStep.maxRetries = MANUAL_STEP_MAX_RETRIES;
 
 /**
+ * Write eval questions for the documents whose passages this run built
+ * (manual text spec amendment 2026-10-07, `eval-questions.ts`). A document
+ * whose text is unchanged is skipped and the same text on another document is
+ * copied, so a rebuild for a new chunker asks nothing. `MANUAL_EVAL_QUESTIONS=0`
+ * makes every one `disabled`.
+ *
+ * **Only the model's bad minute is retried** (rate limit, 5xx, timeout, no
+ * answer) and the database when it was unreachable; on the retry the documents
+ * already written are `up_to_date`, so only the failed ones are asked again.
+ * An unreadable answer or a refused request is returned, not retried. This
+ * step can never change what the archive or the index counted.
+ */
+export async function evalQuestionsStep(documentIds: string[]): Promise<EvalQuestionsOutcome[]> {
+  "use step";
+  const outcomes: EvalQuestionsOutcome[] = [];
+  try {
+    const db = await getDb();
+    for (const id of documentIds) outcomes.push(await generateDocumentQuestions(db, id));
+  } catch (error) {
+    if (isTransientDbError(error)) {
+      throw new RetryableError("Manual eval questions: the database could not be reached.", { retryAfter: RETRY_AFTER });
+    }
+    throw new FatalError("Manual eval questions failed.");
+  }
+  if (outcomes.some((outcome) => outcome.status === "failed" && outcome.transient)) {
+    throw new RetryableError("Manual eval questions: the model could not answer this minute.", { retryAfter: RETRY_AFTER });
+  }
+  return outcomes;
+}
+evalQuestionsStep.maxRetries = MANUAL_STEP_MAX_RETRIES;
+
+/**
  * What one archive run came to. `indexed` counts PDFs processed into text;
  * `indexFailed` those that could not be; `passagesBuilt` / `passagesFailed`
- * the documents whose search passages were (not) built on this run.
+ * the documents whose search passages were (not) built on this run;
+ * `questionsWritten` / `questionsFailed` the documents whose eval questions
+ * were written or copied (or could not be) after that; `skillsWritten` /
+ * `skillsFailed` the tools whose skills the run's tail wrote (or could not)
+ * when the lab writes skills after research (tool skills spec 2026-10-07).
  */
 export interface ManualArchiveCounts {
   archived: number;
@@ -99,6 +137,10 @@ export interface ManualArchiveCounts {
   indexFailed: number;
   passagesBuilt: number;
   passagesFailed: number;
+  questionsWritten: number;
+  questionsFailed: number;
+  skillsWritten: number;
+  skillsFailed: number;
 }
 
 /** The run is done: one line of counts. */
@@ -107,6 +149,8 @@ export async function finishManualArchive(counts: ManualArchiveCounts): Promise<
   console.info(
     `[manuals] archive run finished: archived=${counts.archived} skipped=${counts.skipped} failed=${counts.failed}` +
       ` indexed=${counts.indexed} index_failed=${counts.indexFailed}` +
-      ` passages_built=${counts.passagesBuilt} passages_failed=${counts.passagesFailed}`
+      ` passages_built=${counts.passagesBuilt} passages_failed=${counts.passagesFailed}` +
+      ` questions_written=${counts.questionsWritten} questions_failed=${counts.questionsFailed}` +
+      ` skills_written=${counts.skillsWritten} skills_failed=${counts.skillsFailed}`
   );
 }

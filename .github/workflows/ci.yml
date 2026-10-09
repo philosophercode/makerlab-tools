@@ -1,6 +1,7 @@
 # Every PR and every push to main: lint, typecheck, unit + workflow tests and
 # spec coverage. Vercel's build runs none of the tests, so this is the gate
-# (architecture review H1). The E2E suite stays local for now (TESTING.md).
+# (architecture review H1). The E2E suite runs too, as its own job (not yet a
+# required check; TESTING.md).
 name: CI
 
 on:
@@ -15,14 +16,20 @@ concurrency:
 permissions:
   contents: read
 
+# Third-party actions are pinned to full commit SHAs (a tag can be moved);
+# Dependabot (.github/dependabot.yml) proposes the bumps. Checkout does not
+# leave the token in .git/config: npm ci and the tests run dependency code.
+
 jobs:
   static:
     name: lint, typecheck, spec coverage
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -48,11 +55,33 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
       - run: npm install -g npm@11.6.2
       - run: npm ci
       - run: npx vitest run --shard=${{ matrix.shard }}/4 --testTimeout=30000
+
+  # Playwright against a production build with the demo database and local stubs
+  # (playwright.config.ts): no network beyond the runner. Not a required check
+  # yet; promote it in branch protection once it has proved stable.
+  e2e:
+    name: e2e (playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install -g npm@11.6.2
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

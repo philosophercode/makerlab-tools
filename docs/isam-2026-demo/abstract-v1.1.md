@@ -9,7 +9,7 @@
 
 ¹ Isaac Steinberg; MBA '26, Johnson Cornell Tech; ies22@cornell.edu
 ² Niti Parikh; Director, Learning Spaces & MakerLABs, Cornell Tech; ntp27@cornell.edu
-³ Miguel Ramirez Peraza; MakerLAB Intern, Cornell Tech; ramirezperazamiguel@gmail.com
+³ Miguel Ramirez Peraza; MakerLAB Intern, Cornell Tech
 
 ---
 

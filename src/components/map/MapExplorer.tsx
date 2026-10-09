@@ -31,10 +31,15 @@ import { PlaceChip, PlaceLink } from "./PlaceLink";
  * `history.pushState`, Back/Forward and `<Link>` alike — the breadcrumb's
  * "Map" link and the header's nav both clear it with no state of their own.
  *
- * The way out of a place is in one spot at every width: the zone bar above
- * the map ("All zones" first), a "Whole map" button at the head of the panel,
- * the breadcrumb, and Escape. `?highlight=unplaced` shows the tools the map
- * cannot place.
+ * The way out of a place is always in reach: the zone bar ("All zones"
+ * first) — right above the map on a phone, beside it from lg — a "Whole map"
+ * button at the head of the panel, the breadcrumb, and Escape.
+ * `?highlight=unplaced` shows the tools the map cannot place.
+ *
+ * **The map is above the fold** (amendment 2026-10-07): a compact header, the
+ * hint, search and zone bar beside the map from lg, the source line under it,
+ * and the map's column sized to the window's height (`.map-layout`,
+ * floor-map.css).
  */
 
 const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
@@ -179,11 +184,15 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
 
   return (
     <main className="ui mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-8">
+      {/* A compact header — breadcrumb, title, facts — so the map starts in
+          the first screen (floor map spec amendment "The map above the fold"):
+          the lede moved beside the map as the search's hint, the source line
+          under it. */}
       <PageHeader
         as="h1"
         crumbs={crumbs}
         title={t("title")}
-        lede={t("lede")}
+        className="pb-0"
         facts={t("facts", {
           zones: plan.zones.length,
           stations: plan.stations.length,
@@ -192,74 +201,95 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
         })}
       />
 
-      <p className="font-mono text-micro uppercase text-muted-foreground">
-        {plan.placeholder ? <strong className="text-warn">{t("placeholder")} </strong> : null}
-        {t("source", { source: plan.source, version: plan.version })}
-      </p>
+      {/* One column on a phone — controls, map, places, in reading order; from
+          lg the map takes the left column, sized to the window's height, and
+          the controls and places sit beside it (floor-map.css `.map-layout`). */}
+      <div
+        className="map-layout"
+        data-slot="map-layout"
+        style={{ "--map-aspect": plan.viewBox.w / plan.viewBox.h } as React.CSSProperties}
+      >
+        <div className="map-controls flex min-w-0 flex-col gap-3" data-slot="map-controls">
+          {plan.placeholder ? (
+            <p className="font-mono text-micro uppercase">
+              <strong className="text-warn">{t("placeholder")}</strong>
+            </p>
+          ) : null}
+          <p className="max-w-[72ch] text-sm leading-normal text-muted-foreground">{t("lede")}</p>
 
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-md">
-          <span className="font-mono text-micro uppercase text-muted-foreground">{t("searchLabel")}</span>
-          <Input
-            type="search"
-            value={query}
-            placeholder={t("searchPlaceholder")}
-            onChange={(event) => search(event.target.value)}
-          />
-        </label>
-        {query ? (
-          <Button variant="ghost" onClick={() => search("")}>
-            {t("clear")}
-          </Button>
-        ) : null}
-      </div>
-      <p role="status" className="min-h-5 text-sm text-muted-foreground">
-        {matches && query.trim()
-          ? `${t("searchSummary", { count: matches.length, query: query.trim() })}${
-              matchPlaces && matchPlaces.unplaced > 0 ? ` ${t("searchUnplaced", { count: matchPlaces.unplaced })}` : ""
-            }`
-          : ""}
-      </p>
+          <div>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-md">
+                <span className="font-mono text-micro uppercase text-muted-foreground">{t("searchLabel")}</span>
+                <Input
+                  type="search"
+                  value={query}
+                  placeholder={t("searchPlaceholder")}
+                  onChange={(event) => search(event.target.value)}
+                />
+              </label>
+              {query ? (
+                <Button variant="ghost" onClick={() => search("")}>
+                  {t("clear")}
+                </Button>
+              ) : null}
+            </div>
+            {/* Always in the page, so the count is announced; it takes no room until it says something. */}
+            <p role="status" className="mt-1.5 text-sm text-muted-foreground empty:mt-0">
+              {matches && query.trim()
+                ? `${t("searchSummary", { count: matches.length, query: query.trim() })}${
+                    matchPlaces && matchPlaces.unplaced > 0 ? ` ${t("searchUnplaced", { count: matchPlaces.unplaced })}` : ""
+                  }`
+                : ""}
+            </p>
+          </div>
 
-      {/* The zone bar: every zone one tap away, "All zones" first — the same
-          spot at every width, so the way back out is never hunted for. */}
-      <nav ref={zoneBar} aria-label={t("zoneBar")} data-slot="map-zone-bar" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <ul className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
-          <li>
-            <PlaceChip id={null} current={!highlight} onSelect={select} label={t("allZones")} count={tools.length} />
-          </li>
-          {plan.zones.map((zone) => (
-            <li key={zone.id}>
-              <PlaceChip
-                id={zone.id}
-                current={here?.zone.id === zone.id}
-                matched={matchPlaces?.zones.has(zone.id) ?? false}
-                onSelect={select}
-                label={t("zoneChip", { number: zone.number, zone: zone.zone })}
-                count={zoneCounts.get(zone.id) ?? 0}
-              />
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
-        <div className="border border-border">
-          <FloorMap
-            plan={plan}
-            mode="full"
-            labels={labels}
-            zoneCounts={zoneCounts}
-            stationCounts={stationCounts}
-            here={here}
-            matchedZones={matchPlaces?.zones}
-            matchedStations={matchPlaces?.stations}
-            hrefFor={mapHref}
-            onSelect={(id) => select(id === highlight ? null : id)}
-          />
+          {/* The zone bar: every zone one tap away, "All zones" first — beside
+              the map from lg, right above it on a phone, so the way back out is
+              never hunted for. */}
+          <nav ref={zoneBar} aria-label={t("zoneBar")} data-slot="map-zone-bar" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <ul className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+              <li>
+                <PlaceChip id={null} current={!highlight} onSelect={select} label={t("allZones")} count={tools.length} />
+              </li>
+              {plan.zones.map((zone) => (
+                <li key={zone.id}>
+                  <PlaceChip
+                    id={zone.id}
+                    current={here?.zone.id === zone.id}
+                    matched={matchPlaces?.zones.has(zone.id) ?? false}
+                    onSelect={select}
+                    label={t("zoneChip", { number: zone.number, zone: zone.zone })}
+                    count={zoneCounts.get(zone.id) ?? 0}
+                  />
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4" aria-label={t("places")}>
+        <div className="map-stage flex min-w-0 flex-col gap-2" data-slot="map-stage">
+          <div className="border border-border">
+            <FloorMap
+              plan={plan}
+              mode="full"
+              labels={labels}
+              zoneCounts={zoneCounts}
+              stationCounts={stationCounts}
+              here={here}
+              matchedZones={matchPlaces?.zones}
+              matchedStations={matchPlaces?.stations}
+              hrefFor={mapHref}
+              onSelect={(id) => select(id === highlight ? null : id)}
+            />
+          </div>
+          {/* Where the drawing comes from: worth keeping, not worth the space above the map. */}
+          <p className="font-mono text-micro uppercase text-muted-foreground">
+            {t("source", { source: plan.source, version: plan.version })}
+          </p>
+        </div>
+
+        <aside className="map-side flex min-w-0 flex-col gap-4" aria-label={t("places")}>
           {unknownHighlight ? <EmptyState>{t("unknownHighlight", { id: unknownHighlight })}</EmptyState> : null}
 
           {hasPlace ? (

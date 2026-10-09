@@ -168,3 +168,69 @@
     transition: none;
   }
 }
+
+/*
+ * `/map`'s layout (floor map spec amendment "The map above the fold",
+ * 2026-10-07). On a phone, one column in reading order: the controls (hint,
+ * search, zone bar), the map, then the places. From lg the map takes the left
+ * column and the controls and places sit beside it, so the map starts right
+ * under the page's compact header.
+ *
+ * The map's column is as wide as the window's height allows — the map is
+ * nearly square, so its width sets its height — and never more than 60% of
+ * the row: what is left above the fold after the sticky chrome and the
+ * header (`--map-above`: the page's top padding, the header, the gap and a
+ * margin below). `--map-aspect` (width ÷ height of the plan's viewBox) comes
+ * from the explorer. The map then sticks under the chrome while the places
+ * scroll beside it.
+ */
+.map-layout {
+  --map-above: 136px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+/* A demo deployment shows the demo-data banner (one ~40px line on a laptop)
+   above the page, so the map leaves room for it too. */
+:root:has(.demo-banner) .map-layout {
+  --map-above: 176px;
+}
+
+/* Below lg: never taller than the window (a tablet, a phone on its side). */
+.map-layout .map-stage {
+  width: 100%;
+  max-width: calc((100svh - var(--sticky-chrome-height) - 32px) * var(--map-aspect, 1));
+  justify-self: center;
+}
+
+@media (min-width: 1024px) {
+  .map-layout {
+    grid-template-columns:
+      clamp(360px, calc((100svh - var(--sticky-chrome-height) - var(--map-above)) * var(--map-aspect, 1)), 60%)
+      minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    column-gap: 24px;
+    row-gap: 16px;
+    align-items: start;
+  }
+
+  .map-layout .map-controls {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .map-layout .map-stage {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    max-width: none;
+    justify-self: stretch;
+    position: sticky;
+    top: calc(var(--sticky-chrome-height) + 16px);
+  }
+
+  .map-layout .map-side {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}

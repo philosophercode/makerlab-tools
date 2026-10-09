@@ -9,6 +9,7 @@ import { listManualContentsForTool, type ManualContents } from "./data/manual-do
 import { listMaintenanceHistoryForTool, type ToolMaintenanceEntry } from "./data/maintenance";
 import { dataSubstrate, getDb } from "./db/client";
 import { listToolIndex } from "./data/tool-index";
+import { listCategories } from "./data/taxonomy";
 import { siteConfig } from "./site-config";
 import type { CatalogStats, MakerLabTool } from "../components/catalog-types";
 import type { PaletteTool } from "../components/palette/palette-types";
@@ -50,6 +51,21 @@ export async function getCatalogStats(): Promise<CatalogStats> {
     // Configuration, not a literal in a query module (Article 6; kiosk spec §4.1).
     labHours: siteConfig.labHours,
   };
+}
+
+/**
+ * The top-level categories' names in the lab's order (taxonomy `sort_order`),
+ * for the home page's category tiles (student home spec 2026-10-07 §4).
+ * Cached with the catalogue; a reordering shows when the catalogue's cache
+ * next turns over.
+ */
+export async function getCategoryOrder(): Promise<string[]> {
+  "use cache";
+  cacheTag("catalog");
+  cacheLife(CATALOG_CACHE);
+
+  const categories = await listCategories();
+  return categories.filter((category) => !category.parentId && !category.group).map((category) => category.name);
 }
 
 /**

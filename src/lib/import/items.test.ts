@@ -88,6 +88,21 @@ describe("validation", () => {
     expect(skipped).toEqual([{ sourceRow: 4, reason: "no_name" }]);
   });
 
+  it("skips a row whose name is a placeholder, and says so (amendment \"No empty items\")", () => {
+    const { items, skipped } = normalizeImportItems([
+      { name: "Unknown", sourceRow: 2 },
+      { name: "TBD", brand: "Makita", sourceRow: 3 },
+      { name: "Item", model: "X1C", brand: "Bambu Lab", sourceRow: 4 },
+      { name: "Drill press", sourceRow: 5 },
+    ]);
+    // A model makes "Item X1C" a name with a specific word in it.
+    expect(items.map((item) => item.name)).toEqual(["Item X1C", "Drill press"]);
+    expect(skipped).toEqual([
+      { sourceRow: 2, reason: "placeholder_name" },
+      { sourceRow: 3, reason: "placeholder_name" },
+    ]);
+  });
+
   it("marks a likely consumable (§5 mixed lists)", () => {
     const result = normalizeImportItem({ name: "10 boxes of screws" });
     expect(result.ok && result.item.notes).toBe(CONSUMABLE_NOTE);

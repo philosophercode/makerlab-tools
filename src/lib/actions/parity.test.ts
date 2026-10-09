@@ -15,6 +15,8 @@ import { EXEMPT, EXEMPT_KINDS, ROUTE_BACKED } from "./exempt";
 import * as imports from "./imports";
 import * as insights from "./insights";
 import * as intake from "./intake";
+import * as labNotes from "./lab-notes";
+import * as skills from "./skills";
 import * as manuals from "./manuals";
 import * as mirror from "./mirror";
 import * as refresh from "./refresh";
@@ -29,6 +31,7 @@ import { ACTIONS } from "./registry";
 import * as taxonomy from "./taxonomy";
 import * as tickets from "./tickets";
 import * as maintenanceLog from "./maintenance-log";
+import * as maintenanceSchedules from "./maintenance-schedules";
 import { ACTION_DEFINITIONS } from "./registry";
 import { actionsCapability, DEFERRED_TOOLS, proposableDefinitions } from "../capabilities/actions";
 import { can, type Permission } from "../auth/permissions";
@@ -54,6 +57,7 @@ const DEFINITION_MODULES = [
   peopleAllowance,
   tickets,
   maintenanceLog,
+  maintenanceSchedules,
   corrections,
   projects,
   catalog,
@@ -66,6 +70,8 @@ const DEFINITION_MODULES = [
   mirror,
   taxonomy,
   insights,
+  labNotes,
+  skills,
 ];
 
 /** Export name → definition, for every registered definition. */

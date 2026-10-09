@@ -467,7 +467,9 @@ this change.
 **Covered by** `ProfileMenu.test.tsx`, `AdminActions.test.tsx` and the updated `PrimaryNav`,
 identity-route and sign-in-client tests. The E2E specs open the menu before choosing an item.
 
-**Status.** Accepted.
+**Status.** Accepted. *Revised 2026-10-07 (identity spec amendment "ADMIN in the bar"): REPORT
+left the bar for the footer, ADMIN moved from the menu back into the bar for those who can reach
+`/admin`, and the menu holds Add equipment, Account, Connect AI assistant (MCP) and Sign out.*
 
 ### 2026-09-24 — Development-only sign-in (adds a route; amends §3.2, §6 and §8)
 
@@ -679,3 +681,103 @@ queue component tests, `src/app/auth/blocked/page.test.tsx`, and the People scen
 self-removal lock, unblock).
 
 **Status.** Accepted.
+
+### 2026-10-05 — Security fixes: Upstash falls back, anonymous tickets and chat history are bounded
+
+**Why.** A security review (area auth-authz) found that the limits in §8 could be stepped
+around in three ways.
+
+**What changes here.**
+
+- **Upstash no longer fails open** (`rateLimitAsync`, `src/lib/rate-limit.ts`). A non-OK
+  answer, a network error or a malformed reply from Upstash used to allow the request (or,
+  for a network error, throw). It now falls back to the in-memory counter, so a Redis outage
+  or an exhausted quota leaves a per-process limit instead of none. Whether production sets
+  `UPSTASH_REDIS_REST_*` is an operating decision, not code.
+- **Anonymous maintenance tickets are bounded** (`report_issue`,
+  `src/lib/capabilities/maintenance.ts`). Anonymous reporting stays open. New: at most
+  `CHAT_MAX_TICKETS_PER_TURN` (2) tickets per turn for anybody, counted inside the tool like
+  `read_page` (parallel calls included) and withdrawn by the chat's `prepareStep`
+  (`CHAT_TOOL_CAPS`); a new tier `ROUTE_TIERS.anonTickets`, 5 per hour per hashed IP, for a
+  caller nobody is signed in as; and input bounds — title 200 characters, description 4,000,
+  `reported_by` and `unit_label` 100, at most 8 photo ids.
+- **One chat request's history is bounded** (`boundChatHistory`, `src/lib/chat/bound-history.ts`,
+  applied in `/api/chat` after the rate limit and before the model). The chat allowance counts
+  requests, and the client sends the whole conversation, so a request could carry megabytes
+  of fabricated history re-read on every step. Anonymous callers: the last 30 messages and
+  60,000 characters (photo bytes excluded), 8 photos on the latest message; signed-in
+  callers: 200 messages, 400,000 characters, 25 photos. Oldest messages are dropped first and
+  the kept history starts with a user message; a latest message that alone is over budget is
+  answered 413 `message_too_long`, never cut. File parts must be images carried as
+  `data:image/…` URLs (what the composer sends); remote URLs and other files are dropped.
+  Earlier messages keep the browser's `withRecentPhotos` allowance. Output tokens and the
+  step count are unchanged.
+
+**Covered by** `src/lib/rate-limit.test.ts` (non-OK and unreachable Upstash fall back to the
+in-memory limit), `src/lib/capabilities/maintenance.test.ts` (bounds, two per turn with
+parallel calls, the anonymous hourly ceiling), `src/app/api/chat/prepare-step.test.ts`,
+`src/lib/chat/bound-history.test.ts` and `src/app/api/chat/rate-limit.route.test.ts` (a 780k
+character history reaches the model bounded; an oversized message is a 413 before the model).
+
+**Status.** Built on `security/auth-authz`.
+
+### 2026-10-07 — Choosing another Google account (amends §5, §6 and §10)
+
+**Decided by the owner on 2026-10-07** (design review decisions, "Sign-in"): "On a phone
+already signed into a personal Gmail, sign-in must let the person choose another Google
+account (e.g. Cornell). When an address is refused, offer 'Use a different Google account'
+instead of a dead end."
+
+**What happened.** On a phone signed into a personal Gmail, Google reused that account
+without asking. The app refused it and said "this one can't be used", and the only way
+out was "Browse the catalog". Signing in again sent the person straight back to the same
+account. The page also did not say which account Google had picked.
+
+**What changes.**
+
+- **Google always shows its account chooser.** Every sign-in sends
+  `prompt=select_account` (`createAuth`, `src/lib/auth/config.ts`). `hd`, scopes and PKCE
+  are unchanged. The header, the chat's sign-in offer and `/oauth/sign-in` all use the one
+  provider, so all three get the chooser.
+- **The refusal page names the address and says why in one line**: "someone@gmail.com
+  can't be used: MakerLAB Tools only accepts Cornell Tech accounts (addresses ending in
+  @cornell.edu)." `/auth/blocked` gets the same line for a blocked address.
+- **"Use a different Google account"** is the page's first button, above "Browse the
+  catalog". It signs this browser out (`POST /api/auth/sign-out`), then starts Google
+  sign-in again, which shows the chooser. A good account lands on the page the refused
+  sign-in started from, so an MCP authorization resumes rather than ending at `/`
+  (`switchGoogleAccount`, `src/lib/auth/sign-in-client.ts`; `UseDifferentAccount`).
+- **How the page knows the address.** When the create hook refuses an address (outside
+  the domain, or blocked), it leaves a cookie, `makerlab.refused_sign_in`, holding the
+  address and the sign-in's own `callbackURL` reduced to a same-origin path
+  (`src/lib/auth/refused-sign-in.ts`). It is HttpOnly, SameSite=Lax, ten minutes, and
+  HMAC-signed with `AUTH_SECRET` with the expiry inside the signed part. The address never
+  goes in a URL. Starting sign-in again or signing out expires it (`hooks.after`). The page
+  reads it inside a Suspense boundary; without it the line says "This Google account".
+- **A refused existing row holds no session.** Enforcement #2 (an out-of-domain address
+  that already has a row) used to redirect *after* Better Auth had written a session row
+  and set its cookie. `resolveIdentity` already treated that session as anonymous, but it
+  was there. The after-hook now deletes the session row and expires the cookie before the
+  redirect, so "signs the refused session out" is true on the server too.
+- **With `hd` in force, a personal account lands on the same page.** When
+  `AUTH_ALLOWED_EMAILS` is empty the provider sends `hd`, and Better Auth's own claim check
+  refuses a personal account (which carries no `hd` claim) before this app's hook runs. It
+  answered `?error=unable_to_get_user_info` and showed Better Auth's bare error page. The
+  auth route now sends that code to `/auth/rejected` when `hd` is in force
+  (`redirectBlockedSignIn`, `hostedDomainOnly`). The address is not known on this path, so
+  the line says "This Google account". With named exceptions `hd` is not sent and the code
+  is left alone, because then it means something else failed.
+
+**Not changed.** Both enforcement points, the domain rule, the floor, the block list and
+the rate limit. Nothing new is stored in the database.
+
+**Covered by** `src/lib/auth/config.test.ts` (the chooser on every sign-in; the cookie names
+the refused address and the return path; an existing out-of-domain row's session is
+revoked; restarting sign-in and signing out clear it), `src/lib/auth/refused-sign-in.test.ts`
+(signing, tampering, expiry, same-origin return paths), `src/app/api/auth/[...all]/route.test.ts`
+(a personal account through the real route, with and without `hd`),
+`src/lib/auth/blocked-sign-in.test.ts`, `src/app/auth/rejected/page.test.tsx`,
+`src/app/auth/blocked/page.test.tsx` and `src/components/account/UseDifferentAccount.test.tsx`
+(sign-out before sign-in, the return path, the two failure lines).
+
+**Status.** Built on `v5/google-account-chooser`.

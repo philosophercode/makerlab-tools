@@ -1,5 +1,6 @@
 import { attachedCiteTarget, linkAttachedPageMentions, type AttachedManualLink } from "./attached-citations.ts";
 import { CITE_HREF_PREFIX, isCitationLikeHref, pageFromUrl, refFromHref, withoutFragment } from "./citation-ref.ts";
+import { answerToolIds, isOtherMachine, searchScopes } from "./citation-scope.ts";
 
 /**
  * "Citations resolve" (manual text spec amendment 2026-09-28): the check the
@@ -21,7 +22,11 @@ import { CITE_HREF_PREFIX, isCitationLikeHref, pageFromUrl, refFromHref, without
  * 5. **name the document it opens** — when the linked words carry a citation
  *    ("… (Form 4 Manual, p. 42)"), its title and page are the passage's own:
  *    the label and the URL come from the same `manual_documents` row, so an
- *    answer that calls the Bambu quick-start guide "SOP, p. 9" fails.
+ *    answer that calls the Bambu quick-start guide "SOP, p. 9" fails;
+ * 6. **belong to the machine the answer is about** (amendment 2026-10-06 "An
+ *    answer cites only its machine's documents") — when the caller says which
+ *    machines that is ({@link answerScopeOf}, `citation-scope.ts`), a passage
+ *    from another machine's document is `other_machine`.
  *
  * The checks run on the tool's URL, never on what the model wrote: the chat
  * draws the tool's URL (`components/chat/manual-citations.ts`), so that is
@@ -47,6 +52,10 @@ export interface ToolPassage {
   url: string | null;
   /** The fenced passage text, as the tool returned it. */
   text: string;
+  /** The machine its document belongs to (catalogue id), when the tool said. */
+  toolId?: string | null;
+  /** That machine's name, when the tool said. */
+  tool?: string | null;
 }
 
 /** What one PDF address (no fragment) answered, and what the lab stores for it. */
@@ -69,7 +78,8 @@ export type CitationProblem =
   | "not_a_pdf"
   | "page_out_of_range"
   | "passage_not_on_page"
-  | "label_mismatch";
+  | "label_mismatch"
+  | "other_machine";
 
 export interface CitationVerdict {
   /** The address as the answer wrote it. */
@@ -143,10 +153,20 @@ export function toolPassages(outputs: readonly unknown[]): ToolPassage[] {
         citation: raw.citation,
         url: typeof raw.url === "string" && raw.url.trim() ? raw.url.trim() : null,
         text: raw.text,
+        ...(typeof raw.toolId === "string" ? { toolId: raw.toolId } : {}),
+        ...(typeof raw.tool === "string" ? { tool: raw.tool } : {}),
       });
     }
   }
   return out;
+}
+
+/**
+ * The machines an answer may cite, from the turn's recorded `search_manual`
+ * outputs and the focused tool (`citation-scope.ts`). Null: any machine.
+ */
+export function answerScopeOf(outputs: readonly unknown[], focusedToolId?: string | null): ReadonlySet<string> | null {
+  return answerToolIds(focusedToolId, searchScopes(outputs));
 }
 
 /** The passage a link stands for: its `#cite-<ref>`, or exactly its URL. */
@@ -206,12 +226,17 @@ export function evidenceUrls(
   return [...urls];
 }
 
-/** Check every citation-like link in `markdown` (see the module comment). */
+/**
+ * Check every citation-like link in `markdown` (see the module comment).
+ * `scope`, when given, is the machines the answer may cite
+ * ({@link answerScopeOf}); null or absent skips rule 6.
+ */
 export function checkCitations(
   markdown: string,
   passages: readonly ToolPassage[],
   evidence: ReadonlyMap<string, DocumentEvidence>,
-  attached: readonly AttachedManualLink[] = []
+  attached: readonly AttachedManualLink[] = [],
+  scope: ReadonlySet<string> | null = null
 ): CitationReport {
   const text = withAttachedMentionsLinked(markdown, attached);
   const entries = answerLinkEntries(text);
@@ -221,13 +246,33 @@ export function checkCitations(
       entries.filter((entry) => entry.href === href).map((entry) => entry.words),
       passages,
       evidence,
-      attached
+      attached,
+      scope
     )
   );
   return { ok: citations.every((c) => c.problems.length === 0), citations };
 }
 
 function judge(
+  href: string,
+  labels: readonly string[],
+  passages: readonly ToolPassage[],
+  evidence: ReadonlyMap<string, DocumentEvidence>,
+  attached: readonly AttachedManualLink[],
+  scope: ReadonlySet<string> | null
+): CitationVerdict {
+  const verdict = judgeLink(href, labels, passages, evidence, attached);
+  const passage = passageForHref(href, passages);
+  // Rule 6 — only for a search passage that says whose it is: an attached
+  // manual is the focused tool's own, and an older output names no machine.
+  if (passage?.url && passage.toolId !== undefined && isOtherMachine(passage.toolId, scope)) {
+    verdict.problems.push("other_machine");
+    verdict.detail.push(`${passage.citation} is ${passage.tool ? `the ${passage.tool}'s` : "another machine's"} document, not a document of the machine the answer is about`);
+  }
+  return verdict;
+}
+
+function judgeLink(
   href: string,
   labels: readonly string[],
   passages: readonly ToolPassage[],

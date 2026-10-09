@@ -3,6 +3,7 @@ import { nextCacheMock } from "../../../../test/mocks/next-cache";
 
 vi.mock("next/cache", () => nextCacheMock());
 vi.mock("../../../lib/mirror/trigger", () => ({ requestMirrorPush: vi.fn(async () => undefined) }));
+vi.mock("../../../lib/manuals/trigger", () => ({ requestManualArchive: vi.fn(async () => undefined) }));
 
 const limiter = vi.hoisted(() => ({ allowed: true }));
 vi.mock("../../../lib/rate-limit", async (importOriginal) => {
@@ -22,7 +23,8 @@ import { NextRequest } from "next/server";
 import { resetAuthForTests } from "../../../lib/auth/config";
 import { createActionProposals } from "../../../lib/data/action-proposals";
 import { getDb, resetDbForTests } from "../../../lib/db/client";
-import { actionProposals, maintenanceLogs } from "../../../lib/db/schema/index";
+import { readToolRevision } from "../../../lib/data/tools";
+import { actionProposals, maintenanceLogs, resources, tools } from "../../../lib/db/schema/index";
 import { signInAsNew } from "../../../../test/utils/session";
 import { GET, POST } from "./route";
 
@@ -118,6 +120,39 @@ describe("POST /api/action-proposals", () => {
     expect((await post({ ids: [row.id], decision: "confirm" }, { cookie: other.cookie })).body).toEqual({
       results: [{ id: row.id, status: "not_found" }],
     });
+  });
+
+  it("confirms several MCP proposals for one tool in one request, in order, though each stored the same revision", async () => {
+    const me = await staff();
+    const db = await getDb();
+    const [tool] = await db.insert(tools).values({ slug: `triage-${crypto.randomUUID().slice(0, 6)}`, name: "Triage tool" }).returning();
+    const revision = (await readToolRevision(tool.id))!;
+    const add = (title: string) => ({
+      groupId: crypto.randomUUID(),
+      actionId: "resources.add",
+      input: { toolId: tool.id, expectedRevision: revision, resource: { title, url: `https://example.com/${title}.pdf`, type: "Manual", published: true } },
+      subjectType: "tool",
+      subjectId: tool.id,
+      preview: {
+        summary: { key: "resources_add", values: { tool: "Triage tool", title } },
+        rows: [{ field: "resourceTitle", before: null, after: title }],
+        subjectName: title,
+        link: `/tools/${tool.slug}`,
+      },
+      surface: "mcp" as const,
+      chatId: null,
+      createdBy: me.user.id,
+    });
+    const [first] = await createActionProposals([add("manual")]);
+    const [second] = await createActionProposals([add("quick-start")]);
+
+    const res = await post({ ids: [second.id, first.id], decision: "confirm" }, { cookie: me.cookie });
+    expect(res.status).toBe(200);
+    expect(res.body.results.map((r: { id: string; status: string }) => [r.id, r.status])).toEqual([
+      [second.id, "confirmed"],
+      [first.id, "confirmed"],
+    ]);
+    expect((await db.select().from(resources).where(eq(resources.toolId, tool.id))).map((r) => r.title).sort()).toEqual(["manual", "quick-start"]);
   });
 
   it("is rate-limited before anything is read", async () => {

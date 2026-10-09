@@ -519,3 +519,13 @@ refusal before a run starts, a document at the cap read whole, and the count on 
 list. `imports/route.test.ts` covers the 413 bodies. `import-document.workflow.test.ts`
 covers a document naming 1,200 items failing with nothing written. `intake.test.ts` covers
 the chat wording. `ImportLauncher.test.tsx` and `ImportReview.test.tsx` cover the messages.
+
+### 2026-10-07 — The setup allowance moved to Settings › AI agents
+
+§4.2's grant form (`AllowanceGrant`) left the People roster for the research budget
+on **Settings › AI agents** (`/admin/settings/ai-agents`), as the owner decided
+("Research budget moves under an AI agents area"; admin sections spec
+[`2026-10-07-admin-sections-design.md`](2026-10-07-admin-sections-design.md)). The
+rule is unchanged: `users.manage` grants, the action is `people.grant_allowance`,
+audited as before; it now refreshes the AI agents page. A SuperMaker on that page
+reads that directors grant extra items.

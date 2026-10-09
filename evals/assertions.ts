@@ -1,7 +1,11 @@
 import { attachedCiteTarget, type AttachedManualLink } from "@/lib/manuals/attached-citations";
 import {
+  answerScopeOf,
+  attachedForHref,
   checkCitations,
   citationLinks,
+  citationTitle,
+  passageForHref,
   toolPassages,
   withAttachedMentionsLinked,
   type DocumentEvidence,
@@ -22,11 +26,12 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `mentions_tool` | The named machine appears in the answer |
  * | `no_unknown_tools` | Every machine the answer offers exists in the fixture |
  * | `called_tool` | That tool appears in the recorded tool calls |
- * | `contains_all` / `not_contains_any` | Literal substrings |
+ * | `contains_all` / `contains_any` / `not_contains_any` | Literal substrings: every one, at least one, none |
  * | `no_fabricated_specs` | Numbers attributed to named fields match the fixture |
  * | `cites_resource` | The answer references one of the machine's documents |
  * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given; `file.pdf#page=N` pins the document) |
  * | `says_not_covered` | The answer says the manual does not cover the question |
+ * | `cites_only_tool` | Every document the answer cites belongs to the machine `value` (a slug): each linked passage's `toolId` is that machine's, an attached manual's page counts only when the case is on that machine's page, a link from that machine's own `get_tool_details` (its manuals, SOPs, product page) counts, any other manual-looking link no tool returned fails, and so does naming another machine's searched document in the text. An answer that cites nothing passes |
  * | `citations_resolve` | Every manual link came from a `search_manual` result or a manual attached to the turn (`#cite-<ref>-<page>`, "(<title>, p. N)"), answers 200 `application/pdf`, opens a page the PDF has, and the passage is on that page (`src/lib/manuals/citation-check.ts`; the executor gathers the evidence) |
  * | `proposed_action` | That action tool was called — which only ever proposes a card (assistant–GUI parity spec §10.1) |
  * | `not_claimed_done` | The answer never says a change was made: nothing is done until the person confirms the card |
@@ -44,11 +49,13 @@ export const ASSERTION_KINDS = [
   "called_tool",
   "not_called_tool",
   "contains_all",
+  "contains_any",
   "not_contains_any",
   "no_fabricated_specs",
   "cites_resource",
   "cites_page",
   "says_not_covered",
+  "cites_only_tool",
   "citations_resolve",
   "proposed_action",
   "not_claimed_done",
@@ -332,6 +339,17 @@ export function containsAll(text: string, values: string[]): Check {
   return { ok: false, detail: `missing: ${missing.map((v) => `"${v}"`).join(", ")}` };
 }
 
+/**
+ * `contains_any` — at least one literal is present, normalized as
+ * `contains_all` is. For a behaviour with more than one fair wording ("ask a
+ * SuperMaker" or "ask staff").
+ */
+export function containsAny(text: string, values: string[]): Check {
+  const low = normalize(text);
+  if (values.some((value) => low.includes(normalize(value)))) return { ok: true };
+  return { ok: false, detail: `none of: ${values.map((v) => `"${v}"`).join(", ")}` };
+}
+
 /** `not_contains_any` — none of the literals is present. */
 export function notContainsAny(text: string, values: string[]): Check {
   const low = text.toLowerCase();
@@ -492,6 +510,13 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
         containsAll(text, values)
       );
     }
+    case "contains_any": {
+      const values = asList(spec.value);
+      return outcome(
+        `the answer contains at least one of ${values.map((v) => `"${v}"`).join(", ")}`,
+        containsAny(text, values)
+      );
+    }
     case "not_contains_any": {
       const values = asList(spec.value);
       return outcome(
@@ -522,6 +547,13 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
     }
     case "says_not_covered":
       return outcome("the answer says the manual does not cover it", saysNotCovered(text));
+    case "cites_only_tool": {
+      const slug = asString(spec.value);
+      return outcome(
+        `every document the answer cites belongs to ${slug}`,
+        citesOnlyTool(text, toolCalls, fixture, slug, input.attachedManuals, toolId)
+      );
+    }
     case "citations_resolve":
       return outcome(
         "every manual link came from search_manual or an attached manual, resolves to the PDF, opens a page it has, and the passage is on that page",
@@ -815,13 +847,110 @@ export function citationsResolve(
       { ...e, pages: new Map(Object.entries(e.pages).map(([n, t]) => [Number(n), t])) },
     ])
   );
-  const report = checkCitations(text, recordedPassages(toolCalls), byUrl, attached);
+  // Rule 6: a passage of another machine than the searches were scoped to fails.
+  const scope = answerScopeOf(toolCalls.filter((call) => call.name === "search_manual").map((call) => call.output));
+  const report = checkCitations(text, recordedPassages(toolCalls), byUrl, attached, scope);
   if (report.ok) return { ok: true };
   const bad = report.citations.filter((c) => c.problems.length > 0);
   return {
     ok: false,
     detail: bad.map((c) => `${c.href}: ${c.problems.join(", ")} — ${c.detail.join("; ")}`).join("\n      "),
   };
+}
+
+/**
+ * `cites_only_tool` (manual text spec amendment 2026-10-06 "An answer cites
+ * only its machine's documents"): every document the answer cites belongs to
+ * the machine `slug`.
+ *
+ * - a linked search passage must carry that machine's `toolId` (or, from an
+ *   output that records no id, its name as `tool`);
+ * - a page of an attached manual counts only when the case is on that
+ *   machine's page (the route attaches only the focused tool's manuals);
+ * - a link to a searched passage's whole document (its address without the
+ *   `#page=`, or at another page) is that passage's document: judged as it;
+ * - a link from the machine's own record — its resources, the manufacturer's
+ *   original behind an archived copy, or what its `get_tool_details`
+ *   returned ("see the full manual") — is that machine's, so it counts
+ *   (amendment "Links from the machine's own record", 2026-10-08);
+ * - any other manual-looking link no search returned cannot be shown to be
+ *   that machine's, so it fails;
+ * - naming, in the text, the document of a searched passage that belongs to
+ *   another machine fails too ("the Prusa handbook says…").
+ *
+ * An answer that cites nothing passes: pair it with `not_contains_any` or
+ * `says_not_covered` when the answer must also hold back.
+ */
+export function citesOnlyTool(
+  text: string,
+  toolCalls: readonly RecordedToolCall[],
+  fixture: EvalFixture,
+  slug: string,
+  attached: readonly AttachedManualLink[] = [],
+  focusedSlug?: string
+): Check {
+  const tool = fixture.tools.find((t) => t.slug === slug);
+  if (!tool) return { ok: false, detail: `"${slug}" is not a catalog machine in this run` };
+  const passages = recordedPassages(toolCalls);
+  const belongs = (passage: ToolPassage) =>
+    passage.toolId !== undefined && passage.toolId !== null ? passage.toolId === tool.id : passage.tool === tool.name;
+  const linked = withAttachedMentionsLinked(text, attached);
+  const ownLinks = ownRecordLinks(toolCalls, tool);
+  for (const href of citationLinks(linked)) {
+    const passage = passageForHref(href, passages) ?? passages.find((p) => p.url && withoutFragment(p.url) === withoutFragment(href));
+    if (passage) {
+      if (!belongs(passage)) {
+        return { ok: false, detail: `cites ${passage.citation}, a document of ${passage.tool ?? "another machine"}`, excerpt: href };
+      }
+      continue;
+    }
+    if (attachedForHref(href, attached)) {
+      if (focusedSlug !== slug) return { ok: false, detail: `cites an attached manual of ${focusedSlug ?? "no focused machine"}`, excerpt: href };
+      continue;
+    }
+    if (ownLinks.has(withoutFragment(href))) continue;
+    return { ok: false, detail: `cites ${href}, which no search_manual result, attached manual or the machine's own record backs`, excerpt: href };
+  }
+  const low = normalize(text);
+  const ownTitles = new Set(passages.filter(belongs).map((passage) => normalize(citationTitle(passage.citation))));
+  const named = passages.find((passage) => {
+    const title = normalize(citationTitle(passage.citation));
+    return !belongs(passage) && !ownTitles.has(title) && low.includes(title);
+  });
+  if (named) return { ok: false, detail: `names ${citationTitle(named.citation)}, a document of ${named.tool ?? "another machine"}` };
+  return { ok: true };
+}
+
+/**
+ * The links of the machine's own record, without fragments: its resources (and
+ * the manufacturer's original behind an archived copy) and whatever its
+ * `get_tool_details` gave the turn.
+ */
+function ownRecordLinks(toolCalls: readonly RecordedToolCall[], tool: EvalFixtureTool): Set<string> {
+  const out = new Set<string>();
+  for (const resource of tool.resources) {
+    out.add(withoutFragment(resource.href));
+    if (resource.sourceHref) out.add(withoutFragment(resource.sourceHref));
+  }
+  const collect = (value: unknown): void => {
+    if (typeof value === "string") {
+      if (/^https?:\/\//i.test(value)) out.add(withoutFragment(value));
+    } else if (Array.isArray(value)) {
+      value.forEach(collect);
+    } else if (value && typeof value === "object") {
+      Object.values(value).forEach(collect);
+    }
+  };
+  for (const call of toolCalls) {
+    if (call.name !== "get_tool_details") continue;
+    const output = call.output as { id?: unknown; slug?: unknown } | null | undefined;
+    if (output && (output.id === tool.id || output.slug === tool.slug)) collect(output);
+  }
+  return out;
+}
+
+function withoutFragment(href: string): string {
+  return href.split("#")[0];
 }
 
 /** Phrases that say the manual has no answer — the honest-absence rule for manuals. */

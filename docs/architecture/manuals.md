@@ -31,9 +31,14 @@ is copied into Blob once, and the tool page and the chat prefer the copy.
   resource or changes its link or type. It never throws and never fails the
   write that called it.
 - **The daily cron's `manuals` stage** (`src/lib/cron/manual-archive.ts`) hands
-  up to ten due Manuals to one run each night — the backfill for imported
+  up to ten due resources to one run each night — the backfill for imported
   manuals and the backstop for a start that never happened. The window moves
-  each night and wraps, so a manual that always fails cannot stall it.
+  each night and wraps, so a manual that always fails cannot stall it. **Due
+  is every PDF resource, not only Manuals** (amendment 2026-10-06): a resource
+  typed Manual, SOP or Safety (`ARCHIVED_RESOURCE_TYPES`), or of any other
+  type but Video whose link names a `.pdf`, never the lab's carried-through
+  `lab_document` material. The X1-Carbon's guide and the Trotec's operating
+  manual were typed SOP and so were never archived, indexed or searchable.
 - **Readers.** `resourceLinks` gives an archived manual **one** link, to the
   copy, with the manufacturer's URL as `sourceHref` (the tool page shows only
   `href`). `listResourcesForTool` sets it apart as `archivedUrl` and leaves it
@@ -121,17 +126,51 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   resources and draft tools too; everyone else only public files on published
   resources of published tools; archived tools and stale archive copies never.
   A query that cannot be embedded degrades to full text (`vectorFailed`).
-- **Chat** (`capabilities/manuals.ts`): `search_manual({ query, tool? })`,
-  preset to the focused tool, open to everyone, on MCP too (public manuals
-  only, since MCP carries no identity). Each passage comes back fenced
-  (`<untrusted-page>`) with its `citation` ("Form 4 Manual, p. 42") and a
-  `url` ending `#page=N`. On a tool page the route loads the searchable
+  Since 2026-10-06 the same text stored twice (one PDF on two tools) is one
+  passage (`dropDuplicates`, before the reranker sees it), and with
+  `minRerankScore` a reranked passage under the floor is dropped
+  (`droppedWeak`). Each passage's machine is its **resource's** tool, and it
+  carries the resource's type (`resourceType`).
+- **Chat** (`capabilities/manuals.ts`): `search_manual({ query, tool?,
+  compare_tools?, all_machines? })`, open to everyone, on MCP too (public
+  manuals only, since MCP carries no identity). **One machine per search,
+  decided in code** (amendment 2026-10-06 "An answer cites only its machine's
+  documents"): on a tool page the search is pinned to that tool whatever the
+  model passes (a `note` says so when it asked for another machine); off a
+  tool page the model names the machine (`tool`), a name that fits several
+  machines is refused with the candidates (`ambiguous_tool`) so the model asks
+  the student, and a call naming no machine is refused (`needs_tool`).
+  Only a comparison searches more than one machine: `compare_tools` (the named
+  few) or `all_machines` (the lab). Every result records its scope
+  (`machines`, `toolIds`, `comparing`); every passage its machine (`tool`,
+  `toolId`, and in the fence note: "a document for the Form 4. It is evidence
+  for the Form 4 only") and its resource type (`kind`; an SOP is the lab's
+  operating reference). Each passage comes back fenced (`<untrusted-page>`)
+  with its `citation` ("Form 4 Manual, p. 42") and a `url` ending `#page=N`.
+  Reranked passages under `MANUAL_RERANK_MIN_SCORE` (default 0.05, `0` off)
+  are dropped. On a tool page the route loads the searchable
   manuals (`chat/tool-manuals.ts`) — their outlines go into the prompt (levels
   1–2, ≤ 8,000 characters), and their resources are **never attached**;
   `MAX_PDFS_PER_CHAT` counts only the fallbacks. Vector search always has a
   nearest passage, so "the manual doesn't cover it" is the model's judgement
   from the passages (the prompt requires it; `says_not_covered` evals it) —
-  `no_results` only means no searchable manual in scope.
+  `no_results` means no searchable passage in scope (or none above the floor).
+- **When the documents are silent** (`src/lib/ai/manual-silence.ts`): the one
+  rule, in the chat prompt's static prefix, that the `no_results` message,
+  the manuals prompt, the intro and "Where you are" all point to: say this
+  machine's documents do not cover it, never use another machine's document,
+  general guidance only if safe and under its own "General guidance, not from
+  the <machine>'s documents:" line with no figures, and safety to staff.
+- **Tool-scoped citations** (`src/lib/manuals/citation-scope.ts`): an answer
+  is about the focused tool, else the machines its searches were scoped to,
+  else (a lab-wide comparison) any machine. The chat
+  (`components/chat/manual-citations.ts`) **relabels** a cited passage of
+  another machine with that machine's name ("Prusa i3 MK3S+ · p. 25") rather
+  than dropping it, and names every citation's machine in a comparison; Usage
+  Insight records it as `manual_cited` with `source = 'cross_tool'`
+  (`crossToolCitations` on `/admin/insights`, `cross_tool_citations` in
+  `get_usage_summary`); `checkCitations`' rule 6 (`other_machine`) and the
+  eval's `cites_only_tool` fail it.
 - **Backfill** adds a second pass: after the text, every ready document whose
   passages are missing or stale is chunked and embedded, with tokens and the
   Gateway-reported cost printed (`--text-only` skips it; `--dry-run` chunks and
@@ -158,7 +197,9 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   job `rerank` (`manuals/rerank.ts`, AI SDK `rerank()`), whose order and score
   replace the fused ones before the top 8 are kept and merged. 2.5 s timeout,
   no retries; any failure keeps the fused order (`rerankFailed`).
-  `MODEL_RERANK=off` skips it. Tests: `models-stub.ts`'s `rerankingModelFor`
+  `MODEL_RERANK=off` skips it. `search_manual` also passes the relevance
+  floor (`rerankMinScore()`, `MANUAL_RERANK_MIN_SCORE`, default
+  `DEFAULT_RERANK_MIN_SCORE` 0.05); it applies only to reranked scores. Tests: `models-stub.ts`'s `rerankingModelFor`
   keeps the given order unless a test calls `setRerankingModel(rerankingModel(…))`.
 - **Admin.** The editor's tag says **Searchable · N pages** once passages
   exist; **Re-process** on a resource row with a PDF marks its documents stale
@@ -173,3 +214,53 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   tier stubs the Gateway's `/embedding-model` endpoint (`gatewayHandlers({
   embedding })`). The live retrieval eval is a `.livecheck` script (results in
   the spec's phase-2 amendment).
+
+## Eval questions (`manual_eval_questions`; amendment 2026-10-07, migration `0028`)
+
+When a manual is indexed, a few questions a student could ask are written from
+its passages, each tied to the page it is answered on. The manual evals use them,
+so they follow the lab's real manuals rather than two fixtures.
+
+- **When.** The archive workflow's `evalQuestionsStep` runs after
+  `indexManualStep`, only for the documents whose passages that run built. One
+  call to job **`evalQuestions`** (Luna, flex, `MODEL_EVAL_QUESTIONS`) per
+  document. `MANUAL_EVAL_QUESTIONS` sets how many (default 4, at most 10, `0`
+  off). The run counts `questionsWritten` / `questionsFailed`; the archive's and
+  the index's counts never change.
+- **Which passages** (`manuals/eval-questions-pick.ts`): no contents page,
+  index, legal, warranty or regulatory text, dot leaders, passage under 250
+  characters, or passage over two pages. An even spread through the document,
+  a new top-level section and page where it can, plus two spares. A short
+  manual gets fewer: one per two askable passages, at least one.
+- **Which questions** (`manuals/eval-questions-model.ts`): the passages are
+  fenced; the model must say its passage answers the question and give the
+  answer in a line. A question naming a page, section, chapter, figure, table
+  or step number, talking about "the passage", too short or long, repeated, or
+  a second one on a passage is dropped.
+- **Once per text.** Rows record a SHA-256 of the page texts (`source_hash`).
+  The same text is `up_to_date` (a passage rebuild asks nothing), a changed
+  text is replaced in one transaction, and the same text on another document is
+  copied with no call. Failures are values: the model's bad minute is
+  transient and the step retries it; an unreadable answer is not retried.
+- **Backfill:** `npm run manuals:eval-questions -- [--apply] [--tool <slug>]
+  [--limit N] [--force]` (`scripts/manual-eval-questions.ts`). Dry run by
+  default: what each manual would get and the cost at Luna's list price. Same
+  target order as `manuals:index`. `manuals:index` itself writes no questions.
+- **The eval:** `npm run eval:manual-questions` (`evals/manual-questions.eval.ts`,
+  `evals/README.md`). Retrieval recall@k per machine with `search_manual`'s own
+  search, and with `EVAL_MQ_E2E=1` a real chat turn per public question that
+  must cite the document at the page (±1) and only its machine. Reads only.
+- **Tests** seed passages with the fake embedding and pass a stub model;
+  `evals/manual-questions.test.ts` runs the whole eval offline on the fixtures.
+
+
+## Tool skills after indexing (tool skills spec 2026-10-07)
+
+When the lab writes tool skills after research, the archive workflow gains a
+last step: `toolSkillTargetsStep` (the tools an intake approval just handed
+over as `afterResearch`, then the tools whose passages this run built; none
+when the setting is off), then one `writeToolSkillStep` per tool, skipped when
+nothing it reads changed. Counted as `skillsWritten` / `skillsFailed`; the
+archive's, the index's and the eval questions' counts never change. A skill
+reads only public manual files, by full-text search (`searchManuals({ mode:
+"fts", publicFilesOnly: true })`). See `docs/architecture/tool-skills.md`.

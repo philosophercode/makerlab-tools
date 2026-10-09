@@ -171,7 +171,7 @@ describe("the registry as each role sees it", () => {
   );
 
   /** The staff queue tools, in the chat since 2026-09-25 (MCP access spec amendment). */
-  const STAFF_QUEUE_TOOLS = ["list_open_tickets", "update_ticket", "list_intake_queue"];
+  const STAFF_QUEUE_TOOLS = ["list_open_tickets", "update_ticket", "list_intake_queue", "list_maintenance_due"];
 
   it.each(["anonymous", "user"] as const)("gives %s none of the staff queue tools", (role) => {
     const names = toolNames(role);
@@ -185,6 +185,7 @@ describe("the registry as each role sees it", () => {
   it("gates each staff queue tool on its own permission", () => {
     const tools = Object.fromEntries(CAPABILITIES.flatMap((c) => c.tools).map((t) => [t.name, t]));
     expect(tools.list_open_tickets.requiredPermission).toBe("maintenance.manage");
+    expect(tools.list_maintenance_due.requiredPermission).toBe("maintenance.manage");
     expect(tools.update_ticket.requiredPermission).toBe("maintenance.manage");
     expect(tools.list_intake_queue.requiredPermission).toBe("tools.approve");
   });

@@ -63,3 +63,64 @@ function formatIsoDate(instant: Date, timeZone: string): string {
 
   return `${find("year")}-${find("month")}-${find("day")}`;
 }
+
+/**
+ * The instant a wall-clock time on a lab date happens: `labInstant("2026-10-07",
+ * 8, 0)` is 08:00 in `LAB_TIMEZONE` that day, as a `Date` (email
+ * notifications spec, amendment 2026-10-07: the daily reminder goes at 08:00
+ * lab time).
+ *
+ * Guess the instant as if the lab were on UTC, read what the lab's clock says
+ * at that instant, and shift by the difference; a second pass settles the
+ * days daylight saving changes. An unrecognised timezone falls back to UTC,
+ * as {@link labToday} does.
+ */
+export function labInstant(isoDate: string, hour: number, minute = 0): Date {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const wanted = Date.UTC(y, m - 1, d, hour, minute);
+  const timeZone = knownTimezone(labTimezone());
+  let instant = wanted;
+  for (let pass = 0; pass < 2; pass += 1) {
+    instant += wanted - wallClockAsUtc(new Date(instant), timeZone);
+  }
+  return new Date(instant);
+}
+
+/** `timeZone` when `Intl` recognises it, else UTC. */
+function knownTimezone(timeZone: string): string {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+    return timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
+/** What the clock in `timeZone` reads at `instant`, written as if that reading were UTC. */
+function wallClockAsUtc(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+  const get = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+}
+
+/** "4:12 PM": the time of `instant` on the lab's clock, for an email. */
+export function labTimeOfDay(instant: Date): string {
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: knownTimezone(labTimezone()) }).format(instant);
+}
+
+/** "Wednesday, October 7": a lab date written out, for an email. A calendar date has no timezone. */
+export function labDateLabel(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" }).format(
+    new Date(Date.UTC(y, m - 1, d, 12))
+  );
+}

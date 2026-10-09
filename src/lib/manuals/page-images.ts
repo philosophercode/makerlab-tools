@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import { getDocumentProxy, getResolvedPDFJS } from "unpdf";
 
 /**
@@ -121,7 +121,7 @@ async function drawPage(page: PdfPage, OPS: OpsTable): Promise<Omit<PageImage, "
   const scale = pageScale(viewport.width, viewport.height, placed);
   const width = Math.max(1, Math.round(viewport.width * scale));
   const height = Math.max(1, Math.round(viewport.height * scale));
-  const layers: sharp.OverlayOptions[] = [];
+  const layers: OverlayOptions[] = [];
   for (const image of placed) {
     const layer = await placeImage(image, scale, width, height);
     if (layer) layers.push(layer);
@@ -366,7 +366,7 @@ async function placeImage(
   scale: number,
   pageWidth: number,
   pageHeight: number
-): Promise<sharp.OverlayOptions | null> {
+): Promise<OverlayOptions | null> {
   const geometry = imageGeometry(image.matrix);
   if (!geometry) return null;
   const left = Math.round(geometry.left * scale);

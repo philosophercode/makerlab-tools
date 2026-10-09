@@ -30,7 +30,7 @@ describe("AddInventoryButton", () => {
         <ChatProbe />
       </>
     );
-    await user.click(screen.getByRole("button", { name: "Add inventory" }));
+    await user.click(screen.getByRole("button", { name: "Add equipment" }));
     expect(screen.getByTestId("chat-probe")).toHaveTextContent("open|I'd like to add new equipment to the inventory.");
   });
 

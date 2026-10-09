@@ -67,6 +67,8 @@ const PUBLIC_READS = [
   "list_tools",
   "search_manual",
   "search_tools",
+  // Tool skills (tool skills spec 2026-10-07 §5.5): a read for everybody.
+  "get_tool_skill",
 ].sort();
 
 let ipCounter = 0;
@@ -222,7 +224,7 @@ describe("the MCP protocol, through the SDK's own client", () => {
 // ── Who sees what ────────────────────────────────────────────────────
 
 describe("tools/list by identity", () => {
-  it("offers an anonymous caller the six public reads", async () => {
+  it("offers an anonymous caller the seven public reads", async () => {
     expect(await toolNames()).toEqual(PUBLIC_READS);
   });
 
@@ -242,6 +244,7 @@ describe("tools/list by identity", () => {
         "list_intake_queue",
         "list_my_reports",
         "list_open_tickets",
+        "list_maintenance_due",
         "propose_change",
         "report_correction",
         "report_issue",
@@ -255,7 +258,7 @@ describe("tools/list by identity", () => {
   it("gives a read-only token no write tool", async () => {
     const admin = await bearerFor("admin", { readOnly: true });
     expect(await toolNames(admin.headers)).toEqual(
-      [...PUBLIC_READS, "list_intake_queue", "list_my_reports", "list_open_tickets", ...ADMIN_READS_FOR_PROPOSALS].sort()
+      [...PUBLIC_READS, "list_intake_queue", "list_my_reports", "list_open_tickets", "list_maintenance_due", ...ADMIN_READS_FOR_PROPOSALS].sort()
     );
   });
 });
@@ -360,6 +363,23 @@ describe("rate limiting", () => {
     expect((await res.json()).error.message).toMatch(/too many requests/i);
   });
 
+  it("charges a JSON-RPC batch one unit per message (security fix 2026-10-05)", async () => {
+    const batch = Array.from({ length: 10 }, () => envelope("tools/list"));
+    for (let i = 0; i < 3; i += 1) {
+      expect((await POST(rpcRequest(batch))).status).toBe(200);
+    }
+    // 30 messages spent in three requests: the fourth batch is over the minute's allowance.
+    const res = await POST(rpcRequest(batch));
+    expect(res.status).toBe(429);
+  });
+
+  it("refuses a batch longer than the cap before running any of it (security fix 2026-10-05)", async () => {
+    const batch = Array.from({ length: 11 }, () => envelope("tools/call", { name: "search_manual", arguments: { query: "x" } }));
+    const res = await POST(rpcRequest(batch));
+    expect(res.status).toBe(413);
+    expect((await res.json()).error.code).toBe(-32600);
+  });
+
   it("allows a token 60 a minute, per token rather than per IP", async () => {
     const student = await bearerFor("user");
     for (let i = 0; i < 60; i += 1) {
@@ -441,6 +461,41 @@ describe("tools/call: the catalogue", () => {
   });
 });
 
+// Data platform spec amendment 2026-10-06: whole unit serials are staff-only,
+// on the public endpoint and for signed-in tokens alike; everyone else gets
+// the last four characters, masked.
+describe("unit serials", () => {
+  const SERIAL = "ML-F4-001";
+  const MASKED = "•••• -001";
+
+  async function unitAndTool(headers: Record<string, string>) {
+    const unit = resultText((await callTool("get_unit_details", { unit_label: "Form 4 // A" }, headers)).json);
+    const tool = resultText((await callTool("get_tool_details", { id_or_name: "form-4" }, headers)).json);
+    return { unit, tool };
+  }
+
+  it("gives the public endpoint and a student units by name, with only the masked last four", async () => {
+    for (const headers of [{}, (await bearerFor("user")).headers]) {
+      const { unit, tool } = await unitAndTool(headers);
+      expect(JSON.parse(unit)).toMatchObject({ found: true, unit_label: "Form 4 // A", serial_masked: MASKED });
+      expect(JSON.parse(unit)).not.toHaveProperty("serial");
+      expect(JSON.parse(tool).units.map((u: { name: string }) => u.name)).toEqual(["Form 4 // A"]);
+      expect(JSON.parse(tool).units[0]).not.toHaveProperty("serial");
+      expect(JSON.parse(tool).units[0].serialMasked).toBe(MASKED);
+      expect(unit).not.toContain(SERIAL);
+      expect(tool).not.toContain(SERIAL);
+    }
+  });
+
+  it.each(["admin", "super_admin"] as const)("gives a %s token each unit's whole serial", async (role) => {
+    const { unit, tool } = await unitAndTool((await bearerFor(role)).headers);
+    expect(JSON.parse(unit).serial).toBe(SERIAL);
+    expect(JSON.parse(unit)).not.toHaveProperty("serial_masked");
+    expect(JSON.parse(tool).units[0].serial).toBe(SERIAL);
+    expect(JSON.parse(tool).units[0]).not.toHaveProperty("serialMasked");
+  });
+});
+
 describe("maintenance history names (§3.2 fix)", () => {
   async function seedLog() {
     const db = await getDb();
@@ -503,13 +558,22 @@ describe("search_manual", () => {
     expect((await buildDocumentPassages(db, seeded.documentId, { target })).status).toBe("built");
     vi.spyOn(console, "info").mockImplementation(() => {});
 
+    const query = { query: "resin heater breaker panel", tool: "Form 4" };
     for (const headers of [{}, (await bearerFor("user")).headers]) {
-      const text = resultText((await callTool("search_manual", { query: "resin heater breaker panel" }, headers)).json);
+      const text = resultText((await callTool("search_manual", query, headers)).json);
+      expect(JSON.parse(text).status).toBe("no_results");
       expect(text).not.toContain("panel C");
     }
     const admin = await bearerFor("admin");
-    const staff = resultText((await callTool("search_manual", { query: "resin heater breaker panel" }, admin.headers)).json);
+    const staff = resultText((await callTool("search_manual", query, admin.headers)).json);
     expect(staff).toContain("panel C");
+  });
+
+  it("asks an MCP client to name the machine rather than searching every manual (amendment 2026-10-06)", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const admin = await bearerFor("admin");
+    const text = resultText((await callTool("search_manual", { query: "resin heater breaker panel" }, admin.headers)).json);
+    expect(JSON.parse(text)).toMatchObject({ status: "needs_tool" });
   });
 });
 

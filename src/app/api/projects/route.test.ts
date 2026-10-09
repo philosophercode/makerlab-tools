@@ -149,8 +149,12 @@ async function storedProjects() {
   return db.select().from(projects);
 }
 
-/** An uploaded-but-unattached file, as `POST /api/uploads` will leave one. */
-async function upload(): Promise<string> {
+/**
+ * An uploaded-but-unattached file, as `POST /api/uploads` will leave one —
+ * uploaded by the default session unless `uploadedBy` says otherwise, since a
+ * project claims only its author's uploads.
+ */
+async function upload(uploadedBy: string | null = defaultSession.user.id): Promise<string> {
   const db = await getDb();
   const [row] = await db
     .insert(attachments)
@@ -159,6 +163,7 @@ async function upload(): Promise<string> {
       access: "public",
       publicUrl: `https://blob.test/${crypto.randomUUID()}.png`,
       contentType: "image/png",
+      uploadedBy,
     })
     .returning({ id: attachments.id });
   return row.id;
@@ -338,6 +343,19 @@ describe("POST /api/projects (photos that did not attach)", () => {
 
     expect(res.status).toBe(201);
     expect(await res.json()).toMatchObject({ photosSubmitted: 1, photosAttached: 0 });
+  });
+
+  it("claims nothing from another person's unclaimed upload (security fix 2026-10-05)", async () => {
+    const other = await signInAsNew({ email: "uploader@cornell.edu", name: "Other Uploader" });
+    const theirs = await upload(other.user.id);
+
+    const res = await post(submitRequest(validPayload({ photos: [{ id: theirs, name: "a.png" }] })));
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ photosSubmitted: 1, photosAttached: 0 });
+    const db = await getDb();
+    const [row] = await db.select().from(attachments).where(eq(attachments.id, theirs));
+    expect(row.ownerId).toBeNull();
   });
 
   it("stays quiet when every photo attached, and when none was sent", async () => {

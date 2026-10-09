@@ -19,7 +19,11 @@ and its 2026-09-28 amendment are the detail.
   arrival with `?src=kiosk`), `chat_turn` (with `question_kind` operate /
   debug / create / other — a keyword heuristic, `question-kind.ts`, no model),
   `tool_asked` (focused tool, `get_tool_details` found, `search_manual` scope;
-  chat and MCP), `manual_cited` (a passage the answer linked to, with page),
+  chat and MCP), `manual_cited` (a passage the answer linked to, with page;
+  `source = 'cross_tool'` when the passage is another machine's document
+  than the one the answer was about, `lib/manuals/citation-scope.ts`,
+  manual text spec amendment 2026-10-06 — shown as "Citations of another
+  machine's document" and as `cross_tool_citations` in `get_usage_summary`),
   `gap`, `mcp_call` (the tool name).
 - **Recording never costs a student anything.** The chat route's `onFinish`
   calls `recordChatTurnUsage` (`lib/usage/chat-turn.ts`), MCP's

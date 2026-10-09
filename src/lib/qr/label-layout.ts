@@ -42,7 +42,7 @@ export interface LabelStyle {
   extraText: string;
   /** Whether the extra line is printed; the words are kept while it is off. */
   showExtra: boolean;
-  /** The MakerLAB wordmark. */
+  /** The lab's official logo (until 2026-10-06, the MakerLAB wordmark; the key kept its name). */
   showBrand: boolean;
   /** The short address under the code, for a camera that will not scan. */
   showUrl: boolean;
@@ -64,15 +64,21 @@ export const EXTRA_TEXT_MAX = 60;
 /** What one label says. */
 export interface LabelContent {
   name: string;
+  /**
+   * A unit's label only: which unit ("Prusa MK3S+ #4"), printed under the
+   * name whenever the name is. Never dropped for room: telling one machine
+   * from its neighbour is the point of the label. Absent or "" on a tool label.
+   */
+  unit?: string;
   /** "Room / Zone", or "" when the tool has none. */
   location: string;
-  /** What the code encodes (`toolQrTargetUrl`). */
+  /** What the code encodes (`toolQrTargetUrl`, or `unitQrTargetUrl` on a unit's label). */
   url: string;
   /** The address as printed under the code (`displayUrl`). */
   shortUrl: string;
 }
 
-export type LineKind = "name" | "location" | "extra" | "url";
+export type LineKind = "name" | "unit" | "location" | "extra" | "url";
 /** What can be left off a label that is too small for it, in the order it is dropped. */
 export type DroppableKind = LineKind | "brand";
 
@@ -106,8 +112,13 @@ export interface LabelLayout {
 /** Quiet zone drawn inside the code's box, in modules; the label's padding adds to it. */
 export const QR_QUIET_MODULES = 2;
 
-/** The wordmark's aspect ratio (`public/makerlab-wordmark.png`, 475 × 79). */
-export const WORDMARK_ASPECT = 475 / 79;
+/**
+ * The brand image's aspect ratio: the lab's official logo, the Cornell Tech
+ * MakerLAB lockup (`public/brand/cornell-tech-makerlab-logo.svg`, 277.68 ×
+ * 76.13; its PNG is what the label draws). Until 2026-10-06 it was the
+ * MakerLAB wordmark, 475 × 79.
+ */
+export const BRAND_ASPECT = 277.68 / 76.13;
 
 /**
  * Text width in points. The PDF passes Helvetica's real metrics; the browser
@@ -190,6 +201,12 @@ interface Block {
    * tool's name wraps or not.
    */
   reserveLines?: number;
+  /**
+   * The type size the line box is measured at, when the text is drawn
+   * smaller to fit: a long name shrinks without moving the code, so every
+   * unit label on a sheet keeps the same code size.
+   */
+  boxPt?: number;
 }
 
 function lineHeightMm(sizePt: number): number {
@@ -198,16 +215,21 @@ function lineHeightMm(sizePt: number): number {
 
 function blockHeight(block: Block, reserve = false): number {
   const lines = reserve ? Math.max(block.lines.length, block.reserveLines ?? 0) : block.lines.length;
-  return lines * lineHeightMm(block.sizePt);
+  return lines * lineHeightMm(block.boxPt ?? block.sizePt);
 }
 
-/** Type sizes for a label whose short side is `shortMm`. */
+/**
+ * Type sizes for a label whose short side is `shortMm`. The logo keeps the
+ * height the wordmark had on every preset (3.6 mm on 2″), so no code got
+ * smaller when it changed; only a custom label over 78.6 mm lets it grow past
+ * 5.5 mm, since its two lines of type are each about a quarter of its height.
+ */
 export function typeScale(shortMm: number) {
   const namePt = clamp(2.6 + 0.13 * shortMm, 5, 14);
   return {
     namePt,
     smallPt: clamp(namePt * 0.7, 4.2, 10),
-    brandHeightMm: clamp(shortMm * 0.07, 1.8, 5.5),
+    brandHeightMm: clamp(shortMm * 0.07, 1.8, 9),
     padMm: clamp(shortMm * 0.06, 1.2, 4),
   };
 }
@@ -224,7 +246,7 @@ export const MIN_QR_SHARE = 0.4;
 /**
  * Lay out one label. The code gets whatever the text leaves; when that is
  * under {@link MIN_QR_SHARE} of the label's short side, the least important text is dropped
- * (the address, then the location, the extra line, the wordmark — never the
+ * (the address, then the location, the extra line, the logo — never the
  * name) and the caller says so. A label at least 1.4 times as wide as it is
  * tall puts the text beside the code.
  */
@@ -241,7 +263,19 @@ export function layoutLabel(style: LabelStyle, content: LabelContent, measure: M
 function blocksFor(style: LabelStyle, content: LabelContent, widthPt: number, namePt: number, smallPt: number, measure: MeasureText, dropped: Set<DroppableKind>): Block[] {
   const blocks: Block[] = [];
   const name = content.name.trim().toUpperCase();
-  if (style.showName && name) blocks.push({ kind: "name", lines: wrapText(name, widthPt, namePt, true, 2, measure), sizePt: namePt, bold: true, reserveLines: 2 });
+  const unit = style.showName ? (content.unit ?? "").trim() : "";
+  if (style.showName && name && unit) {
+    // A unit's label: the name on one line, shrunk and then shortened to
+    // fit, and the unit under it in the room a second name line would take —
+    // so a 2-inch unit label keeps its code above the 25 mm floor. The unit
+    // line is bold in its own case, to read apart from the upper-case name,
+    // and is never dropped: telling one machine from its neighbour is the
+    // point of the label.
+    blocks.push(fittedLine("name", name, widthPt, namePt, smallPt, measure));
+    blocks.push(fittedLine("unit", unit, widthPt, Math.max(smallPt, namePt * 0.85), smallPt * 0.9, measure));
+  } else if (style.showName && name) {
+    blocks.push({ kind: "name", lines: wrapText(name, widthPt, namePt, true, 2, measure), sizePt: namePt, bold: true, reserveLines: 2 });
+  }
   if (style.showLocation && content.location.trim() && !dropped.has("location")) {
     blocks.push({ kind: "location", lines: [ellipsize(content.location.trim(), widthPt, smallPt, false, measure)], sizePt: smallPt, bold: false });
   }
@@ -256,6 +290,13 @@ function blocksFor(style: LabelStyle, content: LabelContent, widthPt: number, na
   return blocks.filter((block) => block.lines.length > 0);
 }
 
+/** One bold line drawn at `sizePt` or smaller (down to `minPt`) to fit, then shortened; its box stays `sizePt` tall. */
+function fittedLine(kind: LineKind, text: string, widthPt: number, sizePt: number, minPt: number, measure: MeasureText): Block {
+  let size = sizePt;
+  while (size > minPt && measure(text, size, true) > widthPt) size = Math.max(minPt, size - 0.25);
+  return { kind, lines: [ellipsize(text, widthPt, size, true, measure)], sizePt: size, bold: true, reserveLines: 1, boxPt: sizePt };
+}
+
 function droppable(style: LabelStyle, content: LabelContent, dropped: Set<DroppableKind>): DroppableKind | null {
   const present: Record<DroppableKind, boolean> = {
     url: style.showUrl && Boolean(content.shortUrl),
@@ -263,6 +304,7 @@ function droppable(style: LabelStyle, content: LabelContent, dropped: Set<Droppa
     extra: style.showExtra && Boolean(style.extraText.trim()),
     brand: style.showBrand,
     name: false,
+    unit: false,
   };
   return DROP_ORDER.find((kind) => present[kind] && !dropped.has(kind)) ?? null;
 }
@@ -283,7 +325,7 @@ function layoutStacked(style: LabelStyle, content: LabelContent, measure: Measur
   for (;;) {
     const blocks = blocksFor(style, content, innerW * PT_PER_MM, namePt, smallPt, measure, dropped);
     const showBrand = style.showBrand && !dropped.has("brand");
-    const brandH = showBrand ? Math.min(brandHeightMm, (innerW * 0.8) / WORDMARK_ASPECT) : 0;
+    const brandH = showBrand ? Math.min(brandHeightMm, (innerW * 0.8) / BRAND_ASPECT) : 0;
     const textH = blocks.reduce((sum, block) => sum + blockHeight(block, true), 0);
     const fixed = (showBrand ? brandH + gap : 0) + (blocks.length ? gap + textH : 0);
     const qrSize = Math.min(innerW, heightMm - padMm * 2 - fixed);
@@ -296,13 +338,13 @@ function layoutStacked(style: LabelStyle, content: LabelContent, measure: Measur
     const total = (showBrand ? brandH + gap : 0) + qrSize + (blocks.length ? gap + textH : 0);
     let y = (heightMm - total) / 2;
     const cx = widthMm / 2;
-    const brand = showBrand ? { x: cx - (brandH * WORDMARK_ASPECT) / 2, y, width: brandH * WORDMARK_ASPECT, height: brandH } : null;
+    const brand = showBrand ? { x: cx - (brandH * BRAND_ASPECT) / 2, y, width: brandH * BRAND_ASPECT, height: brandH } : null;
     if (showBrand) y += brandH + gap;
     const qr = { x: cx - qrSize / 2, y, size: qrSize };
     y += qrSize + gap;
     const lines: LayoutLine[] = [];
     for (const block of blocks) {
-      const lh = lineHeightMm(block.sizePt);
+      const lh = lineHeightMm(block.boxPt ?? block.sizePt);
       // A one-line name sits in the middle of the two lines kept for it.
       const spare = blockHeight(block, true) - blockHeight(block);
       y += spare / 2;
@@ -330,7 +372,7 @@ function layoutSide(style: LabelStyle, content: LabelContent, measure: MeasureTe
   for (;;) {
     const blocks = blocksFor(style, content, textW * PT_PER_MM, namePt, smallPt, measure, dropped);
     const showBrand = style.showBrand && !dropped.has("brand");
-    const brandH = showBrand ? Math.min(brandHeightMm, (textW * 0.9) / WORDMARK_ASPECT) : 0;
+    const brandH = showBrand ? Math.min(brandHeightMm, (textW * 0.9) / BRAND_ASPECT) : 0;
     const textH = blocks.reduce((sum, block) => sum + blockHeight(block), 0) + Math.max(0, blocks.length - 1) * gap * 0.5;
     const total = (showBrand ? brandH + gap : 0) + textH;
     const next = droppable(style, content, dropped);
@@ -339,12 +381,12 @@ function layoutSide(style: LabelStyle, content: LabelContent, measure: MeasureTe
       continue;
     }
     let y = (heightMm - total) / 2;
-    const brand = showBrand ? { x: textX, y, width: brandH * WORDMARK_ASPECT, height: brandH } : null;
+    const brand = showBrand ? { x: textX, y, width: brandH * BRAND_ASPECT, height: brandH } : null;
     if (showBrand) y += brandH + gap;
     const lines: LayoutLine[] = [];
     blocks.forEach((block, index) => {
       if (index > 0) y += gap * 0.5;
-      const lh = lineHeightMm(block.sizePt);
+      const lh = lineHeightMm(block.boxPt ?? block.sizePt);
       for (const text of block.lines) {
         lines.push({ kind: block.kind, text, x: textX, y: y + lh * 0.8, sizePt: block.sizePt, bold: block.bold, anchor: "start" });
         y += lh;

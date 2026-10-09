@@ -138,6 +138,31 @@ export async function startGoogleSignIn(callbackURL: string): Promise<SignInStar
 }
 
 /**
+ * "Use a different Google account" on the refusal pages (auth spec amendment
+ * 2026-10-07): end whatever session this browser holds, then start Google
+ * sign-in again. Google is always asked for its account chooser
+ * (`prompt=select_account`, `config.ts`), so the person picks the account
+ * instead of Google reusing the one it just refused.
+ *
+ * Signing out first is what stops a loop: a refused sign-in leaves no session
+ * behind (`config.ts` revokes the one an out-of-domain row was given), but a
+ * stale cookie from an earlier account must not ride along either. A failed
+ * sign-out is ignored; the restart still goes ahead.
+ */
+export async function switchGoogleAccount(callbackURL: string): Promise<SignInStart> {
+  try {
+    await fetch(SIGN_OUT_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+  } catch {
+    // Ignored: nothing to sign out of is the common case here.
+  }
+  return startGoogleSignIn(callbackURL);
+}
+
+/**
  * End the session and reload so every server-rendered surface re-resolves.
  *
  * The reload happens even when the request fails: there is nothing useful to

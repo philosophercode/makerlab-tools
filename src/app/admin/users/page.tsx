@@ -11,16 +11,16 @@ import { listBlockedEmails } from "../../../lib/data/blocked-emails";
 import { listUsers } from "../../../lib/data/users";
 import { addPerson, removeUser, setUserName, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
 import { AddPersonForm } from "../../../components/admin/AddPersonForm";
-import { AllowanceGrant } from "../../../components/admin/AllowanceGrant";
-import { listActiveAllowances } from "../../../lib/data/research-allowances";
-import { grantSetupAllowance } from "./allowance-actions";
-import type { AllowanceCandidate } from "./allowance-result";
 
 /**
  * `/admin/users` — who is who, and how to change it (spec §5.2, §6), and
  * since the auth spec amendment of 2026-09-25 who has been removed for good:
  * **Remove** on each row, and the **Blocked emails** list below the roster.
  * **Add person** puts somebody on the roster before their first sign-in.
+ *
+ * The People section's **Roster** tab (admin sections spec 2026-10-07). The
+ * research budget (setup allowances) that used to close this page moved to
+ * Settings › AI agents (`/admin/settings/ai-agents`).
  *
  * Super admin only: `users.manage` belongs to that role alone (§8). The layout
  * above let a SuperMaker in — they hold other admin permissions — so the
@@ -51,19 +51,6 @@ export default async function AdminUsersPage({
   if (!can(identity, "users.manage")) return <AdminNotice kind="forbidden" />;
 
   const [users, blocked] = await Promise.all([listUsers(), listBlockedEmails()]);
-  // Setup allowances (bulk intake spec §4.2): who may research, and what they hold now.
-  const researchers = users.filter((person) => !person.banned && can({ role: person.role }, "tools.add"));
-  const grants = await listActiveAllowances(researchers.map((person) => person.id));
-  const candidates: AllowanceCandidate[] = researchers.map((person) => {
-    const own = grants.filter((grant) => grant.userId === person.id);
-    return {
-      id: person.id,
-      name: person.name,
-      email: person.email,
-      activeExtra: own.reduce((sum, grant) => sum + grant.extraItems, 0),
-      activeUntil: own.length > 0 ? new Date(Math.max(...own.map((grant) => grant.expiresAt.getTime()))).toISOString() : null,
-    };
-  });
 
   const admins = users.filter((person) => person.role === "admin" || person.role === "super_admin").length;
 
@@ -103,8 +90,6 @@ export default async function AdminUsersPage({
         }))}
         unblock={unblockBlockedEmail}
       />
-
-      <AllowanceGrant candidates={candidates} grant={grantSetupAllowance} />
     </section>
   );
 }

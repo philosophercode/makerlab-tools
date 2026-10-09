@@ -28,6 +28,8 @@ interface TurnUsage {
   passages: Map<string, PassageUsage>;
   /** Tools a `search_manual` call was scoped to. */
   scopedToolIds: Set<string>;
+  /** A `search_manual` call compared every machine in the lab (`all_machines`). */
+  wideSearch: boolean;
 }
 
 const turns = new WeakMap<object, TurnUsage>();
@@ -35,7 +37,7 @@ const turns = new WeakMap<object, TurnUsage>();
 function usageOf(turn: object): TurnUsage {
   let usage = turns.get(turn);
   if (!usage) {
-    usage = { passages: new Map(), scopedToolIds: new Set() };
+    usage = { passages: new Map(), scopedToolIds: new Set(), wideSearch: false };
     turns.set(turn, usage);
   }
   return usage;
@@ -65,7 +67,21 @@ export function logScopedTool(turn: object | undefined, toolId: string | null | 
   usageOf(turn).scopedToolIds.add(toolId);
 }
 
-export function turnUsage(turn: object | undefined): { passages: ReadonlyMap<string, PassageUsage>; scopedToolIds: string[] } {
+/** Record that a manual search compared every machine in the lab. */
+export function logWideSearch(turn: object | undefined): void {
+  if (!turn) return;
+  usageOf(turn).wideSearch = true;
+}
+
+export function turnUsage(turn: object | undefined): {
+  passages: ReadonlyMap<string, PassageUsage>;
+  scopedToolIds: string[];
+  wideSearch: boolean;
+} {
   const usage = turn ? turns.get(turn) : undefined;
-  return { passages: usage?.passages ?? new Map(), scopedToolIds: [...(usage?.scopedToolIds ?? [])] };
+  return {
+    passages: usage?.passages ?? new Map(),
+    scopedToolIds: [...(usage?.scopedToolIds ?? [])],
+    wideSearch: usage?.wideSearch ?? false,
+  };
 }

@@ -1,5 +1,6 @@
 import type { GapKind, UsageAudience } from "../db/schema/vocabulary.ts";
 import { CITE_HREF_PREFIX, linkPosition } from "../manuals/citation-ref.ts";
+import { answerToolIds, isOtherMachine } from "../manuals/citation-scope.ts";
 import { answerDeclaresAbsence } from "./absence.ts";
 import type { UsageEvent, UsageGapInput } from "./events.ts";
 import { classifyQuestion } from "./question-kind.ts";
@@ -16,12 +17,18 @@ import type { PassageUsage } from "./turn-log.ts";
  * - one `manual_cited` per passage the answer actually linked to — the same
  *   test the chat's Sources use (`components/chat/manual-citations.ts`): a
  *   link to the `#cite-<ref>` of a passage `search_manual` returned this turn
- *   (what the prompt asks the model to write), or to its exact URL;
+ *   (what the prompt asks the model to write), or to its exact URL. A passage
+ *   from another machine's document than the one the answer is about
+ *   (`manuals/citation-scope.ts`) is recorded with `source: "cross_tool"`
+ *   (manual text spec amendment 2026-10-06);
  * - at most one `gap`, when §5.2 says the turn could not answer, with the
  *   student's last message scrubbed for the Unanswered queue.
  *
  * Nothing here reads who asked: the audience bucket comes in as a value.
  */
+
+/** `manual_cited.source` for a citation of another machine's document. */
+export const CROSS_TOOL_SOURCE = "cross_tool";
 
 /** The part of a step this reads: the tool results' names and outputs. */
 export interface TurnStep {
@@ -37,6 +44,8 @@ export interface TurnInput {
   focusedToolId?: string | null;
   passages: ReadonlyMap<string, PassageUsage>;
   scopedToolIds: readonly string[];
+  /** A search this turn compared every machine in the lab: no citation is cross-tool. */
+  wideSearch?: boolean;
   audience: UsageAudience;
   locale?: string | null;
 }
@@ -79,9 +88,17 @@ export function fromTurn(input: TurnInput): TurnUsageOutput {
   for (const toolId of asked) events.push({ ...base, kind: "tool_asked", toolId });
 
   const cited = citedUrls(input.text, input.passages);
+  const allowed = answerToolIds(input.focusedToolId, [{ toolIds: input.scopedToolIds, wide: input.wideSearch === true }]);
   for (const url of cited) {
     const passage = input.passages.get(url)!;
-    events.push({ ...base, kind: "manual_cited", toolId: passage.toolId, manualDocumentId: passage.documentId, page: passage.page });
+    events.push({
+      ...base,
+      kind: "manual_cited",
+      toolId: passage.toolId,
+      manualDocumentId: passage.documentId,
+      page: passage.page,
+      ...(isOtherMachine(passage.toolId, allowed) ? { source: CROSS_TOOL_SOURCE } : {}),
+    });
   }
 
   const searches = outputsOf(input.steps, "search_tools");

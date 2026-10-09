@@ -87,6 +87,7 @@ describe("what get_usage_summary answers", () => {
       kiosk_screen_loads: page.totals.kioskScreens,
       kiosk_qr_arrivals: page.totals.kioskScans,
       manual_citations: page.totals.citations,
+      cross_tool_citations: page.totals.crossToolCitations,
       unanswered: page.totals.gaps,
       answered_share: `${Math.max(0, Math.round((1 - page.totals.gaps / page.totals.chatTurns) * 100))}%`,
     });

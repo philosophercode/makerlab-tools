@@ -22,7 +22,10 @@
 > return for things opened from many places and the frosted sheet and dialog
 > (§3, §8.8); the assistant's launchers (§8.12, §8.15). 2026-09-26: the
 > header fits every width from 390 to 1920 on the design's own breakpoints,
-> and a table wider than its column scrolls inside itself (§6, §8.3, §8.12).*
+> and a table wider than its column scrolls inside itself (§6, §8.3, §8.12).
+> 2026-10-05: a phone on its side gets the short bar — one 48px row, the links
+> behind MENU — and nothing sticks there (§6, §8.1, §8.12).
+> 2026-10-06: brand marks, the wordmark and the official logo (§7.1).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -83,6 +86,7 @@ hex values.
 | `--ink-on-primary` | text on orange | #0F0F0F | #0F0F0F | `primary-foreground` |
 | `--primary-ink` | orange **text, marks, focus** | #B8431A | #FF6B35 | `primary-ink`, `ring` |
 | `--secondary` | Cornell Crimson, heritage stamp | #B31B1B | #B31B1B | `brand` |
+| `--secondary-ink` | crimson **words** (the profile menu's Sign out) | #B31B1B | #F0645A | — |
 | `--outline` | hairlines | #CFC6B8 | #2A2A2A | `border` |
 | `--outline-strong` | control boundaries (3:1) | #8A8171 | #6E6A64 | `input` |
 | `--rule` | table row rules | ink 10% | ink 10% | `rule` |
@@ -98,7 +102,9 @@ same colour. On the light `muted` plate (#EEE8DE) the ink is 4.47:1, a hair
 under AA: orange text belongs on the page or a card, not on `muted`.
 
 **Crimson is a stamp, not a signal.** It marks heritage (the brand lockup), never
-errors in dark mode (2.8:1 there). Errors use `--status-bad`.
+errors in dark mode (2.8:1 there). Errors use `--status-bad`. Crimson *words*
+(Sign out in the profile menu, 2026-10-07) use `--secondary-ink`: crimson on
+paper, the lighter red in dark mode, AA in both.
 
 **The No-Line rule.** Do not separate major page sections with 1px lines; use a
 tonal shift (`surface-container-low` against `background`). Hairlines are for
@@ -156,7 +162,9 @@ fonts happen to be installed is not a design.
   a wide thing (the section bar, a code block, a table wider than its
   column) scrolls inside itself. `e2e/header-stability.spec.ts` checks the
   main routes at 390, 1024 and 1440.
-- Breakpoints: `sm 640 · md 768 · lg 1024 · xl 1280`. Nothing else.
+- Breakpoints: `sm 640 · md 768 · lg 1024 · xl 1280`. Nothing else. One
+  height query beside them: the **short viewport**, landscape and at most
+  500px tall — a phone on its side — for the header alone (§8.12).
 - Controls: 32px default, 28px in toolbars, 24px for row actions; touch rows ≥ 40px.
 
 ## 7. Iconography
@@ -165,6 +173,26 @@ fonts happen to be installed is not a design.
 and controls*; they are not decoration and never appear inside data cells, where
 a status glyph (● ▲ ■ ○ ◆ –) does the job in a tenth of the ink.
 
+### 7.1 Brand marks
+
+Two marks, two jobs (identity spec, amendment 2026-10-06):
+
+| Mark | File | Where |
+|---|---|---|
+| MakerLAB wordmark (striped "Maker", bold "LAB") | `public/makerlab-wordmark.png` (`siteConfig.wordmark`) | The header only (`.brand-wordmark`) |
+| Official logo: the Cornell seal, "CORNELL TECH", "MakerLAB" | `public/brand/cornell-tech-makerlab-logo.svg` (`siteConfig.logo`) and its PNG (`siteConfig.logoPng`) | The kiosk's top bar, the footer and About (`BrandLogo`); the link-preview card and QR labels draw the PNG |
+
+- Both are one colour, drawn as a CSS mask in the text colour, so one file
+  serves the light and dark themes. Never fill either with orange or crimson,
+  stretch it, crop it or redraw it.
+- The official logo is decoration beside words that name the lab
+  (`aria-hidden`). Give it a height (`h-10` in the footer, `h-14 sm:h-16` on
+  About); the width follows at its own proportions.
+- `cornell-tech-makerlab-logo-white.svg` is for dark backgrounds outside the
+  app, such as slides or a poster. Inside the app the mask does that job.
+- The old "MakerLAB@CORNELL TECH" files (`public/makerlab-logo-transparent.png`,
+  `public/makerlab-logo-blackonly.png`) are retired.
+
 ## 8. Patterns
 
 Each pattern names its component (`src/components/system/*`, `ui/*`,
@@ -172,9 +200,10 @@ Each pattern names its component (`src/components/system/*`, `ui/*`,
 
 ### 8.1 Page header — `PageHeader`
 
-`// ADMIN / KEEP DATA FRESH` crumb (mono, the `//` in accent) → title → one-line
-lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTENTION`)
-→ actions on the right.
+`// ADMIN / INVENTORY` crumb (mono, the `//` in accent; the section's name) →
+title → one-line lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS ·
+97 NEED ATTENTION`) → actions on the right → on an admin page, the section's
+tabs (§8.12).
 
 - **Use** on every working page (admin, account, projects, mcp).
 - **Don't** stack a display heading above it (the old 88px "ADMIN"); don't put
@@ -186,11 +215,17 @@ lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTE
   focusing the header's actions with Tab, or following a `#` link, lands them
   below the strip instead of under it. Content scrolled past by hand goes
   under the opaque strip, which sits above it (`z-index: 20`); nothing in the
-  admin sets a z-index that competes with it.
+  admin sets a z-index that competes with it. On a short viewport nothing
+  sticks and `--sticky-chrome-height` is 0, so the same rules hold (§8.12).
 
 ![Header, section bar and facts line](screens/after-inventory-desktop.webp)
 
 ### 8.2 Tiles — `Tile`, `TileGroup`, `TileGrid`
+
+> **Not used since 2026-10-07.** The admin sections spec replaced the tiles home
+> with the Overview (§8.12): Need to know, the Shift checklist, and side plates of
+> rows. The components remain until their deletion is approved; what follows
+> describes them as they were.
 
 Whole tile is the link. Every tile has the same anatomy, in the same places:
 **label row** (mono title left, icon right) → **headline** (40px tabular
@@ -470,7 +505,9 @@ table, import card) span the full width. `Suggestions` stack as sentences on
 the empty state, each with a small icon. `PromptInput` at the foot:
 attachments above the text, attach and dictate on the left, **Send** — the
 sheet's one filled button — on the right; Enter sends, Shift+Enter is a new
-line.
+line. Under it, always, one quiet line in the form-hint style (§8.7: 12px,
+muted): "MakerLAB AI can make mistakes. Check anything safety-related with
+staff." It is the text field's accessible description.
 
 ```
 TO REPLACE THE RESIN TANK ON THE FORM 4:
@@ -492,7 +529,7 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   cited, one ruled row each. A page that was read but not cited is not listed.
 - **Where it opens.** Public pages: a square Safety Orange `>_` block at the
   inline-end corner. Admin pages: no floating block (it collided with bulk
-  bars) — the section bar's `ASK THE ASSISTANT` and ⌘K.
+  bars) — the section bar's `ASK MAKERLAB AI` and ⌘K.
 - **Don't** use rounded bubbles or avatars; don't strip citations; don't show
   a tool's JSON to a student; don't open a floating card that can't fit the
   cards it contains; don't push the page aside under the sheet (the page
@@ -502,12 +539,16 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
 
 ### 8.12 Navigation and IA
 
-- **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar, then
-  `[⌕ Search tools… ⌘K]` beside the language and theme controls (an icon
-  button on a phone); status strip below (`86 TOOLS IN INVENTORY · LAB OPEN
-  9AM–9PM`). Report is the bar's one accent; **Sign in** is a hairline box in
-  ink; the local-only **Sign in as (dev)** is muted and dashed and shortens to
-  `DEV` below `xl`. The profile menu is a frosted plate (§3).
+- **Public**: `TOOLS · MAP · PROJECTS · ABOUT` in the top bar, then `ADMIN`
+  for anyone who can reach `/admin` (2026-10-07: it replaced `REPORT`, which
+  moved to the footer's **Report a problem**; the tool page and the QR arrival
+  notice keep theirs), then `[⌕ Search tools… ⌘K]` beside the language and
+  theme controls (an icon button on a phone); status strip below (`86 TOOLS IN
+  INVENTORY · LAB OPEN 9AM–9PM`). The bar's only accent is the current page's
+  underline; **Sign in** is a hairline box in ink; the local-only **Sign in as
+  (dev)** is muted and dashed and shortens to `DEV` below `xl`. The profile
+  menu is a frosted plate (§3) holding Add equipment (for `tools.add`),
+  Account, Connect AI assistant (MCP) and Sign out, the last in crimson ink.
 - **The bar fits every width, on the design's breakpoints.** From `xl` it is
   one row with the `// CORNELL TECH` tagline. From `lg` to `xl` it is still
   one row, tighter (24px between groups, 20px between links), without the
@@ -524,16 +565,53 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   styled scrollbar takes space, and Chromium ignores `scrollbar-gutter` for
   one), the active link changes colour and underline only, never weight or
   size. `e2e/header-stability.spec.ts` measures it with scrollbars shown, at
-  390, 1024, 1280 and 1440.
-- **Admin**: a section bar under the top bar on every admin page:
-  `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
-  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ▭ ASK THE ASSISTANT`
-  (the icon alone on a phone, the words still its name),
-  dividers between jobs, the most specific current page underlined in the
-  accent (an item's page marks its surface), only surfaces the viewer's
-  permissions open, **no counts**. On a phone it scrolls inside itself. The
-  one list behind the bar, the home and the palette is
-  `src/lib/admin/surfaces.ts` — a page added there appears in all three.
+  390, 1024, 1280 and 1440, and at 844 × 390.
+- **A phone on its side gets the short bar** (amendment 2026-10-05). The
+  owner, on a phone held sideways: the bar and the strip took most of the
+  screen. They took 159px of 390 — the compact bar's two rows and the strip —
+  and the bar stayed pinned. On a short viewport (landscape, at most 500px
+  tall; §6) the bar is one 48px row: the wordmark at 24px with the name beside
+  it (the name only from `md`), then **MENU**, the account control, and the
+  utility controls with the search field down to its icon. MENU is a
+  disclosure button (`aria-expanded`, not a `menu` role): the links and Report
+  in a frosted plate under it, one 40px row each, the current page marked by
+  the accent rule at its start; Tab walks them, Escape closes it and returns
+  focus to MENU, and following a link, pressing outside, moving focus away or
+  turning the phone upright closes it. **Here, and only here, the bar does
+  move: nothing sticks.** The bar and the strip scroll away with the page,
+  `--sticky-chrome-height` is 0, and section headings stick at the top of the
+  screen — content is what a short screen is for. Every other width keeps its
+  bar exactly as above, links centred from `lg`; the tool page keeps its
+  breadcrumb.
+- **Admin: six sections** (admin sections spec 2026-10-07, the owner's
+  decisions). A section bar under the top bar on every admin page:
+  `OVERVIEW · MAINTENANCE · INVENTORY · PEOPLE · INSIGHTS · SETTINGS ┃ ▭ ASK MAKERLAB AI`
+  (the icon alone on a phone, the words still its name). Grouped by the job a
+  person came to do, in the order a shift meets them. The section of the page
+  you are on is underlined in the accent. A section opens the first of its
+  pages the viewer may open (People is the roster for a director, Student
+  projects for a SuperMaker); a section with nothing open to the viewer is not
+  shown. **No counts.** On a phone it scrolls inside itself.
+- **Section tabs.** Under each page header, the section's other pages as
+  `LinkTabs` named "<Section> pages" (`SectionTabs`): Maintenance is `TICKETS ·
+  SHIFT CHECKLIST · RECURRING TASKS`; Inventory `ALL TOOLS · ADD EQUIPMENT · QR
+  LABELS · LAB NOTES · MANUALS · CHECK FOR UPDATES · CATEGORIES · PAGE
+  CORRECTIONS`; People `ROSTER · STUDENT PROJECTS`; Settings `GENERAL · NOTION
+  MIRROR · MCP · AI AGENTS`. A section with one page open to the viewer draws
+  no tabs. Every page is one click from the bar and in ⌘K. The one list behind
+  the bar, the tabs, the overview and the palette is
+  `src/lib/admin/surfaces.ts`.
+- **Name pages in the lab's words**: Add equipment (not Intake), Check for
+  updates (not Refresh research), Categories (not Taxonomy), Page corrections,
+  Student projects, MCP (connected AI, not "Assistant proposals"), AI agents,
+  Shift checklist, Need to know. A section's landing page keeps the section's
+  name as its title (Maintenance, Inventory, People).
+- **The overview** (`/admin`): **Need to know** first (urgent tickets with
+  **Take it**, overdue checks, tickets naming no machine; bad and warn glyphs),
+  then the **Shift checklist**; beside them on desktop, below on a phone, three
+  plates: **Quick actions** (Print QR labels first and largest), **Waiting for
+  a decision** and **Inventory health** (glyph · label · number rows, a muted
+  0, an unreadable count said in words). Waiting counts live here only.
 - **Admin navigation never waits on a hole.** A click in the section bar, a
   tab or a row link commits at once: the section bar stays, the page area
   shows the one `EmptyState` loading line (`AdminPageLoading`), and the page
@@ -549,18 +627,20 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   the production build.
 - **Page header**: `// ADMIN / GROUP` (plus `/ SURFACE` as a link on an item's
   page) → title → lede → facts line → actions (`AdminPageHeader`).
-- **Tabs that are pages** (`LinkTabs`): Intake's `QUEUE · IMPORTS` under one
-  header. Links with `aria-current`, not `role="tab"` — each tab is a URL; a
+- **Tabs that are pages** (`LinkTabs`): the section tabs above, and Add
+  equipment's own `QUEUE · IMPORTS` under them. Links with `aria-current`, not `role="tab"` — each tab is a URL; a
   tab the viewer cannot open is not shown.
 - **One surface per job's page, actions in the header.** Adding equipment is
-  one surface, **Intake**: importing a list is its header action (`IMPORT A
-  LIST`), not a surface, tile or palette entry of its own. A page's primary
-  action sits in its header's actions — Inventory's `ADD INVENTORY`, Refresh's
-  `REFRESH RESEARCH…` (a dialog that picks the tools), Intake's `IMPORT A LIST`.
+  one surface, **Add equipment**: importing a list is its header action
+  (`IMPORT A LIST`), not a surface or palette entry of its own. A page's
+  primary action sits in its header's actions — All tools' `ADD EQUIPMENT`
+  (with `QR LABELS` beside it, outlined, so labels stay easy to find), Check
+  for updates' `REFRESH RESEARCH…` (a dialog that picks the tools), Add
+  equipment's `IMPORT A LIST`, MCP's `HOW TO CONNECT`.
 - **⌘K palette** (`palette/CommandPalette`, on every page from the header):
   `PAGES` (Tools, Projects, About, MCP), `CATEGORIES` (the gallery filtered to
-  one, with its count), `ADMIN PAGES` and `ACTIONS` only for a role that opens
-  them, `TOOLS` (display name, the official name muted, the category or `DRAFT`
+  one, with its count), `ADMIN PAGES` (Overview, then every tab, its section in
+  the shortcut column) and `ACTIONS` only for a role that opens them, `TOOLS` (display name, the official name muted, the category or `DRAFT`
   at the end). Every word typed must match; nothing fuzzy. A frosted plate.
   `/` jumps to the page's own filter search. `ASSISTANT` is the **last**
   group, for everybody: "Ask the assistant" with nothing typed, "Ask the
@@ -640,7 +720,9 @@ whitespace — an h2 in Space Grotesk and an optional muted lede.
 
 Facts, not panels, and only the facts the tool has: crumb `// TOOLS › FORM 4`
 → hero (a **small** image plate, ~16rem, beside the display title, the
-official name in mono, **one** status line of glyphs and words, the
+official name in mono, **one** status line of glyphs and words, the lab's
+**Lab notes** when it has any — an ink start rule, a mono `LAB NOTES · FROM
+THE LAB'S STAFF` label, one note a sentence and several a list — then the
 description, Safety doc / SOP) → **two columns on desktop**: **Safety**, the
 one tinted section (bad start rule, compact label/value rows), then **Details**
 as a dense `<dl>` on the left; **Documents & resources** as a ruled list (the

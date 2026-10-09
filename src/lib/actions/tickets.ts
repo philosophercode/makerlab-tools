@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { MAINTENANCE_PATH, type MaintenanceWriteError } from "../../app/admin/maintenance/action-result";
+import { CHECKLIST_PATH } from "../../app/admin/maintenance/schedule-result";
 import { ticketSubjects } from "../data/action-subjects";
 import { updateMaintenanceLog } from "../data/maintenance";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../db/schema/vocabulary";
@@ -124,5 +125,6 @@ export const TICKETS_UPDATE = defineAction<
     await requestMirrorPush();
     return undefined;
   },
-  revalidate: [MAINTENANCE_PATH],
+  // The overview and the Shift checklist show open tickets too (admin sections spec 2026-10-07).
+  revalidate: [MAINTENANCE_PATH, CHECKLIST_PATH, "/admin"],
 });

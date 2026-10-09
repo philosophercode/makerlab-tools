@@ -12,6 +12,7 @@ import {
 import type { CompletedMaintenanceType } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { labToday } from "../lab-time.ts";
+import { enqueueNotification } from "../notifications/enqueue.ts";
 import { accountRemoved } from "./account-removed.ts";
 import { claimAttachments } from "./attachments.ts";
 import { rankByVocabulary } from "./rank.ts";
@@ -288,12 +289,25 @@ export interface NewMaintenanceLog {
   status?: string | null;
   /** The catalogue unit the report is about, when one resolved. */
   unitId?: string | null;
+  /**
+   * The tool the report is about, for a report that names a machine but no
+   * unit (the quick report form, quick report spec §4). Used only when
+   * {@link unitId} does not resolve: a unit's own tool always wins.
+   */
+  toolId?: string | null;
   reportedByName?: string | null;
   /** **Session only.** There is deliberately no request field that reaches this. */
   reportedByEmail?: string | null;
   reportedByUserId?: string | null;
   /** `attachments.id`s uploaded for this report, in display order. */
   photoAttachmentIds?: readonly string[];
+  /**
+   * Where the report came from: the chat or an MCP client (`ctx.surface`),
+   * or the quick report form (`gui`). Recorded on the `ticket.filed`
+   * notification so the staff email can say "via a connected app" (email
+   * notifications spec §5.1).
+   */
+  surface?: "chat" | "mcp" | "gui" | null;
 }
 
 export interface CreatedMaintenanceLog {
@@ -306,6 +320,12 @@ export interface CreatedMaintenanceLog {
   dateReported: string;
   /** How many of {@link NewMaintenanceLog.photoAttachmentIds} actually attached. */
   photosAttached: number;
+  /**
+   * The `ticket.filed` outbox row written with the ticket (email notifications
+   * spec §3.2). The caller hands it to `requestNotificationDelivery` after the
+   * commit.
+   */
+  notificationId: string | null;
 }
 
 export interface MaintenanceWriteOptions {
@@ -323,7 +343,15 @@ export interface MaintenanceWriteOptions {
  * ticket.
  *
  * The insert and the photo claim share one transaction, so a ticket that fails
- * to write cannot leave its photos pointing at a row nobody has.
+ * to write cannot leave its photos pointing at a row nobody has. So does the
+ * `ticket.filed` notification (email notifications spec §3.2, §11 Q6): every
+ * path that files a ticket (chat, the report form, MCP) comes through here, so
+ * all of them email staff alike, and a ticket that did not land notifies
+ * nobody. An outbox insert that fails rolls the ticket back too.
+ *
+ * `logCompletedMaintenance` (staff recording work they already did) is a
+ * separate function and emits nothing: nobody needs telling about their own
+ * work.
  *
  * Throws on a database failure. The caller reports that to the student as a
  * failure to file — never as a filed ticket (Article 4).
@@ -333,7 +361,7 @@ export async function createMaintenanceLog(
   options: MaintenanceWriteOptions = {}
 ): Promise<CreatedMaintenanceLog> {
   const db = options.db ?? (await getDb());
-  const target = await findUnitTarget(db, input.unitId);
+  const target = (await findUnitTarget(db, input.unitId)) ?? (await findToolTarget(db, input.toolId));
   const dateReported = labToday();
 
   return db.transaction(async (tx) => {
@@ -362,9 +390,20 @@ export async function createMaintenanceLog(
       })
       .returning({ id: maintenanceLogs.id });
 
-    const photosAttached = await claimAttachments(tx, input.photoAttachmentIds ?? [], {
-      ownerType: "maintenance_log",
-      ownerId: row.id,
+    // Only the reporter's own uploads (anonymous uploads for an anonymous
+    // report): the ids come from the model or an MCP client, and an unowned
+    // upload id is not a secret once it has been pasted anywhere.
+    const photosAttached = await claimAttachments(
+      tx,
+      input.photoAttachmentIds ?? [],
+      { ownerType: "maintenance_log", ownerId: row.id },
+      { uploadedBy: input.reportedByUserId || null }
+    );
+
+    const notification = await enqueueNotification(tx, {
+      event: "ticket.filed",
+      subject: { type: "maintenance_log", id: row.id },
+      surface: input.surface ?? null,
     });
 
     return {
@@ -374,12 +413,14 @@ export async function createMaintenanceLog(
       unitLabel: target?.unitLabel ?? null,
       dateReported,
       photosAttached,
+      notificationId: notification?.id ?? null,
     };
   });
 }
 
 interface UnitTarget {
-  unitId: string;
+  /** Null for a tool-only target ({@link findToolTarget}). */
+  unitId: string | null;
   toolId: string | null;
   toolName: string | null;
   unitLabel: string | null;
@@ -402,6 +443,13 @@ async function findUnitTarget(db: Db, unitId: string | null | undefined): Promis
     .limit(1);
 
   return row ?? null;
+}
+
+/** A tool with no unit: the tool and its name, or null for anything unresolvable. */
+async function findToolTarget(db: Db, toolId: string | null | undefined): Promise<UnitTarget | null> {
+  if (!toolId || !isUuid(toolId)) return null;
+  const [row] = await db.select({ toolId: tools.id, toolName: tools.name }).from(tools).where(eq(tools.id, toolId)).limit(1);
+  return row ? { unitId: null, unitLabel: null, ...row } : null;
 }
 
 // ── The queue (spec §5.6, §9) ───────────────────────────────────────

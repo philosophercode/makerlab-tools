@@ -375,3 +375,32 @@ prints them, not translated.
 7. **Other spaces:** "Bloomberg 061" appears only in test fixtures. Does the
    lab have equipment anywhere other than Studio 101? If so, send its plan as
    a PDF or photo and it becomes a second `FloorPlan`.
+
+## Amendment — The map above the fold (2026-10-07)
+
+The owner: on `/map` at 1440 × 900 the header, the facts, the source line,
+the search and the zone chips pushed the map down — its top at y = 490, half
+of it below the fold. The map now starts in the first screen and, on a
+laptop, all of it is visible.
+
+- **A compact header:** breadcrumb, title and facts only (`PageHeader`, no
+  bottom padding). The lede moved beside the map as the search's hint; the
+  source line ("Traced from the MakerLAB zone plan …") moved under the map.
+  The placeholder warning, when a plan is one, stays above it.
+- **From lg** (`.map-layout`, `floor-map.css`): the map takes the left column,
+  sized to the window's height — `(100svh − sticky chrome − 136px) × the
+  plan's aspect`, at least 360px and at most 60% of the row (176px on a demo
+  deployment, for the demo-data banner) — and sticks under the chrome while
+  the places scroll. The hint, search, zone bar, the picked place's panel and
+  the Places list sit beside it, in that order.
+- **On a phone:** one column in reading order — hint, search, zone bar (one
+  sideways-scrolling row), map, then the places. Below lg the map is never
+  taller than the window (a tablet, a phone on its side).
+- **Measured** (local database, signed in): the map's top edge at 1440 × 900
+  moved from y = 490 (52% visible) to y = 244 (100%, 633px tall); at
+  1280 × 800 from 482 (46%) to 236 (100%); at 390 × 844 from 548 (82%) to
+  456 (100%).
+- Every function stays: the search and its live count, the zone bar, the
+  place panel, the Places list, Escape and Back. **Tested** in
+  `e2e/map.spec.ts` (the map's position at 1440 × 900, 1280 × 800 and
+  390 × 844) and the existing `MapExplorer.test.tsx`.

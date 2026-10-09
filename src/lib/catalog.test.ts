@@ -57,12 +57,15 @@ describe("getCatalogTools", () => {
     expect(form4.status).toBe("In Use");
     expect(form4.units[0]).toMatchObject({
       name: "Form 4 // A",
-      serial: "ML-F4-001",
       status: "In Use",
       condition: "Excellent",
       location: "Resin Bench",
       dateAcquired: "2024-08-12",
     });
+    // The cached catalogue is everyone's: no whole serials, only the masked
+    // last four (amendment 2026-10-06).
+    expect(form4.units[0]).not.toHaveProperty("serial");
+    expect(form4.units[0].serialMasked).toBe("•••• -001");
     expect(trotec.status).toBe("Training Required");
     expect(trotec.units[0]).toMatchObject({ status: "Available", condition: "Good" });
   });

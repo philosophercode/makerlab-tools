@@ -2,7 +2,6 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   readUIMessageStream,
-  stepCountIs,
   streamText,
   type LanguageModel,
   type StepResult,
@@ -10,6 +9,7 @@ import {
   type UIMessage,
 } from "ai";
 import { chatPrepareStep } from "../../app/api/chat/prepare-step";
+import { chatStopWhen } from "../../app/api/chat/stop-when";
 import { chatProviderOptions, languageModelFor, modelIdFor } from "../ai/models";
 import { gatewayCallReport } from "../ai/gateway-usage";
 import { systemAnonymousIdentity } from "../auth/identity";
@@ -17,6 +17,7 @@ import { CAPABILITIES, capabilitiesForIdentity, composeChat, type CapabilityCtx 
 import { describeCatalogEntry } from "../capabilities/catalog";
 import { describeTool, hasUsableUrl } from "../capabilities/chat-adapter";
 import { getCatalogTool, getCatalogTools } from "../catalog";
+import { getLabWideNotes } from "../lab-notes/read";
 import { appendManualSections } from "../chat/attached-manuals";
 import { stubLiveReads, stubWrites } from "../chat/headless-stubs";
 import { markOutsideReads, newTurnState } from "../chat/taint";
@@ -96,9 +97,11 @@ const DEFAULT_TIMEOUT_MS = 180_000;
 
 export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<StarterAnswerRun> {
   const identity = systemAnonymousIdentity();
-  const [catalog, focused] = await Promise.all([
+  const [catalog, focused, labNotes] = await Promise.all([
     getCatalogTools(),
     input.toolId ? getCatalogTool(input.toolId) : Promise.resolve(null),
+    // The same lab-wide notes the live chat has (identity spec amendment "Lab notes").
+    getLabWideNotes(),
   ]);
   if (input.toolId && !focused) throw new Error(`tool ${input.toolId} is not in the published catalogue`);
   const toolManuals = focused ? await loadToolManualsForChat(focused.id, identity) : { outlines: [] };
@@ -122,6 +125,7 @@ export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<St
         focusedTool: focused,
         locale: "en",
         manualOutlines: toolManuals.outlines,
+        labNotes,
       });
       const streamed = streamText({
         model: input.model ?? languageModelFor("chat"),
@@ -131,7 +135,8 @@ export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<St
         tools,
         prepareStep: chatPrepareStep(Object.keys(tools)),
         onStepFinish: (step) => markOutsideReads(ctx.turn, step),
-        stopWhen: stepCountIs(10),
+        // As the live chat stops: suggested replies end the turn (parity spec amendment 2026-10-07).
+        stopWhen: chatStopWhen(),
         abortSignal: AbortSignal.timeout(input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
         onError: ({ error }) => {
           failure = error;
@@ -162,6 +167,7 @@ export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<St
     focusedToolId: focused?.id ?? null,
     passages: log.passages,
     scopedToolIds: log.scopedToolIds,
+    wideSearch: log.wideSearch,
     audience: "anonymous",
     locale: "en",
   });
@@ -208,12 +214,20 @@ function modelLabel(model: LanguageModel): string {
 const RUN_ONLY_KEYS = new Set(["providerMetadata", "callProviderMetadata", "providerExecuted"]);
 
 /**
- * The message as it is stored and served: reasoning dropped, run-only
- * metadata stripped from every part, a fresh id. Pure.
+ * Parts that describe the moment, not the answer: a tool card carries the
+ * tool's status as it was when the answer was made (parity spec amendment
+ * 2026-10-07), and a cached answer served next week must not say "Available"
+ * about a machine that is down. The text that names the tool stays.
+ */
+const MOMENT_ONLY_PARTS = new Set(["data-tool-cards"]);
+
+/**
+ * The message as it is stored and served: reasoning and tool cards dropped,
+ * run-only metadata stripped from every part, a fresh id. Pure.
  */
 export function storableMessage(message: UIMessage): UIMessage {
   const parts = message.parts
-    .filter((part) => part.type !== "reasoning")
+    .filter((part) => part.type !== "reasoning" && !MOMENT_ONLY_PARTS.has(part.type))
     .map((part) => Object.fromEntries(Object.entries(part).filter(([key]) => !RUN_ONLY_KEYS.has(key))) as UIMessage["parts"][number]);
   return { id: "starter-answer", role: "assistant", parts };
 }
@@ -221,15 +235,22 @@ export function storableMessage(message: UIMessage): UIMessage {
 /**
  * The focused tool's block exactly as the chat's prompt gives it
  * (`describeTool`): what an answer could draw on, for the grader and the
- * question writer. Null for a tool that is not published.
+ * question writer. Null for a tool that is not published. The lab-wide notes
+ * follow it when there are any, so an answer that cites one is grounded
+ * (identity spec amendment "Lab notes").
  */
 export async function describeStarterTool(toolId: string): Promise<string | null> {
-  const tool = await getCatalogTool(toolId);
-  return tool ? describeTool(tool) : null;
+  const [tool, labNotes] = await Promise.all([getCatalogTool(toolId), getLabWideNotes()]);
+  return tool ? [describeTool(tool), ...labWideNotesRecord(labNotes)].join("\n") : null;
 }
 
-/** The catalogue listing exactly as the chat's prompt gives it — the general chips' record. */
+/** The catalogue listing exactly as the chat's prompt gives it, then the lab-wide notes — the general chips' record. */
 export async function describeStarterCatalog(): Promise<string> {
-  const catalog = await getCatalogTools();
-  return [`MakerLab catalog (${catalog.length} tools):`, ...catalog.map(describeCatalogEntry)].join("\n");
+  const [catalog, labNotes] = await Promise.all([getCatalogTools(), getLabWideNotes()]);
+  return [`MakerLab catalog (${catalog.length} tools):`, ...catalog.map(describeCatalogEntry), ...labWideNotesRecord(labNotes)].join("\n");
+}
+
+/** The lab-wide notes as record lines, or none. */
+function labWideNotesRecord(labNotes: readonly string[]): string[] {
+  return labNotes.length > 0 ? ["Lab-wide notes (from the lab's staff):", ...labNotes.map((line) => `- ${line}`)] : [];
 }

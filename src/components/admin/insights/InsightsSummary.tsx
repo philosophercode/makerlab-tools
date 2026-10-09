@@ -11,7 +11,7 @@ export { answeredPercent };
  * shared with MCP's `get_usage_summary`), shown only once there is a question
  * to divide by.
  */
-const KEYS = ["chatTurns", "mcpCalls", "toolViews", "qrScans", "kioskScreens", "kioskScans", "citations", "gaps"] as const;
+const KEYS = ["chatTurns", "mcpCalls", "toolViews", "qrScans", "kioskScreens", "kioskScans", "citations", "crossToolCitations", "gaps"] as const;
 
 export function InsightsSummary({ totals }: { totals: InsightTotals }) {
   const t = useTranslations("admin.insights.summary");

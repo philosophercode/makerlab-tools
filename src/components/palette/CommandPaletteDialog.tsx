@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Folder, Info, LayoutGrid, MessageSquare, PackagePlus, Plug, RefreshCw, Wrench } from "lucide-react";
 import { useChatLauncher } from "../ChatLauncherContext";
+import { openClientQueryPage } from "../use-url-state";
 import { REVALIDATE_ENDPOINT } from "../RefreshCatalogButton";
 import { can } from "../../lib/auth/permissions";
 import { canAddEquipment } from "../../lib/capabilities/access";
@@ -20,9 +21,11 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { paletteScore } from "./palette-match";
+import { categoryEntries, categoryKeywords, toolKeywords } from "./palette-search";
 import { RowStatus } from "../admin/RowStatus";
 import { FROSTED } from "../system/frosted";
 import { cn } from "@/lib/utils";
+import { ALL_TOOLS_PATH, categoryHref } from "../../lib/gallery-links";
 
 /**
  * The ⌘K palette's dialog — everything but its triggers and shortcut, which
@@ -30,7 +33,8 @@ import { cn } from "@/lib/utils";
  * cmdk and the dialog), then kept mounted.
  */
 const PAGES = [
-  { key: "tools", href: "/", icon: Wrench },
+  // The tool list is the home page (student home spec, amendment "One page: the list at rest").
+  { key: "tools", href: ALL_TOOLS_PATH, icon: Wrench },
   { key: "projects", href: "/projects", icon: Folder },
   { key: "about", href: "/about", icon: Info },
   { key: "mcp", href: "/mcp", icon: Plug },
@@ -55,12 +59,8 @@ export function CommandPaletteDialog({
 
   const surfaces = useMemo(() => surfacesFor({ role }), [role]);
   const staff = surfaces.length > 0;
-  // The category groups the tools fall in, each with its count — a link to the gallery filtered to it.
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const tool of tools ?? []) if (tool.category) counts.set(tool.category, (counts.get(tool.category) ?? 0) + 1);
-    return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [tools]);
+  // The category groups the tools fall in, each with its count — a link to the full list filtered to it.
+  const categories = useMemo(() => categoryEntries(tools ?? []), [tools]);
   const canAdd = canAddEquipment({ role });
   const canRefresh = can({ role }, "tools.edit");
 
@@ -75,6 +75,12 @@ export function CommandPaletteDialog({
   function go(href: string) {
     setOpenAndReset(false);
     router.push(href);
+  }
+
+  /** A link to the tool list (a category): on the home page itself, the list reads it in place. */
+  function goToList(href: string) {
+    setOpenAndReset(false);
+    openClientQueryPage(href, (target) => router.push(target));
   }
 
   async function refreshCatalog() {
@@ -118,16 +124,16 @@ export function CommandPaletteDialog({
 
           {categories.length > 0 ? (
             <CommandGroup heading={t("categories")}>
-              {categories.map(([category, count]) => (
+              {categories.map((category) => (
                 <CommandItem
-                  key={category}
-                  value={`category:${category}`}
-                  keywords={[category]}
-                  onSelect={() => go(`/?${new URLSearchParams({ category }).toString()}`)}
+                  key={category.name}
+                  value={`category:${category.name}`}
+                  keywords={categoryKeywords(category)}
+                  onSelect={() => goToList(categoryHref(category.name))}
                 >
                   <LayoutGrid aria-hidden="true" />
-                  <span>{category}</span>
-                  <CommandShortcut>{t("categoryCount", { count })}</CommandShortcut>
+                  <span>{category.name}</span>
+                  <CommandShortcut>{t("categoryCount", { count: category.count })}</CommandShortcut>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -135,9 +141,9 @@ export function CommandPaletteDialog({
 
           {staff ? (
           <CommandGroup heading={t("surfaces")}>
-            <CommandItem value="surface:overview" keywords={[tNav("overview"), t("home")]} onSelect={() => go(ADMIN_HOME)}>
+            <CommandItem value="surface:overview" keywords={[tNav("section.overview"), t("home")]} onSelect={() => go(ADMIN_HOME)}>
               <LayoutGrid aria-hidden="true" />
-              {tNav("overview")}
+              {tNav("section.overview")}
             </CommandItem>
             {surfaces.map((surface) => {
               const Icon = surface.icon;
@@ -146,12 +152,12 @@ export function CommandPaletteDialog({
                 <CommandItem
                   key={surface.key}
                   value={`surface:${surface.key}`}
-                  keywords={[title, tNav(`group.${surface.group}`)]}
+                  keywords={[title, tNav(`section.${surface.section}`)]}
                   onSelect={() => go(surface.href)}
                 >
                   <Icon aria-hidden="true" />
                   <span>{title}</span>
-                  <CommandShortcut>{tNav(`group.${surface.group}`)}</CommandShortcut>
+                  <CommandShortcut>{tNav(`section.${surface.section}`)}</CommandShortcut>
                 </CommandItem>
               );
             })}
@@ -188,7 +194,7 @@ export function CommandPaletteDialog({
                 <CommandItem
                   key={tool.id}
                   value={`tool:${tool.id}`}
-                  keywords={[tool.name, tool.officialName ?? "", tool.slug]}
+                  keywords={toolKeywords(tool)}
                   onSelect={() => go(`/tools/${tool.slug}`)}
                 >
                   <span className="truncate">{tool.name}</span>

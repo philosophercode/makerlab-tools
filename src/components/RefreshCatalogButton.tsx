@@ -19,8 +19,9 @@ import { AsyncButton } from "./system/AsyncButton";
  * identity and refuses anyone without `tools.edit`; rendering `null` here only
  * spares everyone else a control they cannot use.
  *
- * It lives on `/admin`, in the home's header actions (and the ⌘K palette runs
- * the same request). It sat in the
+ * It lives on Settings › General (`/admin/settings`; the admin home's header
+ * until the admin sections spec, 2026-10-07), and the ⌘K palette runs the same
+ * request. It sat in the
  * header until 2026-09-23, when Isaac cleared the bar down to the page links,
  * Report and the profile menu.
  *

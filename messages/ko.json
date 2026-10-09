@@ -1,11 +1,9 @@
 {
   "nav": {
-    "report": "신고",
-    "reportAria": "문제 신고",
-    "reportSeed": "문제를 신고하고 싶어요.",
     "tools": "도구",
     "projects": "프로젝트",
     "about": "소개",
+    "menu": "메뉴",
     "primaryNavLabel": "주요 내비게이션",
     "utilityControlsLabel": "유틸리티 컨트롤",
     "themeToggleAria": "색상 테마 전환 (시스템 → 라이트 → 다크)",
@@ -18,7 +16,10 @@
     "signIn": "로그인",
     "signInAria": "{institution} 계정으로 로그인",
     "signOut": "로그아웃",
-    "signedInAria": "{name}(으)로 로그인됨"
+    "signedInAria": "{name}(으)로 로그인됨",
+    "admin": "관리",
+    "account": "계정",
+    "connectAssistant": "AI 어시스턴트 연결 (MCP)"
   },
   "catalogRefresh": {
     "action": "카탈로그 새로 고침",
@@ -32,9 +33,6 @@
     "toolsInInventory": "재고 도구 {count}개"
   },
   "gallery": {
-    "title": "도구",
-    "searchPlaceholder": "재고 검색...",
-    "searchAria": "재고 검색",
     "category": "카테고리:",
     "training": "교육:",
     "materials": "재료:",
@@ -50,11 +48,46 @@
     "columnTraining": "교육",
     "trainingBeginner": "초급",
     "trainingIntermediate": "중급",
-    "trainingAdvanced": "고급"
+    "trainingAdvanced": "고급",
+    "home": {
+      "searchSection": "랩 검색",
+      "toolCount": "도구 {count}개",
+      "unitsDown": "{count}대 사용 중지"
+    },
+    "search": {
+      "landmark": "도구 검색 및 MakerLAB AI에 질문",
+      "label": "도구를 검색하거나 MakerLAB AI에 질문하세요",
+      "categories": "카테고리",
+      "categoryCount": "도구 {count}개",
+      "assistant": "MakerLAB AI",
+      "ask": "MakerLAB AI에 질문: “{query}”",
+      "askNote": "질문을 담아 채팅을 엽니다. MakerLAB AI는 실수할 수 있습니다.",
+      "clear": "검색어 지우기",
+      "noMatch": "“{query}”와 일치하는 도구나 카테고리가 없습니다.",
+      "enterOpens": "Enter 키로 {name} 열기",
+      "lines": {
+        "search": "도구 {count}개 검색",
+        "build": "무엇을 만들 건가요?",
+        "findMachine": "장비 찾기",
+        "x1Filament": "X1-Carbon에 필라멘트를 넣으려면?",
+        "x1Start": "X1-Carbon에서 3D 프린트를 시작하는 방법 묻기",
+        "trotecAcrylic": "Trotec 레이저로 아크릴을 자를 수 있나요?"
+      }
+    },
+    "results": {
+      "heading": "“{query}” 검색 결과"
+    },
+    "browse": {
+      "label": "보기",
+      "all": "모든 도구"
+    },
+    "backToCategories": "모든 카테고리"
   },
   "detail": {
     "breadcrumbTools": "도구",
     "toolStatusLabel": "도구 상태",
+    "labNotes": "랩 노트",
+    "labNotesFrom": "랩 직원이 작성",
     "trainingChip": "{level} 교육",
     "ppeRequired": "보호장비 필수",
     "viewSafetyDoc": "안전 문서 보기",
@@ -75,7 +108,6 @@
     "trainingRow": "교육",
     "mapId": "지도 ID",
     "tags": "태그",
-    "notes": "메모",
     "physicalMachines": "실물 장비",
     "unit": "장치",
     "status": "상태",
@@ -140,16 +172,18 @@
     "browseTools": "도구 둘러보기"
   },
   "chat": {
-    "openAria": "MakerLAB 어시스턴트 열기",
-    "title": "MakerLAB 어시스턴트",
+    "openAria": "MakerLAB AI 열기",
+    "title": "MakerLAB AI",
     "newChatAria": "새 대화 시작",
     "newChatTitle": "새 대화 시작",
-    "closeAria": "어시스턴트 닫기",
+    "closeAria": "MakerLAB AI 닫기",
     "closeTitle": "닫기 (대화 유지)",
     "greetingTool": "이 도구에 대해 물어보세요. 사양, 재료, 자료 링크를 알고 있습니다.",
     "greetingGeneral": "오늘 무엇을 도와드릴까요?",
-    "composerPlaceholder": "랩 콘솔에 물어보세요...",
-    "composerAria": "랩 콘솔에 물어보기",
+    "composerPlaceholder": "MakerLAB AI에 물어보세요...",
+    "composerAria": "MakerLAB AI에 물어보기",
+    "aiNote": "MakerLAB AI는 실수할 수 있습니다. 안전과 관련된 내용은 직원에게 확인하세요.",
+    "aiNoteDismiss": "안내 닫기",
     "sendAria": "보내기",
     "attachAria": "사진 첨부",
     "attachTitle": "사진 첨부",
@@ -159,7 +193,7 @@
     "uploadFailed": "사진 업로드 실패",
     "uploadsUnavailable": "사진 업로드를 현재 사용할 수 없습니다. 사진 없이도 메시지를 보낼 수 있습니다.",
     "toolRunningAria": "도구 실행 중",
-    "typingAria": "어시스턴트가 입력 중입니다",
+    "typingAria": "MakerLAB AI가 입력 중입니다",
     "readingManualsAria": "매뉴얼 읽는 중",
     "reading": "읽는 중: {titles}…",
     "error": "문제가 발생했습니다. 다시 시도하세요.",
@@ -168,19 +202,72 @@
     "working": "처리 중…",
     "rateLimitSignIn": "로그인하지 않은 방문자의 메시지 한도에 도달했습니다. {institution} 계정으로 로그인하면 대화를 계속할 수 있습니다. 카탈로그 둘러보기는 어느 쪽이든 계속 열려 있습니다.",
     "rateLimitSignInCta": "로그인",
-    "rateLimited": "시간당 메시지 한도에 도달했습니다. 잠시 후 다시 시도해 주세요."
+    "rateLimited": "시간당 메시지 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.",
+    "showingTool": "▣ 도구 사진을 가져오는 중…",
+    "toolCard": {
+      "label": "이 답변의 도구",
+      "open": "열기"
+    },
+    "drawingIllustration": "✎ 일러스트를 그리는 중…",
+    "suggestedReplies": "추천 답장",
+    "illustration": {
+      "badge": "AI 일러스트",
+      "caption": "AI가 생성한 일러스트이며 저희 장비의 사진이 아닙니다. 정확한 단계는 매뉴얼과 스태프에게 확인하세요.",
+      "altPlan": "AI가 생성한 계획 인포그래픽",
+      "altConcept": "AI가 생성한 프로젝트 아이디어 콘셉트 렌더",
+      "unavailable": "이 일러스트는 더 이상 볼 수 없습니다."
+    }
   },
   "qr": {
     "arrivalLabel": "이 장비에서 스캔함",
     "arrivalEyebrow": "장비 앞에서 스캔함",
     "arrivalTitle": "{tool}에 대해 물어보기",
-    "arrivalBody": "이 장비의 코드를 스캔했습니다. 어시스턴트가 장비에 대한 질문에 답하고, 설정을 안내하고, 정비 요청을 접수할 수 있습니다.",
-    "arrivalAction": "이 장비에 대해 물어보기",
+    "arrivalBody": "이 장비의 코드를 스캔했습니다. MakerLAB AI가 장비에 대한 질문에 답하고, 설정을 안내하고, 정비 요청을 접수할 수 있습니다.",
     "arrivalSeed": "{tool} 앞에 있는데 이 장비에 대해 질문이 있습니다.",
+    "arrivalUnitLabel": "이 장치의 라벨에서 스캔함",
+    "arrivalUnitOf": "{tool}의 장치",
+    "arrivalUnitBody": "이 장비에 문제가 있나요? 여기서 신고하면 이 장치에 티켓이 기록되어 직원이 어느 장비를 확인해야 하는지 알 수 있습니다.",
+    "reportUnitAction": "이 장치의 문제 신고",
+    "reportToolAction": "문제 신고",
     "sheetTitle": "QR 라벨",
     "sheetSubtitle": "스티커 용지에 인쇄해 잘라낸 뒤 각 장비에 한 장씩 붙이세요.",
     "labelCta": "도움이 필요하면 스캔하세요",
     "sheetEmpty": "라벨을 만들 게시된 장비가 없습니다."
+  },
+  "report": {
+    "action": "문제 신고",
+    "ask": "이 장비에 대해 MakerLAB AI에게 묻기",
+    "eyebrow": "문제 신고",
+    "lede": "신고는 바로 스태프에게 전달됩니다.",
+    "close": "닫기",
+    "unitLabel": "어느 유닛인가요?",
+    "unitNotSure": "잘 모르겠어요",
+    "unitFromLabel": "스캔한 라벨에서 선택되었습니다.",
+    "textLabel": "이 장비에 어떤 문제가 있는지 알려 주세요",
+    "textHint": "편하게 적어 주세요. MakerLAB AI가 스태프용 티켓으로 정리합니다.",
+    "textPlaceholder": "예: 출력 도중 필라멘트가 들어가지 않고 익스트루더에서 딸깍 소리가 나요.",
+    "photoAdd": "사진 추가",
+    "photoUploading": "업로드 중…",
+    "photoHint": "선택 사항. 스태프가 오기 전에 상황을 확인할 수 있어요.",
+    "photoRemove": "삭제",
+    "photoUnavailable": "지금은 사진을 올릴 수 없습니다. 신고는 그대로 보낼 수 있어요.",
+    "photoFailed": "사진을 올리지 못했습니다. 다시 시도하거나 사진 없이 신고를 보내 주세요.",
+    "photoNotImage": "사진 파일이 아닙니다. 이미지를 선택해 주세요.",
+    "trapLabel": "이 칸은 비워 두세요",
+    "errorInvalid": "신고를 보내지 못했습니다. 몇 단어 이상(최대 2,000자) 적었는지 확인하고 다시 시도해 주세요.",
+    "errorRateLimited": "지난 한 시간 동안 이곳에서 신고가 너무 많았습니다. 안내 데스크의 SuperMaker에게 알려 주세요.",
+    "errorFailed": "신고를 보내지 못했고 아무것도 저장되지 않았습니다. 다시 시도하거나 SuperMaker에게 알려 주세요.",
+    "nextTitle": "다음 단계.",
+    "nextBody": "스태프에게 지금 티켓이 전달됩니다. 장비가 위험해 보이면 사용을 멈추고 SuperMaker에게 알려 주세요.",
+    "cancel": "취소",
+    "submit": "신고 보내기",
+    "submitting": "보내는 중…",
+    "sentTitle": "감사합니다. 신고가 접수되었습니다.",
+    "sentBody": "스태프가 지금 확인할 수 있어요.",
+    "refLabel": "접수 번호",
+    "sentUnit": "{unit}(으)로 접수되었습니다.",
+    "sentSafety": "SuperMaker와 이야기할 때 이 번호를 알려 주세요. 장비가 위험해 보이면 사용을 멈춰 주세요.",
+    "done": "완료"
   },
   "intake": {
     "confidenceHigh": "높은 신뢰도",
@@ -234,12 +321,52 @@
   "auth": {
     "eyebrow": "로그인",
     "title": "이 계정은 {institution} 계정이 아닙니다",
-    "body": "{site}은(는) {institution} 계정으로만 로그인할 수 있어 이 계정은 사용할 수 없습니다.",
+    "refusedAddress": "<address>{email}</address>은(는) 사용할 수 없습니다. {site}은(는) {institution} 계정(@{domain}으로 끝나는 주소)만 허용합니다.",
+    "refusedUnknown": "이 Google 계정은 사용할 수 없습니다. {site}은(는) {institution} 계정(@{domain}으로 끝나는 주소)만 허용합니다.",
+    "blockedAddress": "<address>{email}</address>은(는) 사용할 수 없습니다. {site} 관리자가 이 주소를 차단했습니다. 실수라고 생각되면 랩 직원에게 문의하세요.",
     "stillWorks": "잠긴 것은 없습니다. 로그인하지 않아도 전체 카탈로그를 둘러보고 어시스턴트에게 질문할 수 있습니다. 로그인하면 시간당 메시지 한도가 늘어나고 제출한 내용에 확인된 이름이 기록됩니다.",
-    "browseTools": "카탈로그 둘러보기"
+    "browseTools": "카탈로그 둘러보기",
+    "useDifferentAccount": "다른 Google 계정 사용",
+    "switchUnconfigured": "이 배포에는 로그인이 설정되어 있지 않습니다.",
+    "switchFailed": "Google 로그인을 시작하지 못했습니다. 다시 시도하세요.",
+    "blockedTitle": "이 계정은 {site}에 로그인할 수 없습니다",
+    "blockedBody": "{site} 관리자가 이 주소의 가입을 차단했기 때문에 계정이 만들어지지 않았습니다. 실수라고 생각되면 랩 직원에게 문의하세요."
   },
   "demoBanner": {
     "label": "데모 데이터",
     "body": "이 카탈로그는 내장된 샘플 데이터이며 {institution}의 실제 재고가 아닙니다. Notion이 구성되지 않았습니다."
+  },
+  "footer": {
+    "report": "문제 신고",
+    "reportSeed": "문제를 신고하고 싶어요."
+  },
+  "unsubscribe": {
+    "loading": "불러오는 중…",
+    "eyebrow": "이메일",
+    "confirmTitle": "이 이메일을 끌까요?",
+    "confirm": {
+      "ticketFiled": "누군가 기계 문제를 신고할 때마다 받던 이메일이 더 이상 오지 않습니다.",
+      "maintenanceDue": "기한이 된 정기 유지보수를 알려 주는 아침 알림이 더 이상 오지 않습니다."
+    },
+    "confirmScope": "이 이메일만 중지됩니다. 계정의 다른 설정은 바뀌지 않습니다.",
+    "turnOff": "끄기",
+    "keep": "계속 받기",
+    "failed": "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    "doneTitle": "껐습니다",
+    "done": {
+      "ticketFiled": "누군가 기계 문제를 신고해도 이메일을 받지 않습니다.",
+      "maintenanceDue": "아침 유지보수 알림을 받지 않습니다."
+    },
+    "doneUndo": "티켓과 작업은 앱에 계속 표시됩니다. 이 이메일을 다시 받으려면 랩 책임자에게 요청하세요.",
+    "invalidTitle": "이 링크는 작동하지 않습니다",
+    "invalidBody": "링크가 불완전하거나 오래되었을 수 있습니다. 아무것도 바뀌지 않았습니다. 원하지 않는 이메일이 계속 오면 랩 직원에게 알려 주세요.",
+    "rateLimitedTitle": "시도가 너무 많습니다",
+    "rateLimitedBody": "이 연결에서 요청이 너무 많이 왔습니다. 한 시간 기다린 뒤 링크를 다시 여세요.",
+    "home": "{site}(으)로 돌아가기"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "MakerLAB AI에 질문: “{query}”",
+    "askEmpty": "MakerLAB AI에 질문"
   }
 }

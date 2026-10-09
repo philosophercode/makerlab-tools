@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- ISAM 2026 demo extended-abstract template. build.mjs fills the {{…}} slots
+     from abstract-v2.md. Geometry per ISAM-2026-Demo-Template: Letter, 0.75 in
+     margins (7 × 9.5 in print area), two 3.4 in columns with a 0.2 in gutter,
+     Times; title 16 pt, authors 12 pt, affiliations and body 10 pt,
+     references 8 pt, captions below figures. -->
+<title>MakerLAB AI: Tools to Operate, Fix, and Build in Makerspaces</title>
+<style>
+  @page { size: 8.5in 11in; margin: 0.75in; }
+  html { font-family: "Times New Roman", Times, serif; }
+  body { margin: 0; font-size: 10pt; line-height: 1.12; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+
+  .header { text-align: center; margin-bottom: 0.4in; }
+  .venue { font-size: 10pt; margin: 0 0 2pt 0; }
+  .title { font-size: 16pt; font-weight: normal; margin: 0 0 6pt 0; line-height: 1.1; }
+  .authors { font-size: 12pt; margin: 0 0 3pt 0; }
+  .affil { font-size: 10pt; margin: 0; line-height: 1.25; text-align: center; }
+  .header figure { margin: 8pt 0 0 0; }
+
+  .doc { column-count: 2; column-width: 3.4in; column-gap: 0.2in; column-fill: auto; }
+
+  h2 { font-size: 10pt; font-weight: bold; margin: 6pt 0 2pt 0; break-after: avoid; text-align: left; }
+  h3 { font-size: 10pt; font-weight: bold; font-style: italic; margin: 4pt 0 1pt 0; break-after: avoid; text-align: left; }
+  p { margin: 0 0 3pt 0; }
+  ul { margin: 0 0 3pt 0; padding-left: 1.1em; }
+  li { margin: 0 0 1pt 0; }
+  a { color: inherit; text-decoration: none; }
+  .abstract-label { font-weight: bold; font-style: italic; }
+
+  figure { margin: 4pt 0 5pt 0; break-inside: avoid; text-align: center; }
+  figure img { max-width: 100%; height: auto; border: 0.5pt solid #999; display: block; margin: 0 auto; }
+  figcaption { font-size: 8.5pt; line-height: 1.12; margin-top: 2pt; text-align: justify; }
+
+  .ack p { font-size: 9pt; margin: 0 0 2pt 0; }
+  .refs p { hyphens: manual; -webkit-hyphens: manual; overflow-wrap: anywhere; font-size: 8pt; margin: 0 0 2pt 0; text-indent: -1.4em; padding-left: 1.4em; text-align: left; }
+</style>
+</head>
+<body>
+<div class="header">
+<p class="venue">International Symposium on Academic Makerspaces — ISAM 2026 · 30 September 2026</p>
+<h1 class="title">MakerLAB AI: Tools to Operate, Fix, and Build in Makerspaces</h1>
+<p class="authors">Isaac Steinberg<sup>1</sup>, Niti Parikh<sup>2</sup>, and Miguel Ramirez Peraza<sup>3</sup></p>
+<p class="affil"><sup>1</sup>Isaac Steinberg; MBA ’26, Johnson Cornell Tech; ies22@cornell.edu</p>
+<p class="affil"><sup>2</sup>Niti Parikh; Director, Learning Spaces &amp; MakerLABs, Cornell Tech; ntp27@cornell.edu</p>
+<p class="affil"><sup>3</sup>Miguel Ramirez Peraza; MakerLAB Intern, Cornell Tech</p>
+<figure><img src="fig-assistant-operate-v2.png" alt="MakerLAB Tools on a machine page, with MakerLAB AI open. Asked how to load filament, it gives the steps from the Bambu Lab X1-Carbon's archived SOP and cites the page (p. 9). (Live site, 30 Sep 2026.)"><figcaption>Fig. 1: MakerLAB Tools on a machine page, with MakerLAB AI open. Asked how to load filament, it gives the steps from the Bambu Lab X1-Carbon’s archived SOP and cites the page (p. 9). (Live site, 30 Sep 2026.)</figcaption></figure>
+</div>
+<div class="doc">
+<p><span class="abstract-label">Abstract&mdash;</span>Academic makerspaces run on operational knowledge (manuals, setup procedures, safety rules, inventory and repair history) that sits in shared drives, equipment websites and staff memory, mostly in English. At the Cornell Tech MakerLAB, a Cornell University maker space in NYC, students arrive at every skill level and staff are not always on the floor, so that knowledge reaches them unevenly. We ask whether an AI grounded in a lab’s own inventory and records can help students <b>operate</b> machines, <b>fix</b> them, and <b>build</b> multi-machine projects. The assistant answers questions, records issues and organizes inventory for pennies, freeing staff to work on larger projects, think creatively about using tools in new ways, and scale the number of tools the lab can hold. We demonstrate <b>MakerLAB AI</b>, the assistant inside <i>MakerLAB Tools</i>, a web platform, its code public, in use at the lab. Its answers cite the lab’s catalog and a searchable archive of about 50 machine manuals (≈2,400 pages), down to the page. Students troubleshoot from the official product manuals, and the AI proactively offers to file a maintenance ticket from the chat. Staff add equipment from an unstructured note, a photo or a list. In the background, research agents identify the tool and curate a record, downloading its documents; nothing is published until a person approves it. Printed QR labels make each machine its own entry point: scanning one opens that machine’s page, manuals and assistant. A kiosk shows live machine status, a projects gallery links student work to the machines that made it, and an insights page reports anonymous usage. Built AI-first, the catalog, manuals and everyday actions are also served over the Model Context Protocol (MCP), so visitors can use the lab from their own AI client. The assistant answers in each student’s preferred language.</p>
+<h2>1. Motivation and Research Question</h2>
+<p>The project began on the Cornell Tech MakerLAB floor. An intern built the first inventory search; a student volunteer “SuperMaker” kept hunting down manuals to fix the laser cutters and 3D printers; the Director asked whether a student could <i>describe a project</i> and have an AI help plan it. The same three needs keep coming up, and today each one goes to a person: to <b>operate</b> a machine (where is it, how do I start, what training and PPE?), to <b>debug</b> it when it breaks mid-job, and to <b>create</b>: plan a build across several machines. Our question is whether one agent, grounded in the lab’s own records and able to look things up online, can help with all three at any time, and what makes it useful, efficient and easy to work with.</p>
+<h2>2. System</h2>
+<p><b>From research to records.</b> MakerLAB Tools [4] (Next.js on Vercel, live at <a href="https://makerlab-ai.vercel.app">makerlab-ai.vercel.app</a>; overview at <a href="https://makerlab-ai.vercel.app/product">/product</a>) turns what the AI researches into structured records. It keeps tools, individual units, locations, resources, maintenance tickets and projects in a SQL database with file storage, and can write them one way to Notion, where our staff already work (optional). Each of about 100 tool pages shows training, PPE, location, manuals and SOPs, and every unit’s status.</p>
+<p><b>Grounded answers.</b> This is retrieval-augmented generation (RAG), automated end to end: manuals and SOPs are archived, their text extracted (scanned PDFs are read with OCR), split into passages and indexed for hybrid keyword-and-vector search with reranking. Each lab adds its own SOPs, notes and documents to a tool, indexed with the manufacturer’s manuals; the lab’s SOP is the operating reference. The assistant searches them and cites the page it used (Fig. 1); when nothing supports an answer, it says so and sends the student to staff for safety and sign-offs.</p>
+<p><b>Proactive, with a person in the loop.</b> When a student describes a problem, the AI proactively drafts and files a maintenance ticket against the right unit, asking only what it needs, and walks them through the fix when the manual covers it. Tickets go to the staff queue with an email notification; a wrong answer can be reported from the chat as a correction. Staff add inventory from a phone photo, a note or a pasted list in seconds; in the background, in under a minute per tool, research agents turn that into the complete record that is tedious to enter by hand: manuals, specifications and a product image. A staff member approves each draft before it is published. They run as durable, retried workflows (Vercel Workflow). In the chat or over MCP, the AI can do anything the signed-in person could do in the interface, except a short list of admin-only, record-destructive actions it is never allowed; each change waits on a confirmation card until the person presses Confirm, and after reading outside text (a web page, a manual, a ticket) the server, not the prompt, refuses changes to people or anything irreversible.</p>
+<p><b>Starting from the machine.</b> Staff print QR labels from the inventory page, singly or by the sheet; a label opens that tool’s page with its manuals and the assistant, and a phone photo of a label in the chat is decoded on the server, so the assistant knows which machine a student is standing at. Without a label, it matches a photo of the machine itself to the catalog, asking when look-alikes are ambiguous. For signed-in students a floor map shows where each tool is, and a project page lights up the zones its tools are in, so a build can be planned as a walk through the lab.</p>
+<p><b>Public dashboard.</b> A full-screen kiosk (Fig. 2) shows down machines, open tickets, hours and a QR code that opens the assistant on a visitor’s phone. At the front of the MakerLAB it engages students as they walk in, tells them which machines are up, and introduces the assistant.</p>
+<figure><img src="fig-kiosk-v2.png" alt="The kiosk (/kiosk) on the lab's TV: machines down, open tickets, hours, a featured tool, and a QR code that opens MakerLAB AI on a visitor's phone."><figcaption>Fig. 2: The kiosk (/kiosk) on the lab’s TV: machines down, open tickets, hours, a featured tool, and a QR code that opens MakerLAB AI on a visitor’s phone.</figcaption></figure>
+<h2>3. Process and Results</h2>
+<p>The system is built spec-first: each feature starts as a written design with open questions for the engineer and ships with several thousand automated tests, run on every change. Chat and research use OpenAI’s GPT-6 Luna, with text-embedding-3-small embeddings and Cohere Rerank v4 Fast, through the Vercel AI Gateway. Model behavior is checked by an evaluation harness of 72 conversational cases (the three needs, citations, honest “I don’t know” replies, staff actions, refusing unsafe changes). In a spot check of ten student questions on 30 Sep, eight got a complete, correct answer (four citing a manual page) and two were partial where the records lack the data (plywood settings, PPE); none was unsafe. Costs are in cents: about 0.25¢ for a chat turn that searches a manual (most of it the reranker), 2–5¢ to research a new tool, and 1.3¢ to index 20 manuals. Fig. 3 shows a <i>create</i> answer.</p>
+<figure><img src="fig-assistant-plan-v2.png" alt="The start of a create answer from the catalog page. MakerLAB AI plans a chair across the lab's own CNC routers and laser cutters, cites a manual page, and flags training." style="width:1.25in"><figcaption>Fig. 3: The start of a create answer from the catalog page. MakerLAB AI plans a chair across the lab’s own CNC routers and laser cutters, cites a manual page, and flags training.</figcaption></figure>
+<h2>4. The Demonstration</h2>
+<p>Visitors use the live system at three stations. <b>Browse and ask (laptop):</b> they browse the inventory, open a machine page, and ask the assistant how to operate, debug or fix it, or how to make something with the lab’s machines; answers cite the manual page, and a printed QR label on a sample tool opens its page. <b>Bring your own AI (second laptop):</b> Claude [2] or ChatGPT [3], connected to the MCP [1] endpoint, searches the same inventory and manuals from outside the site. <b>Add to the inventory (phone):</b> in a demo copy of the app, they photograph an object and watch it become a researched draft awaiting approval. The kiosk runs on a TV throughout, on live lab data. <b>Requirements:</b> one table, power, reliable Wi-Fi, and a monitor or TV.</p>
+<h2>5. Discussion and Next Steps</h2>
+<p>The assistant is deployed; its benefits to students are not yet measured. The insights page logs what is asked, what goes unanswered and when; this term we will compare ticket volume, machine downtime and after-hours questions. Limits: answers are only as good as the archived manuals, many of which are thin on troubleshooting, so a lab can add its own supplementary documents and notes. Next: AI planning and design for digital fabrication across the lab’s machines, and a framework other labs can adopt.</p>
+<h2>Acknowledgements</h2>
+<div class="ack">
+<p>We thank the MakerLAB staff, the SuperMakers and interns at Cornell Tech and Cornell University, and the students who make the lab a creative and ingenious place to make. <b>Use of generative AI (ISAM policy):</b> Isaac Steinberg designed and architected the system and directed its code generation with the AI coding assistants Claude Code (Anthropic) and Codex (OpenAI). This abstract was drafted and revised with Anthropic’s Claude from the authors’ notes and the project’s specifications; the authors checked each claim and figure against the running system. The answers in Figs. 1 and 3 are unedited output of the deployed assistant (commercial models via the Vercel AI Gateway).</p>
+</div>
+<h2>References</h2>
+<div class="refs">
+<p>[1] Anthropic, “Model Context Protocol,” 2024. [Online]. Available: <a href="https://modelcontextprotocol.io">https://modelcontextprotocol.io</a>. [Accessed: Sep. 28, 2026].</p>
+<p>[2] Anthropic, “Claude,” 2023. [Online]. Available: <a href="https://www.anthropic.com/claude">https://www.anthropic.com/claude</a>. [Accessed: Sep. 28, 2026].</p>
+<p>[3] OpenAI, “ChatGPT,” 2022. [Online]. Available: <a href="https://openai.com/chatgpt">https://openai.com/chatgpt</a>. [Accessed: Sep. 28, 2026].</p>
+<p>[4] I. Steinberg, “MakerLAB Tools,” GitHub repository, 2026. [Online]. Available: <a href="https://github.com/philosophercode/makerlab-tools">https://github.com/philosophercode/makerlab-tools</a>. [Accessed: Sep. 28, 2026].</p>
+</div>
+</div>
+</body>
+</html>

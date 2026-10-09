@@ -1,7 +1,20 @@
 import { toolPageUrl as scriptToolPageUrl } from "../../../scripts/generate-qr-labels";
 import { parseQrQuery } from "./query";
 import { DEFAULT_SITE_URL, qrSiteUrl } from "./site-url";
-import { QR_SOURCE_PARAM, QR_SOURCE_VALUE, displayUrl, qrFileName, qrImagePath, toolPageUrl, toolQrTargetUrl } from "./urls";
+import {
+  QR_SOURCE_PARAM,
+  QR_SOURCE_VALUE,
+  QR_UNIT_PARAM,
+  displayUrl,
+  parseUnitToken,
+  qrFileName,
+  qrImagePath,
+  toolPageUrl,
+  toolQrTargetUrl,
+  unitForToken,
+  unitQrTargetUrl,
+  unitQrToken,
+} from "./urls";
 
 describe("what a code encodes", () => {
   it("is the tool page with ?src=qr — the format the printed labels and the arrival notice use", () => {
@@ -52,5 +65,43 @@ describe("qrSiteUrl", () => {
     expect(qrSiteUrl({ VERCEL_PROJECT_PRODUCTION_URL: "makerlab.example.app" })).toBe("https://makerlab.example.app");
     expect(qrSiteUrl({})).toBe(DEFAULT_SITE_URL);
     expect(DEFAULT_SITE_URL).toBe("https://makerlab-ai.vercel.app");
+  });
+});
+
+describe("a unit's code (amendment 2026-10-06)", () => {
+  const unitId = "194e4406-253b-4488-a886-5598ee56112c";
+
+  it("is the tool's code with the unit's eight-character token", () => {
+    expect(unitQrToken(unitId)).toBe("194e4406");
+    expect(unitQrTargetUrl("https://makerlab-ai.vercel.app", "prusa-i3-mk3s", unitId)).toBe(
+      "https://makerlab-ai.vercel.app/tools/prusa-i3-mk3s?src=qr&unit=194e4406"
+    );
+    expect(QR_UNIT_PARAM).toBe("unit");
+  });
+
+  it("reads under the code as the tool's address: the query is dropped", () => {
+    expect(displayUrl(unitQrTargetUrl("https://makerlab-ai.vercel.app", "prusa-i3-mk3s", unitId))).toBe("makerlab-ai.vercel.app/tools/prusa-i3-mk3s");
+  });
+
+  it("parses the token, a longer prefix or the whole id, and nothing else", () => {
+    expect(parseUnitToken("194e4406")).toBe("194e4406");
+    expect(parseUnitToken(" 194E4406 ")).toBe("194e4406");
+    expect(parseUnitToken(unitId)).toBe("194e4406253b4488a8865598ee56112c");
+    for (const bad of [null, undefined, "", "194e440", "zzzzzzzz", "194e4406;drop", "<script>", "194e4406/../x"]) {
+      expect(parseUnitToken(bad)).toBeNull();
+    }
+  });
+
+  it("names a unit only when exactly one of the tool's units matches", () => {
+    const units = [
+      { id: unitId, name: "Prusa MK3S+ #4" },
+      { id: "adf75899-7fc0-49e2-bfef-d6af0be787f5", name: "Prusa MK3S+ #1" },
+    ];
+    expect(unitForToken(units, "194e4406")?.name).toBe("Prusa MK3S+ #4");
+    expect(unitForToken(units, parseUnitToken(unitId))?.name).toBe("Prusa MK3S+ #4");
+    expect(unitForToken(units, "00000000")).toBeNull();
+    expect(unitForToken(units, null)).toBeNull();
+    // Two units sharing the prefix: neither is named, rather than the wrong one.
+    expect(unitForToken([...units, { id: "194e4406-0000-4000-8000-000000000000", name: "Twin" }], "194e4406")).toBeNull();
   });
 });

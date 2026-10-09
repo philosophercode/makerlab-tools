@@ -4,7 +4,10 @@ import { resources } from "../db/schema/resources.ts";
 import { starterAnswers } from "../db/schema/starter-answers.ts";
 import { tools } from "../db/schema/tools.ts";
 import type { Db } from "../db/types.ts";
+import { labNoteLines } from "../lab-notes/lines.ts";
+import { readLabNotesSetting } from "../lab-notes/setting.ts";
 import type { GeneralHashInputs, ManualHashInput, ToolHashInputs } from "../starters/hash.ts";
+import { getLabSetting, LAB_NOTES_SETTING } from "./lab-settings.ts";
 import { revisionOf } from "./revision.ts";
 import { isUuid } from "./uuid.ts";
 
@@ -157,13 +160,14 @@ export async function loadToolHashInputs(db: Db, toolIds: readonly string[]): Pr
   const ids = [...new Set(toolIds.filter(isUuid))];
   const out = new Map<string, ToolHashInputs>();
   if (ids.length === 0) return out;
-  const [toolRows, resourceRows, manualRows] = await Promise.all([
+  const [toolRows, resourceRows, manualRows, labNotes] = await Promise.all([
     db.select({ id: tools.id, revision: revisionOf(tools.updatedAt) }).from(tools).where(inArray(tools.id, ids)),
     db
       .select({ id: resources.id, toolId: resources.toolId, updatedAt: revisionOf(resources.updatedAt), published: resources.published })
       .from(resources)
       .where(inArray(resources.toolId, ids)),
     db.select(MANUAL).from(manualDocuments).where(inArray(manualDocuments.toolId, ids)),
+    loadLabNotesHashInput(db),
   ]);
   for (const tool of toolRows) {
     out.set(tool.id, {
@@ -174,6 +178,7 @@ export async function loadToolHashInputs(db: Db, toolIds: readonly string[]): Pr
         .filter((r) => r.toolId === tool.id)
         .map((r) => ({ id: r.id, updatedAt: r.updatedAt, published: r.published })),
       manuals: manualRows.filter((m) => m.toolId === tool.id).map(manualInput),
+      ...(labNotes ? { labNotes } : {}),
     });
   }
   return out;
@@ -181,14 +186,25 @@ export async function loadToolHashInputs(db: Db, toolIds: readonly string[]): Pr
 
 /** The general chips' hash inputs: the published catalogue's names and every manual's state. */
 export async function loadGeneralHashInputs(db: Db): Promise<GeneralHashInputs> {
-  const [toolRows, manualRows] = await Promise.all([
+  const [toolRows, manualRows, labNotes] = await Promise.all([
     db
       .select({ id: tools.id, name: tools.name })
       .from(tools)
       .where(and(eq(tools.published, true), isNull(tools.archivedAt))),
     db.select(MANUAL).from(manualDocuments),
+    loadLabNotesHashInput(db),
   ]);
-  return { kind: "general", tools: toolRows, manuals: manualRows.map(manualInput) };
+  return { kind: "general", tools: toolRows, manuals: manualRows.map(manualInput), ...(labNotes ? { labNotes } : {}) };
+}
+
+/**
+ * The lab-wide notes as a starter answer depends on them: the lines the
+ * prompt gets, joined; "" when there are none (identity spec amendment "Lab
+ * notes"). Read uncached, like the rest of these inputs.
+ */
+async function loadLabNotesHashInput(db: Db): Promise<string> {
+  const setting = await getLabSetting(LAB_NOTES_SETTING, { db });
+  return labNoteLines(readLabNotesSetting(setting?.value)).join("\n");
 }
 
 // ── The tool a chip set belongs to ──────────────────────────────────

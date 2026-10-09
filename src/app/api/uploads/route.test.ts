@@ -80,8 +80,23 @@ function uniqueIp() {
   return `192.0.2.${ipCounter}`;
 }
 
-function imageFile(bytes = 3, name = "lamp.png", type = "image/png") {
-  return new File([new Uint8Array(bytes)], name, { type });
+/** A 1×1 PNG's signature and IHDR chunk: enough for the route's byte check. */
+const PNG_HEADER = [
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0,
+  0, 0, 0, 0,
+];
+const PDF_HEADER = [...new TextEncoder().encode("%PDF-1.7\n")];
+
+/**
+ * A file of `bytes` bytes that opens like what its type claims — a PNG for
+ * `image/png`, a PDF for `application/pdf` — and is zeros otherwise. The route
+ * reads the bytes, not the declared type, so a test's image must be one.
+ */
+function imageFile(bytes = PNG_HEADER.length, name = "lamp.png", type = "image/png") {
+  const content = new Uint8Array(bytes);
+  const header = type === "image/png" ? PNG_HEADER : type === "application/pdf" ? PDF_HEADER : [];
+  content.set(header.slice(0, bytes));
+  return new File([content], name, { type });
 }
 
 interface UploadOptions {
@@ -173,7 +188,7 @@ describe("POST /api/uploads — validation", () => {
   });
 
   it("accepts a PDF only for a resource upload", async () => {
-    const pdf = () => imageFile(3, "manual.pdf", "application/pdf");
+    const pdf = () => imageFile(PDF_HEADER.length, "manual.pdf", "application/pdf");
     const maker = await asSuperMaker();
 
     const rejected = await POST(uploadRequest(pdf(), { kind: "project" }));
@@ -183,6 +198,44 @@ describe("POST /api/uploads — validation", () => {
       uploadRequest(pdf(), { kind: "resource", cookie: maker.cookie })
     );
     expect(accepted.status).toBe(200);
+  });
+
+  it("refuses an SVG, or anything whose bytes are not a raster image, whatever type it claims", async () => {
+    const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'], "x.svg", {
+      type: "image/svg+xml",
+    });
+    const html = new File(["<html><script>alert(1)</script></html>"], "x.png", { type: "image/png" });
+    for (const file of [svg, html]) {
+      for (const kind of ["project", "chat"]) {
+        const res = await POST(uploadRequest(file, { kind }));
+        expect(res.status).toBe(400);
+        expect((await res.json()).code).toBe("unsupported_image");
+      }
+    }
+    expect(blob.putUpload).not.toHaveBeenCalled();
+    expect(await rows()).toHaveLength(0);
+  });
+
+  it("stores an image under the type its bytes show, not the one the browser declared", async () => {
+    const mislabelled = imageFile(PNG_HEADER.length, "lamp.jpg", "image/png");
+    const relabelled = new File([mislabelled], "lamp.jpg", { type: "image/jpeg" });
+
+    const res = await POST(uploadRequest(relabelled, { kind: "project" }));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).contentType).toBe("image/png");
+    expect(blob.putUpload.mock.calls[0][1].type).toBe("image/png");
+    expect((await rows())[0].contentType).toBe("image/png");
+  });
+
+  it("refuses a resource that claims to be a PDF and is not one", async () => {
+    const maker = await asSuperMaker();
+    const fake = new File(["<html>not a manual</html>"], "manual.pdf", { type: "application/pdf" });
+
+    const res = await POST(uploadRequest(fake, { kind: "resource", cookie: maker.cookie }));
+
+    expect(res.status).toBe(400);
+    expect(blob.putUpload).not.toHaveBeenCalled();
   });
 
   it("rejects a resource PDF over 20 MB", async () => {
