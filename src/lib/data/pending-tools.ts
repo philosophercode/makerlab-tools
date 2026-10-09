@@ -247,8 +247,11 @@ export type PendingToolWriteResult =
  * (data platform spec amendment "No empty items").
  */
 export class PlaceholderItemNameError extends Error {
-  constructor(readonly names: string[]) {
+  readonly names: string[];
+
+  constructor(names: string[]) {
     super(`createPendingBatch: not an item name — ${names.map((name) => JSON.stringify(name)).join(", ")}`);
+    this.names = names;
     this.name = "PlaceholderItemNameError";
   }
 }
