@@ -32,6 +32,8 @@ export const PUBLIC_CLIENT_MESSAGES = [
   "detail",
   "chat",
   "flag",
+  // The quick report form on the tool page and the QR arrival notice.
+  "report",
   "palette",
   "errors",
   "qr",
@@ -56,6 +58,11 @@ export const PUBLIC_CLIENT_MESSAGES = [
   "admin.inventory.editor",
   "admin.saving",
   "admin.saved",
+  // "Use a different Google account" on the refusal pages (/auth/rejected,
+  // /auth/blocked) and the line it shows when sign-in cannot start.
+  "auth.useDifferentAccount",
+  "auth.switchUnconfigured",
+  "auth.switchFailed",
 ] as const;
 
 export const ADMIN_CLIENT_MESSAGES = ["admin"] as const;

@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { toolSkillPath } from "../../app/admin/inventory/[tool]/skill/action-result";
+import { buttonVariants } from "@/components/ui/button";
 import type {
   InventoryActionError,
   InventoryActionResult,
@@ -456,6 +459,15 @@ export function ToolEditorPanel({
             })
           }
         />
+      </section>
+
+      {/* The tool's skill (tool skills spec 2026-10-07 §6): read and written on its own page. */}
+      <section className="admin-editor-section" data-slot="tool-skill-link">
+        <h4>{t("sectionSkill")}</h4>
+        <p className="m-0 text-sm text-muted-foreground">{t("skillLede")}</p>
+        <Link href={toolSkillPath(tool.slug)} className={buttonVariants({ variant: "outline", size: "sm" })}>
+          {t("skillOpen")}
+        </Link>
       </section>
     </aside>
   );

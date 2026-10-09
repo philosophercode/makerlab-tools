@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "../../components/BrandLogo";
 import { PageSection, Prose, PublicPage } from "../../components/system/PublicPage";
 import { siteConfig } from "../../lib/site-config";
 import { ABOUT_LINKS, ABOUT_PEOPLE } from "./about-content";
@@ -14,7 +15,8 @@ export const metadata = {
  * `/about` (identity spec 2026-09-28 §6): about the MakerLAB first, in the
  * order of Cornell Tech's own MakerLAB page — what it is, where and when,
  * who runs it, the community, where to learn more — then
- * this site and its assistant. A reading column on `PublicPage`. Facts are
+ * this site and its assistant. A reading column on `PublicPage`, the lab's
+ * official logo under the title (`BrandLogo`). Facts are
  * paraphrased from the pages linked here; the official page is the authority
  * for hours and access.
  */
@@ -23,6 +25,8 @@ export default function AboutPage() {
 
   return (
     <PublicPage crumbs={[{ label: t("eyebrow") }]} title={t("title")} lede={t("lede")} keepCase>
+      {/* The lab's official logo under the title (amendment 2026-10-06). */}
+      <BrandLogo className="mt-8 h-14 text-foreground sm:h-16" />
       <PageSection keepCase id="about-lab" title={t("labHeading")}>
         <Prose>
           <p>{t("labBody")}</p>
@@ -98,6 +102,7 @@ export default function AboutPage() {
           {/* Usage insight spec §8, §13 Q6: one sentence on what is counted. */}
           <p>{t("usageBody")}</p>
           <p>{t("whyBody")}</p>
+          <p>{t("thanksBody")}</p>
           <p>{t("creditsBody")}</p>
           <p>{t("feedbackBody")}</p>
           {/* Product page amendment 2026-09-28: the product page and quick start are linked here and from the footer, not the main nav. */}

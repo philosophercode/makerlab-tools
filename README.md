@@ -157,13 +157,3 @@ over a network, you must offer them its source. Names, logos, product photos and
 photos are not covered. [`LICENSING.md`](LICENSING.md) explains it in plain language.
 
 Copyright (C) 2026 Isaac Steinberg.
-
-## Who owns it
-
-**Isaac Steinberg** ([@philosophercode](https://github.com/philosophercode)) owns this
-software and holds its copyright. It was built for use at the **Cornell Tech MakerLAB**,
-which runs the live deployment:
-
-- **Niti Parikh** — Director
-- **Luis Rodrigo Navarro** — Assistant Director
-- **Isaac Steinberg** — Tech Lead

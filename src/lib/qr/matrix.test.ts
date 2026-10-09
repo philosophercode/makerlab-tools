@@ -1,5 +1,5 @@
 import { create } from "qrcode";
-import { DEFAULT_LABEL_STYLE, QR_QUIET_MODULES, layoutLabel } from "./label-layout";
+import { DEFAULT_LABEL_STYLE, QR_QUIET_MODULES, estimateTextWidth, layoutLabel } from "./label-layout";
 import { labelSvg } from "./label-svg";
 import { labelContentFor } from "./labels";
 import { qrMatrix, qrPathData, qrSvg } from "./matrix";
@@ -48,18 +48,21 @@ describe("labelSvg", () => {
   it("is the label's physical size in millimetres, with its code at the layout's scale", () => {
     const content = labelContentFor({ slug: "form-4", name: "Form 4 & Co" }, "https://makerlab-ai.vercel.app");
     const layout = layoutLabel(DEFAULT_LABEL_STYLE, content);
-    const svg = labelSvg(layout, content.url, { wordmarkHref: "/makerlab-wordmark.png" });
+    const svg = labelSvg(layout, content.url, { brandHref: "/brand/cornell-tech-makerlab-logo.png" });
     expect(svg).toMatch(/^<svg [^>]*width="50.8mm" height="50.8mm" viewBox="0 0 50.8 50.8"/);
     expect(svg).toContain("FORM 4 &amp; CO");
-    expect(svg).toContain('href="/makerlab-wordmark.png"');
+    expect(svg).toContain('href="/brand/cornell-tech-makerlab-logo.png"');
     const modules = qrMatrix(content.url, layout.level).size + QR_QUIET_MODULES * 2;
     expect(svg).toContain(`scale(${Math.round((layout.qr.size / modules) * 1e6) / 1e6})`);
   });
 
-  it("writes the lab's name when there is no wordmark image", () => {
+  it("writes the lab's name when there is no brand image, no wider than the logo's box", () => {
     const content = labelContentFor({ slug: "form-4", name: "Form 4" }, "https://x.test");
-    const svg = labelSvg(layoutLabel(DEFAULT_LABEL_STYLE, content), content.url, { wordmarkText: "MakerLAB" });
+    const layout = layoutLabel(DEFAULT_LABEL_STYLE, content);
+    const svg = labelSvg(layout, content.url, { brandText: "MakerLAB" });
     expect(svg).toContain(">MakerLAB</text>");
     expect(svg).not.toContain("<image");
+    const size = Number(svg.match(/font-size="([\d.]+)"[^>]*>MakerLAB</)?.[1]);
+    expect(estimateTextWidth("MakerLAB", size, true)).toBeLessThanOrEqual(layout.brand!.width + 1e-3);
   });
 });

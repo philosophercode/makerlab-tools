@@ -21,6 +21,8 @@ const PUBLIC_READS = [
   "get_unit_details",
   "get_maintenance_history",
   "search_manual",
+  // Tool skills (tool skills spec 2026-10-07 §5.5): a read for everybody.
+  "get_tool_skill",
 ];
 
 function audiences() {

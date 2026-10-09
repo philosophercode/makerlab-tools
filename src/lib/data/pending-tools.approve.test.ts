@@ -259,7 +259,7 @@ describe("approvePendingTool", () => {
   it("never creates a category: a proposed one becomes a category proposal naming the new tool (taxonomy v2)", async () => {
     const [printing] = await db.insert(categories).values({ name: "3D Printing", slug: "3d-printing" }).returning();
     const [fdm] = await db.insert(categories).values({ name: "FDM Printers", slug: "fdm-printers", parentId: printing.id }).returning();
-    const first = await researchedItem({ name: "First" });
+    const first = await researchedItem({ name: "First Printer" });
     const created = await approvePendingTool(
       {
         id: first,
@@ -289,7 +289,7 @@ describe("approvePendingTool", () => {
     });
 
     // The pre-v2 shape is a proposal too, its group naming the parent.
-    const second = await researchedItem({ name: "Second" });
+    const second = await researchedItem({ name: "Second Printer" });
     const legacy = await approvePendingTool(
       { id: second, actorUserId: APPROVER, publish: true, fields: fields({ name: "Second", newCategory: { name: "Resin", group: "3D printing" } }) },
       { db }

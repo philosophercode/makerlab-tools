@@ -29,6 +29,7 @@ import { locations, tools } from "../src/lib/db/schema/index.ts";
 import { QR_SOURCE_PARAM, QR_SOURCE_VALUE, toolQrTargetUrl } from "../src/lib/qr/urls.ts";
 import { formatLabelLocation as formatRoomZone, labelContentFor } from "../src/lib/qr/labels.ts";
 import { DEFAULT_SETTINGS, withSizeDefaults } from "../src/lib/qr/settings.ts";
+import { siteConfig } from "../src/lib/site-config.ts";
 import {
   DEFAULT_LABEL_STYLE,
   DEFAULT_SHEET,
@@ -383,11 +384,12 @@ export function parseArgs(argv: string[]): CliOptions {
 export async function buildPdfSheet(
   sources: QrLabelSource[],
   options: { baseUrl: string; size: { widthMm: number; heightMm: number }; paper: PaperId },
-  wordmarkPath: string = join(process.cwd(), "public", "makerlab-wordmark.png")
+  // The lab's official logo as a PNG, as the admin page draws it.
+  brandPath: string = join(process.cwd(), "public", siteConfig.logoPng)
 ): Promise<Uint8Array> {
   const { buildLabelSheetPdf } = await import("../src/lib/qr/label-pdf.ts");
   const preset = LABEL_PRESETS.find((entry) => entry.widthMm === options.size.widthMm && entry.heightMm === options.size.heightMm);
-  // The admin page's size defaults: a small code drops the wordmark and extra line.
+  // The admin page's size defaults: a small code drops the logo and extra line.
   const { style } = withSizeDefaults({
     ...DEFAULT_SETTINGS,
     preset: preset?.id ?? "custom",
@@ -398,8 +400,8 @@ export async function buildPdfSheet(
     .map((source) =>
       labelContentFor({ slug: (source.slug || source.id).trim(), name: source.name, room: source.location, zone: source.zone }, options.baseUrl)
     );
-  const wordmarkPng = await readFile(wordmarkPath).catch(() => null);
-  return buildLabelSheetPdf({ labels, style, sheet: { ...DEFAULT_SHEET, paper: options.paper }, wordmarkPng });
+  const brandPng = await readFile(brandPath).catch(() => null);
+  return buildLabelSheetPdf({ labels, style, sheet: { ...DEFAULT_SHEET, paper: options.paper }, brandPng });
 }
 
 /**

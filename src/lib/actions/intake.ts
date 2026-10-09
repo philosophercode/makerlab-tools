@@ -21,6 +21,7 @@ import { isOneOf, type DuplicateResolution } from "../db/schema/vocabulary";
 import { canActOnPendingTool, hasUnresolvedDuplicate } from "../intake/access";
 import { initialDraft, initialImageChoice, toFields } from "../intake/approval-draft";
 import { addUnitAndRecord, approveAndRecord } from "../intake/approve";
+import { isPlaceholderItemName } from "../intake/item-name";
 import { requestImageRetry } from "../intake/image-retry";
 import { REVIEWER_NOTE_MAX_CHARS } from "../intake/limits";
 import { researchStarted, startResearch } from "../intake/research-start";
@@ -57,7 +58,7 @@ import { MAX_BATCH, recordIds } from "./tool-args";
  * own page.
  */
 
-type IntakeRefusal = IntakeWriteError | "invalid_field" | "not_permitted";
+type IntakeRefusal = IntakeWriteError | "invalid_field" | "placeholder_name" | "not_permitted";
 
 const revalidateItem = (input: { id: string }) => [ADMIN_INTAKE_PATH, intakeItemPath(input.id)];
 
@@ -308,6 +309,8 @@ export const PENDING_SAVE_IDENTITY = defineAction<z.infer<typeof identityInput>,
       brand: z.string().max(200).nullable().optional().describe("The brand; null or empty for none"),
     }),
     async (args) => {
+      // A placeholder is refused before any card is drawn (amendment "No empty items").
+      if (isPlaceholderItemName(args.name)) return { ok: false, error: "placeholder_name" };
       // An unsent brand keeps the one it has: the page always sends both.
       const item = args.brand === undefined ? await getPendingTool(args.pending_id) : null;
       return { ok: true, inputs: [{ id: args.pending_id, name: args.name, brand: args.brand === undefined ? (item?.brand ?? null) : args.brand }] };
@@ -461,7 +464,7 @@ const EDIT_RESOLUTIONS = ["new_tool", "add_unit"] as const satisfies readonly Du
  * `updatePendingTool`, which re-runs the duplicate check on a new name. The
  * item's creator, or anybody with `tools.approve` (`canActOnPendingTool`).
  */
-export const PENDING_EDIT = defineAction<{ id: string; patch: EditPatch }, object, "not_found" | "not_editable" | "invalid_field" | "not_permitted">({
+export const PENDING_EDIT = defineAction<{ id: string; patch: EditPatch }, object, "not_found" | "not_editable" | "invalid_field" | "placeholder_name" | "not_permitted">({
   id: "pending.edit",
   toolName: "edit_pending_items",
   description:
@@ -512,6 +515,7 @@ export const PENDING_EDIT = defineAction<{ id: string; patch: EditPatch }, objec
       if (Object.keys(patch).length === 0) return { ok: false, error: "nothing_to_change" };
       // One name or serial for several machines is a mistake, not a batch.
       if ((patch.name !== undefined || patch.serialNumber !== undefined) && args.pending_ids.length > 1) return { ok: false, error: "invalid_field" };
+      if (patch.name !== undefined && isPlaceholderItemName(patch.name)) return { ok: false, error: "placeholder_name" };
       return { ok: true, inputs: args.pending_ids.map((id) => ({ id, patch })) };
     }
   ),

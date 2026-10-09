@@ -174,11 +174,19 @@ describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
     // Taxonomy v2 added six action tools and two reads for both staff roles.
     // The value report added one read, get_value_report, for both (insights.view).
     // QR labels added get_tool_qr_code, a read for everybody.
+    // Recurring maintenance v1 added list_maintenance_due, a read for both
+    // staff roles; its four actions are GUI only (amendment 2026-10-06).
+    // Images in the chat added show_tool, a read for everybody, and
+    // make_illustration for every signed-in person (amendment 2026-10-07).
+    // Suggested replies added suggest_replies, display only, for everybody
+    // (amendment 2026-10-07).
+    // Tool skills added get_tool_skill, a read for everybody; their two
+    // actions are GUI only (amendment 2026-10-07 "Tool skills").
     expect(offered("super_admin").actionTools).toHaveLength(42);
     expect(offered("admin").actionTools).toHaveLength(38);
-    expect(offered("super_admin").chatTools).toBe(64);
-    expect(offered("admin").chatTools).toBe(59);
-    expect(offered("user").chatTools).toBe(10);
+    expect(offered("super_admin").chatTools).toBe(69);
+    expect(offered("admin").chatTools).toBe(64);
+    expect(offered("user").chatTools).toBe(14);
   });
 });
 

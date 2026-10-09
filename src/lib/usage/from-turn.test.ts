@@ -43,6 +43,29 @@ describe("fromTurn", () => {
     expect(gap).toBeNull();
   });
 
+  it("records a citation of another machine's document as cross_tool, and none in a lab-wide comparison (amendment 2026-10-06)", () => {
+    const PRUSA_DOC = "66666666-6666-4666-8666-666666666666";
+    const PRUSA = "77777777-7777-4777-8777-777777777777";
+    const URL25 = "https://blob.example/prusa.pdf#page=25";
+    const passages = new Map([
+      [URL12, { documentId: DOC, toolId: FORM4, page: 12, ref: REF12 }],
+      [URL25, { documentId: PRUSA_DOC, toolId: PRUSA, page: 25, ref: citationRef(PRUSA_DOC, 25) }],
+    ]);
+    const text = `Lift it ([a](#cite-${REF12})) and load it ([b](#cite-${citationRef(PRUSA_DOC, 25)})).`;
+
+    const scoped = fromTurn(turn({ focusedToolId: FORM4, text, passages, scopedToolIds: [FORM4] })).events.filter((e) => e.kind === "manual_cited");
+    expect(scoped.map((e) => [e.manualDocumentId, e.source ?? null])).toEqual([
+      [DOC, null],
+      [PRUSA_DOC, "cross_tool"],
+    ]);
+
+    const offPage = fromTurn(turn({ text, passages, scopedToolIds: [PRUSA] })).events.filter((e) => e.kind === "manual_cited");
+    expect(offPage.map((e) => e.source ?? null)).toEqual(["cross_tool", null]);
+
+    const wide = fromTurn(turn({ text, passages, scopedToolIds: [], wideSearch: true })).events.filter((e) => e.kind === "manual_cited");
+    expect(wide.map((e) => e.source ?? null)).toEqual([null, null]);
+  });
+
   // Regression (production, 2026-09-30): the chat prompt has the model cite a
   // passage as `#cite-<ref>` and never write its URL (manual text spec
   // amendment 2026-09-28), so a recorder that matched only `](url)` counted no

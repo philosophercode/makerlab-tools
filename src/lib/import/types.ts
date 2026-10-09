@@ -68,8 +68,12 @@ export interface ImportItem {
   sourceRow: number | null;
 }
 
-/** A row that could not become an item, and why — shown beside the import's counts. */
+/**
+ * A row that could not become an item, and why — shown beside the import's
+ * counts. `placeholder_name`: the row's name says nothing about which item it
+ * is ("Unknown", "TBD", "Item" — data platform spec amendment "No empty items").
+ */
 export interface SkippedRow {
   sourceRow: number | null;
-  reason: "no_name";
+  reason: "no_name" | "placeholder_name";
 }

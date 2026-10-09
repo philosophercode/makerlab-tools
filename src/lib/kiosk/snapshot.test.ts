@@ -173,6 +173,21 @@ describe("assembleKioskSnapshot", () => {
     expect(payload).toContain("Maya R.");
     expect(JSON.parse(payload).tickets).toEqual({ open: 1, inProgress: 0 });
   });
+
+  // Data platform spec amendment 2026-10-06: whole serials are staff-only, and
+  // the kiosk is a public screen that lists no units, so it carries neither
+  // the serial nor its masked last four.
+  it("carries no unit serial number or asset tag", async () => {
+    const { dremel } = await seedLab(db);
+    await db.insert(units).values({ toolId: dremel.id, unitLabel: "Dremel // D", serialNumber: "SN-DREMEL-9", assetTag: "TAG-DREMEL-9", status: "out_of_service" });
+
+    const payload = JSON.stringify(withAskUrl(await assembleKioskSnapshot({ db, now: NOW }), "https://makerlab-ai.vercel.app"));
+
+    expect(payload).toContain("Dremel 3000");
+    expect(payload).not.toContain("SN-DREMEL-9");
+    expect(payload).not.toContain("TAG-DREMEL-9");
+    expect(payload).not.toContain('"serial');
+  });
 });
 
 describe("loadKioskSnapshot", () => {

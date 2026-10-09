@@ -1,10 +1,9 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
-import { createMaintenanceLog } from "../data/maintenance";
 import { describeDbError } from "../db/describe-error";
 import { CHAT_MAX_TICKETS_PER_TURN } from "../intake/limits";
+import { fileProblemTicket } from "../maintenance/file-ticket";
 import { checkRateLimit } from "../rate-limit";
-import { invalidateMaintenance } from "../revalidate";
 import { buildUnitLookup, findUnit } from "./helpers";
 import type {
   Capability,
@@ -30,7 +29,8 @@ import type {
  * - **The ticket lands in Postgres** (data platform spec §3.10, §4.8), not in
  *   a Notion page. The capability no longer knows anything about Notion: it
  *   resolves the unit against the catalogue, hands a validated ticket to
- *   `src/lib/data/maintenance.ts`, and reports what came back. A write that
+ *   `fileProblemTicket` (`src/lib/maintenance/file-ticket.ts`, the write the
+ *   quick report form shares), and reports what came back. A write that
  *   throws is reported to the student as a ticket that did **not** land — the
  *   one thing this path may never get wrong (Article 4).
  */
@@ -76,7 +76,9 @@ const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
     .string()
     .max(TICKET_REPORTER_MAX)
     .optional()
-    .describe("Unit label if the issue is tied to a specific unit"),
+    .describe(
+      "Unit label if the issue is tied to a specific unit, or the unit's id when you have it (a scanned unit label gives one, and it is exact)"
+    ),
   priority: z
     .enum(PRIORITIES)
     .default("Medium")
@@ -127,7 +129,7 @@ function takeTicketSlot(ctx: CapabilityCtx): boolean {
 const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
   name: REPORT_ISSUE_TOOL,
   description:
-    "File a maintenance ticket in the app when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1'), include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
+    "File a maintenance ticket in the app when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1') or scanned a unit's label, include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
   inputSchema: reportIssueInputSchema,
   kind: "write",
   async run(input: ReportIssueInput, ctx: CapabilityCtx): Promise<ReportIssueResult> {
@@ -166,17 +168,19 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
     try {
       const tools = await getCatalogTools();
       const unitLookup = buildUnitLookup(tools);
-      const match = unit_label ? findUnit(unitLookup, unit_label) : null;
+      // The tool whose page the person is on wins a label two tools share; a
+      // unit id (a scanned unit label gives one) is exact either way.
+      const match = unit_label ? findUnit(unitLookup, unit_label, { preferToolId: ctx.focusedToolId }) : null;
 
-      const record = await createMaintenanceLog({
+      // The one ticket write, shared with the quick report form (quick report
+      // spec §3.2): an open issue report, then the ticket-count caches.
+      const record = await fileProblemTicket({
         title,
         description,
         // The capability speaks Notion's display casing because that is what
         // the input schema was written against; the data module maps it down to
-        // the stored vocabulary (`issue_report`, `medium`, `open`).
-        type: "Issue Report",
+        // the stored vocabulary (`medium`).
         priority,
-        status: "Open",
         // The catalogue id is a Postgres uuid, and so is `unit_id` — no
         // translation left to do. An unresolved label files an unlinked
         // ticket, which is normal: most live logs have no unit at all.
@@ -190,16 +194,10 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         reportedByEmail: ctx.identity?.email || null,
         reportedByUserId: ctx.identity?.userId || null,
         photoAttachmentIds: photoIds,
+        // Stamped by the adapter, never by a request: the staff email says
+        // "via a connected app" for an MCP ticket (email notifications §5.1).
+        surface: ctx.surface ?? null,
       });
-
-      // The kiosk's open-ticket count (kiosk spec §3.1) and the tool page's
-      // maintenance history. A cache that cannot
-      // be dropped is a screen a poll behind, never a lost ticket.
-      try {
-        invalidateMaintenance();
-      } catch (err) {
-        console.warn(`[maintenance] ticket ${record.id} filed; the ticket-count cache could not be cleared`, err);
-      }
 
       // Photos offered but none claimed: say so rather than let the student
       // believe staff can see the picture they took (Article 4). Until the

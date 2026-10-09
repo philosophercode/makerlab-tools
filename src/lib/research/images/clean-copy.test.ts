@@ -132,9 +132,10 @@ describe("makeCleanCopy — with a product box", () => {
     const unguided = await cleanImage(bytes);
     if (!unguided.ok) throw new Error(`expected the unguided cut to run, got ${unguided.note}`);
     const cutPixels = await decode(unguided.image.bytes);
-    // Without the box, the base goes with the floor (the cutout works at 1000 px, the source's own size).
+    // The base is 24 levels from the floor — past the fill's outright tolerance, a jump no gradient
+    // step takes — so even the unguided cut keeps it now (amendment "Thin margins and white bezels").
     const { left, top } = unguided.image.crop;
-    expect(at(cutPixels, 300 - left, 615 - top)[3]).toBe(0);
+    expect(at(cutPixels, 300 - left, 615 - top)[3]).toBe(255);
 
     const copy = await makeCleanCopy({ bytes, background: "plain", composite: false, productBox: [0.27, 0.24, 0.73, 0.7] });
     expect(copy).toMatchObject({ made: true, kind: "cropped_and_cut" });
@@ -154,8 +155,23 @@ describe("makeCleanCopy — with a product box", () => {
   });
 
   it("keeps the crop alone, saying why, when the crop's cut fails its checks", async () => {
-    // A box drawn a little inside the product: the padded crop is nearly all product,
-    // so there is almost no backdrop to remove.
+    // A white appliance a shade off the backdrop, with four dark buttons: inside the box the
+    // fill takes anything within 12 of the backdrop, so the cut eats the body and is refused.
+    const source = new Canvas(1000, 1000, [248, 248, 248, 255]).rect(100, 100, 800, 800, [251, 251, 251, 255]);
+    for (let i = 0; i < 4; i += 1) source.rect(200 + i * 160, 450, 40, 40, BLUE);
+    const copy = await makeCleanCopy({
+      bytes: await source.png(),
+      background: "plain",
+      composite: true,
+      productBox: [0.12, 0.12, 0.88, 0.88],
+    });
+    expect(copy).toMatchObject({ made: true, kind: "cropped" });
+    if (!copy.made) throw new Error("expected a crop");
+    expect(["product_removed", "product_too_small", "fragmented"]).toContain(copy.note);
+  });
+
+  it("cuts the thin margin off a crop the product nearly fills (a margin is a backdrop too)", async () => {
+    // A box drawn a little inside the product: the padded crop is the product with a hairline of backdrop.
     const source = new Canvas(1000, 1000, [248, 248, 248, 255]).rect(100, 100, 800, 800, BLUE);
     const copy = await makeCleanCopy({
       bytes: await source.png(),
@@ -163,7 +179,7 @@ describe("makeCleanCopy — with a product box", () => {
       composite: true,
       productBox: [0.12, 0.12, 0.88, 0.88],
     });
-    expect(copy).toMatchObject({ made: true, kind: "cropped", note: "little_background" });
+    expect(copy).toMatchObject({ made: true, kind: "cropped_and_cut", note: null });
   });
 
   it("does not crop a clean picture the product already fills: the plain cut, as before", async () => {

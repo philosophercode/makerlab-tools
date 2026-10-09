@@ -1,9 +1,9 @@
 // @vitest-environment node
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { nextCacheMock } from "../../../test/mocks/next-cache";
 import { getCatalogTools } from "../catalog";
 import { getDb, resetDbForTests } from "../db/client";
-import { attachments, maintenanceLogs } from "../db/schema/index";
+import { attachments, maintenanceLogs, notificationDeliveries, notifications, tools, units, user } from "../db/schema/index";
 import { seedUser } from "../../../test/utils/session";
 import type { CapabilityCtx } from "./types";
 import type { Identity } from "../auth/identity";
@@ -153,6 +153,43 @@ describe("report_issue — the ticket that lands", () => {
   });
 });
 
+describe("report_issue — the unit a scanned label names (QR amendment 2026-10-06)", () => {
+  /** Two published tools whose units carry the same label, as two benches might. */
+  async function twoStations() {
+    const db = await getDb();
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const [benchA, benchB] = await db
+      .insert(tools)
+      .values([
+        { slug: `bench-a-${suffix}`, name: `Bench A ${suffix}`, published: true },
+        { slug: `bench-b-${suffix}`, name: `Bench B ${suffix}`, published: true },
+      ])
+      .returning();
+    const [unitA, unitB] = await db
+      .insert(units)
+      .values([
+        { toolId: benchA.id, unitLabel: `Station ${suffix}` },
+        { toolId: benchB.id, unitLabel: `Station ${suffix}` },
+      ])
+      .returning();
+    return { benchA, benchB, unitA, unitB, label: `Station ${suffix}` };
+  }
+
+  it("files against the exact unit when given its id", async () => {
+    const { benchB, unitB } = await twoStations();
+    const { result, row } = await file(issue({ unit_label: unitB.id }));
+    expect(result.unit_resolved).toEqual({ id: unitB.id, label: unitB.unitLabel });
+    expect(row.unitId).toBe(unitB.id);
+    expect(row.toolId).toBe(benchB.id);
+  });
+
+  it("prefers the unit of the tool whose page the student is on", async () => {
+    const { benchA, benchB, unitA, unitB, label } = await twoStations();
+    expect((await file(issue({ unit_label: label }), { focusedToolId: benchB.id })).row.unitId).toBe(unitB.id);
+    expect((await file(issue({ unit_label: label }), { focusedToolId: benchA.id })).row.unitId).toBe(unitA.id);
+  });
+});
+
 describe("report_issue — verified authorship", () => {
   it("records the session's name and email when the student is signed in", async () => {
     const { row } = await file(issue(), { identity: await signedInUser() });
@@ -286,6 +323,54 @@ describe("report_issue — abuse bounds (security fix 2026-10-05)", () => {
       expect(((await reportIssue.run(issue(), { identity: user })) as TicketResult).success).toBe(true);
     }
     info.mockRestore();
+  });
+});
+
+describe("report_issue — staff are emailed (email notifications spec §3.2)", () => {
+  // Every ticket this file files has its own outbox row; left in place they
+  // would reach the hourly cap (12) and these alerts would be skipped as capped.
+  beforeEach(async () => {
+    const db = await getDb();
+    await db.delete(notifications);
+  });
+
+  async function outboxFor(ticketId: string) {
+    const db = await getDb();
+    const [row] = await db.select().from(notifications).where(eq(notifications.subjectId, ticketId));
+    const sent = row
+      ? await db.select().from(notificationDeliveries).where(eq(notificationDeliveries.notificationId, row.id))
+      : [];
+    return { row, sent };
+  }
+
+  it.each(["chat", "mcp"] as const)("queues one ticket.filed notification from the %s surface alike", async (surface) => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    const { result } = await file(issue(), { surface, identity: await signedInUser() });
+
+    const { row, sent } = await outboxFor(result.ticket_id!);
+    expect(row).toMatchObject({ event: "ticket.filed", subjectType: "maintenance_log", surface });
+    // No provider configured here: every staff delivery is recorded
+    // not_configured, nothing left the process, and the ticket still filed.
+    expect(sent.length).toBeGreaterThan(0);
+    for (const delivery of sent) expect(delivery).toMatchObject({ status: "failed", reason: "not_configured" });
+    const db = await getDb();
+    const staff = await db.select({ id: user.id, role: user.role }).from(user);
+    const studentIds = staff.filter((person) => person.role === "user").map((person) => person.id);
+    for (const delivery of sent) expect(studentIds).not.toContain(delivery.userId);
+  });
+
+  it("still files the ticket when the delivery cannot even be recorded", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const db = await getDb();
+    await db.execute(sql`alter table notification_deliveries rename to notification_deliveries_away`);
+    try {
+      const { result, row } = await file(issue());
+      expect(result.success).toBe(true);
+      expect(row.title).toBe("Bed not leveling");
+    } finally {
+      await db.execute(sql`alter table notification_deliveries_away rename to notification_deliveries`);
+      error.mockRestore();
+    }
   });
 });
 

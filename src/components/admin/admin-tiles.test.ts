@@ -26,11 +26,25 @@ it("says a failed or missing count could not be read, with nothing implying a nu
 });
 
 it("makes open tickets waiting work, with urgent ones as a bad fact and a 30-day trend", () => {
-  const { content, unreadable } = tileContent("maintenance", { open: 4, inProgress: 1, urgent: 2, series: series(3) }, t);
+  const { content, unreadable } = tileContent("maintenance", { open: 4, inProgress: 1, urgent: 2, series: series(3), tasksOverdue: 0, tasksDueToday: 0 }, t);
   expect(unreadable).toBe(false);
   expect(content).toMatchObject({ value: 4, unit: "open tickets", waiting: true });
   expect(content.facts).toContainEqual({ label: "High or critical", value: 2, tone: "bad" });
   expect(content.series?.label).toBe("3 tickets reported in the last 30 days, 3 today");
+});
+
+it("states recurring tasks due today and overdue as facts, and counts them as waiting work", () => {
+  const { content, alsoWaiting } = tileContent(
+    "maintenance",
+    { open: 1, inProgress: 0, urgent: 0, series: series(0), tasksOverdue: 2, tasksDueToday: 3 },
+    t
+  );
+  // The headline stays the open tickets; the upkeep rides beside it.
+  expect(content.value).toBe(1);
+  expect(content.facts).toContainEqual({ label: "Recurring tasks due today", value: 3, tone: "active" });
+  expect(content.facts).toContainEqual({ label: "Recurring tasks overdue", value: 2, tone: "bad" });
+  expect(content.facts?.length).toBeLessThanOrEqual(4);
+  expect(alsoWaiting).toBe(5);
 });
 
 it("does not call the inventory's attention flags waiting work", () => {
@@ -119,7 +133,7 @@ describe("glyphs only where they carry meaning (DESIGN.md §8.5, 2026-09-25)", (
     inventory: { total: 2, published: 2, draft: 0, archived: 0, needsAttention: 0, noPhoto: 0, noManual: 0, neverReviewed: 0 },
     refresh: { proposed: 0, running: 0, failed: 0 },
     research: { searchable: 0, total: 0, failed: 0 },
-    maintenance: { open: 0, inProgress: 0, urgent: 0, series: series(0) },
+    maintenance: { open: 0, inProgress: 0, urgent: 0, series: series(0), tasksOverdue: 0, tasksDueToday: 0 },
     corrections: { open: 0, handled: 0, series: series(0) },
     projects: { waiting: 0, published: 0 },
     users: { total: 1, admins: 1, blocked: 0 },
@@ -129,7 +143,7 @@ describe("glyphs only where they carry meaning (DESIGN.md §8.5, 2026-09-25)", (
     inventory: { total: 9, published: 6, draft: 2, archived: 1, needsAttention: 5, noPhoto: 3, noManual: 2, neverReviewed: 4 },
     refresh: { proposed: 1, running: 2, failed: 1 },
     research: { searchable: 4, total: 6, failed: 2 },
-    maintenance: { open: 5, inProgress: 3, urgent: 2, series: series(1) },
+    maintenance: { open: 5, inProgress: 3, urgent: 2, series: series(1), tasksOverdue: 0, tasksDueToday: 0 },
     corrections: { open: 5, handled: 8, series: series(1) },
     projects: { waiting: 1, published: 1 },
     users: { total: 4, admins: 2, blocked: 1 },

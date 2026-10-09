@@ -44,7 +44,7 @@ describe("label styler settings", () => {
     expect(sanitizeSettings({ preset: "3in", style: { widthMm: 10, heightMm: 10 } }).style.widthMm).toBe(76.2);
   });
 
-  it("turns the wordmark and extra line off for a 1-inch label and a small custom one, not for the others", () => {
+  it("turns the logo and extra line off for a 1-inch label and a small custom one, not for the others", () => {
     const at = (preset: QrLabelSettings["preset"], widthMm: number, heightMm = widthMm) =>
       withSizeDefaults({ ...DEFAULT_SETTINGS, preset, style: { ...DEFAULT_SETTINGS.style, widthMm, heightMm } }).style;
     expect(at("1in", 25.4)).toMatchObject({ showBrand: false, showExtra: false, extraText: "Scan for manual & help" });

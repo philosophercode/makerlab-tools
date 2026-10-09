@@ -5,6 +5,7 @@ import { burnInOffset, rotationIndex, staleness } from "@/lib/kiosk/derive";
 import type { KioskSnapshot } from "@/lib/kiosk/types";
 import { siteConfig } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "../BrandLogo";
 import { AskQr } from "./AskQr";
 import { DownMachines } from "./DownMachines";
 import { FeaturedPanel } from "./FeaturedPanel";
@@ -84,20 +85,9 @@ export function KioskScreen({ initial, renderedAt, qrSvg, askUrl, timeZone, dir 
           )}
         >
           <div className="flex min-w-0 flex-wrap items-center gap-x-[2.5vmin] gap-y-2 max-sm:gap-x-4">
-            <span
-              aria-hidden="true"
-              className="block h-[clamp(24px,4.6vmin,100px)] w-[clamp(132px,26vmin,560px)] shrink-0 bg-foreground"
-              style={{
-                maskImage: `url(${siteConfig.logo})`,
-                WebkitMaskImage: `url(${siteConfig.logo})`,
-                maskSize: "contain",
-                WebkitMaskSize: "contain",
-                maskRepeat: "no-repeat",
-                WebkitMaskRepeat: "no-repeat",
-                maskPosition: "left center",
-                WebkitMaskPosition: "left center",
-              }}
-            />
+            {/* Two lines of type and the seal, so taller than the one-line
+                logo it replaced: 76px tall on a 1080p screen, 36px at least. */}
+            <BrandLogo className="h-[clamp(36px,7vmin,150px)] text-foreground" />
             <h1 className={cn(KIOSK_TYPE.label, "text-foreground")}>
               <span className="sr-only">{siteConfig.name} — </span>
               {t("title")}

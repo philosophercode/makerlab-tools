@@ -8,7 +8,15 @@ import { createPgliteDb } from "../db/pglite";
 import { attachments, manualChunks, resources, tools } from "../db/schema/index";
 import type { Db } from "../db/types";
 import { buildDocumentPassages } from "./passages";
-import { mergeAdjacent, partNumberTokens, searchManuals, type ManualPassage } from "./search";
+import {
+  DEFAULT_RERANK_MIN_SCORE,
+  dropDuplicates,
+  mergeAdjacent,
+  partNumberTokens,
+  rerankMinScore,
+  searchManuals,
+  type ManualPassage,
+} from "./search";
 
 /**
  * Hybrid manual search (manual text spec §3.5, §8, §10) on PGlite with
@@ -259,6 +267,87 @@ describe("searchManuals — phase 3", () => {
   });
 });
 
+describe("searchManuals — tool-scoped citations (amendment 2026-10-06)", () => {
+  it("returns one copy of a document stored on two tools, so copies cannot fill the slots", async () => {
+    const prusa = await seedTool(db, { name: "Prusa i3 MK3S+" });
+    const bundle = await seedTool(db, { name: "Prusa Enclosure Bundle" });
+    const pages = [RESIN, CLEAN, ERROR];
+    const outline = [
+      { title: "Resin tank", page: 1, level: 1 },
+      { title: "Cleaning", page: 2, level: 1 },
+      { title: "Errors", page: 3, level: 1 },
+    ];
+    await manual(prusa, "Original Prusa Handbook", pages, { outline });
+    await manual(bundle, "Original Prusa Handbook", pages, { outline });
+
+    const result = await searchManuals(db, { query: "resin tank build platform cartridge", viewer: anonymous, target, merge: false });
+    const keys = result.passages.map((p) => `${p.pageStart}:${p.content}`);
+    expect(new Set(keys).size).toBe(keys.length);
+    expect(result.passages).toHaveLength(3);
+    expect(result.droppedDuplicates).toBeGreaterThan(0);
+  });
+
+  it("drops reranked passages under the relevance floor, and only when the reranker ran", async () => {
+    const tool = await seedTool(db, { name: "Form 4" });
+    await manual(tool, "Form 4 Manual", [CLEAN, RESIN, ERROR], {
+      outline: [
+        { title: "Cleaning", page: 1, level: 1 },
+        { title: "Resin tank", page: 2, level: 1 },
+        { title: "Errors", page: 3, level: 1 },
+      ],
+    });
+    const reranker = rerankingModel((document) => (document.includes("Lift the resin tank") ? 0.8 : 0.01));
+
+    const floored = await searchManuals(db, {
+      query: "replace the resin tank",
+      viewer: anonymous,
+      target,
+      rerank: { model: reranker },
+      minRerankScore: 0.05,
+    });
+    expect(floored.passages.map((p) => p.sectionPath[0])).toEqual(["Resin tank"]);
+    expect(floored.droppedWeak).toBe(2);
+
+    // Fused scores are ranks, not relevance: no floor without the reranker.
+    const fused = await searchManuals(db, { query: "replace the resin tank", viewer: anonymous, target, minRerankScore: 0.05 });
+    expect(fused.passages.length).toBeGreaterThan(1);
+    expect(fused.droppedWeak).toBe(0);
+  });
+
+  it("names each passage's machine by its resource's tool, and carries the resource type", async () => {
+    const tool = await seedTool(db, { name: "Trotec Speedy 400" });
+    await manual(tool, "Speedy 400 Operating Manual", [CLEAN], { type: "SOP" });
+    const [passage] = (await searchManuals(db, { query: "build platform", viewer: anonymous, target })).passages;
+    expect(passage).toMatchObject({ toolId: tool, toolName: "Trotec Speedy 400", resourceType: "SOP" });
+  });
+
+  it("reads the relevance floor from MANUAL_RERANK_MIN_SCORE, ignoring a value out of range", () => {
+    expect(rerankMinScore()).toBe(DEFAULT_RERANK_MIN_SCORE);
+    vi.stubEnv("MANUAL_RERANK_MIN_SCORE", "0.2");
+    expect(rerankMinScore()).toBe(0.2);
+    vi.stubEnv("MANUAL_RERANK_MIN_SCORE", "0");
+    expect(rerankMinScore()).toBe(0);
+    vi.stubEnv("MANUAL_RERANK_MIN_SCORE", "high");
+    expect(rerankMinScore()).toBe(DEFAULT_RERANK_MIN_SCORE);
+  });
+});
+
+describe("dropDuplicates", () => {
+  it("keeps the first of passages with the same page and words, ignoring case and spacing", () => {
+    const base = { documentId: "a", toolId: "t1", toolName: "A", toolSlug: "a", documentTitle: "Doc", sectionPath: [], pageStart: 3, pageEnd: 3, pageLabel: null, pdfUrl: null, score: 1, ordinals: [0], ocr: false, resourceType: null } satisfies Omit<ManualPassage, "content">;
+    const { passages, dropped } = dropDuplicates([
+      { ...base, content: "Clean the sheet." },
+      { ...base, documentId: "b", toolId: "t2", content: "clean  the SHEET" },
+      { ...base, documentId: "b", pageStart: 4, content: "Clean the sheet." },
+    ]);
+    expect(passages.map((p) => [p.documentId, p.pageStart])).toEqual([
+      ["a", 3],
+      ["b", 4],
+    ]);
+    expect(dropped).toBe(1);
+  });
+});
+
 describe("mergeAdjacent", () => {
   const base: ManualPassage = {
     documentId: "d",
@@ -275,6 +364,7 @@ describe("mergeAdjacent", () => {
     score: 0,
     ordinals: [0],
     ocr: false,
+    resourceType: null,
   };
 
   it("joins consecutive passages of one section without repeating the overlap, keeping the best score", () => {

@@ -24,9 +24,10 @@ test("an admin sees the nine top-level categories with slugs, counts and the hid
   await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
   await page.goto("/admin/taxonomy");
 
-  await expect(page.getByRole("heading", { name: "Taxonomy", level: 2 })).toBeVisible({ timeout: 15_000 });
-  // In the admin section bar, beside the other Keep-data-fresh surfaces.
-  await expect(page.getByRole("navigation", { name: "Admin sections" }).getByRole("link", { name: "Taxonomy" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Categories", level: 2 })).toBeVisible({ timeout: 15_000 });
+  // An Inventory tab since the admin sections spec (2026-10-07), with Inventory marked in the bar.
+  await expect(page.getByRole("navigation", { name: "Inventory pages" }).getByRole("link", { name: "Categories" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Admin sections" }).getByRole("link", { name: "Inventory" })).toHaveAttribute("aria-current", "page");
 
   const tree = page.getByRole("region", { name: "Categories" });
   for (const name of ["3D Printing", "Laser Cutting & Engraving", "CNC & Waterjet", "Power Tools", "Hand Tools", "Electronics", "Textiles, Vinyl & Crafts", "Scanning, XR & Media", "Shop Infrastructure & Supplies"]) {

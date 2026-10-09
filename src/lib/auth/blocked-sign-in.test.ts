@@ -23,6 +23,7 @@ import {
   BLOCKED_SIGN_IN_PATH,
   EMAIL_BLOCKED_CODE,
   EMAIL_NOT_ALLOWED_CODE,
+  HOSTED_DOMAIN_REFUSED_CODE,
   emailBlockedError,
   isSignUpBlocked,
   redirectBlockedSignIn,
@@ -197,6 +198,18 @@ describe("the OAuth callback's error redirect", () => {
     const headers = new Headers({ location: "http://localhost:3000/api/auth/error?error=email_not_allowed" });
     const rewritten = redirectBlockedSignIn(new Response(null, { status: 302, headers }));
     expect(rewritten.headers.get("location")).toBe("/auth/rejected");
+  });
+
+  it("sends Better Auth's hd refusal to the domain page when hd is in force (amendment 2026-10-07)", () => {
+    const refused = () =>
+      new Response(null, {
+        status: 302,
+        headers: { location: `http://localhost:3000/api/auth/error?error=${HOSTED_DOMAIN_REFUSED_CODE}` },
+      });
+    expect(redirectBlockedSignIn(refused(), { hostedDomainOnly: true }).headers.get("location")).toBe("/auth/rejected");
+    // With named exceptions `hd` is not sent, so the code means something else.
+    const other = refused();
+    expect(redirectBlockedSignIn(other)).toBe(other);
   });
 
   it("leaves every other response alone", () => {

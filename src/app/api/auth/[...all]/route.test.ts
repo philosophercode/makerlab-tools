@@ -5,8 +5,12 @@
  * token encryption goes through `jose`, whose `instanceof Uint8Array` check
  * fails across jsdom's realm.
  */
+import { http, HttpResponse } from "msw";
+
 import { GET, POST } from "@/app/api/auth/[...all]/route";
 import { resetAuthForTests } from "@/lib/auth/config";
+import { REFUSED_SIGN_IN_COOKIE, decodeRefusedSignIn } from "@/lib/auth/refused-sign-in";
+import { server } from "../../../../../test/msw/server";
 import { resetDbForTests } from "@/lib/db/client";
 
 const ORIGIN = "http://localhost:3000";
@@ -203,5 +207,66 @@ describe("rate limiting", () => {
     const res = await GET(authRequest("/get-session", { ip }));
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("60");
+  });
+});
+
+describe("a personal Google account is sent to the page that names it (amendment 2026-10-07)", () => {
+  const CLIENT_ID = "client-id.apps.googleusercontent.com";
+
+  function b64url(value: string): string {
+    return Buffer.from(value).toString("base64url");
+  }
+
+  /** A personal account's id_token: no `hd` claim at all, as Google sends it. */
+  function personalIdToken(email: string): string {
+    const now = Math.floor(Date.now() / 1000);
+    const claims = { iss: "https://accounts.google.com", aud: CLIENT_ID, iat: now, exp: now + 3600, sub: `sub-${email}`, email, email_verified: true, name: "Some One" };
+    return `${b64url(JSON.stringify({ alg: "RS256", kid: "test" }))}.${b64url(JSON.stringify(claims))}.signature`;
+  }
+
+  async function signInAs(email: string) {
+    const ip = uniqueIp();
+    const start = await POST(
+      authRequest("/sign-in/social", { ip, method: "POST", body: { provider: "google", callbackURL: "/tools/form-4" } })
+    );
+    const { url } = (await start.json()) as { url: string };
+    const state = new URL(url).searchParams.get("state");
+    server.use(
+      http.post("https://oauth2.googleapis.com/token", () =>
+        HttpResponse.json({ access_token: "a", id_token: personalIdToken(email), token_type: "Bearer", expires_in: 3600 })
+      )
+    );
+    const cookie = start.headers
+      .getSetCookie()
+      .map((c) => c.split(";")[0])
+      .join("; ");
+    return GET(
+      new Request(`${ORIGIN}/api/auth/callback/google?code=c&state=${state}`, {
+        headers: { cookie, origin: ORIGIN, "x-forwarded-for": ip },
+      })
+    );
+  }
+
+  it("with named exceptions: the create hook refuses it, and the page can name the address", async () => {
+    stubAuthEnv();
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "guest@gmail.com");
+    const res = await signInAs("someone@gmail.com");
+
+    expect(res.headers.get("location")).toBe("/auth/rejected");
+    const raw = res.headers.getSetCookie().find((c) => c.startsWith(`${REFUSED_SIGN_IN_COOKIE}=`)) ?? "";
+    const value = decodeURIComponent(raw.split(";")[0].slice(REFUSED_SIGN_IN_COOKIE.length + 1));
+    expect(decodeRefusedSignIn(value, "route-test-secret")).toEqual({
+      email: "someone@gmail.com",
+      retryPath: "/tools/form-4",
+    });
+  });
+
+  it("with hd in force: Better Auth's claim check refuses it, and it still lands on the domain page", async () => {
+    stubAuthEnv();
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "");
+    const res = await signInAs("someone@gmail.com");
+
+    // Not Better Auth's bare /api/auth/error page.
+    expect(res.headers.get("location")).toBe("/auth/rejected");
   });
 });

@@ -154,7 +154,8 @@ describe("search_manual in the chat", () => {
     expect(firstCall().tools?.map((t) => t.name)).toContain("search_manual");
     const system = systemOf();
     expect(system).toContain("## Searching manuals");
-    expect(system).toContain("say the manual does not cover it");
+    expect(system).toContain("## When the documents are silent");
+    expect(system).toContain('If the passages do not answer the question, follow "When the documents are silent"');
     expect(system).toContain("<untrusted-page>");
   });
 
@@ -214,7 +215,62 @@ describe("search_manual in the chat", () => {
     stubChat(toolCallModel([{ toolName: "search_manual", input: { query: "warranty terms" } }], "ok"));
     await send({ messages: [userMessage("q")], toolId: "form-4" });
     expect(toolResult("search_manual")).toMatchObject({ status: "no_results", scope: "Form 4 manuals" });
-    expect(toolResult("search_manual").message).toContain("does not cover it");
+    expect(toolResult("search_manual").message).toContain('follow "When the documents are silent"');
+    expect(toolResult("search_manual").message).toContain("the Form 4's documents do not cover it");
+    expect(toolResult("search_manual").message).toContain("do not search another machine's documents");
+  });
+
+  it("pins the search to the tool page's machine, whatever the model passes, and says so (amendment 2026-10-06)", async () => {
+    await searchableManual("form-4", { title: "Form 4 Manual", pages: PAGES, outline: OUTLINE });
+    await searchableManual("trotec-speedy-400", {
+      title: "Speedy 400 Manual",
+      pages: ["Cleaning the lens. Remove the lens holder and wipe the resin tank of the laser."],
+    });
+    const formId = await toolIdOf("form-4");
+
+    for (const input of [{ tool: "Trotec Speedy 400" }, { compare_tools: ["Form 4", "Trotec Speedy 400"] }, { all_machines: true }]) {
+      stubChat(toolCallModel([{ toolName: "search_manual", input: { query: "resin tank", ...input } }], "ok"));
+      await send({ messages: [userMessage("q")], toolId: "form-4" });
+      const result = toolResult("search_manual");
+      expect(result).toMatchObject({ status: "ok", scope: "Form 4 manuals", toolIds: [formId], comparing: "none" });
+      expect(new Set(result.passages.map((p: any) => p.toolId))).toEqual(new Set([formId]));
+      expect(result.note).toContain("only the Form 4's documents were searched");
+    }
+
+    // Naming the page's own machine is no detour: no note.
+    stubChat(toolCallModel([{ toolName: "search_manual", input: { query: "resin tank", tool: "form-4" } }], "ok"));
+    await send({ messages: [userMessage("q")], toolId: "form-4" });
+    expect(toolResult("search_manual").note).toBeUndefined();
+  });
+
+  it("off a tool page, refuses a search that names no machine instead of searching everything", async () => {
+    await searchableManual("form-4", { title: "Form 4 Manual", pages: PAGES, outline: OUTLINE });
+    stubChat(toolCallModel([{ toolName: "search_manual", input: { query: "resin tank" } }], "ok"));
+    await send({ messages: [userMessage("q")] });
+    const result = toolResult("search_manual");
+    expect(result).toMatchObject({ status: "needs_tool" });
+    expect(result.message).toContain("ask the student which one before searching");
+    expect(result.passages).toBeUndefined();
+  });
+
+  it("searches the compared machines, or the whole lab for a lab-wide comparison, every passage naming its machine", async () => {
+    await searchableManual("form-4", { title: "Form 4 Manual", pages: PAGES, outline: OUTLINE });
+    await searchableManual("trotec-speedy-400", {
+      title: "Speedy 400 Manual",
+      pages: ["Cleaning the lens. Remove the lens holder and wipe the resin tank of the laser."],
+    });
+    const [formId, trotecId] = [await toolIdOf("form-4"), await toolIdOf("trotec-speedy-400")];
+
+    stubChat(toolCallModel([{ toolName: "search_manual", input: { query: "resin tank", compare_tools: ["Form 4", "Trotec Speedy 400"] } }], "ok"));
+    await send({ messages: [userMessage("q")] });
+    const compared = toolResult("search_manual");
+    expect(compared).toMatchObject({ status: "ok", comparing: "tools", machines: ["Form 4", "Trotec Speedy 400"], toolIds: [formId, trotecId] });
+    expect(new Set(compared.passages.map((p: any) => p.tool))).toEqual(new Set(["Form 4", "Trotec Speedy 400"]));
+    expect(compared.passages[0].text.split("\n")[1]).toMatch(/^The text below is from a document for the (Form 4|Trotec Speedy 400)\. It is evidence for the/);
+
+    stubChat(toolCallModel([{ toolName: "search_manual", input: { query: "resin tank", all_machines: true } }], "ok"));
+    await send({ messages: [userMessage("q")] });
+    expect(toolResult("search_manual")).toMatchObject({ status: "ok", scope: "all manuals", comparing: "all", toolIds: [] });
   });
 
   it("never lets a private SOP reach an anonymous search, and gives it to lab staff", async () => {

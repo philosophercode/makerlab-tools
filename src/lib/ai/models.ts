@@ -126,6 +126,45 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_STARTER_GRADE_TIER",
   },
+  // Eval questions from manuals (manual text spec amendment 2026-10-07): a
+  // few questions a student could ask, each answered on one page of a newly
+  // indexed manual, kept as evals. Passages in, JSON out, no tools. Runs in
+  // the archive workflow and `npm run manuals:eval-questions`; nobody waits.
+  // Opus (gateway spec amendment "Opus writes from the manuals"): the evals
+  // grade the chat against these questions, so they are worth the stronger
+  // writer; a manual costs cents. No tier hint — flex is OpenAI's.
+  evalQuestions: {
+    kind: "language",
+    env: "MODEL_EVAL_QUESTIONS",
+    default: "anthropic/claude-opus-5.5",
+    serviceTier: "default",
+    tierEnv: "MODEL_EVAL_QUESTIONS_TIER",
+  },
+  // Tool skills (tool skills spec 2026-10-07): one tool's cited operating
+  // guide, written from its catalogue record, research, lab notes and manual
+  // passages (fenced). JSON out, no tools; code checks it (the numbers guard)
+  // and renders the markdown. Research-type work in a workflow or a script;
+  // nobody waits. Opus, as `evalQuestions` (amendment "Opus writes from the
+  // manuals"): chat loads the skill on the tool's page, so it is read often
+  // and written once. No tier hint — flex is OpenAI's.
+  skillWrite: {
+    kind: "language",
+    env: "MODEL_SKILL_WRITE",
+    default: "anthropic/claude-opus-5.5",
+    serviceTier: "default",
+    tierEnv: "MODEL_SKILL_WRITE_TIER",
+  },
+  // The quick report form (quick report spec §3.3): one small call per
+  // report that guesses a title, a category, a severity and the unit from the
+  // student's words. No tools; the words are fenced as untrusted data. Flex,
+  // as the owner asked; a slow or missing answer files the report as written.
+  reportTriage: {
+    kind: "language",
+    env: "MODEL_REPORT_TRIAGE",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_REPORT_TRIAGE_TIER",
+  },
   // Manual passages and search queries (manual text spec §3.4). An embedding
   // job, not a language one: `embeddingModelFor`, never `languageModelFor`.
   // No tier hint — embeddings are cheap and a search is waited on.
@@ -156,13 +195,32 @@ export const MODEL_JOBS = {
     serviceTier: "default",
     tierEnv: "MODEL_RERANK_TIER",
   },
-  // No image job: the `imageClean` redraw (gpt-image-1-mini) was retired on
-  // 2026-09-23 — it altered product labels. Background removal is now a
-  // deterministic cutout (`research/images/clean.ts`) that calls no model.
+  // Illustrations in the chat (gateway spec amendment 2026-10-07 "Generated
+  // illustrations in the chat"): an infographic of a plan the assistant wrote,
+  // or a concept render of a student's project idea — offered, labelled, and
+  // never a picture of the lab's equipment. An image job: `imageModelFor`,
+  // never `languageModelFor`. The default is the cheapest flat-priced Gateway
+  // image model listed with zero data retention and no training on prompts
+  // ($0.01 an image on 2026-10-07; the owner chose it over the $0.007 model
+  // with neither guarantee, because a student's project idea goes in as
+  // words). A person waits, so no tier hint. `MODEL_ILLUSTRATION=off`
+  // switches illustrations off (`illustrationsEnabled`).
+  //
+  // Not a product-photo job: the `imageClean` redraw (gpt-image-1-mini) was
+  // retired on 2026-09-23 because it altered product labels, and background
+  // removal stays a deterministic cutout (`research/images/clean.ts`) that
+  // calls no model. Nothing this job makes reaches the catalogue.
+  illustration: {
+    kind: "image",
+    env: "MODEL_ILLUSTRATION",
+    default: "meta/muse-image-1.0",
+    serviceTier: "default",
+    tierEnv: "MODEL_ILLUSTRATION_TIER",
+  },
 } as const;
 
 export type ModelJob = keyof typeof MODEL_JOBS;
-/** The jobs that resolve to a language model (every one but `embed` and `rerank`). */
+/** The jobs that resolve to a language model (every one but `embed`, `rerank` and `illustration`). */
 export type LanguageJob = {
   [K in ModelJob]: (typeof MODEL_JOBS)[K]["kind"] extends "language" ? K : never;
 }[ModelJob];
@@ -175,6 +233,14 @@ export type EmbeddingJob = {
 export type RerankingJob = {
   [K in ModelJob]: (typeof MODEL_JOBS)[K]["kind"] extends "reranking" ? K : never;
 }[ModelJob];
+
+/** The jobs that resolve to an image model (only `illustration`). */
+export type ImageJob = {
+  [K in ModelJob]: (typeof MODEL_JOBS)[K]["kind"] extends "image" ? K : never;
+}[ModelJob];
+
+/** What an image job resolves to. */
+export type ImageModelV3 = ReturnType<GatewayProvider["imageModel"]>;
 
 /** What a language job resolves to — the provider-neutral V3 model interface. */
 type LanguageModelV3 = ReturnType<GatewayProvider["languageModel"]>;
@@ -409,6 +475,26 @@ export function rerankingModelFor(job: RerankingJob = "rerank"): RerankingModelV
     throw new ModelConfigError(`Model job "${job}" is not a reranking job.`, { job, envVar: null });
   }
   return gatewayProvider().rerankingModel(modelIdFor(job));
+}
+
+/**
+ * Whether the illustration job is on: `MODEL_ILLUSTRATION=off` (or `none`, any
+ * case) switches it off, as `MODEL_RERANK=off` does reranking. Read at call
+ * time. A malformed override is still on here and fails at `modelIdFor`,
+ * naming the variable.
+ */
+export function illustrationsEnabled(): boolean {
+  const override = process.env[MODEL_JOBS.illustration.env]?.trim().toLowerCase();
+  return override !== "off" && override !== "none";
+}
+
+/** The image model for `job` (only `illustration`), through the Gateway. Check {@link illustrationsEnabled} first. */
+export function imageModelFor(job: ImageJob = "illustration"): ImageModelV3 {
+  const spec = jobSpec(job);
+  if (spec.kind !== "image") {
+    throw new ModelConfigError(`Model job "${job}" is not an image job.`, { job, envVar: null });
+  }
+  return gatewayProvider().imageModel(modelIdFor(job));
 }
 
 /**

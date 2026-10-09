@@ -48,13 +48,16 @@ vi.mock("next/cache", () => ({
 import { eq, inArray } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import { POST } from "@/app/api/chat/route";
+import { LAB_NOTES_SETTING, setLabSetting } from "@/lib/data/lab-settings";
 import { manualSourceKey } from "@/lib/data/manual-archives";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import {
   attachments,
+  labSettings,
   maintenanceLogs,
   resources,
   tools as toolsTable,
+  toolSkills,
   units,
 } from "@/lib/db/schema/index";
 import { resetAuthForTests } from "@/lib/auth/config";
@@ -428,6 +431,29 @@ describe("POST /api/chat — tools wired", () => {
     expect(system.indexOf("# This conversation")).toBeGreaterThan(system.indexOf("## MakerLab catalog"));
     expect(system.indexOf("## Active tool context")).toBeGreaterThan(system.indexOf("# This conversation"));
     expect(system.match(/## MakerLab catalog \(/g)).toHaveLength(1);
+  });
+
+  it("knows the lab-wide notes in the stable part and the page's tool lab notes first in its description (identity spec amendment \"Lab notes\")", async () => {
+    const db = await getDb();
+    await setLabSetting(LAB_NOTES_SETTING, { text: "Clean your station before you leave.\n- Ask staff before your first cut." }, null);
+    try {
+      await send({ messages: [userMessage("how do I use it?")], toolId: "trotec-speedy-400" });
+      const system = systemOf();
+      const conversation = system.indexOf("# This conversation");
+
+      expect(system.indexOf("### Lab-wide notes\n\n- Clean your station before you leave.\n- Ask staff before your first cut.")).toBeGreaterThan(0);
+      expect(system.indexOf("### Lab-wide notes")).toBeLessThan(conversation);
+      expect(system.indexOf("  - Run exhaust for 60 seconds after cuts before opening the lid.")).toBeGreaterThan(conversation);
+      expect(system).toContain("4. A lab note: `**Lab note:**` in bold before it");
+    } finally {
+      await db.delete(labSettings);
+    }
+  });
+
+  it("returns a tool's lab notes from get_tool_details as lab_notes", async () => {
+    const result = await runTool("get_tool_details", { id_or_name: "form-4" });
+
+    expect(result.lab_notes).toEqual(["Always wear nitrile gloves when handling uncured resin. Ventilation must be running."]);
   });
 
   it("stops offering read_page after five calls in one turn, and keeps everything else", async () => {
@@ -970,6 +996,53 @@ describe("POST /api/chat — who may add equipment", () => {
   });
 });
 
+// ── Unit serials (data platform spec amendment 2026-10-06) ───────────
+describe("POST /api/chat — whole unit serials are for staff, the last four for everyone", () => {
+  const SECRET = "chat-route-test-secret";
+
+  async function postAs(role: "user" | "admin" | "super_admin", body: Record<string, unknown>) {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    resetAuthForTests();
+    const { cookie } = await signInAsNew({ role, name: `Test ${role}` });
+    await send(body, { cookie });
+  }
+
+  it("gives an anonymous visitor's prompt only the focused tool's masked last four", async () => {
+    await send({ messages: [userMessage("what is the serial number?")], toolId: "form-4" });
+    const system = systemOf();
+    expect(system).toContain("## Active tool context");
+    expect(system).toContain("Form 4 // A — status: In Use, condition: Excellent, serial: •••• -001");
+    expect(system).not.toContain("ML-F4-001");
+  });
+
+  it("gives a student's prompt only the masked last four too", async () => {
+    await postAs("user", { messages: [userMessage("what is the serial number?")], toolId: "form-4" });
+    expect(systemOf()).toContain("Form 4 // A — status: In Use, condition: Excellent, serial: •••• -001");
+    expect(systemOf()).not.toContain("ML-F4-001");
+  });
+
+  it.each(["admin", "super_admin"] as const)("names the whole serial in the %s's prompt", async (role) => {
+    await postAs(role, { messages: [userMessage("what is the serial number?")], toolId: "form-4" });
+    expect(systemOf()).toContain("Form 4 // A — status: In Use, condition: Excellent, serial: ML-F4-001");
+    expect(systemOf()).not.toContain("•••• -001");
+  });
+
+  it("gives a student get_unit_details with the masked last four, and an admin the whole serial", async () => {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    resetAuthForTests();
+    const student = await signInAsNew({ role: "user", name: "Ada Lovelace" });
+    const asStudent = await runTool("get_unit_details", { unit_label: "Form 4 // A" }, { cookie: student.cookie });
+    expect(asStudent.found).toBe(true);
+    expect(asStudent).not.toHaveProperty("serial");
+    expect(asStudent.serial_masked).toBe("•••• -001");
+
+    const admin = await signInAsNew({ role: "admin", name: "Niti Parikh" });
+    const asAdmin = await runTool("get_unit_details", { unit_label: "Form 4 // A" }, { cookie: admin.cookie });
+    expect(asAdmin.serial).toBe("ML-F4-001");
+    expect(asAdmin).not.toHaveProperty("serial_masked");
+  });
+});
+
 // ── Photos reach the model (intake spec §6.1) ────────────────────────
 describe("POST /api/chat — photos reach the model", () => {
   it("passes an attached photo to the model on the user message", async () => {
@@ -1060,5 +1133,170 @@ describe("POST /api/chat — QR codes in photos", () => {
     const { res } = await send({ messages: [photoMessage(Buffer.from("not an image at all"))] });
     expect(res.status).toBe(200);
     expect(systemOf()).not.toContain("QR codes in this message's photos");
+  });
+});
+
+// ── Images in the chat (parity spec amendment 2026-10-07; gateway spec amendment) ──
+describe("POST /api/chat — tool cards and illustrations", () => {
+  const SECRET = "chat-route-test-secret";
+
+  async function postAs(role: "user" | "admin") {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    resetAuthForTests();
+    const { cookie } = await signInAsNew({ role, name: "Ada Lovelace" });
+    await send({ messages: [userMessage("Can you sketch my lamp idea?")] }, { cookie });
+  }
+
+  it("offers show_tool to everybody, anonymous visitors included", async () => {
+    await send({ messages: [userMessage("what does the Form 4 look like?")] });
+    expect(toolNamesOf()).toContain("show_tool");
+    expect(systemOf()).toContain("## Showing a tool");
+  });
+
+  it("offers no illustrations at all without a Blob store: no tool, no offer", async () => {
+    // The suite has no store (BLOB_LOCAL_DISABLE=1).
+    await postAs("user");
+    expect(toolNamesOf()).not.toContain("make_illustration");
+    expect(systemOf()).not.toContain("## Illustrations");
+  });
+
+  it("gives a signed-in person make_illustration once there is somewhere to keep the picture", async () => {
+    vi.stubEnv("BLOB_LOCAL_DISABLE", "");
+    await postAs("user");
+    expect(toolNamesOf()).toContain("make_illustration");
+    expect(systemOf()).toContain("Offer it; do not make it unasked");
+  });
+
+  it("gives an anonymous visitor only the sign-in note", async () => {
+    vi.stubEnv("BLOB_LOCAL_DISABLE", "");
+    await send({ messages: [userMessage("Can you sketch my lamp idea?")] });
+    expect(toolNamesOf()).not.toContain("make_illustration");
+    expect(systemOf()).toMatch(/This person is not signed in: if they ask for a sketch/);
+  });
+
+  it("leaves illustrations out when MODEL_ILLUSTRATION=off", async () => {
+    vi.stubEnv("BLOB_LOCAL_DISABLE", "");
+    vi.stubEnv("MODEL_ILLUSTRATION", "off");
+    await postAs("admin");
+    expect(toolNamesOf()).not.toContain("make_illustration");
+    expect(systemOf()).not.toContain("## Illustrations");
+  });
+});
+
+// ── Suggested replies (parity spec amendment 2026-10-07) ───────────
+describe("POST /api/chat — suggested replies", () => {
+  const replies = ["Acrylic sign", "Engraved wood"];
+
+  function repliesCall(i: number) {
+    return { type: "tool-call" as const, toolCallId: `replies_${i}`, toolName: "suggest_replies", input: JSON.stringify({ replies }) };
+  }
+
+  it("offers suggest_replies and its rules to everybody, anonymous visitors included", async () => {
+    await send({ messages: [userMessage("Laser cut")] });
+    expect(toolNamesOf()).toContain("suggest_replies");
+    expect(systemOf()).toContain("## Suggested replies");
+  });
+
+  it("ends the turn on a step that only offered replies after the answer: no second model call", async () => {
+    stubChatModel(
+      scriptedModel((i) => ({
+        content: [{ type: "text", text: "The lab has two laser cutters. What are you looking to cut?" }, repliesCall(i)],
+        finishReason: "tool-calls",
+      }))
+    );
+    const { text } = await send({ messages: [userMessage("Laser cut")] });
+
+    expect(recordedCalls(model)).toHaveLength(1);
+    // The replies reach the chat as the call's output, as the tool returned them.
+    expect(text).toContain('"type":"tool-output-available"');
+    expect(text).toContain('"output":{"ok":true,"replies":["Acrylic sign","Engraved wood"]}');
+  });
+
+  it("carries on when the replies came before any answer, and withdraws the tool for the rest of the turn", async () => {
+    stubChatModel(
+      scriptedModel((i) =>
+        i === 0
+          ? { content: [repliesCall(i)], finishReason: "tool-calls" }
+          : { content: [{ type: "text", text: "What are you looking to cut?" }], finishReason: "stop" }
+      )
+    );
+    await send({ messages: [userMessage("Laser cut")] });
+
+    const calls = recordedCalls(model);
+    expect(calls).toHaveLength(2);
+    expect(toolNamesOf(calls[1])).not.toContain("suggest_replies");
+    expect(toolResultOf("suggest_replies")).toEqual({ ok: true, replies });
+  });
+});
+
+describe("POST /api/chat — the tool skill on its page (tool skills spec 2026-10-07 §5.6)", () => {
+  const SECTIONS = {
+    format: 1,
+    quickFacts: [],
+    beforeYouStart: [{ text: "Lab note: Run exhaust for 60 seconds after cuts before opening the lid.", cites: ["N1"], origin: "lab" }],
+    operatingProcedure: [{ text: "Focus the lens with the focus tool", cites: ["M1"], origin: "model" }],
+    settingsAndLimits: [],
+    materials: [],
+    troubleshooting: [],
+    safety: [{ text: "Emergency stop: the red button on the lid", cites: ["T1"], origin: "lab" }],
+    whenToGetStaff: [],
+    notInSources: [],
+    removed: [],
+    unknownCites: [],
+  };
+
+  async function seedSkill(slug: string, version: number, status: "ready" | "failed") {
+    const db = await getDb();
+    await db.insert(toolSkills).values({
+      toolId: await toolId(slug),
+      version,
+      status,
+      content: status === "ready" ? "# skill" : "",
+      sections: status === "ready" ? SECTIONS : {},
+      sources:
+        status === "ready"
+          ? [{ id: "M1", kind: "manual", documentId: "00000000-0000-4000-8000-0000000000aa", title: "Speedy 400 Manual", pageStart: 12, pageEnd: 12, section: [] }]
+          : [],
+      inputHash: `sha256:${version}`,
+      model: "openai/gpt-6-luna",
+      trigger: "manual",
+    });
+  }
+
+  afterEach(async () => {
+    const db = await getDb();
+    await db.delete(toolSkills);
+  });
+
+  it("puts the page's tool skill in the per-request part, fenced, after the tool's own context and lab notes", async () => {
+    await seedSkill("trotec-speedy-400", 1, "ready");
+    await send({ messages: [userMessage("how do I start a cut?")], toolId: "trotec-speedy-400" });
+    const system = systemOf();
+    const at = system.indexOf("## Tool skill: Trotec Speedy 400");
+    expect(at).toBeGreaterThan(system.indexOf("# This conversation"));
+    expect(at).toBeGreaterThan(system.indexOf("## Active tool context"));
+    expect(system.slice(at)).toMatch(/<untrusted-page id="[0-9a-f]+" source="tool skill: Trotec Speedy 400, version 1">/);
+    expect(system.slice(at)).toContain("1. Focus the lens with the focus tool [M1]");
+    expect(system.slice(at)).toContain("Sources: M1 Speedy 400 Manual p. 12");
+    expect(system.slice(at)).toMatch(/they are not `search_manual` refs/);
+  });
+
+  it("leaves it out for a tool with no skill, or whose only attempt failed", async () => {
+    await send({ messages: [userMessage("how do I print?")], toolId: "form-4" });
+    expect(systemOf()).not.toContain("## Tool skill:");
+
+    await seedSkill("form-4", 1, "failed");
+    stubChatModel(textModel("Hello."));
+    await send({ messages: [userMessage("how do I print?")], toolId: "form-4" });
+    expect(systemOf()).not.toContain("## Tool skill:");
+  });
+
+  it("leaves it out off a tool page, though the tools still have skills", async () => {
+    await seedSkill("trotec-speedy-400", 1, "ready");
+    await send({ messages: [userMessage("how do I start a cut on the laser?")] });
+    expect(systemOf()).not.toContain("## Tool skill:");
+    // The model can still fetch it.
+    expect(toolNamesOf()).toContain("get_tool_skill");
+    expect(systemOf()).toContain("## Tool skills");
   });
 });

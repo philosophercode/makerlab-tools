@@ -206,6 +206,18 @@ describe("loadInsights", () => {
     expect(data.kinds.debug.reduce((a, b) => a + b, 0)).toBe(1);
   });
 
+  it("counts citations of another machine's document apart, rolled or raw, inside the citations total (amendment 2026-10-06)", async () => {
+    await eventsAt(new Date("2026-09-27T14:00:00Z"), [
+      { kind: "manual_cited", toolId: toolA, page: 3 },
+      { kind: "manual_cited", toolId: toolB, page: 5, source: "cross_tool" },
+    ]);
+    await runUsageRollup({ db, now: new Date("2026-09-28T00:30:00Z") });
+    await eventsAt(new Date("2026-09-28T15:00:00Z"), [{ kind: "manual_cited", toolId: toolB, page: 5, source: "cross_tool" }]);
+    const { totals } = await loadInsights(query, { db });
+    expect(totals.citations).toBe(3);
+    expect(totals.crossToolCitations).toBe(2);
+  });
+
   it("leaves staff out unless asked", async () => {
     await eventsAt(new Date("2026-09-28T15:00:00Z"), [{ audience: "staff" }, { audience: "member" }]);
     expect((await loadInsights(query, { db })).totals.chatTurns).toBe(1);

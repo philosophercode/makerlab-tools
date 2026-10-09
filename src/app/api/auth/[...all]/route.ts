@@ -1,6 +1,7 @@
 import { redirectBlockedSignIn } from "../../../../lib/auth/blocked-sign-in";
 import { AUTH_BASE_PATH, getAuth, hasGoogleEnv } from "../../../../lib/auth/config";
 import { anonymousIdentity } from "../../../../lib/auth/identity";
+import { allowedEmails } from "../../../../lib/auth/roles";
 import { checkRateLimit } from "../../../../lib/rate-limit";
 
 /**
@@ -66,10 +67,14 @@ async function handle(req: Request): Promise<Response> {
     return Response.json(NOT_CONFIGURED, { status: 503 });
   }
 
-  // A blocked address (auth spec amendment 2026-09-25) comes back from the
-  // OAuth callback as Better Auth's generic error redirect; it is sent to the
-  // page that says why instead.
-  return redirectBlockedSignIn(await auth.handler(req));
+  // A blocked address (auth spec amendment 2026-09-25), or one outside the
+  // domain (amendment 2026-10-07), comes back from the OAuth callback as Better
+  // Auth's generic error redirect; it is sent to the page that says why instead.
+  // With no named exceptions the provider sends `hd`, and its own claim check
+  // is where a personal account is refused (`config.ts`).
+  return redirectBlockedSignIn(await auth.handler(req), {
+    hostedDomainOnly: allowedEmails().length === 0,
+  });
 }
 
 /**

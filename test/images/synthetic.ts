@@ -11,12 +11,12 @@ export type Rgba = [number, number, number, number];
 
 export class Canvas {
   readonly data: Uint8Array;
+  readonly width: number;
+  readonly height: number;
 
-  constructor(
-    readonly width: number,
-    readonly height: number,
-    fill: Rgba = [255, 255, 255, 255]
-  ) {
+  constructor(width: number, height: number, fill: Rgba = [255, 255, 255, 255]) {
+    this.width = width;
+    this.height = height;
     this.data = new Uint8Array(width * height * 4);
     this.paint(() => fill);
   }

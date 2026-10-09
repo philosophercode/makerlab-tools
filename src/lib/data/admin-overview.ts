@@ -8,6 +8,7 @@ import { countInventory } from "./inventory.ts";
 import { countOpenInboxProposals } from "./action-proposals.ts";
 import { countPendingCategoryProposals } from "./category-admin.ts";
 import { countOpenTickets } from "./maintenance.ts";
+import { countDueSchedules } from "./maintenance-schedules.ts";
 import { countManualsByState } from "./manual-chunks.ts";
 import { getMirrorViewForOwner } from "./mirrors.ts";
 import { countOpenGaps } from "../usage/queries.ts";
@@ -56,7 +57,12 @@ export interface OverviewCounts {
   taxonomy: { pending: number };
   /** Unanswered questions waiting in `/admin/insights`' queue (usage insight spec §6). */
   insights: { openGaps: number };
-  maintenance: { open: number; inProgress: number; urgent: number; series: number[] };
+  /**
+   * Open tickets, and the recurring tasks (recurring maintenance spec,
+   * amendment 2026-10-06) that are overdue or due today — the upkeep waiting
+   * on staff beside the reported problems.
+   */
+  maintenance: { open: number; inProgress: number; urgent: number; series: number[]; tasksOverdue: number; tasksDueToday: number };
   corrections: { open: number; handled: number; series: number[] };
   projects: { waiting: number; published: number };
   /** The viewer's own MCP proposals waiting in the Assistant proposals inbox (assistant–GUI parity spec §6). */
@@ -160,11 +166,13 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
   async maintenance(ctx) {
     const { db } = ctx;
     // The counts are shared with the kiosk's open-ticket figure (kiosk spec §4.1).
-    const [counts, series] = await Promise.all([
+    const [counts, series, tasks] = await Promise.all([
       countOpenTickets(db),
       dailySeries(ctx, sql`coalesce(date_reported, ${labDay(ctx, sql`created_at`)})`, sql`maintenance_logs`),
+      // The lab's today, as the due list on /admin/maintenance reads it.
+      countDueSchedules(ctx.today, { db }),
     ]);
-    return { ...counts, series };
+    return { ...counts, series, tasksOverdue: tasks.overdue, tasksDueToday: tasks.dueToday };
   },
 
   async corrections(ctx) {

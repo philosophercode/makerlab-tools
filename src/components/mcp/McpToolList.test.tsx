@@ -39,12 +39,15 @@ it("groups every tool under Anyone, Signed-in lab members and Staff", () => {
     "get_unit_details",
     "get_maintenance_history",
     "search_manual",
+    // Tool skills (tool skills spec 2026-10-07 §5.5): a read for everybody.
+    "get_tool_skill",
   ]);
   expect(toolNamesIn(group("Signed-in lab members"))).toEqual(["report_issue", "report_correction", "list_my_reports"]);
   expect(toolNamesIn(group("Staff"))).toEqual([
     "create_tool",
     "list_intake_queue",
     "list_open_tickets",
+    "list_maintenance_due",
     "update_ticket",
     "propose_change",
     // Assistant–GUI parity phase 7: the id reads and the proposing tools.
@@ -62,10 +65,10 @@ it("says read or write for each tool", () => {
 });
 
 it.each([
-  ["anonymous", 6, "report_issue"],
-  ["user", 9, "update_ticket"],
-  ["admin", 44, "get_usage_summary"],
-  ["super_admin", 46, null],
+  ["anonymous", 7, "report_issue"],
+  ["user", 10, "update_ticket"],
+  ["admin", 46, "get_usage_summary"],
+  ["super_admin", 48, null],
 ] as const)("marks the tools a %s viewer can use", (role, count, notUsable) => {
   renderAs(role);
   expect(screen.getAllByText("You can use this")).toHaveLength(count);

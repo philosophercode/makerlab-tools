@@ -4,6 +4,7 @@ import { runCleanup } from "../../../../lib/cron/cleanup";
 import { reportHeartbeat } from "../../../../lib/cron/heartbeat";
 import { runManualArchiveBackfill } from "../../../../lib/cron/manual-archive";
 import { runMirrorBackstop } from "../../../../lib/cron/mirror-backstop";
+import { runNotificationStage } from "../../../../lib/cron/notifications";
 import { runPendingExpiry } from "../../../../lib/cron/pending-expiry";
 import { runUsageRollup } from "../../../../lib/usage/rollup";
 import { rateLimitAsync } from "../../../../lib/rate-limit";
@@ -46,6 +47,14 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
  *    and catches any approval whose run never started. Like the mirror stage
  *    it only starts the run, and a run that could not be started fails the
  *    stage.
+ * 7. **Notifications** (email notifications spec §3.6, amendment
+ *    2026-10-07) — sends stuck past 20 hours given up, outbox rows whose run
+ *    never started restarted once, rows older than 180 days deleted, and the
+ *    recurring-maintenance reminder started: a run that sleeps until 08:00
+ *    lab time and emails staff the tasks that came due since the last
+ *    reminder, each once per due date, or nothing when none did
+ *    (`src/lib/cron/notifications.ts`). A run that could not be started
+ *    fails the stage.
  *
  * **Nothing here fails quietly.** Every stage reports, and any one failing
  * makes the whole invocation non-200 so it shows in Vercel's cron log as
@@ -131,7 +140,7 @@ export async function GET(req: Request) {
   return response;
 }
 
-/** The six stages, in order; the first to fail answers for the run. */
+/** The seven stages, in order; the first to fail answers for the run. */
 async function runStages(store: BlobStore): Promise<Response> {
   let backup: Awaited<ReturnType<typeof runBackup>>;
   try {
@@ -243,5 +252,35 @@ async function runStages(store: BlobStore): Promise<Response> {
     );
   }
 
-  return Response.json({ ok: true, backup, pendingExpiry, cleanup, usage, mirror, manuals });
+  // Last of all: it only starts runs (or records `not_configured` rows when
+  // email is not set up), and the reminder's run sleeps until 08:00 lab time.
+  let notifications: Awaited<ReturnType<typeof runNotificationStage>>;
+  try {
+    notifications = await runNotificationStage();
+  } catch (error) {
+    console.error("[cron] notification stage failed:", message(error));
+    return Response.json(
+      { ok: false, stage: "notifications", backup, pendingExpiry, cleanup, usage, mirror, manuals, error: message(error) },
+      { status: 500 }
+    );
+  }
+  if (notifications.failed > 0) {
+    return Response.json(
+      {
+        ok: false,
+        stage: "notifications",
+        backup,
+        pendingExpiry,
+        cleanup,
+        usage,
+        mirror,
+        manuals,
+        notifications,
+        error: `${notifications.failed} notification run(s) could not be started`,
+      },
+      { status: 500 }
+    );
+  }
+
+  return Response.json({ ok: true, backup, pendingExpiry, cleanup, usage, mirror, manuals, notifications });
 }

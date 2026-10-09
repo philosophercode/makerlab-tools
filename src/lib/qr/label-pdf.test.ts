@@ -16,7 +16,7 @@ const labels = Array.from({ length: 30 }, (_, index) =>
   labelContentFor({ slug: `tool-${index}`, name: `Tool ${index}`, room: "Main Lab", zone: "Bench" }, "https://makerlab-ai.vercel.app")
 );
 const style = (patch: Partial<LabelStyle> = {}): LabelStyle => ({ ...DEFAULT_LABEL_STYLE, ...patch });
-const wordmarkPng = readFileSync(join(process.cwd(), "public", "makerlab-wordmark.png"));
+const brandPng = readFileSync(join(process.cwd(), "public", "brand", "cornell-tech-makerlab-logo.png"));
 
 async function pages(bytes: Uint8Array) {
   const doc = await PDFDocument.load(bytes);
@@ -25,7 +25,7 @@ async function pages(bytes: Uint8Array) {
 
 describe("buildLabelSheetPdf", () => {
   it("packs 2-inch labels twelve to a Letter page, at Letter's size in points", async () => {
-    const bytes = await buildLabelSheetPdf({ labels, style: style(), sheet: DEFAULT_SHEET, wordmarkPng });
+    const bytes = await buildLabelSheetPdf({ labels, style: style(), sheet: DEFAULT_SHEET, brandPng });
     const sizes = await pages(bytes);
     expect(sizes).toHaveLength(3); // 30 labels, 12 a page
     for (const size of sizes) {
@@ -55,6 +55,17 @@ describe("buildLabelSheetPdf", () => {
     const doc = await PDFDocument.load(bytes);
     expect(doc.getTitle()).toBe("MakerLAB QR labels");
     expect(doc.getPageCount()).toBe(1);
+  });
+
+  it("embeds the logo once for the whole sheet, and writes the lab's name when the brand image is not a PNG", async () => {
+    const withLogo = await buildLabelSheetPdf({ labels: labels.slice(0, 12), style: style(), sheet: DEFAULT_SHEET, brandPng });
+    const without = await buildLabelSheetPdf({ labels: labels.slice(0, 12), style: style(), sheet: DEFAULT_SHEET });
+    // One embedded copy for twelve labels: the sheet grows by about the PNG's size, not twelve times it.
+    expect(withLogo.byteLength - without.byteLength).toBeLessThan(brandPng.byteLength * 1.5);
+
+    const notPng = new TextEncoder().encode("<!doctype html><title>Not found</title>");
+    const fallback = await buildLabelSheetPdf({ labels: labels.slice(0, 1), style: style(), sheet: DEFAULT_SHEET, brandPng: notPng });
+    expect((await PDFDocument.load(fallback)).getPageCount()).toBe(1);
   });
 
   it("refuses a label that cannot fit on the page", async () => {

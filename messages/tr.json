@@ -1,11 +1,9 @@
 {
   "nav": {
-    "report": "BİLDİR",
-    "reportAria": "Sorun bildir",
-    "reportSeed": "Bir sorun bildirmek istiyorum.",
     "tools": "ARAÇLAR",
     "projects": "PROJELER",
     "about": "HAKKINDA",
+    "menu": "MENÜ",
     "primaryNavLabel": "Ana gezinme",
     "utilityControlsLabel": "Yardımcı denetimler",
     "themeToggleAria": "Renk temasını değiştir (sistem → açık → koyu)",
@@ -18,7 +16,10 @@
     "signIn": "OTURUM AÇ",
     "signInAria": "{institution} hesabınızla oturum açın",
     "signOut": "OTURUMU KAPAT",
-    "signedInAria": "{name} olarak oturum açıldı"
+    "signedInAria": "{name} olarak oturum açıldı",
+    "admin": "YÖNETİM",
+    "account": "HESAP",
+    "connectAssistant": "YAPAY ZEKÂ ASİSTANI BAĞLA (MCP)"
   },
   "catalogRefresh": {
     "action": "Kataloğu yenile",
@@ -32,9 +33,6 @@
     "toolsInInventory": "ENVANTERDE {count} ARAÇ"
   },
   "gallery": {
-    "title": "Araçlar",
-    "searchPlaceholder": "envanterde ara...",
-    "searchAria": "Envanterde ara",
     "category": "KATEGORİ:",
     "training": "EĞİTİM:",
     "materials": "MALZEMELER:",
@@ -50,11 +48,46 @@
     "columnTraining": "Eğitim",
     "trainingBeginner": "Başlangıç",
     "trainingIntermediate": "Orta",
-    "trainingAdvanced": "İleri"
+    "trainingAdvanced": "İleri",
+    "home": {
+      "searchSection": "Laboratuvarda ara",
+      "toolCount": "{count, plural, one {# araç} other {# araç}}",
+      "unitsDown": "{count, plural, one {# ünite hizmet dışı} other {# ünite hizmet dışı}}"
+    },
+    "search": {
+      "landmark": "Araç arayın ve MakerLAB AI'ya sorun",
+      "label": "Araç arayın veya MakerLAB AI'ya bir soru sorun",
+      "categories": "Kategoriler",
+      "categoryCount": "{count, plural, one {# araç} other {# araç}}",
+      "assistant": "MakerLAB AI",
+      "ask": "MakerLAB AI'ya sor: “{query}”",
+      "askNote": "Sohbeti sorunuzla açar. MakerLAB AI hata yapabilir.",
+      "clear": "Aramayı temizle",
+      "noMatch": "“{query}” ile eşleşen araç veya kategori yok.",
+      "enterOpens": "Enter, {name} sayfasını açar",
+      "lines": {
+        "search": "{count, plural, one {# araç arasında arayın} other {# araç arasında arayın}}",
+        "build": "Ne üreteceksiniz?",
+        "findMachine": "Makinenizi bulun",
+        "x1Filament": "X1-Carbon'a filament nasıl takılır?",
+        "x1Start": "X1-Carbon'da 3D baskının nasıl başlatıldığını sorun",
+        "trotecAcrylic": "Trotec lazer akrilik kesebilir mi?"
+      }
+    },
+    "results": {
+      "heading": "“{query}” için sonuçlar"
+    },
+    "browse": {
+      "label": "Göz at",
+      "all": "Tüm araçlar"
+    },
+    "backToCategories": "Tüm kategoriler"
   },
   "detail": {
     "breadcrumbTools": "Araçlar",
     "toolStatusLabel": "Araç durumu",
+    "labNotes": "Laboratuvar notları",
+    "labNotesFrom": "Laboratuvar ekibinden",
     "trainingChip": "{level} eğitim",
     "ppeRequired": "KKD gerekli",
     "viewSafetyDoc": "Güvenlik belgesini görüntüle",
@@ -75,7 +108,6 @@
     "trainingRow": "Eğitim",
     "mapId": "Harita kimliği",
     "tags": "Etiketler",
-    "notes": "Notlar",
     "physicalMachines": "Fiziksel makineler",
     "unit": "Birim",
     "status": "Durum",
@@ -140,16 +172,18 @@
     "browseTools": "Araçlara göz at"
   },
   "chat": {
-    "openAria": "MakerLAB asistanını aç",
-    "title": "MakerLAB Asistanı",
+    "openAria": "MakerLAB AI'yı aç",
+    "title": "MakerLAB AI",
     "newChatAria": "Yeni sohbet başlat",
     "newChatTitle": "Yeni sohbet başlat",
-    "closeAria": "Asistanı kapat",
+    "closeAria": "MakerLAB AI'yı kapat",
     "closeTitle": "Kapat (sohbeti korur)",
     "greetingTool": "Bu araç hakkında soru sorun — özelliklerine, malzemelerine ve kaynak bağlantılarına sahibim.",
     "greetingGeneral": "Bugün size nasıl yardımcı olabilirim?",
-    "composerPlaceholder": "Laboratuvar konsoluna sorun...",
-    "composerAria": "Laboratuvar konsoluna sorun",
+    "composerPlaceholder": "MakerLAB AI'ya sorun...",
+    "composerAria": "MakerLAB AI'ya sorun",
+    "aiNote": "MakerLAB AI hata yapabilir. Güvenlikle ilgili her şeyi ekiple teyit edin.",
+    "aiNoteDismiss": "Notu kapat",
     "sendAria": "Gönder",
     "attachAria": "Fotoğraf ekle",
     "attachTitle": "Fotoğraf ekle",
@@ -159,7 +193,7 @@
     "uploadFailed": "Fotoğraf yüklenemedi",
     "uploadsUnavailable": "Fotoğraf yükleme şu anda kullanılamıyor. Mesajınızı fotoğrafsız da gönderebilirsiniz.",
     "toolRunningAria": "Araç çalışıyor",
-    "typingAria": "Asistan yazıyor",
+    "typingAria": "MakerLAB AI yazıyor",
     "readingManualsAria": "Kılavuzlar okunuyor",
     "reading": "Okunuyor: {titles}…",
     "error": "Bir şeyler ters gitti. Tekrar deneyin.",
@@ -168,19 +202,72 @@
     "working": "Üzerinde çalışılıyor…",
     "rateLimitSignIn": "Oturum açmamış ziyaretçiler için mesaj sınırına ulaştınız. Sohbete devam etmek için {institution} hesabınızla oturum açın — katalogda gezinmek her durumda açık kalır.",
     "rateLimitSignInCta": "Oturum aç",
-    "rateLimited": "Saatlik mesaj sınırına ulaştınız. Lütfen biraz sonra tekrar deneyin."
+    "rateLimited": "Saatlik mesaj sınırına ulaştınız. Lütfen biraz sonra tekrar deneyin.",
+    "showingTool": "▣ Aracın fotoğrafı getiriliyor…",
+    "toolCard": {
+      "label": "Bu yanıttaki araçlar",
+      "open": "Aç"
+    },
+    "drawingIllustration": "✎ Çizim hazırlanıyor…",
+    "suggestedReplies": "Önerilen yanıtlar",
+    "illustration": {
+      "badge": "Yapay zekâ çizimi",
+      "caption": "Yapay zekâ ile oluşturulmuş bir çizimdir, ekipmanımızın fotoğrafı değildir. Kesin adımlar için kılavuza ve personele danışın.",
+      "altPlan": "Planın yapay zekâ ile oluşturulmuş infografiği",
+      "altConcept": "Proje fikrinin yapay zekâ ile oluşturulmuş konsept görseli",
+      "unavailable": "Bu çizim artık mevcut değil."
+    }
   },
   "qr": {
     "arrivalLabel": "Bu makineden tarandı",
     "arrivalEyebrow": "Makinenin başında tarandı",
     "arrivalTitle": "{tool} hakkında soru sor",
-    "arrivalBody": "Bu makinedeki kodu taradınız. Asistan makineyle ilgili sorularınızı yanıtlayabilir, kurulumda yol gösterebilir veya bakım kaydı açabilir.",
-    "arrivalAction": "Bu makine hakkında sor",
+    "arrivalBody": "Bu makinedeki kodu taradınız. MakerLAB AI makineyle ilgili sorularınızı yanıtlayabilir, kurulumda yol gösterebilir veya bakım kaydı açabilir.",
     "arrivalSeed": "{tool} başındayım ve bu makineyle ilgili bir sorum var.",
+    "arrivalUnitLabel": "Bu birimin etiketinden tarandı",
+    "arrivalUnitOf": "{tool} birimi",
+    "arrivalUnitBody": "Bu makinede bir sorun mu var? Buradan bildirin; kayıt bu birime açılır, böylece ekip hangisini kontrol edeceğini bilir.",
+    "reportUnitAction": "Bu birimle ilgili sorun bildir",
+    "reportToolAction": "Sorun bildir",
     "sheetTitle": "QR etiketleri",
     "sheetSubtitle": "Etiket kağıdına yazdırın, kesin ve her makineye bir etiket yapıştırın.",
     "labelCta": "Yardım için tarayın",
     "sheetEmpty": "Etiketlenecek yayımlanmış alet yok."
+  },
+  "report": {
+    "action": "Sorun bildir",
+    "ask": "Bu makineyi MakerLAB AI'ya sor",
+    "eyebrow": "Sorun bildir",
+    "lede": "Ekip bildiriminizi hemen görür.",
+    "close": "Kapat",
+    "unitLabel": "Hangi ünite?",
+    "unitNotSure": "Emin değilim",
+    "unitFromLabel": "Taradığınız etiketten seçildi.",
+    "textLabel": "Bu makinede neyin yanlış olduğunu anlatın",
+    "textHint": "Kendi kelimelerinizle yazmanız yeterli. MakerLAB AI bunu ekip için bir kayda dönüştürür.",
+    "textPlaceholder": "Örneğin: baskının ortasında filament beslemesi durdu ve ekstrüder tıkırdıyor.",
+    "photoAdd": "Fotoğraf ekle",
+    "photoUploading": "Yükleniyor…",
+    "photoHint": "İsteğe bağlı. Ekibin gelmeden önce sorunu görmesine yardımcı olur.",
+    "photoRemove": "Kaldır",
+    "photoUnavailable": "Şu anda fotoğraf yüklenemiyor. Bildirimi yine de gönderebilirsiniz.",
+    "photoFailed": "Fotoğraf yüklenemedi. Tekrar deneyin ya da bildirimi fotoğrafsız gönderin.",
+    "photoNotImage": "Bu dosya bir fotoğraf değil. Bir görsel seçin.",
+    "trapLabel": "Bu alanı boş bırakın",
+    "errorInvalid": "Bildirim gönderilemedi. Birkaç kelime içerdiğini (en fazla 2.000 karakter) kontrol edip tekrar deneyin.",
+    "errorRateLimited": "Son bir saatte buradan çok fazla bildirim gönderildi. Lütfen danışmadaki bir SuperMaker'a söyleyin.",
+    "errorFailed": "Bildirim gönderilemedi ve hiçbir şey kaydedilmedi. Tekrar deneyin ya da bir SuperMaker'a söyleyin.",
+    "nextTitle": "Sırada ne var.",
+    "nextBody": "Ekip şimdi bir kayıt alıyor. Makine güvensiz görünüyorsa kullanmayı bırakın ve bir SuperMaker'a söyleyin.",
+    "cancel": "İptal",
+    "submit": "Bildirimi gönder",
+    "submitting": "Gönderiliyor…",
+    "sentTitle": "Teşekkürler. Bildiriminiz alındı.",
+    "sentBody": "Ekip artık görebiliyor.",
+    "refLabel": "Referans numaranız",
+    "sentUnit": "{unit} için kaydedildi.",
+    "sentSafety": "Bir SuperMaker ile konuşursanız referansı söyleyin. Makine güvensiz görünüyorsa kullanmayı bırakın.",
+    "done": "Tamam"
   },
   "intake": {
     "confidenceHigh": "Yüksek güven",
@@ -234,12 +321,52 @@
   "auth": {
     "eyebrow": "Oturum açma",
     "title": "Bu hesap bir {institution} hesabı değil",
-    "body": "{site} yalnızca {institution} hesaplarıyla oturum açar, bu yüzden bu hesap kullanılamaz.",
+    "refusedAddress": "<address>{email}</address> kullanılamaz: {site} yalnızca {institution} hesaplarını kabul eder (@{domain} ile biten adresler).",
+    "refusedUnknown": "Bu Google hesabı kullanılamaz: {site} yalnızca {institution} hesaplarını kabul eder (@{domain} ile biten adresler).",
+    "blockedAddress": "<address>{email}</address> kullanılamaz: bir {site} yöneticisi bu adresi engelledi. Bunun bir hata olduğunu düşünüyorsanız laboratuvar personeline sorun.",
     "stillWorks": "Hiçbir şey kilitli değil. Oturum açmadan katalogun tamamına göz atabilir ve asistana soru sorabilirsiniz; oturum açmak yalnızca saatlik mesaj sınırını yükseltir ve gönderdiklerinize doğrulanmış adınızı ekler.",
-    "browseTools": "Kataloga göz at"
+    "browseTools": "Kataloga göz at",
+    "useDifferentAccount": "Farklı bir Google hesabı kullan",
+    "switchUnconfigured": "Bu dağıtımda oturum açma ayarlanmamış.",
+    "switchFailed": "Google ile oturum açma başlatılamadı. Tekrar deneyin.",
+    "blockedTitle": "Bu hesap {site} uygulamasında oturum açamaz",
+    "blockedBody": "Bir {site} yöneticisi bu adresin kaydolmasını engelledi, bu yüzden hesap oluşturulmadı. Bunun bir hata olduğunu düşünüyorsanız laboratuvar personeline sorun."
   },
   "demoBanner": {
     "label": "Demo verileri",
     "body": "Bu katalog yerleşik örnek verilerdir, {institution} kurumunun gerçek envanteri değildir. Notion yapılandırılmamış."
+  },
+  "footer": {
+    "report": "Sorun bildir",
+    "reportSeed": "Bir sorun bildirmek istiyorum."
+  },
+  "unsubscribe": {
+    "loading": "Yükleniyor…",
+    "eyebrow": "E-posta",
+    "confirmTitle": "Bu e-postalar kapatılsın mı?",
+    "confirm": {
+      "ticketFiled": "Biri bir makinede sorun bildirdiğinde artık e-posta almayacaksınız.",
+      "maintenanceDue": "Zamanı gelen periyodik bakım için sabah hatırlatmasını artık almayacaksınız."
+    },
+    "confirmScope": "Yalnızca bu e-posta durur. Hesabınızda başka hiçbir şey değişmez.",
+    "turnOff": "Kapat",
+    "keep": "Almaya devam et",
+    "failed": "Kaydedilemedi. Biraz sonra yeniden deneyin.",
+    "doneTitle": "Kapatıldı",
+    "done": {
+      "ticketFiled": "Biri bir makinede sorun bildirdiğinde e-posta almayacaksınız.",
+      "maintenanceDue": "Sabah bakım hatırlatmasını almayacaksınız."
+    },
+    "doneUndo": "Kayıtlar ve görevler uygulamada görünmeye devam eder. Bu e-postaları yeniden almak için laboratuvar yönetimine başvurun.",
+    "invalidTitle": "Bu bağlantı çalışmıyor",
+    "invalidBody": "Eksik ya da eski olabilir. Hiçbir şey değiştirilmedi. İstemediğiniz e-postalar gelmeye devam ederse laboratuvar ekibine haber verin.",
+    "rateLimitedTitle": "Çok fazla deneme",
+    "rateLimitedBody": "Bu bağlantıdan çok fazla istek geldi. Bir saat bekleyip bağlantıyı yeniden açın.",
+    "home": "{site} sayfasına dön"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "MakerLAB AI'ya sor: “{query}”",
+    "askEmpty": "MakerLAB AI'ya sor"
   }
 }

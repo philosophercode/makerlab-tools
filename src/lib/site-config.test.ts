@@ -35,10 +35,11 @@ describe("site-config", () => {
       expect(siteConfig.tagline).toBe(
         "Your digital guide to making at Cornell Tech",
       );
-      expect(siteConfig.chatAssistantName).toBe("MakerLAB Assistant");
+      expect(siteConfig.chatAssistantName).toBe("MakerLAB AI");
       expect(siteConfig.audience).toBe("students who may be beginners");
-      expect(siteConfig.logo).toBe("/makerlab-logo-transparent.png");
-      expect(siteConfig.wordmark).toBe("/makerlab-wordmark.png");
+      expect(siteConfig.logo).toBe("/brand/cornell-tech-makerlab-logo.svg");
+      expect(siteConfig.logoPng).toBe("/brand/cornell-tech-makerlab-logo.png");
+      expect(siteConfig.wordmark).toBe("/brand/makerlab-wordmark-official.svg");
       expect(siteConfig.labHours).toBe("LAB OPEN 8AM-8PM");
       expect(siteConfig.colors).toEqual({
         primary: "#ff6b35",
@@ -69,6 +70,7 @@ describe("site-config", () => {
       expect(siteConfig.chatAssistantName).toBe("Acme Helper");
       expect(siteConfig.audience).toBe("expert machinists");
       expect(siteConfig.logo).toBe("/acme-logo.svg");
+      expect(siteConfig.logoPng).toBe("/acme-logo.png");
       expect(siteConfig.wordmark).toBe("/acme-wordmark.svg");
       expect(siteConfig.labHours).toBe("Mon–Fri 10am–6pm");
       expect(siteConfig.colors).toEqual({
@@ -86,6 +88,16 @@ describe("site-config", () => {
 
       expect(siteConfig.name).toBe("Just The Name");
       expect(siteConfig.institution).toBe("Cornell Tech");
+    });
+
+    it("uses a PNG logo as its own PNG, and finds an SVG logo's PNG beside it", async () => {
+      vi.stubEnv("NEXT_PUBLIC_LOGO", "/brand/acme.png");
+      vi.resetModules();
+      expect((await import("@/lib/site-config")).siteConfig.logoPng).toBe("/brand/acme.png");
+
+      vi.stubEnv("NEXT_PUBLIC_LOGO", "/brand/Acme.SVG");
+      vi.resetModules();
+      expect((await import("@/lib/site-config")).siteConfig.logoPng).toBe("/brand/Acme.png");
     });
 
     it("treats an empty NEXT_PUBLIC_LAB_HOURS as unset, so the header never shows a blank", async () => {

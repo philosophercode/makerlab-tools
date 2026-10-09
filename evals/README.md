@@ -118,10 +118,12 @@ file in `cases/` is loaded automatically):
 | `cases/manual-grounding.yaml` | Answering from the record, citing the document, inventing nothing |
 | `cases/manual-search.yaml` | Answering from `search_manual` passages with page citations |
 | `cases/citations-resolve.yaml` | Every manual citation came from a search or an attached manual, opens the real PDF at a page it has, with the passage on it |
+| `cases/citations-real-questions.yaml` | An answer about a machine cites only that machine's documents: no near-miss from a look-alike's manual, and "my print" asks which printer (manual text spec amendment 2026-10-06), plus the citation audit's cases |
 | `cases/tool-calling.yaml` | Calling a capability instead of guessing |
 | `cases/staff-maintenance.yaml` | Staff reading the maintenance queue, and confirming before changing a ticket; students getting no staff tools |
 | `cases/honest-absence.yaml` | Saying "we don't have that" |
 | `cases/lab-identity.yaml` | Knowing where it is: the MakerLAB's location and people, what the assistant is for, and not inventing the rest |
+| `cases/lab-companion.yaml` | A companion, not a replacement: the lab's own notes before the manual, and a person (a SuperMaker, staff) suggested for first use and safety |
 | `cases/photo-identify.yaml` | Working out which catalogue machine is in a student's photo — or asking, when look-alikes leave it open — against the fuller lab (`catalog: lab`) |
 
 Append a case:
@@ -241,6 +243,7 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `called_tool` | `value: get_unit_details` | That tool appears in the recorded tool calls |
 | `not_called_tool` | `value: propose_change` | That tool never appears in the recorded tool calls |
 | `contains_all` | `value: ["gloves"]` | Every literal is present (case-insensitive, ignoring markdown emphasis) |
+| `contains_any` | `value: ["staff", "SuperMaker"]` | At least one literal is present, matched as `contains_all` matches. For a behaviour with more than one fair wording |
 | `not_contains_any` | `value: ["yes, we have"]` | None of the literals is present |
 | `no_fabricated_specs` | `fields: [build_volume]` | Every number attributed to those fields matches the fixture |
 | `cites_resource` | `value: "Trotec Speedy 400 SOP"` (optional) | The answer references a document attached to the machine |
@@ -250,7 +253,8 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `identified_items` | `value: ["drill press", "battery x2"]` | The last `identify_tools` call has a different item for each entry: alternatives joined by `\|`, matched in brand + name; a trailing ` xN` needs quantity ≥ N |
 | `identified_count` | `value: "3"` or `"3-4"` | The last `identify_tools` call recorded that many items |
 | `identified_tool` | `value: "form-4"`, `"ultimaker-3\|ask"` or `"none"` | The machine in the photo: the first catalogue machine the answer names (plain, bold, linked or by a unique alias) is that slug. `\|ask` also passes an answer that asks or says it cannot tell, with that machine among the candidates it names. `none`: no sentence claims a catalogue machine is the one pictured, and the answer says the lab lacks it |
-| `citations_resolve` | — | At least one manual link, and every one came from a `search_manual` result or a manual attached to the turn, answers 200 `application/pdf` (`%PDF-`), opens a page the PDF has, cites words on that page (searched passages only), and is labelled with the document it opens |
+| `citations_resolve` | — | At least one manual link, and every one came from a `search_manual` result or a manual attached to the turn, answers 200 `application/pdf` (`%PDF-`), opens a page the PDF has, cites words on that page (searched passages only), is labelled with the document it opens, and belongs to a machine the turn's searches were scoped to |
+| `cites_only_tool` | `value: bambu-lab-x1-carbon` | Every document the answer cites belongs to that machine: each linked search passage carries its `toolId`, an attached manual's page counts only on that machine's page, a manual link no tool returned fails, and so does naming another machine's searched document in the text. An answer that cites nothing passes, so pair it with `not_contains_any` or `says_not_covered` |
 
 `citations_resolve` needs evidence a pure function cannot fetch, so the executor
 (`run.eval.ts`) gathers it after the answer — a GET of each cited PDF and its
@@ -305,6 +309,51 @@ the subset throws with a file and line number — it is never silently misread.
 
 ---
 
+## The manual question eval
+
+The cases above use two small fixture manuals. This eval uses the lab's own
+manuals: when a manual is indexed, job `evalQuestions` writes a few questions a
+student could ask whose answer is on a known page (`manual_eval_questions`,
+manual text spec amendment 2026-10-07). The eval asks them back.
+
+```bash
+npm run manuals:eval-questions               # dry run: which manuals, how many questions, the estimated cost
+npm run manuals:eval-questions -- --apply    # write them (under $0.001 a manual)
+npm run eval:manual-questions                # retrieval recall, per machine
+EVAL_MQ_E2E=1 npm run eval:manual-questions  # plus one real chat turn per question (paid)
+```
+
+- **Retrieval** (always). Each question is searched the way `search_manual`
+  searches on its machine's page: scoped to that tool, hybrid, reranked with
+  the floor, merged, top `EVAL_MQ_K` (8). It is a hit when a passage of the
+  question's document on an expected page comes back. The table gives
+  recall@1, @3 and @k per machine and overall, with "wrong page" (the document
+  came back, another page) and "missed" (it did not). Recall is reported, never
+  failed. Each question costs one query embedding and one rerank.
+- **End to end** (`EVAL_MQ_E2E=1`). Each question on a public manual is asked
+  on its machine's page through the real chat pipeline as a visitor who is not
+  signed in (`runStarterAnswer`, every write stubbed). It passes when the answer
+  cites that document at an expected page, plus or minus one, and cites no other
+  machine's document (`cites_only_tool`). A question on a private manual is
+  skipped. A failure fails the run, as `npm run eval` does. About $0.001 to
+  $0.003 a question.
+- **Where the questions come from.** `DATABASE_URL`, else `PGLITE_DATA_DIR`
+  (it loads `.env.local`). It only reads. It refuses the demo seed unless
+  `EVAL_MQ_FIXTURES=1`, which runs on this folder's Form 4 manual and scan with
+  seven hand-written questions (`manual-questions-fixture.ts`).
+  `EVAL_MQ_FIXTURES=1 EVAL_MQ_OFFLINE=1` uses a hashed bag-of-words embedding
+  and no reranker, so it needs no network and no key.
+- **Options:** `EVAL_MQ_TOOL=<slug>` (one machine), `EVAL_MQ_LIMIT=N`,
+  `EVAL_MQ_K=N`, `EVAL_MQ_RERANK=0`.
+- **Output:** the recall table, every miss with its question, the end-to-end
+  totals and failures, and one JSON report per run in `evals/.manual-questions/`
+  (gitignored).
+
+A miss is not always the search's fault: a generated question can be vague
+enough that several pages answer it. Read the misses before tuning anything.
+
+---
+
 ## What it runs against
 
 **Fixtures replace Notion, not the model.** Every `NOTION_*` variable is blanked
@@ -318,6 +367,10 @@ and **Trotec Speedy 400** (CO2 laser). Write cases against those; anything else
 is, correctly, a machine the lab does not have. The one exception is a
 `catalog: lab` case, which runs last against those two plus the machines in
 `lab-catalog-fixture.ts` (see "Identifying a machine from a photo" above).
+The lab phase also seeds two searchable look-alike manuals
+(`seedEvalLabManuals`, `manual-fixture.ts`): a Prusa i3 MK3S+ handbook and an
+Epilog Helix manual, the near-misses an X1-Carbon or Trotec answer must not
+cite.
 
 **It exercises the real path.** The runner composes the system prompt and the
 tool set through the same `CAPABILITIES` registry and `composeChat` that
@@ -362,8 +415,12 @@ should be revisited, not worked around.
 | `harness.ts` | `composeCase` (the real prompt + tool set for one case, and the manuals the route would attach), `stubWrites`, `stubLiveReads`, `caseMessages` (history + prompt), `evalIdentity` (`as:`) |
 | `ticket-fixture.ts` | `seedEvalTickets` — the open Form 4 ticket the staff cases read |
 | `lab-catalog-fixture.ts` | `seedEvalLabCatalog` — the look-alike machines the `catalog: lab` (photo) cases run against |
+| `manual-fixture.ts` | `seedEvalManual` (the Form 4's manual and scan, the Trotec's attached guide) and `seedEvalLabManuals` (the Prusa and Epilog manuals for the lab phase) |
 | `fixtures/photos/` | Photo fixtures and the scripts that make them (`make-photos.mjs`, `make-identify-photos.mjs`) |
 | `runner.ts` | Control flow: execute → assert → retry → classify → report |
+| `manual-questions.ts` | The manual question eval: its options, the end-to-end check (`assessAnswer`), the run and its report |
+| `manual-questions.eval.ts` / `manual-questions.vitest.config.ts` | `npm run eval:manual-questions` entrypoint and its config |
+| `manual-questions-fixture.ts` | Hand-written eval questions for the fixture manuals (`EVAL_MQ_FIXTURES=1`) |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |
 | `vitest.config.ts` | Config for `npm run eval` only — never picked up by `npm test` |
 

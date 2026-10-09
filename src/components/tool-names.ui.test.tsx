@@ -3,13 +3,15 @@ import { mockCatalog, toolWithLinks } from "../../test/fixtures/catalog";
 import type { EditableTool } from "../lib/data/tools";
 import { ToolFieldsForm } from "./admin/ToolFieldsForm";
 import { DetailShell } from "./DetailShell";
-import { GalleryShell } from "./GalleryShell";
+import { HomeShell } from "./home/HomeShell";
 
 /**
  * Where each of a tool's two names shows (tool display names spec 2026-09-24,
  * §6): the display name is the title everywhere, the official name a line
  * under it on the tool page, both are searchable, and the editor edits both.
  */
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 vi.mock("next/image", () => ({
   __esModule: true,
@@ -41,14 +43,15 @@ describe("the tool page", () => {
   });
 });
 
-describe("the gallery", () => {
+describe("the tool list", () => {
   it("shows display names on the cards and finds a tool by its official name", async () => {
+    window.history.replaceState(null, "", "/");
     const tools = mockCatalog.map((tool, i) => (i === 0 ? { ...tool, officialName: "Zorbex ZX-9000 Industrial Widget Press" } : tool));
     const user = userEvent.setup();
-    render(<GalleryShell tools={tools} />);
+    render(<HomeShell tools={tools} categoryOrder={[]} />);
 
-    await user.type(screen.getByRole("searchbox", { name: "Search inventory" }), "Zorbex");
-    const grid = screen.getByRole("region", { name: "Tool gallery" });
+    await user.type(screen.getByRole("combobox", { name: "Search tools, or ask MakerLAB AI a question" }), "Zorbex");
+    const grid = screen.getByRole("region", { name: /Results for “Zorbex”/ });
     const names = within(grid)
       .getAllByRole("link")
       .map((link) => within(link).getByRole("heading").textContent);
