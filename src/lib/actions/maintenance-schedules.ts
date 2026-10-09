@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { MAINTENANCE_PATH } from "../../app/admin/maintenance/action-result";
-import { SCHEDULES_PATH, type ScheduleWriteError } from "../../app/admin/maintenance/schedule-result";
+import { CHECKLIST_PATH, SCHEDULES_PATH, type ScheduleWriteError } from "../../app/admin/maintenance/schedule-result";
 import { findActiveToolByRef, findUnitOfTool, toolSubjects } from "../data/action-subjects";
 import {
   COMPLETION_NOTE_MAX,
@@ -43,7 +43,7 @@ const GUI_ONLY = "Recurring maintenance v1 is GUI only; assistant proposals are 
 /** How far from today a due date may be set: ten years either way catches a mistyped year. */
 const DUE_DATE_RANGE_DAYS = 3660;
 
-const PATHS = [MAINTENANCE_PATH, SCHEDULES_PATH, "/admin"];
+const PATHS = [MAINTENANCE_PATH, CHECKLIST_PATH, SCHEDULES_PATH, "/admin"];
 
 const id = z.string().max(64);
 

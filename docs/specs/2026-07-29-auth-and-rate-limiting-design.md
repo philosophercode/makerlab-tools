@@ -467,7 +467,9 @@ this change.
 **Covered by** `ProfileMenu.test.tsx`, `AdminActions.test.tsx` and the updated `PrimaryNav`,
 identity-route and sign-in-client tests. The E2E specs open the menu before choosing an item.
 
-**Status.** Accepted.
+**Status.** Accepted. *Revised 2026-10-07 (identity spec amendment "ADMIN in the bar"): REPORT
+left the bar for the footer, ADMIN moved from the menu back into the bar for those who can reach
+`/admin`, and the menu holds Add equipment, Account, Connect AI assistant (MCP) and Sign out.*
 
 ### 2026-09-24 — Development-only sign-in (adds a route; amends §3.2, §6 and §8)
 

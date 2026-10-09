@@ -86,7 +86,7 @@ catalogue, which is enough to exercise most of the product:
 | From the gallery: *"I need to cut 6mm plywood"* | `search_tools`, project scoping |
 | From a tool page: *"How do I replace the filament?"* | Manual-grounded answers |
 | Ask in Spanish | Replies in the language asked |
-| **REPORT** in the nav | Troubleshoots first, then offers to file |
+| **Report a problem** in the footer | Troubleshoots first, then offers to file |
 | *"Do you have a waterjet?"* | Honest absence — it must not invent one |
 | **ADD**, signed in as an admin (Stage 3b), paste a product URL | Intake: identify, then background research into a draft |
 
@@ -275,6 +275,15 @@ chat) until the next run. The chat's `search_manual` now **reranks** its candida
 `rerank` (`cohere/rerank-v4-fast`); setting `MODEL_RERANK=off` in the project's environment
 (then redeploying) turns that off with no code change.
 
+**Chat illustrations** (gateway spec amendment 2026-10-07) need nothing new: a signed-in
+person who says yes to "Want a sketch of this plan?" gets one picture from job
+`illustration` (`meta/muse-image-1.0`, zero data retention, a flat $0.01 an image), stored in the
+**private** Blob store. Without a Blob store the assistant never offers one. Each person may
+have 3 a day and the whole lab $1 a day (`src/lib/illustrations/limits.ts`). Every call's
+cost is in the log as `[illustration] … answered: cost $0.0100`. `MODEL_ILLUSTRATION=off`
+switches illustrations off; another Gateway image model id replaces the default (it is then
+reserved at $0.05 an image until the Gateway reports its real cost).
+
 ## Stage 3 · Sign-in (15 minutes)
 
 Google Cloud Console → **OAuth 2.0 Client ID (Web)** → authorized redirect URI exactly:
@@ -351,7 +360,10 @@ curl -H "x-admin-secret: $ADMIN_REVALIDATE_SECRET" \
 
 It exports every Postgres table to a private blob, prunes old backups on tiers (daily for a
 week, then weekly, monthly and quarterly to three years), and sweeps photos that were uploaded
-but never attached to anything. It needs a Blob store and refuses without one.
+but never attached to anything. It needs a Blob store and refuses without one. Its last stage
+handles email: it restarts notifications whose delivery never started and queues the daily
+recurring-maintenance reminder. Locally, without `RESEND_API_KEY`, the reminder is recorded at
+once as `not_configured` instead of waiting for 08:00.
 
 **Blob on a laptop.** With no `BLOB_READ_WRITE_TOKEN`, `npm run dev` does not refuse
 uploads: every Blob read and write goes to `.blob-data/` (git-ignored), a folder that
@@ -470,7 +482,22 @@ AUTH_SUPER_ADMIN_EMAILS     permanent Cornell addresses of the super admins, com
 CRON_SECRET                 any long random string (the nightly job)
 ADMIN_REVALIDATE_SECRET     any long random string (cache refresh, hand-run nightly job)
 CRON_HEARTBEAT_URL          optional: a heartbeat monitor's ping URL (operations.md)
+RESEND_API_KEY              optional: injected by `vercel integration add resend` (staff email)
+EMAIL_FROM                  with RESEND_API_KEY: the sender on a Resend-verified domain
+EMAIL_REPLY_TO              optional: the lab's shared inbox, for replies
+EMAIL_PREVIEW_RECIPIENTS    Preview only: who a preview may email, comma-separated
+NOTIFY_TICKET_HOURLY_CAP    optional: ticket emails per rolling hour (default 12)
 ```
+
+- **Staff email** ([email notifications spec](specs/2026-09-30-email-notifications-design.md),
+  [`architecture/notifications.md`](architecture/notifications.md)). Without
+  `RESEND_API_KEY` and `EMAIL_FROM` the app sends nothing and records each delivery as
+  `not_configured`; tickets file as normal. To turn it on: verify a sending domain in Resend
+  (SPF, DKIM, DMARC; `vercel.app` and `cornell.edu` cannot be used), run
+  `vercel integration add resend`, set `EMAIL_FROM` (and `EMAIL_REPLY_TO`), redeploy, then file
+  a test ticket and check Niti's and Luis's inboxes, not junk. On **Preview**, leave
+  `RESEND_API_KEY` unset or set `EMAIL_PREVIEW_RECIPIENTS`: a preview with neither mails
+  nobody. `RESEND_API_BASE_URL` is for the test stub only and is never set here.
 
 - **Sign-in is Cornell-only.** Only `@cornell.edu` addresses (plus anyone named in
   `AUTH_ALLOWED_EMAILS`) can sign in; anyone else is shown why.
@@ -632,6 +659,7 @@ all of this: [`operations.md` → Monitoring](operations.md#monitoring).
 | Private Blob store + `CRON_SECRET` | The nightly backup |
 | Inference spend limit | Nothing, until it does |
 | Uptime monitor + nightly heartbeat | Nothing, until something breaks quietly ([`operations.md`](operations.md)) |
+| A sending domain verified in Resend, the Resend integration, `EMAIL_FROM` | **Staff email**: ticket alerts and the 08:00 maintenance reminder. Without them nothing is sent and each delivery is recorded `not_configured` |
 
 **Two decisions, not tasks:**
 
@@ -660,3 +688,4 @@ opens. Raise it, or use a shared demo account.
 | Assistant errors | Check the Gateway spend limit first (a capped budget answers like an outage), then `MODEL_*`/`EVAL_MODEL` for a malformed id (`ModelConfigError` names the variable), then the Gateway's own status. The catalogue keeps working — they fail independently. |
 | `test:all` fails to start E2E | `npm run dev` is still running and holding `.next/dev/lock`. |
 | Bad deploy | Vercel → Deployments → last good one → **Promote to Production**. Roll back first, diagnose after. |
+| Staff get no ticket email | See [`operations.md` → An email didn't arrive](operations.md#an-email-didnt-arrive). Most often `RESEND_API_KEY` or `EMAIL_FROM` is unset (deliveries `not_configured`), or the domain is not verified in Resend (`rejected`). |

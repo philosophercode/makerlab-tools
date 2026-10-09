@@ -12,6 +12,7 @@ import {
 } from "@/lib/manuals/eval-retrieval";
 import { citesOnlyTool, type RecordedToolCall } from "./assertions";
 import type { EvalFixture } from "./fixtures";
+import type { Judgement, JudgeVerdict } from "./manual-answer-judge";
 
 /**
  * The manual question eval's options, its end-to-end check and its report
@@ -29,6 +30,10 @@ import type { EvalFixture } from "./fixtures";
  *   (plus or minus one) and cite no other machine's document
  *   ({@link assessAnswer}). A question about a private document is skipped:
  *   a visitor cannot search it.
+ * - **judged** (`EVAL_MQ_JUDGE=1`, with end to end): Opus grades each answer
+ *   against the manual's answer — correct, partial, wrong or declined
+ *   (`manual-answer-judge.ts`). Reported beside the page checks, never failed:
+ *   an answer from the lab's SOP can be right on the "wrong" page.
  *
  * Pure apart from {@link writeReport}.
  */
@@ -48,6 +53,8 @@ export interface ManualQuestionEvalOptions {
   limit: number | null;
   /** Rerank as `search_manual` does. */
   rerank: boolean;
+  /** Grade each end-to-end answer against the manual's answer (Opus). */
+  judge: boolean;
 }
 
 /** Read the options from the environment, as `npm run eval` reads `EVAL_CASES`. Throws on a bad value. */
@@ -70,7 +77,9 @@ export function parseManualQuestionEvalEnv(env: Record<string, string | undefine
     k: whole("EVAL_MQ_K", 8, 1, 20) as number,
     limit: whole("EVAL_MQ_LIMIT", null, 1, 10_000),
     rerank: (env.EVAL_MQ_RERANK ?? "").trim() !== "0",
+    judge: flag("EVAL_MQ_JUDGE"),
   };
+  if (options.judge && !options.e2e) throw new Error("EVAL_MQ_JUDGE grades the end-to-end answers; set EVAL_MQ_E2E=1 too.");
   if (options.offline && !options.fixtures) throw new Error("EVAL_MQ_OFFLINE works only with EVAL_MQ_FIXTURES=1 (the fixtures are embedded offline).");
   if (options.offline && options.e2e) throw new Error("EVAL_MQ_E2E asks the real chat model; it cannot run offline.");
   if (options.offline) options.rerank = false;
@@ -144,14 +153,20 @@ export interface EndToEndResult {
   note?: string;
   answer?: string;
   usage?: AnswerRun["usage"];
+  /** The judge's verdict on the answer (`EVAL_MQ_JUDGE=1`); `error` when it could not give one. */
+  judgement?: { verdict: JudgeVerdict | "error"; reason: string; cost: number | null };
 }
+
+/** Grade one answer against its question's manual answer. */
+export type AnswerJudge = (question: StoredEvalQuestion, answer: string) => Promise<Judgement>;
 
 /** Ask each public question once, in turn, and judge it. A private document's question is skipped. */
 export async function runEndToEnd(
   questions: readonly StoredEvalQuestion[],
   answer: (question: StoredEvalQuestion) => Promise<AnswerRun>,
   fixture: EvalFixture,
-  onResult?: (result: EndToEndResult) => void
+  onResult?: (result: EndToEndResult) => void,
+  judge?: AnswerJudge
 ): Promise<EndToEndResult[]> {
   const results: EndToEndResult[] = [];
   for (const question of questions) {
@@ -170,6 +185,13 @@ export async function runEndToEnd(
           answer: run.text.slice(0, 2000),
           ...(run.usage ? { usage: run.usage } : {}),
         };
+        if (judge) {
+          try {
+            result.judgement = await judge(question, run.text);
+          } catch (error) {
+            result.judgement = { verdict: "error", reason: error instanceof Error ? error.message.slice(0, 200) : String(error), cost: null };
+          }
+        }
       } catch (error) {
         result = { ...base, status: "error", checks: [], note: error instanceof Error ? error.message.slice(0, 300) : String(error) };
       }
@@ -192,6 +214,10 @@ export interface EndToEndTotals {
   outputTokens: number;
   /** Gateway-reported dollars for the chat turns; null when none was reported. */
   cost: number | null;
+  /** The judge's verdicts over the asked answers (`EVAL_MQ_JUDGE=1`); null when it did not run. */
+  judged: Record<JudgeVerdict | "error", number> | null;
+  /** Gateway-reported dollars for the judge. */
+  judgeCost: number | null;
 }
 
 export function endToEndTotals(results: readonly EndToEndResult[]): EndToEndTotals {
@@ -206,6 +232,16 @@ export function endToEndTotals(results: readonly EndToEndResult[]): EndToEndTota
     outputTokens += r.usage?.outputTokens ?? 0;
     if (r.usage?.gatewayCost != null) cost = (cost ?? 0) + r.usage.gatewayCost;
   }
+  const graded = asked.filter((r) => r.judgement);
+  let judged: EndToEndTotals["judged"] = null;
+  let judgeCost: number | null = null;
+  if (graded.length > 0) {
+    judged = { correct: 0, partial: 0, wrong: 0, declined: 0, error: 0 };
+    for (const r of graded) {
+      judged[r.judgement!.verdict] += 1;
+      if (r.judgement!.cost != null) judgeCost = (judgeCost ?? 0) + r.judgement!.cost;
+    }
+  }
   return {
     asked: asked.length,
     passed: results.filter((r) => r.status === "pass").length,
@@ -216,6 +252,8 @@ export function endToEndTotals(results: readonly EndToEndResult[]): EndToEndTota
     inputTokens,
     outputTokens,
     cost,
+    judged,
+    judgeCost,
   };
 }
 
@@ -261,10 +299,18 @@ export function formatManualQuestionReport(report: ManualQuestionReport): string
       `  cites the document ${t.byCheck.cites_document}/${t.asked} · at the expected page ±${PAGE_TOLERANCE} ${t.byCheck.cites_expected_page}/${t.asked} · only its machine ${t.byCheck.cites_only_tool}/${t.asked}`,
       `  tokens ~${t.inputTokens} in / ~${t.outputTokens} out${t.cost !== null ? ` · Gateway cost $${t.cost.toFixed(4)}` : ""}`
     );
-    for (const r of report.endToEnd.results.filter((r) => r.status === "fail" || r.status === "error")) {
+    if (t.judged) {
+      lines.push(
+        `  judged against the manual's answer: correct ${t.judged.correct}/${t.asked} · partial ${t.judged.partial} · wrong ${t.judged.wrong} · declined ${t.judged.declined}` +
+          `${t.judged.error ? ` · no verdict ${t.judged.error}` : ""}${t.judgeCost !== null ? ` · judge cost $${t.judgeCost.toFixed(4)}` : ""}`
+      );
+    }
+    const judgedBadly = (r: EndToEndResult) => r.judgement !== undefined && r.judgement.verdict !== "correct";
+    for (const r of report.endToEnd.results.filter((r) => r.status === "fail" || r.status === "error" || judgedBadly(r))) {
       lines.push(`  ${r.status.toUpperCase()} ${r.toolSlug}: "${r.question}"`);
       if (r.note) lines.push(`      ${r.note}`);
       for (const c of r.checks.filter((c) => !c.ok)) lines.push(`      x ${c.kind}: ${c.detail}`);
+      if (r.judgement) lines.push(`      judge: ${r.judgement.verdict}${r.judgement.reason ? ` — ${r.judgement.reason}` : ""}`);
     }
   }
   lines.push("");
@@ -287,6 +333,8 @@ export interface ManualQuestionEvalDeps {
   fixture: EvalFixture;
   /** Ask one question on its machine's page; required when `options.e2e`. */
   answer?: (question: StoredEvalQuestion) => Promise<AnswerRun>;
+  /** Grade an answer; required when `options.judge`. */
+  judge?: AnswerJudge;
   /** The query embedding model; job `embed` by default (offline: a fake). */
   target?: EmbeddingTarget;
   /** Where the report file goes; none written when absent. */
@@ -326,8 +374,13 @@ export async function runManualQuestionEval(
   if (options.e2e) {
     if (!deps.answer) throw new Error("the end-to-end check needs an answer function");
     log(`End to end: asking ${questions.filter((q) => q.public).length} question(s) through the chat…`);
-    const e2e = await runEndToEnd(questions, deps.answer, deps.fixture, (r) =>
-      log(`  ${r.status.toUpperCase().padEnd(7)} ${r.toolSlug}: ${r.question}`)
+    if (options.judge && !deps.judge) throw new Error("EVAL_MQ_JUDGE needs a judge function");
+    const e2e = await runEndToEnd(
+      questions,
+      deps.answer,
+      deps.fixture,
+      (r) => log(`  ${r.status.toUpperCase().padEnd(7)} ${r.toolSlug}: ${r.question}${r.judgement ? ` [judge: ${r.judgement.verdict}]` : ""}`),
+      options.judge ? deps.judge : undefined
     );
     endToEnd = { totals: endToEndTotals(e2e), results: e2e };
   }

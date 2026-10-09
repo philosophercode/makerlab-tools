@@ -67,6 +67,11 @@ Playwright boots its own dev server (see E2E notes below), so no separate
   hook. Workflow tests use the same fake through MSW, since `vi.mock` does not
   reach step code. PGlite's session time zone is the machine's, so compare
   `timestamptz` text in SQL (`$1::timestamptz = …`), never as strings.
+- **Resend** (staff email) is never reached. A test that sends stubs
+  `RESEND_API_KEY` and `EMAIL_FROM` and installs `useResendFake(server)` from
+  `test/msw/resend.ts`: it records every request, answers from a script of
+  statuses (`fake.script(503)`), and treats a repeated `Idempotency-Key` as
+  the same email (`fake.delivered()`). Workflow tests use it too.
 - **`vi.mock("next/cache", …)`** — `catalog.ts` uses `cacheTag`/`cacheLife` and
   `admin/revalidate/route.ts` uses `revalidateTag`; these only work inside a Next
   build. Mock them with the `nextCacheMock()` factory from

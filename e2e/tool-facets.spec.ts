@@ -12,12 +12,12 @@ import { signIn } from "./utils/session";
  */
 
 test("the gallery's Item kind facet reads from the URL and counts equipment", async ({ page }) => {
-  await page.goto("/?kind=equipment");
-  const search = page.getByRole("search");
+  await page.goto("/?show=all&kind=equipment");
+  const search = page.getByRole("search", { name: "Filter the tools" });
   await expect(search.getByRole("button", { name: "Item kind: Equipment" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("link", { name: /Form 4/ }).first()).toBeVisible();
 
-  await page.goto("/?kind=consumable");
+  await page.goto("/?show=all&kind=consumable");
   await expect(page.getByText(/No tools match/)).toBeVisible({ timeout: 15_000 });
 });
 

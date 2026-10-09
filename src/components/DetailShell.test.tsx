@@ -74,11 +74,11 @@ describe("DetailShell", () => {
       const { container } = render(<DetailShell tool={toolWithLinks} />);
       expect(container.querySelector('[data-slot="category-link"]')).toHaveAttribute(
         "href",
-        `/?category=${encodeURIComponent(toolWithLinks.category)}`
+        `/?${new URLSearchParams({ category: toolWithLinks.category })}`
       );
       expect(container.querySelector('[data-slot="location-link"]')).toHaveAttribute(
         "href",
-        `/?location=${encodeURIComponent(toolWithLinks.location)}`
+        `/?${new URLSearchParams({ show: "all", location: toolWithLinks.location })}`
       );
     });
 

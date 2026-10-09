@@ -23,7 +23,7 @@ describe("CSV", () => {
   });
 
   it("names the file after the report", () => {
-    expect(csvFileName("MakerLAB Assistant — Fall 2026 value report")).toBe("makerlab-assistant-fall-2026-value-report.csv");
+    expect(csvFileName("MakerLAB AI — Fall 2026 value report")).toBe("makerlab-ai-fall-2026-value-report.csv");
     expect(csvFileName("———")).toBe("value-report.csv");
   });
 });

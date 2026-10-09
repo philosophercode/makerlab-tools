@@ -2142,3 +2142,241 @@ role); `src/app/api/mcp/route.test.ts` (the public endpoint, a student token and
 `src/lib/kiosk/snapshot.test.ts`; and the E2E specs `tool-detail`, `auth` and `qr-arrival`.
 
 **Status.** Built on `v5/hide-serials`.
+
+### 2026-10-07 — No empty items: a pending item must say what it is (§5.4)
+
+**Asked by Isaac.** He typed "I'd like to add new equipment to the inventory." in the chat and
+the assistant recorded a row called **"Equipment not specified"** (seen: listed, "Not sure —
+check it"), which then sat in the Add equipment queue. Make that impossible.
+
+**The rule** (`src/lib/intake/item-name.ts`, pure, one module). A pending item's name is refused
+when it is empty or whitespace, or when it has **no specific word**: every word is generic —
+"equipment", "item", "tool", "device", "unknown", "not specified", "n/a", "tbd", "untitled",
+"new", "placeholder" and the like (`GENERIC_WORDS`, English plus the generic words of the
+Latin-script locales), filler ("the", "to", "add"), a lone letter or a bare number. Case, accents
+and punctuation are ignored. One specific word is enough, so the prompt's plain description of an
+item the model can see but not name still passes ("Cordless drill, brand not visible", "3D
+printer"), and so does a bare make ("Makita") — research and the display-name rules deal with
+that later.
+
+**Where it is enforced.** Every way a pending item is made or renamed:
+
+- **The chat's `identify_tools`** checks every merged entry before anything is written. One
+  placeholder in a turn saves **none** of its rows, and the tool answers an `error` the model can
+  act on: nothing was saved, which entries name nothing, ask the person for a name, a photo or a
+  list, then call again with only items it can name. The schema's descriptions say the same.
+- **`createPendingBatch`** (under the chat and every import) throws `PlaceholderItemNameError`
+  before its transaction opens — the backstop whatever the path.
+- **`updatePendingTool`** (under `PATCH /api/pending-tools/[id]`, the preliminary page's
+  name/brand Save, `rename_pending_item`, `edit_pending_items`, `edit_import_row` and accepting
+  a suggested name) refuses `placeholder_name`, a new `WRITE_REFUSALS` code; an empty name stays
+  `invalid_field`. The route answers **422 `placeholder_name`**; the card, the intake list, the
+  preliminary page and the import page render `intake.table.errors.placeholder_name`,
+  `admin.intake.errors.…`, `admin.errors.…` and `admin.import.errors.…` (English only, like the
+  rest of those namespaces).
+- **The assistant's proposals** (`rename_pending_item`, `edit_pending_items`, `edit_import_row`,
+  in the chat and over MCP) refuse `placeholder_name` before any card is drawn; the refusal line
+  (`capabilities/actions.ts`) tells the model to ask for a make and model.
+- **MCP's `create_tool`** refuses a placeholder name and writes nothing.
+- **Imports**: a row whose name is a placeholder is skipped as `placeholder_name` (beside
+  `no_name`), never written (`import/items.ts`).
+
+**The prompt** (`capabilities/intake.ts`): "**Nothing named, nothing created.** If the person says
+they want to add equipment but has not said or shown what it is ("I'd like to add new equipment
+to the inventory."), do not call `identify_tools` — ask what it is, in one short line: its name
+(make and model), a photo of it or its label, or a list or spreadsheet. Create nothing until you
+have one. Never record a placeholder such as "Equipment not specified", "Unknown", "New
+equipment" or "Item": `identify_tools` refuses a name with no specific word and saves nothing."
+
+**Tests.** `intake/item-name.test.ts` (the placeholder that was written and its relatives, real
+names that must pass); `capabilities/intake.test.ts` (the refusal, nothing saved, no card; one
+placeholder in a turn saves none; a descriptive name passes; `create_tool`; the prompt);
+`data/pending-tools.test.ts` (the batch throws, the rename is `placeholder_name`);
+`api/pending-tools/[id]/route.test.ts` (422); `actions/intake.test.ts` (no card);
+`import/items.test.ts` (skipped rows). Eval: `evals/cases/multi-item-intake.yaml`
+`intake-nothing-named-asks-first` — not run (it needs the Gateway).
+
+**Status.** Built on the intake-and-images branch, 2026-10-07.
+
+### 2026-10-07 — A photo for a name: items named without a photo get one at identification (§5.4)
+
+**Asked by Isaac.** Most items added by name show "No photo" until research. When an item is
+identified from a name, the identification step should settle the most likely official product
+name and find one candidate product photo to pair with it, so the row is not photo-less before
+research — reusing research's product image finder, never generating or redrawing an image,
+marked found online and unconfirmed until approval, counted against the research budget, and
+skipped when a photo was supplied.
+
+**The name.** The chat model already settles the make and model (`identify_tools`' `name`). The
+intake prompt now says so for this case: "**Named without a photo?** Settle the most likely
+official product name — make, model and generation ("Apple iPad (6th generation)" for "an iPad
+6") — and give it as the `name`, with `confidence` `likely` when you are not sure. After the
+table appears, one candidate product photo is looked up for each such item in the background (at
+most 10 per call, from today's research allowance) and shown marked "Found online" until someone
+approves the item. Never look for photos yourself; if the result's `photoSearch` says some were
+skipped, you may say so in a few words." The card shows the name and the certainty as before.
+
+**The photo.**
+
+- **Trigger.** After `identify_tools` saves its rows, `startFoundPhotos`
+  (`src/lib/intake/found-photo-start.ts`) takes the items that came **without a photo**, are not
+  `unsure` (a plain description would find some other drill), are not a duplicate still to decide
+  (an existing tool has its own photo), at most `IDENTIFY_PHOTO_MAX_ITEMS` (10) per call
+  (`foundPhotoEligible`, `intake/found-photo.ts`). An item that came with a photo is never looked
+  up.
+- **Cost and caps.** One lookup costs **a quarter of a research item** against the same daily
+  allowance research, refresh, Find a different image and Suggest names spend
+  (`IDENTIFY_PHOTO_ITEMS_PER_LEDGER_ROW` = 4: four lookups are one `research_requests` row,
+  rounded up per call), counted and charged under the research route's per-person lock in the
+  same transaction that marks the rows (`startFoundPhotoSearch`, `data/found-photo.ts`). When the
+  allowance cannot cover them all, as many as it can are looked up and the rest are skipped
+  (`photoSearch.skippedForAllowance`). In money: one Exa search plus one `imageRank` call, both
+  flex — about a quarter of a researched item (≈ 0.75–0.9¢), never measured live.
+- **The finder is research's** (`src/workflows/found-photos.ts`, step
+  `intake/found-photo-steps.ts`'s `findFoundPhoto`, three at a time, 120 s each, one retry):
+  **one Exa search** for the name and brand (`searchProductPictures`, moved from the image
+  retry into `research/image-stage.ts` so both share it; job `researchSearch`), the Exa results'
+  pictures as candidates (`collectCandidates`), then `rankAndClean` exactly as research: probe,
+  the `imageRank` model with its subject verdict (only the product itself), and the
+  **deterministic cutout** of rank 1, stored private as a `research_image_cleaned` attachment
+  owned by the item. Only rank 1 is kept. Nothing generated, nothing redrawn.
+- **Stored** as `pending_tools.found_photo` (jsonb, **migration `0032`**; `foundPhotoSchema`):
+  `requestId`, `requestedAt`, `status` (`searching` / `found` / `none` / `failed`), the
+  `candidate`, its `cleaned` copy, `cleanNote`, `error`. Written only while the lookup is still
+  that request's and searching. A lookup still `searching` after `IDENTIFY_PHOTO_STALE_MS` (10
+  min) reads as failed. A start that throws marks the lookups failed; the charge stays spent.
+- **Never one of the item's photos.** The cleaned copy is `research_image_cleaned`, which
+  `photos` already leaves out; research keeps it (`releaseCleanedImages` takes a `keep`), and
+  approval releases it with every other copy nobody chose, discard and expiry with everything.
+  Research runs its own image stage as before; the found photo is not one of approval's image
+  choices (an open question below).
+- **Shown** as `PendingToolView.foundPhoto` (`toFoundPhotoView`): the cleaned copy through
+  **`GET /api/pending-tools/[id]/found-photo`** (private, `no-store`, behind
+  `canActOnPendingTool`), else the picture from its own host, sending no referrer. The chat's
+  card and `/admin/intake` draw it with `FoundPhotoThumb`: a dashed frame tagged **"Found
+  online"**, "Found online at <host> — not confirmed until the item is approved" as its tooltip,
+  "Finding a photo…" while searching (the card), nothing or "No photo" otherwise. Nothing is shown
+  once the item is approved or discarded. The card asks **`GET /api/pending-tools?ids=…`** every 5
+  s, once for all its searching rows, until each lands (or after 10 minutes); the queue keeps
+  polling while any row is searching.
+- **The model is told** `photoSearch: { searching, skippedOverCap?, skippedForAllowance?,
+  startFailed? }` on `identify_tools`' result.
+
+**Tests.** `intake/found-photo.test.ts` (the shape, staleness, eligibility, the view);
+`data/found-photo.test.ts` (a quarter item each, the allowance's edge, nothing twice, only this
+request's answer); `intake/found-photo-steps.test.ts` (one search and one ranking on flex, rank 1
+kept and cut private, none, all rejected, a model failure, a lookup no longer this run's);
+`capabilities/intake.test.ts` (two named items looked up and one `unsure` not, one ledger row,
+the card's `searching`, an item with a photo skipped, a start that fails); `research/image-steps.test.ts`
+(research keeps the found copy); `api/pending-tools/route.test.ts` and
+`api/pending-tools/[id]/found-photo/route.test.ts` (gates, other people's rows, 404s);
+`IntakeTableCard.test.tsx` (the tag, no referrer, searching → polled → found, none);
+`IntakeList.test.tsx` (the thumbnail, polling while searching).
+
+**Open questions.**
+1. **Offer the found photo at approval** when research's own image stage finds nothing (it is
+   already a cleaned copy owned by the item, so `takeCover` would accept it).
+2. **The cost** is estimated, not measured; check the first week's ledger.
+
+**Status.** Built on the intake-and-images branch, 2026-10-07. No live search or ranking was run.
+
+### 2026-10-08 — Photos from any phone: downsized in the browser, HEIC converted on the server (§3.3)
+
+**Why.** The owner's request (Isaac, 2026-10-08): a photo added to the chat should be taken as
+JPEG, PNG or HEIC from an iPhone or an Android phone, converted or downsized under the hood to a
+sensible upload size, without sending a heavy dependency to the browser. Before this:
+
+- The chat uploaded the **original as picked** — 2–5 MB from a phone, its EXIF block (GPS
+  position included) intact — and drew a 1568 px copy beside it for the model (intake spec §6.1,
+  amendment 2026-09-14).
+- On Vercel a request body over **4.5 MB** is refused before the route runs, so a large original
+  failed with an untranslated platform error, whatever §3.3's 18 MB says.
+- **HEIC was refused** by the 2026-10-05 byte check (`400 unsupported_image`). iOS Safari
+  usually transcodes to JPEG for `accept="image/*"`, so most iPhone photos got through; an iPhone
+  photo from Chrome on a desktop, a Samsung HEIF, or a `.heic` picked on Windows (which Chrome
+  gives no type, so the chat called it "not an image") did not, and the model saw none of them.
+
+**What changed.**
+
+1. **The browser downsizes before it uploads** (the chat composer; `preparePhoto` in
+   `src/lib/chat/downscale-image.ts`, canvas steps in `photo-canvas.ts`, rules in
+   `src/lib/images/photo-rules.ts`). Native APIs only — no new client dependency, nothing lazy
+   loaded.
+   - **Decoded once**, upright: `createImageBitmap(file, { imageOrientation: "from-image" })`
+     (asked again without options in a browser that rejects them as a `TypeError`). JPEG, PNG and
+     WebP decode everywhere; HEIC/HEIF in Safari (iOS, and macOS Safari 17+).
+   - **The stored copy** is at most **2048 px** on the long edge, **JPEG at 0.85** painted on
+     white — or a **PNG** only when the source is PNG, WebP or GIF, has a transparent pixel, and
+     the PNG comes out at most 1.5 MB. It is named `<stem>.jpg`/`.png` and uploaded **instead of
+     the original**. Re-encoding drops the EXIF block, GPS included, after its orientation has
+     been applied to the pixels. Drawn on an `OffscreenCanvas` where there is one, else a
+     `<canvas>`.
+   - **The model's copy** is the 1568 px JPEG drawn from the same bitmap (the stored JPEG itself
+     when that is already small enough), sent on the message as before.
+   - **One photo is prepared at a time** (a 12 MP photo is ~48 MB decoded; five picked at once on
+     a phone would hold them all); the uploads still overlap.
+   - **A photo the browser cannot read** (HEIC outside Safari) is uploaded **as it is**, an
+     untyped `.heic`/`.heif` typed from its name, for the route to convert.
+   - **Limits**: over **25 MB** is refused before decoding; an unreadable original over **4 MB**
+     is refused before uploading (Vercel's 4.5 MB body, less the multipart framing). The platform's
+     413, if it comes, reads the same.
+   - The chip and the `[Attached photos: …]` hint keep the **name the photo was picked under**
+     (`IMG_0412.HEIC`); the stored file is named for what it is (`IMG_0412.jpg`).
+2. **The route converts HEIC** (`POST /api/uploads`, every kind; `src/lib/images/heif.ts`,
+   `convert-photo.ts`). §3.3's "an image must really be JPEG, PNG, WebP or GIF" still holds for
+   what is **stored**:
+   - A file whose `ftyp` major brand is an HEVC brand (`heic`, `heix`, `heim`, `heis`, `hevc`,
+     `hevx`), or `mif1`/`msf1` beside one, is decoded with **`heic-decode`** (ISC) →
+     **`libheif-js`** (LGPL-3.0: libheif and libde265 compiled to WebAssembly, ~2 MB with the
+     wasm inlined, no native binary). AVIF, which shares the container, is not taken. libheif
+     applies the `irot`/`imir` transforms an iPhone records, so a portrait comes out upright.
+     `sharp` alone cannot do this: its prebuilt libvips carries libheif for AVIF only, with no
+     HEVC decoder.
+   - `sharp` then resizes and encodes from the raw pixels by the same rules: at most 2048 px,
+     JPEG quality 85, flattened on white, no metadata. The file is stored, recorded and answered
+     as `image/jpeg` under `<stem>.jpg`; `sizeBytes` and `originalFilename` describe what was
+     stored. More than 64 MP is refused before any pixel is allocated; a HEIC that cannot be read
+     is `400 unsupported_image`, with nothing stored.
+   - **A `chat` upload's answer carries `visionDataUrl`**: the 1568 px JPEG the browser would
+     have made. The chat uses it as the model's copy and as the preview (a browser that cannot
+     read HEIC cannot show its object URL either). The model's view of a photo therefore stays
+     where it always was — a file part on the user message, which `collectAttachments`,
+     `photo-qr` and `withRecentPhotos` already handle — rather than a new server-side read of a
+     private blob by attachment id on every turn.
+   - The decoder is in `serverExternalPackages` and imported on the **first HEIC** only, so no
+     other upload loads it. A 12 MP photo takes about 0.7 s and ~350 MB, inside the route's
+     30 s and the function's memory.
+   - An upload with no useful type (`""`, `application/octet-stream`) whose name ends `.heic` or
+     `.heif` counts as an image claim; its bytes decide, as for every image.
+   - The size refusal gains `code: "file_too_large"`, which the chat translates.
+3. **What the picker offers.** The composer's input accepts
+   `image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif` and the import list
+   extensions; no `capture` attribute, so a phone offers the camera and the library. iOS hands a
+   HEIC over as it is when the list names HEIC (and transcodes to JPEG when it does not); Safari
+   reads either, and an older iOS that cannot falls back to the route.
+4. **Two messages, all twelve locales:** `chat.photoUnsupported` ("This photo format isn't
+   supported — try a JPEG or PNG.") for `unsupported_image`, and `chat.photoTooLarge` for either
+   limit and for a 413.
+
+**Who benefits.** The chat composer gets all of it. The quick report form
+(`use-report-photo.ts`), the project form and the admin photo editor upload with their own code:
+they get the route's conversion (a HEIC is now stored as a JPEG rather than refused) but not the
+browser's downsizing, so a phone original over 4.5 MB still fails there. Moving them onto
+`preparePhoto` is a follow-up, not part of this change.
+
+**Licences.** `heic-decode` is ISC; `libheif-js` and the libheif and libde265 it wraps are
+LGPL-3.0, compatible with the app's AGPL-3.0, used unmodified from npm and loaded at runtime.
+
+**Covered by** `src/lib/images/photo-rules.test.ts` (sizes, PNG with transparency against JPEG,
+names, HEIC by name, the accept list); `src/lib/chat/downscale-image.test.ts` (the orientation
+option and its retry, 2048 and 1568 px from one decode, PNG kept or dropped, the original when the
+browser cannot read it, an untyped `.heic`, both limits, the `<canvas>` fallback);
+`src/lib/images/heif.test.ts` and `convert-photo.test.ts` (two real HEVC-coded files made with
+macOS `sips` in `test/fixtures/photos/` — one with an `irot` rotation — through the real decoder
+and `sharp`; AVIF brands refused; the pixel limit; a corrupt file); `api/uploads/route.test.ts` (a
+chat HEIC stored as a JPEG with `visionDataUrl`, a maintenance one without it, an untyped `.heic`,
+a corrupt one refused with nothing stored, `file_too_large`); `ChatFab.test.tsx` (the accept list
+and no `capture`, the downsized copy uploaded, the route's copy sent to the model and shown, an
+untyped `.heic`, one photo prepared at a time, both translated errors).
+
+**Status.** Built; not yet merged.

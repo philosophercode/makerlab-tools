@@ -1723,5 +1723,184 @@ today, in lab time, or end their shift now. One registered action, run by one se
 choice, made on a page, not proposed by an assistant. The input names nobody; the row is always the
 caller's. **New permission** `shifts.set`, held by `admin` and `super_admin`. No name matches the deny
 list. `/assistant` shows it as page-only, in the people area (`ACTION_AREAS` gains `shifts`).
-**Counts:** action tools, chat tools and the MCP lists do not change. The registry holds 57
-definitions. Migration `0029_staff_shifts`.
+**Counts:** action tools, chat tools and the MCP lists do not change. The registry holds 59
+definitions (57 in the stack; rebuilt on `main` after Tool skills' 58, 2026-10-09). Migration
+`0033_staff_shifts`.
+### 2026-10-07 — Images in the chat: tool cards, and labelled illustrations
+
+The owner asked (2026-10-07): "In the chat you could show the tool's image if it makes sense; the
+AI can pull the images; if it does research it can do image search; or even generate cheap images —
+give the AI tools to make an infographic or a render." Built in that order, real images first.
+
+**1. The tool's own photo: `show_tool`** (`lib/capabilities/tool-cards.ts`, capability
+`tool-cards`; `components/chat/ChatToolCards.tsx`). A read for everybody, anonymous included,
+chat only. The model passes up to three tools (slug, id or name); the server resolves each
+**published** tool and writes one `data-tool-cards` part. The chat draws a small card per tool:
+its catalogue image (the pre-rendered thumbnails through `ToolImage`, the initials plate when it has
+none), name, category, status (`StatusGlyph`), the whole card a link to `/tools/<slug>` that closes
+the chat like a tool link in the answer. A turn's cards are one list where the first arrived, each
+tool once.
+
+- **A capability the model calls, not cards derived from the answer's links.** The owner asked for
+  the image "if it makes sense", which is a judgement: an answer about one machine wants its
+  picture, a list answer ("what 3D printers do you have?") links eight tools and wants none.
+  Deriving cards from links would either card every link or need a threshold, and would only know
+  the tools once the answer had finished. The QR card already set the pattern. The prompt asks for
+  the call in the same step as the other lookups, so it adds no model step.
+- **Rules, in code:** published tools only (staff too: a card links to a public page); the tool
+  whose page the person is on is skipped (the page shows it); at most three; once per reply
+  (counted in the tool, and `CHAT_TOOL_CAPS.show_tool = 1`). Every field comes from the catalogue
+  row; no URL the model writes becomes an image, and **nothing is fetched from the web into the
+  chat**.
+- It returns only catalogue data, so it does not taint a turn (§8.4), and it is never registered
+  over MCP, where `get_tool_details` already gives the page.
+- A stored starter answer drops its `data-tool-cards` parts (`starters/answer.ts`
+  `storableMessage`): a card shows the status of the moment it was made, and a cached answer
+  served later must not call a machine that is down "Available".
+
+**A manual's own figure: not built.** The manual pipeline draws page images only for OCR of
+scanned manuals, in memory, and stores none (`manuals/page-images.ts` composites the pictures a
+scanned page paints; text pages and vector drawings are not drawn at all). Showing a cited page's
+figure would mean downloading and decoding the PDF during the chat for every citation. A citation
+already opens the PDF at that page (Sources). If figures are wanted, the index step could store a
+page thumbnail per cited page; that is a manual text spec change, not this one.
+
+**2. Image search during research: no change.** Research already finds product images: the
+`og:image`, `twitter:image`, JSON-LD and gallery pictures of the pages it read, topped up with Exa's
+image links when the pages offer fewer than three, probed, ranked by a vision model and cut out
+deterministically (gateway spec §3.5 and its amendments). No gap was found, and no web image search
+is added to the student chat.
+
+**3. Generated illustrations: `make_illustration`** (`lib/capabilities/illustrations.ts`,
+capability `illustrations`; `components/chat/ChatIllustration.tsx`). One labelled AI picture for
+two uses only — an infographic of a plan the assistant just wrote, or a concept render of the
+student's own idea — offered ("Want a sketch of this plan?"), made after a yes, never of the lab's
+equipment, its controls, labels or safety steps. Signed-in people only (new permission
+`chat.illustrate`, held by `user`, `admin` and `super_admin`); an anonymous visitor's assistant is
+told to point them to sign-in. One per reply (`CHAT_TOOL_CAPS.make_illustration = 1`), 3 a day per
+person, $1 a day lab-wide. Left out entirely when `MODEL_ILLUSTRATION=off` or there is no Blob
+store. The job, the model, the cost, the caps, the storage and why this is not the retired redraw
+are the gateway spec's amendment of the same date. Neither tool reads outside content.
+
+**`/assistant`.** Two rows: `show_tool` ("Show the catalogue photo, status and page of the tool it
+is talking about", catalog area, everybody) and `make_illustration` ("Draw a labelled AI sketch of a
+plan or of your project idea, when you ask for one", projects area, signed in). **Counts:** action
+tools unchanged (42 / 38); chat tools 65 → **67** for a director, 60 → **62** for a SuperMaker,
+10 → **12** for a signed-in student; an anonymous visitor gains `show_tool`. The MCP lists do not
+change (both tools are chat only).
+
+**Strings.** `chat.showingTool`, `chat.toolCard.*`, `chat.drawingIllustration`,
+`chat.illustration.*` in all 12 locales; `assistantPage.tools.show_tool` and
+`assistantPage.tools.make_illustration` in English (the page's other strings are English-only too).
+
+**Tests.** `capabilities/tool-cards.test.ts` (published tools by slug or name, the payload's
+fields, the tool on screen and unknown names skipped, drafts not found, once per reply, at most
+three, offered to anonymous visitors and never over MCP); `components/chat/ChatImages.test.tsx`
+(the card's photo, name, category, status and link; initials without a photo; one list per turn;
+the chat closes on open; the illustration's mark and caption, and nothing for a foreign image URL);
+`app/api/chat/prepare-step.test.ts` (both caps); `app/api/chat/route.test.ts` (who is offered
+what); `capabilities/actions.test.ts` (the counts above); `starters/answer.test.ts` (a stored answer
+keeps no tool card); the illustration suites listed in the gateway spec amendment.
+
+**Status.** Built on `v5/chat-images`. Awaiting the owner's review.
+
+### 2026-10-07 — Suggested replies: `suggest_replies`, and bubbles under the answer
+
+The owner, reading an answer on his phone (he typed "Laser cut"; the assistant listed the two laser
+cutters and ended "What material or project are you looking to cut?"): "For these kinda answers can
+you make like text suggestions to click in bubbles". Then: "Be sparing with the suggested answers
+only when there's 2-3 choices easy to respond."
+
+**The tool** (`lib/capabilities/suggest-replies.ts`, capability `suggested-replies`; the rules in
+`lib/chat/suggested-replies.ts`). `suggest_replies({ replies })` is **display only**, the same
+pattern as `show_tool`: a read for everybody, anonymous included, chat only, free. Its input is
+**2–3 replies**, each trimmed, 1–40 characters, no two the same ignoring case (zod; a refused call
+is a tool error and shows nothing). `run` writes nothing and returns `{ ok: true, replies }`, the
+replies cleaned (control and invisible characters dropped, one space between words). It reads no
+outside content, so it does not taint a turn (§8.4), and it is never registered over MCP, where a
+bubble means nothing.
+
+- **The model proposes, sparingly.** The prompt section "Suggested replies" asks for the call only
+  when the answer ends by asking the student to choose between two or three clear, easy options
+  (which of two machines, which material from a short list): a few words each, as the student would
+  say them, in the language of the answer, never what they just said; once, last in the turn; the
+  text must still ask the question on its own. Not for next steps, open-ended questions or factual
+  answers, not on most turns, and never for safety, training or permission ("Yes, it's safe", "Skip
+  the training"). Derived bubbles (from a question mark, say) were not built: whether the options
+  are clear and few is a judgement, as it was for tool cards.
+- **Once per reply, and no extra step.** `CHAT_TOOL_CAPS.suggest_replies = 1`. The route's
+  `stopWhen` (`app/api/chat/stop-when.ts`, also used by starter answers) ends the turn on a step
+  whose only calls were `suggest_replies` once the turn has written text: the tool only hands the
+  replies back, and another model step would cost a call and hold the bubbles back. Called before
+  any text, the turn carries on and the answer follows.
+- **A tap is the student's own message.** It sends exactly the bubble's text through
+  `handleSuggestion` (`ChatPanel`), asked live — never a starter's cached answer, even when the text
+  matches a chip, since a reply answers this conversation. Anything it leads to goes through the
+  usual tools and confirmation cards.
+
+**The bubbles** (`components/chat/SuggestedReplies.tsx`, drawn last in `ChatMessage`, after the
+text, the cards and the Sources). The AI Elements `Suggestions` / `Suggestion` the starters use,
+laid out as a wrapping row of pill bubbles; round corners are the second exception to the square
+rule, scoped to the chat (`#makerlab-chat-sheet .chat-reply-chip` in `globals.css`, beside the
+composer's). Shown **only on the latest assistant message, only once its turn has finished**
+(`status === "ready"`, not cut off) — not while submitted or streaming, not after an error, and gone
+as soon as the student sends anything, since their message becomes the latest. Disabled while a
+starter answer is being fetched. The call draws no status line while it runs. The row is a group
+named `chat.suggestedReplies` ("Suggested replies", 12 locales); each bubble is named by its text.
+The chat reads the call's output from the stored message and checks it again with the same rules, so
+a stored message can never make more, longer or other bubbles. A stored starter answer keeps its
+replies: unlike a tool card's status, they do not go stale.
+
+**`/assistant`.** One row: `suggest_replies` ("Offer two or three short replies to tap when it asks
+you to choose", catalog area, everybody). **Counts:** action tools unchanged (42 / 38); chat tools
+67 → **68** for a director, 62 → **63** for a SuperMaker, 12 → **13** for a signed-in student; an
+anonymous visitor gains `suggest_replies`. The MCP lists do not change (chat only).
+
+**Tests.** `lib/chat/suggested-replies.test.ts` (cleaning, distinctness, 2–3 kept, reading the last
+finished call, a stored output checked again); `capabilities/suggest-replies.test.ts` (the schema's
+limits and the JSON Schema the model is sent, `run` returns what is shown and writes nothing,
+offered to anonymous visitors and never over MCP, no taint, the prompt's rules);
+`app/api/chat/stop-when.test.ts` and `prepare-step.test.ts` (the stop and the cap);
+`app/api/chat/route.test.ts` (offered to everybody, one model call when the replies follow the
+answer, the turn carries on when they come first); `components/chat/SuggestedReplies.test.tsx` (the
+named group, the tap, disabled, none without `onReply`, no status line, a stored output checked
+again); `ChatFab.test.tsx` (latest finished answer only: not older answers, not while streaming,
+not after the student sent, not after an error; the tap sends the text);
+`ChatPanel.starters.test.tsx` (a reply is asked live even when it matches a cached chip);
+`capabilities/actions.test.ts` (the counts above).
+
+**Status.** Built 2026-10-07. Awaiting the owner's review.
+
+### 2026-10-07 — Tool skills: two GUI-only actions and one read
+
+The tool skills spec (`2026-10-07-tool-skills-design.md`) gives each tool a cited operating guide
+written by AI after research. Two registered actions, each run by a one-line server action:
+`writeSkill` (`app/admin/inventory/[tool]/skill/actions.ts`) and `setSkillWriting`
+(`app/admin/settings/ai-agents/actions.ts`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `skills.write` | `write_tool_skill` | spend | `tools.edit` | never | never |
+| `skills.set_after_research` | `set_skills_after_research` | operational | `users.manage` | never | never |
+
+`assistant: "never"`, no tool and no preview. A skill is the operating guide the assistant itself
+reads on a tool's page, so it never asks for its own (the lab-wide notes' reason). The setting spends
+the lab's money with nobody pressing a button each time, so it is a director's, beside the research
+budget on Settings › AI agents. `skills.write` starts the skill workflow, forced. It honours the lab's
+daily cap in its `check` and again in the step, and refuses a tool with nothing to write from
+(`nothing_to_write`). No audit event, like `lab.set_notes`: the skill's row records its trigger, and the
+setting's row records who set it. No new permission. No name matches the deny list. `/assistant` shows
+both as page-only, in the catalog area (`ACTION_AREAS` gains `skills`).
+
+One read joins the registry in its own capability, `skills`, on both surfaces and for everybody:
+`get_tool_skill` (the tool skill as fenced markdown, with its sources, version, date, model and a note
+to check the manual and staff for anything safety-related). It is model-written from manuals and web
+pages, so it is in `OUTSIDE_CONTENT_TOOLS` and taints the turn. On a tool's page the chat route also
+puts that tool's skill into the prompt, and the turn starts tainted, as with an attached manual.
+`get_tool_details` gains a `skill` pointer when one exists.
+
+**Counts:** action tools unchanged (42 / 38). Chat tools go from 68 to **69** for a director, 63 to
+**64** for a SuperMaker and 13 to **14** for a signed-in student (after suggested replies, above),
+and an anonymous visitor gains `get_tool_skill`. The MCP lists gain `get_tool_skill` for every audience: it is one of the public reads
+(`PUBLIC_READS` in the MCP route, access and catalog tests). The registry holds 58 definitions.
+Migration `0031_tool_skills`.

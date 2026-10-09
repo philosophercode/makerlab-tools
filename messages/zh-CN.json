@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "报告",
-    "reportAria": "报告问题",
-    "reportSeed": "我想报告一个问题。",
     "tools": "工具",
     "projects": "项目",
     "about": "关于",
@@ -19,7 +16,10 @@
     "signIn": "登录",
     "signInAria": "使用您的 {institution} 账号登录",
     "signOut": "退出登录",
-    "signedInAria": "已以 {name} 身份登录"
+    "signedInAria": "已以 {name} 身份登录",
+    "admin": "管理",
+    "account": "账户",
+    "connectAssistant": "连接 AI 助手（MCP）"
   },
   "catalogRefresh": {
     "action": "刷新目录",
@@ -34,9 +34,6 @@
     "onShiftNow": "当前值班：{names}"
   },
   "gallery": {
-    "title": "工具",
-    "searchPlaceholder": "搜索库存…",
-    "searchAria": "搜索库存",
     "category": "类别：",
     "training": "培训：",
     "materials": "材料：",
@@ -52,7 +49,40 @@
     "columnTraining": "培训",
     "trainingBeginner": "初级",
     "trainingIntermediate": "中级",
-    "trainingAdvanced": "高级"
+    "trainingAdvanced": "高级",
+    "home": {
+      "searchSection": "搜索实验室",
+      "toolCount": "{count} 件工具",
+      "unitsDown": "{count} 台停用"
+    },
+    "search": {
+      "landmark": "搜索工具并向 MakerLAB AI 提问",
+      "label": "搜索工具，或向 MakerLAB AI 提问",
+      "categories": "类别",
+      "categoryCount": "{count} 件工具",
+      "assistant": "MakerLAB AI",
+      "ask": "向 MakerLAB AI 提问：“{query}”",
+      "askNote": "带着你的问题打开聊天。MakerLAB AI 可能会出错。",
+      "clear": "清除搜索",
+      "noMatch": "没有与“{query}”匹配的工具或类别。",
+      "enterOpens": "按 Enter 打开 {name}",
+      "lines": {
+        "search": "搜索 {count} 件工具",
+        "build": "你想做点什么？",
+        "findMachine": "找到你的设备",
+        "x1Filament": "如何给 X1-Carbon 装耗材？",
+        "x1Start": "问问如何在 X1-Carbon 上开始 3D 打印",
+        "trotecAcrylic": "Trotec 激光能切亚克力吗？"
+      }
+    },
+    "results": {
+      "heading": "“{query}”的搜索结果"
+    },
+    "browse": {
+      "label": "浏览",
+      "all": "全部工具"
+    },
+    "backToCategories": "所有类别"
   },
   "detail": {
     "breadcrumbTools": "工具",
@@ -143,17 +173,18 @@
     "browseTools": "浏览工具"
   },
   "chat": {
-    "openAria": "打开 MakerLAB 助手",
-    "title": "MakerLAB 助手",
+    "openAria": "打开 MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "开始新对话",
     "newChatTitle": "开始新对话",
-    "closeAria": "关闭助手",
+    "closeAria": "关闭 MakerLAB AI",
     "closeTitle": "关闭（保留对话）",
     "greetingTool": "询问有关此工具的问题——我掌握它的规格、材料和资源链接。",
     "greetingGeneral": "今天我能帮您什么？",
-    "composerPlaceholder": "向实验室控制台提问…",
-    "composerAria": "向实验室控制台提问",
+    "composerPlaceholder": "向 MakerLAB AI 提问…",
+    "composerAria": "向 MakerLAB AI 提问",
     "aiNote": "MakerLAB AI 可能会出错。凡涉及安全的问题，请向工作人员确认。",
+    "aiNoteDismiss": "关闭提示",
     "sendAria": "发送",
     "attachAria": "附加照片",
     "attachTitle": "附加照片",
@@ -162,8 +193,10 @@
     "onlyImages": "仅支持图片文件。",
     "uploadFailed": "照片上传失败",
     "uploadsUnavailable": "照片上传当前不可用。您仍可以不带照片发送消息。",
+    "photoUnsupported": "不支持此照片格式，请尝试 JPEG 或 PNG。",
+    "photoTooLarge": "照片太大，无法上传，请尝试更小的照片或 JPEG。",
     "toolRunningAria": "工具运行中",
-    "typingAria": "助手正在输入",
+    "typingAria": "MakerLAB AI 正在输入",
     "readingManualsAria": "正在阅读手册",
     "reading": "正在阅读：{titles}…",
     "error": "出错了，请重试。",
@@ -172,13 +205,27 @@
     "working": "正在处理…",
     "rateLimitSignIn": "您已达到未登录访客的消息上限。使用您的 {institution} 账号登录即可继续对话——无论是否登录，浏览目录始终开放。",
     "rateLimitSignInCta": "登录",
-    "rateLimited": "您已达到每小时消息上限，请稍后再试。"
+    "rateLimited": "您已达到每小时消息上限，请稍后再试。",
+    "showingTool": "▣ 正在获取工具照片…",
+    "toolCard": {
+      "label": "本回答中的工具",
+      "open": "打开"
+    },
+    "drawingIllustration": "✎ 正在绘制插图…",
+    "suggestedReplies": "建议回复",
+    "illustration": {
+      "badge": "AI 插图",
+      "caption": "AI 生成的插图，不是我们设备的照片。具体步骤请查阅手册并咨询工作人员。",
+      "altPlan": "AI 生成的计划信息图",
+      "altConcept": "AI 生成的项目创意概念渲染图",
+      "unavailable": "此插图已不可用。"
+    }
   },
   "qr": {
     "arrivalLabel": "从这台设备扫码进入",
     "arrivalEyebrow": "在设备旁扫码",
     "arrivalTitle": "咨询关于 {tool} 的问题",
-    "arrivalBody": "你扫描了这台设备上的二维码。助手可以解答相关问题、指导你完成设置，或帮你提交维修报告。",
+    "arrivalBody": "你扫描了这台设备上的二维码。MakerLAB AI 可以解答相关问题、指导你完成设置，或帮你提交维修报告。",
     "arrivalSeed": "我正站在 {tool} 旁边，有一个关于它的问题。",
     "arrivalUnitLabel": "从这台设备的标签扫码",
     "arrivalUnitOf": "{tool} 的一台设备",
@@ -291,6 +338,39 @@
   "demoBanner": {
     "label": "演示数据",
     "body": "此目录为内置示例数据，并非 {institution} 的真实库存。Notion 尚未配置。"
+  },
+  "footer": {
+    "report": "报告问题",
+    "reportSeed": "我想报告一个问题。"
+  },
+  "unsubscribe": {
+    "loading": "加载中…",
+    "eyebrow": "邮件",
+    "confirmTitle": "关闭这些邮件？",
+    "confirm": {
+      "ticketFiled": "以后有人报告设备问题时，你将不再收到邮件。",
+      "maintenanceDue": "你将不再收到关于到期定期维护的早间提醒。"
+    },
+    "confirmScope": "只会停止这一类邮件。你账户的其他设置不变。",
+    "turnOff": "关闭",
+    "keep": "继续接收",
+    "failed": "没有保存成功。请稍后再试。",
+    "doneTitle": "已关闭",
+    "done": {
+      "ticketFiled": "有人报告设备问题时，你不会再收到邮件。",
+      "maintenanceDue": "你不会再收到早间维护提醒。"
+    },
+    "doneUndo": "工单和任务仍会显示在应用中。如需重新接收这些邮件，请联系实验室负责人。",
+    "invalidTitle": "此链接无效",
+    "invalidBody": "链接可能不完整或已过期。没有做任何更改。如果你仍然收到不想要的邮件，请告诉实验室工作人员。",
+    "rateLimitedTitle": "尝试次数过多",
+    "rateLimitedBody": "来自此连接的请求过多。请等待一小时后再打开链接。",
+    "home": "返回 {site}"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "向 MakerLAB AI 提问：“{query}”",
+    "askEmpty": "向 MakerLAB AI 提问"
   },
   "kiosk": {
     "onShiftLabel": "当前值班"

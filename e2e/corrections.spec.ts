@@ -20,13 +20,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test.describe("Report a correction", () => {
   test("the control is reachable from a tool detail page", async ({ page }) => {
-    await page.goto("/");
-
-    // Arrive the way a student does: from the catalog, not a deep link.
+    // Arrive the way a student does: from the catalog, not a deep link. The
+    // tool cards are the home page's All tools view, grouped by category
+    // (student home spec 2026-10-07, amendment "One page: the list at rest").
+    await page.goto("/?show=all");
     await page
       .getByRole("link")
       .filter({
-        has: page.getByRole("heading", { name: "Form 4", level: 2 }),
+        has: page.getByRole("heading", { name: "Form 4", level: 3 }),
       })
       .click();
 
@@ -34,8 +35,8 @@ test.describe("Report a correction", () => {
       page.getByRole("heading", { name: "Form 4", level: 1 })
     ).toBeVisible();
 
-    // flag.trigger => "Report a correction". Distinct from the nav's REPORT
-    // control, whose accessible name is "Report a problem".
+    // flag.trigger => "Report a correction". Distinct from the hero's and the
+    // footer's "Report a problem" (the header's REPORT left on 2026-10-07).
     await expect(
       page.getByRole("button", { name: "Report a correction" })
     ).toBeVisible();

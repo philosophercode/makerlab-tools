@@ -25,24 +25,64 @@ Phase 5 extends both. The shape it sets:
   an unrelated re-render. `e2e/admin-client-navigation.spec.ts` walks every
   section by clicking. Not a CSS problem: the admin stylesheet chunks were
   ruled out (one global stylesheet still hung).
-- **One list of surfaces, three views** (UI system phase 4).
-  `src/lib/admin/surfaces.ts` holds every admin page's key, href, group,
-  permission, icon and count loader; `surfacesFor(identity)` — the same `can()`
-  each page checks — feeds the `/admin` tiles, the section bar the layout puts
-  on every admin page (`AdminNav`) and the ⌘K palette (`CommandPalette`). A
-  page added there appears in all three; one left out is reachable from none,
-  and `surfaces.test.ts` pins what each role is shown. The home's numbers are
-  `loadAdminOverview(loaders)` (`src/lib/data/admin-overview.ts`): one
-  aggregate per loader, only the viewer's, each failing to `null` on its own —
-  a tile says "Could not be read", never 0. Waiting counts live on the tiles,
-  never in the bar. Every admin page's header is `AdminPageHeader` (crumb from
-  the group, a facts line from the page's own rows). Intake is the
-  `src/app/admin/intake/(tabs)/` route group — Queue and Imports as `LinkTabs`
-  links, **Import a list** as its header action, not a surface of its own
-  (amendment 2026-09-25 "Admin polish"; its count rides on the Intake tile via
-  `alsoCounts`) — and the four queues share `QueueList`. The home's tiles sit
-  on one row grid (`TileGrid`/`TileGroup` subgrids, half tiles for a bare
-  number or state).
+- **Six sections, one list of surfaces** (UI system phase 4; admin sections
+  spec 2026-10-07). The bar is `OVERVIEW · MAINTENANCE · INVENTORY · PEOPLE ·
+  INSIGHTS · SETTINGS` and **Ask MakerLAB AI**. `src/lib/admin/surfaces.ts`
+  holds every admin page's key, href, **section**, permission, icon and
+  (optional) count loader; `surfacesFor(identity)` — the same `can()` each page
+  checks — feeds the section bar the layout puts on every admin page
+  (`AdminNav`, through `sectionsFor`/`currentSection`), the tabs under each
+  page's header (`SectionTabs`, which reads the layout's
+  `AdminSurfacesProvider`, so no page resolves the identity for it), the
+  overview's counts and the ⌘K palette (`CommandPalette`). A page added there
+  appears in all of them; one left out is reachable from none, and
+  `surfaces.test.ts` pins what each role is shown. A section links to the
+  first of its surfaces the viewer may open (a SuperMaker's People is Student
+  projects, a director's the roster), and a section with nothing open is not
+  shown. Every admin page's header is `AdminPageHeader` (crumb from the
+  section, a facts line from the page's own rows, then the section's tabs; an
+  item's page gets a crumb link back and no tabs).
+
+  | Section | Tabs (route) |
+  |---|---|
+  | Overview | `/admin` |
+  | Maintenance | Tickets (`/admin/maintenance`) · Shift checklist (`/admin/maintenance/checklist`) · Recurring tasks (`/admin/maintenance/schedules`) |
+  | Inventory | All tools (`/admin/inventory`) · Add equipment (`/admin/intake`) · QR labels (`/admin/inventory/qr`) · Lab notes (`/admin/inventory/lab-notes`) · Manuals (`/admin/research`) · Check for updates (`/admin/refresh`) · Categories (`/admin/taxonomy`) · Page corrections (`/admin/corrections`) |
+  | People | Roster (`/admin/users`, directors) · Student projects (`/admin/projects`) |
+  | Insights | `/admin/insights` (its own Usage · Value report tabs) |
+  | Settings | General (`/admin/settings`) · Notion mirror (`/admin/mirror`) · MCP (`/admin/proposals`) · AI agents (`/admin/settings/ai-agents`) |
+
+  **No route moved**, so every old link opens its page. New names redirect
+  in `next.config.ts` (`/admin/today`, `/admin/overview`, `/admin/mcp`,
+  `/admin/settings/mcp`, `/admin/settings/notion`, `/admin/inventory/add`,
+  `/admin/checklist`); `/admin/people` is a page that redirects to the first
+  People page the viewer may open. Add equipment is the
+  `src/app/admin/intake/(tabs)/` route group — Queue and Imports as its own
+  `LinkTabs`, **Import a list** as its header action, not a surface (amendment
+  2026-09-25 "Admin polish") — and the four queues share `QueueList`.
+- **The overview** (`/admin`, admin sections spec §5.5) replaced the tiles
+  home: **Need to know** (urgent tickets with **Take it**, overdue recurring
+  tasks, tickets naming no machine), the **Shift checklist**, and beside them
+  **Quick actions** (`AdminActions`: Print QR labels first, Log finished work,
+  Add equipment, All tools), **Waiting for a decision** and **Inventory
+  health** (`components/admin/overview/`, rows built by the pure
+  `overview-model.ts`). Its numbers are `loadAdminOverview(loaders)`
+  (`src/lib/data/admin-overview.ts`) over the viewer's surfaces only, each
+  failing to `null` on its own, plus `listMaintenanceQueue`, the due tasks and
+  `listUnitsDown` (`lib/data/units-down.ts`), each read settled on its own: a
+  read that failed says "Could not be read", never 0 or "nothing waiting".
+  Waiting counts live here, never in the bar. `admin-tiles.ts` and
+  `system/Tile` have no callers since and await deletion approval.
+- **Settings holds what is not a job of its own.** **General**
+  (`/admin/settings`, every admin-surface permission): the lab screen link
+  (`/kiosk`), **Refresh catalog** (`tools.edit`; it left the old home's header)
+  and the viewer's access tokens. **MCP** is the Assistant proposals inbox at
+  its old address, `/admin/proposals`, retitled, with links to `/mcp` and
+  `/account/tokens` in its header. **AI agents** (`/admin/settings/ai-agents`,
+  `tools.edit`) says what the research and intake agents do and their limits,
+  and holds the **research budget**: `AllowanceGrant` for `users.manage`
+  holders (moved from the roster; `people.grant_allowance` now refreshes this
+  page), one line saying directors grant it for everyone else.
 - **Server actions check themselves.** A server action is a POST endpoint with
   a generated name, reachable without the page that offers it, so
   `src/app/admin/users/actions.ts` resolves the identity and `performAction`
@@ -76,17 +116,17 @@ Phase 5 extends both. The shape it sets:
   outcomes of a review, so settled equipment stays out of the queue. Units that
   belong to no tool come back as their own list rather than being attached to a
   guessed tool.
-- **On shift sits on the overview, above the tiles** (on-shift spec
+- **On shift sits on the overview, above its blocks** (on-shift spec
   2026-10-07). For anyone holding `shifts.set`, `/admin` opens with an **On
   shift** card (`components/on-shift/OnShiftPanel.tsx`): who students see on
   shift right now, then the control to go on shift until a time today (lab
   time, default 23:59), change it or end it. `/account` has the same section
   for staff. Both use one server action, `setMyShift`
   (`app/account/shift-actions.ts`, action `shifts.set`, GUI only), which only
-  ever changes the caller's own row in `staff_shifts` (migration `0029`).
-- **Lab notes sit beside QR labels, not in a new surface.** The inventory header's
-  **Lab notes** button opens `/admin/inventory/lab-notes` (`tools.edit`; identity
-  spec amendment "Lab notes"): the lab-wide notes the assistant knows in every
+  ever changes the caller's own row in `staff_shifts` (migration `0033`).
+- **Lab notes are an Inventory tab** (`/admin/inventory/lab-notes`, `tools.edit`;
+  identity spec amendment "Lab notes"; a header button on All tools until the
+  admin sections spec): the lab-wide notes the assistant knows in every
   conversation (`lab_settings.lab_notes`, saved whole by `lab.set_notes`, GUI only),
   then every unarchived tool with lab notes (`tools.notes`, edited in the tool
   editor) linking to its page. Uncached; a read that fails says so instead of
@@ -239,7 +279,7 @@ Phase 5 extends both. The shape it sets:
 - **Names** (`lib/people/name.ts`): trimmed, whitespace collapsed, 1–80
   characters (`PERSON_NAME_MAX_LENGTH`, Add person included). A super admin
   renames anybody on the roster (`setUserName`, `users.manage`); anybody signed
-  in renames themselves on **`/account`** ("Your account" in the profile menu;
+  in renames themselves on **`/account`** ("Account" in the profile menu;
   `updateOwnName` in `lib/account/name-actions.ts`, account gate, always the
   caller's own row). Both go through `renamePerson` (`lib/people/rename.ts`) and
   record `user.name_changed` `{ from, to }`; a lost event is a warning, not a
@@ -311,19 +351,30 @@ Phase 5 extends both. The shape it sets:
   layer") — gate, write, record, refresh, each step only as far as the last
   one earned. (`queue-write.ts`'s `runQueueWrite` has no callers since and
   awaits deletion approval.)
-- **Recurring maintenance sits on top of the maintenance queue** (recurring
-  maintenance spec, amendment 2026-10-06). `/admin/maintenance` opens with
-  **Recurring tasks due** (`DueTasks`): overdue, due today and due within 7
-  days, each checked off with **Done** and an optional note
-  (`schedules.complete`, which logs a `maintenance_completions` row and moves
-  `next_due_on` to today + interval in one transaction). Tasks are set up on
+- **Recurring maintenance is the Shift checklist** (recurring maintenance
+  spec, amendments 2026-10-06 and 2026-10-07). `DueTasks` lists the tasks
+  overdue, due today and due within 7 days, on the overview and on its own
+  Maintenance tab (`/admin/maintenance/checklist`), each checked off with
+  **Done** and an optional note (`schedules.complete`, which logs a
+  `maintenance_completions` row and moves `next_due_on` to today + interval in
+  one transaction). Under a task, the open tickets on the same machine
+  (`checklist-issues.ts`: the task's unit and the tool's unit-less tickets, or
+  every ticket on the tool) each have **Mark resolved** (`ResolveIssueControl`
+  → `updateTicket`, status `resolved`). The ticket page no longer carries the
+  list; its facts line still counts overdue and due-today tasks. Tasks are set up on
   `/admin/maintenance/schedules` (`ScheduleBoard`, `ScheduleForm`): per tool,
   per unit, "each unit", or general lab upkeep with no tool; edit, pause,
-  resume, archive. Both pages and all four `schedules.*` actions are
-  `maintenance.manage`. No ticket is opened per occurrence, so the queue below
+  resume, archive. All three pages and all four `schedules.*` actions are
+  `maintenance.manage`. No ticket is opened per occurrence, so the queue
   stays for reported problems. Dates are lab dates (`labToday()`); the maths is
-  `src/lib/maintenance/interval.ts`. The `/admin` Maintenance tile adds the
-  tasks due today and overdue as facts.
+  `src/lib/maintenance/interval.ts`. The overview's facts line counts the
+  checks due, and Need to know says when any are overdue.
+- **Email lands on the queue** (email notifications spec,
+  [`notifications.md`](notifications.md)). Each ticket card is wrapped in
+  `id="ticket-<id>"`, which a new-ticket email links to
+  (`/admin/maintenance#ticket-<id>`); the browser scrolls there and `:target`
+  outlines it, with no script. The 08:00 recurring-maintenance reminder links to
+  the Shift checklist tab, `/admin/maintenance/checklist`.
 - **Each queue checks its own permission, and a test proves it is its own.** No
   role holds `tools.edit` without `feedback.manage`, so each `actions.test.ts`
   mocks `can()` for one case and asserts the endpoint is refused to a caller

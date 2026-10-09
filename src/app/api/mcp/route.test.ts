@@ -67,6 +67,8 @@ const PUBLIC_READS = [
   "list_tools",
   "search_manual",
   "search_tools",
+  // Tool skills (tool skills spec 2026-10-07 §5.5): a read for everybody.
+  "get_tool_skill",
 ].sort();
 
 let ipCounter = 0;
@@ -222,7 +224,7 @@ describe("the MCP protocol, through the SDK's own client", () => {
 // ── Who sees what ────────────────────────────────────────────────────
 
 describe("tools/list by identity", () => {
-  it("offers an anonymous caller the six public reads", async () => {
+  it("offers an anonymous caller the seven public reads", async () => {
     expect(await toolNames()).toEqual(PUBLIC_READS);
   });
 

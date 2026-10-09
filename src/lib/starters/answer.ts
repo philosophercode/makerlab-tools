@@ -2,7 +2,6 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   readUIMessageStream,
-  stepCountIs,
   streamText,
   type LanguageModel,
   type StepResult,
@@ -10,6 +9,7 @@ import {
   type UIMessage,
 } from "ai";
 import { chatPrepareStep } from "../../app/api/chat/prepare-step";
+import { chatStopWhen } from "../../app/api/chat/stop-when";
 import { chatProviderOptions, languageModelFor, modelIdFor } from "../ai/models";
 import { gatewayCallReport } from "../ai/gateway-usage";
 import { systemAnonymousIdentity } from "../auth/identity";
@@ -135,7 +135,8 @@ export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<St
         tools,
         prepareStep: chatPrepareStep(Object.keys(tools)),
         onStepFinish: (step) => markOutsideReads(ctx.turn, step),
-        stopWhen: stepCountIs(10),
+        // As the live chat stops: suggested replies end the turn (parity spec amendment 2026-10-07).
+        stopWhen: chatStopWhen(),
         abortSignal: AbortSignal.timeout(input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
         onError: ({ error }) => {
           failure = error;
@@ -213,12 +214,20 @@ function modelLabel(model: LanguageModel): string {
 const RUN_ONLY_KEYS = new Set(["providerMetadata", "callProviderMetadata", "providerExecuted"]);
 
 /**
- * The message as it is stored and served: reasoning dropped, run-only
- * metadata stripped from every part, a fresh id. Pure.
+ * Parts that describe the moment, not the answer: a tool card carries the
+ * tool's status as it was when the answer was made (parity spec amendment
+ * 2026-10-07), and a cached answer served next week must not say "Available"
+ * about a machine that is down. The text that names the tool stays.
+ */
+const MOMENT_ONLY_PARTS = new Set(["data-tool-cards"]);
+
+/**
+ * The message as it is stored and served: reasoning and tool cards dropped,
+ * run-only metadata stripped from every part, a fresh id. Pure.
  */
 export function storableMessage(message: UIMessage): UIMessage {
   const parts = message.parts
-    .filter((part) => part.type !== "reasoning")
+    .filter((part) => part.type !== "reasoning" && !MOMENT_ONLY_PARTS.has(part.type))
     .map((part) => Object.fromEntries(Object.entries(part).filter(([key]) => !RUN_ONLY_KEYS.has(key))) as UIMessage["parts"][number]);
   return { id: "starter-answer", role: "assistant", parts };
 }

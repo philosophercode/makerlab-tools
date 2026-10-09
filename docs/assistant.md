@@ -1,7 +1,7 @@
 # What the MakerLab assistant can do
 
-The assistant is the chat button on every page (on admin pages, **Ask the
-assistant** in the section bar). What it can do depends on who is signed in:
+The assistant is the chat button on every page (on admin pages, **Ask
+MakerLAB AI** in the section bar). What it can do depends on who is signed in:
 it is offered exactly what your account could do by hand, never more.
 
 The full list, by role — generated from the same definitions the assistant
@@ -39,13 +39,40 @@ its people (owner meeting with the Director and Assistant Director,
   notes** (Inventory → Lab notes) come before the manual, win where they differ,
   and are cited as "**Lab note:**", never as the manual. The assistant never
   writes or proposes lab notes; staff do.
+- Follow a machine's **tool skill**: the lab's operating guide for it, written by
+  AI from the lab's own sources, every fact cited, the lab's notes, training and
+  PPE first. On a machine's page the assistant has it already; anywhere else,
+  and over MCP, it reads it with `get_tool_skill`. Staff write and rewrite skills
+  on the tool's skill page; the assistant never writes its own.
 - File a maintenance problem ("Prusa #1's nozzle is clogged") and report a
-  mistake on a tool's page. It tries to help you fix the problem first.
+  mistake on a tool's page. It tries to help you fix the problem first. Once
+  the lab's email is set up, a filed ticket emails the staff who work tickets,
+  whether it came from the chat, a machine's label or an MCP client. The
+  assistant itself never sends email and cannot change who gets it.
 - Give you a tool's QR code ("can I have a QR code for this device?"): the code
   appears in the chat with Download PNG and SVG links, and scanning it opens
   the tool's page — the same code the lab's machine labels carry
   (`get_tool_qr_code`, published tools only). Staff print sheets of labels from
   **Inventory → QR labels**.
+- Show you the machine it is talking about: when an answer is about one tool,
+  or compares two or three, the chat shows each one's catalogue photo, status
+  and a link to its page as a small card (`show_tool`, published tools only;
+  not for the tool whose page you are on). These are the lab's own photos;
+  the assistant never fetches pictures from the web into the chat.
+- Offer two or three short replies to tap, now and then: when an answer ends
+  by asking you to choose between a few easy options ("What are you cutting?"),
+  bubbles such as "Acrylic sign" and "Engraved wood" appear under it, and
+  tapping one sends it as your message (`suggest_replies`). It is used
+  sparingly, never for safety questions, and you can always type your own
+  answer instead.
+- **Signed in:** draw a sketch when you ask for one. After a plan with several
+  steps, or when you describe a project idea, the assistant may offer "Want a
+  sketch of this plan?"; say yes and it draws one picture — an infographic of
+  the plan, or a concept render of your idea (`make_illustration`). Every
+  sketch is labelled "AI-generated illustration, not a photo of our equipment.
+  Check the manual and staff for exact steps.", and it never shows how one of
+  the lab's machines looks, its controls, labels or safety steps. Three a day
+  per person; if you are not signed in, it asks you to sign in first.
 - Recognise a machine from a photo of its label: attach a photo with one of the
   lab's QR codes in it and the assistant knows which tool it is — and, for a
   unit's own label, which unit, so a report lands on that machine. The server
@@ -103,6 +130,13 @@ since the card was drawn, nothing is saved and the card says what it is now.
   "Not sure". Tick what you want and press **Add to research** (it shows how
   much of today's allowance that uses and about what it costs, and asks first),
   **Just add to intake** for later, or **Discard**.
+- **Say what it is.** "I'd like to add new equipment" alone adds nothing: the
+  assistant asks for a name, a photo or a list. A row is never called
+  "Equipment not specified" or "Unknown" — those names are refused everywhere.
+- **Named without a photo?** The assistant settles the most likely official
+  name, and the card looks up one product photo for it in the background,
+  shown in a dashed frame marked **Found online** — not confirmed until the
+  item is approved. Each lookup costs a quarter of a research item.
 - **Research costs money.** Research, a different image, name suggestions,
   re-processing a manual and refreshing research come as cards that show how
   much of today's allowance is left.
@@ -116,7 +150,7 @@ since the card was drawn, nothing is saved and the card says what it is now.
 
 Claude Code, ChatGPT and other assistants can connect to MakerLab as you (see
 [`mcp.md`](mcp.md)). They can prepare the same queue and catalogue changes, but
-those wait in **Assistant proposals** (`/admin/proposals`) for up to 7 days,
+those wait in **Assistant proposals** on **Admin → Settings → MCP** (`/admin/proposals`) for up to 7 days,
 where only you can confirm them. Many changes to manuals and links are easiest
 to decide on the inbox's **Manuals** tab, one machine at a time. Changes to people, anything that cannot be
 undone, and anything that spends research budget are never available to them.

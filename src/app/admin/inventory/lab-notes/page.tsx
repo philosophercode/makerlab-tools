@@ -47,7 +47,7 @@ export default async function AdminLabNotesPage() {
     console.error("[admin/inventory/lab-notes] could not read the lab notes", err);
     return (
       <section className="flex flex-col gap-4">
-        <AdminPageHeader surface="inventory" item title={t("title")} lede={t("lede")} />
+        <AdminPageHeader surface="labNotes" title={t("title")} lede={t("lede")} />
         <EmptyState tone="bad">{t("unreadable")}</EmptyState>
       </section>
     );
@@ -59,8 +59,7 @@ export default async function AdminLabNotesPage() {
   return (
     <section className="flex flex-col gap-6">
       <AdminPageHeader
-        surface="inventory"
-        item
+        surface="labNotes"
         title={t("title")}
         lede={t("lede")}
         facts={[

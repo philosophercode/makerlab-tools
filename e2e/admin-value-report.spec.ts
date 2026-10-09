@@ -31,7 +31,7 @@ function lastEightDays(): { from: string; to: string } {
 async function openWeek(page: Page) {
   const { from, to } = lastEightDays();
   await page.goto(`/admin/insights/value?from=${from}&to=${to}`);
-  await expect(page.getByRole("heading", { level: 3, name: /^MakerLAB Assistant — .+ value report$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: /^MakerLAB AI — .+ value report$/ })).toBeVisible();
 }
 
 test("a student is refused, and told so rather than 404ed", async ({ page, context, baseURL }) => {
@@ -45,7 +45,7 @@ test("a SuperMaker reaches the report from Insights and sees the current term", 
   await page.goto("/admin/insights");
   await page.getByRole("navigation", { name: "Insights views" }).getByRole("link", { name: "Value report" }).click();
   await expect(page).toHaveURL(/\/admin\/insights\/value$/);
-  await expect(page.getByRole("heading", { level: 3, name: /^MakerLAB Assistant — (Spring|Summer|Fall) \d{4} value report$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: /^MakerLAB AI — (Spring|Summer|Fall) \d{4} value report$/ })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Term" }).locator('a[aria-current="page"]')).toHaveCount(1);
 });
 
@@ -71,7 +71,7 @@ test("Download CSV saves the numbers, named after the report", async ({ page, co
   await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
   await openWeek(page);
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download CSV" }).click()]);
-  expect(download.suggestedFilename()).toMatch(/^makerlab-assistant-.*-value-report\.csv$/);
+  expect(download.suggestedFilename()).toMatch(/^makerlab-ai-.*-value-report\.csv$/);
   const csv = await readFile((await download.path())!, "utf8");
   const lines = csv.trim().split("\r\n");
   expect(lines[0]).toMatch(/^Section,Metric,/);

@@ -5,7 +5,7 @@ import { staffShifts } from "../db/schema/staff-shifts.ts";
 import type { Db } from "../db/types.ts";
 
 /**
- * `staff_shifts` (migration `0029`, on-shift spec 2026-10-07): who marked
+ * `staff_shifts` (migration `0033`, on-shift spec 2026-10-07): who marked
  * themselves on shift, and until when.
  *
  * Storage only. Who may mark themselves is the action's (`shifts.set`), and

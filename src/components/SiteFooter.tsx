@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { ABOUT_LINKS } from "../app/about/about-content";
 import { siteConfig } from "../lib/site-config";
 import { BrandLogo } from "./BrandLogo";
+import { FooterReportButton } from "./FooterReportButton";
 
 const LINKS = [
   { key: "product", href: "/product" },
@@ -14,7 +15,9 @@ const LINKS = [
 /**
  * The site footer (identity spec amendment 2026-09-28 "Product page and quick
  * start"): the product page, the quick start, About and MCP — pages worth
- * finding that do not belong in the main nav — and the lab's official page.
+ * finding that do not belong in the main nav — then "Report a problem", which
+ * opens the assistant (amendment "ADMIN in the bar", 2026-10-07), and the
+ * lab's official page.
  * Drawn on every page except the kiosk (the root layout wraps it in
  * `SiteChrome`). One mono line, a hairline above, and the lab's official
  * logo at its start (amendment 2026-10-06), in the text colour like the
@@ -35,6 +38,10 @@ export function SiteFooter() {
                 </Link>
               </li>
             ))}
+            {/* Reporting from any page, since REPORT left the header (2026-10-07). */}
+            <li>
+              <FooterReportButton label={t("report")} seed={t("reportSeed")} />
+            </li>
           </ul>
         </nav>
         <p>

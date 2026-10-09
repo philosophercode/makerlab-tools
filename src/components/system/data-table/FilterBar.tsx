@@ -30,6 +30,13 @@ export interface FilterBarProps {
   /** The search landmark's name, translated ("Filter the inventory"). */
   label: string;
   search?: { value: string; onChange: (value: string) => void; label: string; placeholder?: string };
+  /**
+   * A search field of the page's own in place of `search` (the full tool
+   * list's minimal search box, student home spec 2026-10-07 §5). It sits
+   * where the search does and must contain an `input type="search"`, so `/`
+   * still finds it.
+   */
+  searchSlot?: ReactNode;
   /** `FacetFilter`s. */
   facets?: ReactNode;
   shown: number;
@@ -44,7 +51,7 @@ export interface FilterBarProps {
   activeCount?: number;
 }
 
-export function FilterBar({ label, search, facets, shown, total, onClear, secondary, end, activeCount = 0 }: FilterBarProps) {
+export function FilterBar({ label, search, searchSlot, facets, shown, total, onClear, secondary, end, activeCount = 0 }: FilterBarProps) {
   const t = useTranslations("ui.filters");
   const searchId = useId();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -66,7 +73,9 @@ export function FilterBar({ label, search, facets, shown, total, onClear, second
       // phone — search / controls / count; from `sm` — search·count / controls.
       className="ui grid grid-cols-1 items-center gap-x-3 gap-y-2 pb-3 [grid-template-areas:'search'_'controls'_'count'] sm:grid-cols-[minmax(0,1fr)_auto] sm:[grid-template-areas:'search_count'_'controls_controls']"
     >
-      {search ? (
+      {searchSlot ? (
+        <div className="min-w-0 [grid-area:search]">{searchSlot}</div>
+      ) : search ? (
         <div className="relative flex min-w-0 items-center [grid-area:search]">
           <label htmlFor={searchId} className="sr-only">
             {search.label}

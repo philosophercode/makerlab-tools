@@ -16,6 +16,7 @@ import * as imports from "./imports";
 import * as insights from "./insights";
 import * as intake from "./intake";
 import * as labNotes from "./lab-notes";
+import * as skills from "./skills";
 import * as manuals from "./manuals";
 import * as mirror from "./mirror";
 import * as refresh from "./refresh";
@@ -71,6 +72,7 @@ const DEFINITION_MODULES = [
   taxonomy,
   insights,
   labNotes,
+  skills,
   shifts,
 ];
 

@@ -361,3 +361,14 @@ off Notion, and a button that visibly does nothing is worse than no button.
 of the same date. Anonymous visitors and students cannot use intake on the chat surface.
 
 **Status.** Accepted.
+
+### 2026-10-08 — §6.1's photo is downsized before upload, and HEIC reaches the model (pointer)
+
+Superseded in part by the data platform spec's amendment of the same date, "Photos from any
+phone". The 1568 px copy for the model is unchanged, but it is now drawn from the same decode as
+a 2048 px JPEG that is uploaded **instead of the original**, and the 2026-09-14 amendment's
+"a photo the browser cannot decode still uploads … and the model does not see it" no longer
+holds for HEIC: the original goes up, `POST /api/uploads` converts it to JPEG and answers with the
+model's copy.
+
+**Status.** Pointer.

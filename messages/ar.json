@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "إبلاغ",
-    "reportAria": "الإبلاغ عن مشكلة",
-    "reportSeed": "أريد الإبلاغ عن مشكلة.",
     "tools": "الأدوات",
     "projects": "المشاريع",
     "about": "حول",
@@ -19,7 +16,10 @@
     "signIn": "تسجيل الدخول",
     "signInAria": "سجّل الدخول بحساب {institution} الخاص بك",
     "signOut": "تسجيل الخروج",
-    "signedInAria": "مسجّل الدخول باسم {name}"
+    "signedInAria": "مسجّل الدخول باسم {name}",
+    "admin": "الإدارة",
+    "account": "الحساب",
+    "connectAssistant": "ربط مساعد ذكاء اصطناعي (MCP)"
   },
   "catalogRefresh": {
     "action": "تحديث الفهرس",
@@ -34,9 +34,6 @@
     "onShiftNow": "في المناوبة الآن: {names}"
   },
   "gallery": {
-    "title": "الأدوات",
-    "searchPlaceholder": "ابحث في المخزون...",
-    "searchAria": "البحث في المخزون",
     "category": "الفئة:",
     "training": "التدريب:",
     "materials": "المواد:",
@@ -52,7 +49,40 @@
     "columnTraining": "التدريب",
     "trainingBeginner": "مبتدئ",
     "trainingIntermediate": "متوسط",
-    "trainingAdvanced": "متقدم"
+    "trainingAdvanced": "متقدم",
+    "home": {
+      "searchSection": "البحث في المختبر",
+      "toolCount": "{count, plural, zero {لا أدوات} one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة}}",
+      "unitsDown": "{count, plural, zero {لا وحدات خارج الخدمة} one {وحدة واحدة خارج الخدمة} two {وحدتان خارج الخدمة} few {# وحدات خارج الخدمة} many {# وحدة خارج الخدمة} other {# وحدة خارج الخدمة}}"
+    },
+    "search": {
+      "landmark": "ابحث عن الأدوات واسأل MakerLAB AI",
+      "label": "ابحث عن أداة، أو اطرح سؤالًا على MakerLAB AI",
+      "categories": "الفئات",
+      "categoryCount": "{count, plural, zero {لا أدوات} one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة}}",
+      "assistant": "MakerLAB AI",
+      "ask": "اسأل MakerLAB AI: “{query}”",
+      "askNote": "يفتح المحادثة بسؤالك. قد يخطئ MakerLAB AI.",
+      "clear": "مسح البحث",
+      "noMatch": "لا توجد أداة أو فئة تطابق “{query}”.",
+      "enterOpens": "مفتاح Enter يفتح {name}",
+      "lines": {
+        "search": "ابحث بين الأدوات ({count})",
+        "build": "ماذا ستصنع؟",
+        "findMachine": "اعثر على جهازك",
+        "x1Filament": "كيف أركّب الخيط في X1-Carbon؟",
+        "x1Start": "اسأل كيف تبدأ طباعة ثلاثية الأبعاد على X1-Carbon",
+        "trotecAcrylic": "هل يقطع ليزر Trotec الأكريليك؟"
+      }
+    },
+    "results": {
+      "heading": "نتائج “{query}”"
+    },
+    "browse": {
+      "label": "تصفّح",
+      "all": "كل الأدوات"
+    },
+    "backToCategories": "كل الفئات"
   },
   "detail": {
     "breadcrumbTools": "الأدوات",
@@ -143,17 +173,18 @@
     "browseTools": "تصفّح الأدوات"
   },
   "chat": {
-    "openAria": "فتح مساعد MakerLAB",
-    "title": "مساعد MakerLAB",
+    "openAria": "فتح MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "بدء محادثة جديدة",
     "newChatTitle": "بدء محادثة جديدة",
-    "closeAria": "إغلاق المساعد",
+    "closeAria": "إغلاق MakerLAB AI",
     "closeTitle": "إغلاق (يحتفظ بالمحادثة)",
     "greetingTool": "اسأل عن هذه الأداة — لديّ مواصفاتها وموادها وروابط مواردها.",
     "greetingGeneral": "كيف يمكنني مساعدتك اليوم؟",
-    "composerPlaceholder": "اسأل وحدة تحكّم المختبر...",
-    "composerAria": "اسأل وحدة تحكّم المختبر",
+    "composerPlaceholder": "اسأل MakerLAB AI...",
+    "composerAria": "اسأل MakerLAB AI",
     "aiNote": "قد يخطئ MakerLAB AI. راجع الفريق في كل ما يتعلق بالسلامة.",
+    "aiNoteDismiss": "إغلاق التنبيه",
     "sendAria": "إرسال",
     "attachAria": "إرفاق صور",
     "attachTitle": "إرفاق صور",
@@ -162,8 +193,10 @@
     "onlyImages": "يُسمح بملفات الصور فقط.",
     "uploadFailed": "فشل رفع الصورة",
     "uploadsUnavailable": "رفع الصور غير متاح حاليًا. لا يزال بإمكانك إرسال رسالتك بدون صورة.",
+    "photoUnsupported": "صيغة هذه الصورة غير مدعومة — جرّب JPEG أو PNG.",
+    "photoTooLarge": "هذه الصورة أكبر من أن تُرفع — جرّب صورة أصغر أو بصيغة JPEG.",
     "toolRunningAria": "الأداة قيد التشغيل",
-    "typingAria": "المساعد يكتب",
+    "typingAria": "MakerLAB AI يكتب",
     "readingManualsAria": "جارٍ قراءة الأدلة",
     "reading": "جارٍ القراءة: {titles}…",
     "error": "حدث خطأ ما. حاول مرة أخرى.",
@@ -172,13 +205,27 @@
     "working": "جارٍ العمل على ذلك…",
     "rateLimitSignIn": "لقد بلغت حدّ الرسائل للزوّار غير المسجّلين. سجّل الدخول بحساب {institution} لمتابعة المحادثة — وتصفّح الكتالوج يبقى متاحًا في كل الأحوال.",
     "rateLimitSignInCta": "تسجيل الدخول",
-    "rateLimited": "لقد بلغت حدّ الرسائل في الساعة. حاول مرة أخرى بعد قليل."
+    "rateLimited": "لقد بلغت حدّ الرسائل في الساعة. حاول مرة أخرى بعد قليل.",
+    "showingTool": "▣ جارٍ جلب صورة الأداة…",
+    "toolCard": {
+      "label": "الأدوات في هذه الإجابة",
+      "open": "فتح"
+    },
+    "drawingIllustration": "✎ جارٍ رسم توضيح…",
+    "suggestedReplies": "ردود مقترحة",
+    "illustration": {
+      "badge": "رسم بالذكاء الاصطناعي",
+      "caption": "رسم توضيحي مُنشأ بالذكاء الاصطناعي، وليس صورة لمعداتنا. راجع الدليل وفريق العمل لمعرفة الخطوات الدقيقة.",
+      "altPlan": "رسم معلوماتي للخطة مُنشأ بالذكاء الاصطناعي",
+      "altConcept": "تصوّر مبدئي لفكرة المشروع مُنشأ بالذكاء الاصطناعي",
+      "unavailable": "لم يعد هذا الرسم التوضيحي متاحًا."
+    }
   },
   "qr": {
     "arrivalLabel": "تم المسح من هذه الآلة",
     "arrivalEyebrow": "تم المسح عند الآلة",
     "arrivalTitle": "اسأل عن {tool}",
-    "arrivalBody": "لقد مسحت الرمز الموجود على هذه الآلة. يمكن للمساعد الإجابة عن أسئلتك حولها، أو إرشادك خلال الإعداد، أو تسجيل بلاغ صيانة.",
+    "arrivalBody": "لقد مسحت الرمز الموجود على هذه الآلة. يمكن لـ MakerLAB AI الإجابة عن أسئلتك حولها، أو إرشادك خلال الإعداد، أو تسجيل بلاغ صيانة.",
     "arrivalSeed": "أنا أقف بجانب {tool} ولدي سؤال عنها.",
     "arrivalUnitLabel": "تم المسح من ملصق هذه الوحدة",
     "arrivalUnitOf": "وحدة من {tool}",
@@ -291,6 +338,39 @@
   "demoBanner": {
     "label": "بيانات تجريبية",
     "body": "هذا الفهرس بيانات عينة مدمجة، وليس المخزون الفعلي لـ {institution}. لم يتم إعداد Notion."
+  },
+  "footer": {
+    "report": "الإبلاغ عن مشكلة",
+    "reportSeed": "أريد الإبلاغ عن مشكلة."
+  },
+  "unsubscribe": {
+    "loading": "جارٍ التحميل…",
+    "eyebrow": "البريد الإلكتروني",
+    "confirmTitle": "إيقاف هذه الرسائل؟",
+    "confirm": {
+      "ticketFiled": "لن تصلك رسالة بعد الآن كلما أبلغ أحد عن مشكلة في آلة.",
+      "maintenanceDue": "لن يصلك بعد الآن التذكير الصباحي بالصيانة الدورية المستحقة."
+    },
+    "confirmScope": "تتوقف هذه الرسالة فقط. لا يتغير أي شيء آخر في حسابك.",
+    "turnOff": "إيقاف",
+    "keep": "الاستمرار في تلقيها",
+    "failed": "تعذّر الحفظ. حاول مرة أخرى بعد قليل.",
+    "doneTitle": "تم الإيقاف",
+    "done": {
+      "ticketFiled": "لن تصلك رسالة عندما يبلغ أحد عن مشكلة في آلة.",
+      "maintenanceDue": "لن يصلك تذكير الصيانة الصباحي."
+    },
+    "doneUndo": "تظل التذاكر والمهام ظاهرة في التطبيق. لتلقي هذه الرسائل من جديد، اطلب ذلك من إدارة المختبر.",
+    "invalidTitle": "هذا الرابط لا يعمل",
+    "invalidBody": "قد يكون ناقصًا أو قديمًا. لم يتغير أي شيء. إذا استمرت رسائل لا تريدها في الوصول، فأخبر فريق المختبر.",
+    "rateLimitedTitle": "محاولات كثيرة جدًا",
+    "rateLimitedBody": "وصلت طلبات كثيرة جدًا من هذا الاتصال. انتظر ساعة ثم افتح الرابط مرة أخرى.",
+    "home": "العودة إلى {site}"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "اسأل MakerLAB AI: “{query}”",
+    "askEmpty": "اسأل MakerLAB AI"
   },
   "kiosk": {
     "onShiftLabel": "في المناوبة الآن"

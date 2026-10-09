@@ -194,6 +194,9 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         reportedByEmail: ctx.identity?.email || null,
         reportedByUserId: ctx.identity?.userId || null,
         photoAttachmentIds: photoIds,
+        // Stamped by the adapter, never by a request: the staff email says
+        // "via a connected app" for an MCP ticket (email notifications §5.1).
+        surface: ctx.surface ?? null,
       });
 
       // Photos offered but none claimed: say so rather than let the student

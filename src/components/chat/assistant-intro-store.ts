@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 /**
- * Whether this browser has met the MakerLAB Assistant (identity spec
+ * Whether this browser has met MakerLAB AI (identity spec
  * 2026-09-28 §3): the callout next to the chat button shows on the first page
  * it can, stays on that page until it is dismissed or the page is left, and
  * never comes back — not on the next page, not on the next visit. Dismissing

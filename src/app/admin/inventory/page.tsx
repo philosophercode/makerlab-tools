@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { NotebookPen, QrCode } from "lucide-react";
+import { QrCode } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
@@ -114,18 +114,13 @@ export default async function AdminInventoryPage({
         ]}
         actions={
           <>
-            {/* QR labels (`/admin/inventory/qr`): print a code for each machine. Same permission as this page. */}
-            <Button asChild>
+            {/* QR labels (`/admin/inventory/qr`): print a code for each machine. A tab too,
+                but kept here as well so labels stay easy to find (owner, 2026-10-07). Lab
+                notes, which sat beside it, are now only their own tab. */}
+            <Button asChild variant="outline">
               <Link href="/admin/inventory/qr">
                 <QrCode aria-hidden="true" />
                 {t("qrLabels.open")}
-              </Link>
-            </Button>
-            {/* Lab notes (`/admin/inventory/lab-notes`): the lab-wide notes and every tool's. Same permission as this page. */}
-            <Button asChild>
-              <Link href="/admin/inventory/lab-notes">
-                <NotebookPen aria-hidden="true" />
-                {t("labNotes.open")}
               </Link>
             </Button>
             <AddInventoryButton role={identity.role} />

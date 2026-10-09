@@ -1595,3 +1595,51 @@ URL scheme, the renderer, both scripts, `toolImage` selection, `ToolImage`,
 the lazy chat panel and table, the sweep deleting thumbnails, `data:push`
 nulling them and the maintenance tag; the intake E2E now sees the approved
 image's thumbnails written after approval.
+
+### 2026-10-07 — The gallery moves to `/tools`
+
+The student home spec ([2026-10-07](2026-10-07-student-home-design.md)) makes
+`/` the categories with one smart search box, and moves the gallery described
+here to **`/tools`**, titled "All tools". Its filters, sort, grouping, views
+and URL state are unchanged; its search is now the minimal box
+(`search/ListSearch.tsx`, through `FilterBar`'s new `searchSlot`) with an
+"Ask MakerLAB AI" button row under the filters while it has text. Its facts
+line drops the category count. An old `/?category=…` link redirects to
+`/tools` (`next.config.ts`). The ⌘K palette (§7.5) shares its matching with
+the home page's smart search (`palette/palette-search.ts`), lists "All tools"
+as a page, links categories to `/tools?category=…`, and hides its header field
+on `/` and `/tools`, where the page has its own box.
+
+### 2026-10-07 — The gallery is the home page again
+
+Later the same day the student home spec's amendment "One page: the list at
+rest" ([2026-10-07](2026-10-07-student-home-design.md)) folds `/tools` back
+into `/`: the gallery described here is the home page, under "MakerLAB AI" and
+the search box: the category tiles by default, or all tools (`?show=all`)
+**grouped by category in the lab's order** (`group: null`; `?group=none` is
+one list). The FilterBar is not on the home page: its facets, Group by, Sort
+and Grid / Table are in a Filters panel (`home/FiltersPanel`) closed until
+the Filters button opens it. Typing shows the matching tools in place of the
+view, ranked by the palette's `paletteScore` (`rankToolsInPlace`) instead of
+match-sorter. `/tools` redirects to `/` with its query; the palette drops
+"All tools" and hides its header field on `/` only. `ListSearch` and the
+facts line are gone.
+
+### 2026-10-07 — Admin sections (supersedes the admin IA of §8.1 and phase 4)
+
+The admin's bar of jobs and thirteen surfaces (§8.1, phase 4 as built, the admin
+polish amendments) is replaced by six sections, as the owner decided after the
+design review of 2026-10-06: Overview, Maintenance, Inventory, People, Insights,
+Settings, then Ask MakerLAB AI. The full design, the 37-feature map and what each
+role sees are in [`2026-10-07-admin-sections-design.md`](2026-10-07-admin-sections-design.md).
+
+What changes here:
+
+- §5.2's "the home's tiles" become the Overview's blocks (`components/admin/overview/`).
+  `admin-tiles.ts` and `system/Tile` have no callers and await deletion approval.
+- `surfaces.ts` entries carry a `section` instead of a `group`, and `count` is
+  optional. The bar shows sections (`sectionsFor`, `currentSection`); each section's
+  surfaces are `LinkTabs` under the page header (`SectionTabs`).
+- "Never reachable only through a hub" still holds: every surface is a tab one click
+  from the bar, and in ⌘K.
+- No route moved; new section names redirect (`next.config.ts`).

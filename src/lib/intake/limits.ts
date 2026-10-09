@@ -194,3 +194,40 @@ export const PENDING_DISCARDED_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
 /** `/admin/intake` polls this often while anything in view is queued or researching. */
 export const INTAKE_POLL_INTERVAL_MS = 5_000;
+
+// ── A photo for an item named without one (amendment "A photo for a name") ──
+
+/**
+ * Items one `identify_tools` call looks up a photo for: the first this many of
+ * those named without a photo (not `unsure`, not an undecided duplicate). The
+ * rest stay photo-less until research.
+ */
+export const IDENTIFY_PHOTO_MAX_ITEMS = 10;
+
+/**
+ * What one looked-up photo costs against the daily research allowance, as
+ * ledger rows: four items cost one row — a quarter item each, rounded up per
+ * call, like a suggested name (bulk intake spec §3.3). One Exa search and one
+ * ranking call on the flex tier, about a quarter of a researched item.
+ * When the allowance cannot cover them all, as many as it can are looked up.
+ */
+export const IDENTIFY_PHOTO_ITEMS_PER_LEDGER_ROW = 4;
+
+/** Exa searches one photo lookup may make — one, like Find a different image. */
+export const IDENTIFY_PHOTO_MAX_SEARCHES = 1;
+
+/** Photo lookups run at once inside one workflow run. */
+export const IDENTIFY_PHOTO_CONCURRENCY = 3;
+
+/** The lookup step's own `AbortSignal` budget: one search, probes, one ranking. */
+export const IDENTIFY_PHOTO_TIMEOUT_MS = 120_000;
+
+/** `findFoundPhoto.maxRetries` — a property on the step function. */
+export const IDENTIFY_PHOTO_MAX_RETRIES = 1;
+
+/**
+ * A lookup still marked searching this long after it was asked for is taken
+ * to have died: the card and the queue stop waiting and show no photo. Two
+ * attempts at 120 s fit well inside it.
+ */
+export const IDENTIFY_PHOTO_STALE_MS = 10 * 60_000;

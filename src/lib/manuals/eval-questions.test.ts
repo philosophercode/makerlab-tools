@@ -104,7 +104,8 @@ describe("generateDocumentQuestions", () => {
     // Four askable sections: two questions, from different sections, and the contents page never offered.
     const prompt = JSON.stringify(recordedCalls(model)[0].prompt);
     expect(prompt).not.toContain("Contents");
-    expect(recordedCalls(model)[0].providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
+    // Opus takes no tier hint (amendment "Opus writes from the manuals").
+    expect(recordedCalls(model)[0].providerOptions).toBeUndefined();
     const stored = await db.select().from(manualEvalQuestions).where(eq(manualEvalQuestions.documentId, documentId));
     expect(stored).toHaveLength(2);
     for (const row of stored) {
@@ -122,10 +123,10 @@ describe("generateDocumentQuestions", () => {
   it("asks nothing again for the same text, a passage rebuild included, and replaces the questions when the text changes", async () => {
     const { documentId } = await seedSearchable();
     await generateDocumentQuestions(db, documentId, { model: questionModel(), count: 4 });
-    const model = textModel("{}");
+    const same = questionModel();
     await buildDocumentPassages(db, documentId, { target: fakeEmbeddingTarget(), force: true });
-    expect(await generateDocumentQuestions(db, documentId, { model, count: 4 })).toEqual({ status: "skipped", documentId, reason: "up_to_date" });
-    expect(recordedCalls(model)).toHaveLength(0);
+    expect(await generateDocumentQuestions(db, documentId, { model: same, count: 4 })).toEqual({ status: "skipped", documentId, reason: "up_to_date" });
+    expect(same.doGenerateCalls).toHaveLength(0);
 
     // The text changes: the old questions go, the new ones come from the new text.
     await db.update(manualPages).set({ text: PAGE("Maintenance", "Unscrew the four bolts and pull the tank forward out of its rails, then fit the new tank.") }).where(eq(manualPages.pageNumber, 5));
@@ -141,15 +142,34 @@ describe("generateDocumentQuestions", () => {
     await generateDocumentQuestions(db, first.documentId, { model: questionModel(), count: 3 });
     const otherTool = await seedTool(db, { name: "Form 4B", slug: "form-4b" });
     const second = await seedSearchable(PAGES, otherTool, "Form 4B Manual");
-    const model = textModel("{}");
+    const model = questionModel();
     expect(await generateDocumentQuestions(db, second.documentId, { model, count: 3 })).toEqual({
       status: "copied",
       documentId: second.documentId,
       questions: 2,
     });
-    expect(recordedCalls(model)).toHaveLength(0);
+    expect(model.doGenerateCalls).toHaveLength(0);
     const copied = await db.select().from(manualEvalQuestions).where(eq(manualEvalQuestions.documentId, second.documentId));
     expect(copied.map((row) => row.toolId)).toEqual([otherTool, otherTool]);
+  });
+
+  it("asks again when the model changed — and a rerun by the same model resumes, skipping what it wrote", async () => {
+    const first = await seedSearchable();
+    await generateDocumentQuestions(db, first.documentId, { model: questionModel(), count: 3 });
+    const otherTool = await seedTool(db, { name: "Form 4B", slug: "form-4b" });
+    const second = await seedSearchable(PAGES, otherTool, "Form 4B Manual");
+    const answer = JSON.stringify({ questions: [{ passage: "P1", question: "How do I swap the resin tank?", answer: "Lift it out.", answerable_from_passage: true }] });
+
+    // Another model: not up to date, and the first model's questions on the same text are not copied.
+    const other = textModel(answer);
+    expect(await generateDocumentQuestions(db, first.documentId, { model: other, count: 3 })).toMatchObject({ status: "written", questions: 1 });
+    const rewritten = await db.select().from(manualEvalQuestions).where(eq(manualEvalQuestions.documentId, first.documentId));
+    expect(rewritten.map((row) => row.model)).toEqual(["gateway/stub/model"]);
+
+    // The same model again: the first is up to date, the second copies its answer — no further call.
+    expect(await generateDocumentQuestions(db, first.documentId, { model: other, count: 3 })).toEqual({ status: "skipped", documentId: first.documentId, reason: "up_to_date" });
+    expect(await generateDocumentQuestions(db, second.documentId, { model: other, count: 3 })).toMatchObject({ status: "copied", questions: 1 });
+    expect(recordedCalls(other)).toHaveLength(1);
   });
 
   it("does nothing when switched off, for a document without passages, or for one with nothing to ask", async () => {

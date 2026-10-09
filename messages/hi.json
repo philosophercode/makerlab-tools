@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "रिपोर्ट करें",
-    "reportAria": "समस्या की रिपोर्ट करें",
-    "reportSeed": "मैं एक समस्या की रिपोर्ट करना चाहता हूँ।",
     "tools": "उपकरण",
     "projects": "परियोजनाएँ",
     "about": "परिचय",
@@ -19,7 +16,10 @@
     "signIn": "साइन इन करें",
     "signInAria": "अपने {institution} खाते से साइन इन करें",
     "signOut": "साइन आउट",
-    "signedInAria": "{name} के रूप में साइन इन"
+    "signedInAria": "{name} के रूप में साइन इन",
+    "admin": "एडमिन",
+    "account": "खाता",
+    "connectAssistant": "AI सहायक कनेक्ट करें (MCP)"
   },
   "catalogRefresh": {
     "action": "कैटलॉग रीफ़्रेश करें",
@@ -34,9 +34,6 @@
     "onShiftNow": "अभी शिफ़्ट पर: {names}"
   },
   "gallery": {
-    "title": "उपकरण",
-    "searchPlaceholder": "इन्वेंटरी खोजें...",
-    "searchAria": "इन्वेंटरी खोजें",
     "category": "श्रेणी:",
     "training": "प्रशिक्षण:",
     "materials": "सामग्री:",
@@ -52,7 +49,40 @@
     "columnTraining": "प्रशिक्षण",
     "trainingBeginner": "शुरुआती",
     "trainingIntermediate": "मध्यम",
-    "trainingAdvanced": "उन्नत"
+    "trainingAdvanced": "उन्नत",
+    "home": {
+      "searchSection": "लैब में खोजें",
+      "toolCount": "{count, plural, one {# उपकरण} other {# उपकरण}}",
+      "unitsDown": "{count, plural, one {# यूनिट बंद है} other {# यूनिट बंद हैं}}"
+    },
+    "search": {
+      "landmark": "उपकरण खोजें और MakerLAB AI से पूछें",
+      "label": "उपकरण खोजें, या MakerLAB AI से सवाल पूछें",
+      "categories": "श्रेणियाँ",
+      "categoryCount": "{count, plural, one {# उपकरण} other {# उपकरण}}",
+      "assistant": "MakerLAB AI",
+      "ask": "MakerLAB AI से पूछें: “{query}”",
+      "askNote": "आपके सवाल के साथ चैट खोलता है। MakerLAB AI गलती कर सकता है।",
+      "clear": "खोज साफ़ करें",
+      "noMatch": "“{query}” से कोई उपकरण या श्रेणी मेल नहीं खाती।",
+      "enterOpens": "Enter दबाने पर {name} खुलेगा",
+      "lines": {
+        "search": "{count} उपकरणों में खोजें",
+        "build": "आप क्या बनाएँगे?",
+        "findMachine": "अपनी मशीन खोजें",
+        "x1Filament": "X1-Carbon में फ़िलामेंट कैसे लोड करें?",
+        "x1Start": "पूछें कि X1-Carbon पर 3D प्रिंट कैसे शुरू करें",
+        "trotecAcrylic": "क्या Trotec लेज़र एक्रिलिक काट सकता है?"
+      }
+    },
+    "results": {
+      "heading": "“{query}” के परिणाम"
+    },
+    "browse": {
+      "label": "ब्राउज़ करें",
+      "all": "सभी उपकरण"
+    },
+    "backToCategories": "सभी श्रेणियाँ"
   },
   "detail": {
     "breadcrumbTools": "उपकरण",
@@ -143,17 +173,18 @@
     "browseTools": "उपकरण ब्राउज़ करें"
   },
   "chat": {
-    "openAria": "MakerLAB सहायक खोलें",
-    "title": "MakerLAB सहायक",
+    "openAria": "MakerLAB AI खोलें",
+    "title": "MakerLAB AI",
     "newChatAria": "नई चैट शुरू करें",
     "newChatTitle": "नई चैट शुरू करें",
-    "closeAria": "सहायक बंद करें",
+    "closeAria": "MakerLAB AI बंद करें",
     "closeTitle": "बंद करें (बातचीत सुरक्षित रहेगी)",
     "greetingTool": "इस उपकरण के बारे में पूछें — मेरे पास इसके स्पेक्स, सामग्री और संसाधन लिंक हैं।",
     "greetingGeneral": "आज मैं आपकी कैसे मदद कर सकता हूँ?",
-    "composerPlaceholder": "लैब कंसोल से पूछें...",
-    "composerAria": "लैब कंसोल से पूछें",
+    "composerPlaceholder": "MakerLAB AI से पूछें...",
+    "composerAria": "MakerLAB AI से पूछें",
     "aiNote": "MakerLAB AI से गलतियाँ हो सकती हैं। सुरक्षा से जुड़ी हर बात स्टाफ़ से पक्की करें।",
+    "aiNoteDismiss": "सूचना बंद करें",
     "sendAria": "भेजें",
     "attachAria": "फ़ोटो संलग्न करें",
     "attachTitle": "फ़ोटो संलग्न करें",
@@ -162,8 +193,10 @@
     "onlyImages": "केवल छवि फ़ाइलें समर्थित हैं।",
     "uploadFailed": "फ़ोटो अपलोड विफल",
     "uploadsUnavailable": "फ़ोटो अपलोड अभी उपलब्ध नहीं है। आप बिना फ़ोटो के भी अपना संदेश भेज सकते हैं।",
+    "photoUnsupported": "यह फ़ोटो फ़ॉर्मैट समर्थित नहीं है — JPEG या PNG आज़माएँ।",
+    "photoTooLarge": "यह फ़ोटो अपलोड करने के लिए बहुत बड़ी है — छोटी फ़ोटो या JPEG आज़माएँ।",
     "toolRunningAria": "उपकरण चल रहा है",
-    "typingAria": "सहायक टाइप कर रहा है",
+    "typingAria": "MakerLAB AI टाइप कर रहा है",
     "readingManualsAria": "मैनुअल पढ़ रहा है",
     "reading": "पढ़ रहा है: {titles}…",
     "error": "कुछ गड़बड़ हो गई। फिर से प्रयास करें।",
@@ -172,13 +205,27 @@
     "working": "काम चल रहा है…",
     "rateLimitSignIn": "बिना साइन इन किए आगंतुकों के लिए संदेश सीमा पूरी हो गई है। बातचीत जारी रखने के लिए अपने {institution} खाते से साइन इन करें — कैटलॉग देखना दोनों ही स्थितियों में खुला रहता है।",
     "rateLimitSignInCta": "साइन इन करें",
-    "rateLimited": "आप प्रति घंटा संदेश सीमा तक पहुँच गए हैं। कृपया थोड़ी देर बाद फिर कोशिश करें।"
+    "rateLimited": "आप प्रति घंटा संदेश सीमा तक पहुँच गए हैं। कृपया थोड़ी देर बाद फिर कोशिश करें।",
+    "showingTool": "▣ टूल की फ़ोटो ला रहे हैं…",
+    "toolCard": {
+      "label": "इस जवाब में टूल",
+      "open": "खोलें"
+    },
+    "drawingIllustration": "✎ चित्र बना रहे हैं…",
+    "suggestedReplies": "सुझाए गए जवाब",
+    "illustration": {
+      "badge": "AI चित्र",
+      "caption": "AI से बना चित्र, हमारे उपकरण की फ़ोटो नहीं। सटीक चरणों के लिए मैनुअल और स्टाफ़ से पूछें।",
+      "altPlan": "योजना का AI से बना इन्फ़ोग्राफ़िक",
+      "altConcept": "प्रोजेक्ट आइडिया का AI से बना कॉन्सेप्ट रेंडर",
+      "unavailable": "यह चित्र अब उपलब्ध नहीं है।"
+    }
   },
   "qr": {
     "arrivalLabel": "इस मशीन से स्कैन किया गया",
     "arrivalEyebrow": "मशीन पर स्कैन किया गया",
     "arrivalTitle": "{tool} के बारे में पूछें",
-    "arrivalBody": "आपने इस मशीन पर लगा कोड स्कैन किया है। सहायक इसके बारे में सवालों के जवाब दे सकता है, सेटअप में मदद कर सकता है, या रखरखाव रिपोर्ट दर्ज कर सकता है।",
+    "arrivalBody": "आपने इस मशीन पर लगा कोड स्कैन किया है। MakerLAB AI इसके बारे में सवालों के जवाब दे सकता है, सेटअप में मदद कर सकता है, या रखरखाव रिपोर्ट दर्ज कर सकता है।",
     "arrivalSeed": "मैं {tool} के पास खड़ा हूँ और मेरा इसके बारे में एक सवाल है।",
     "arrivalUnitLabel": "इस इकाई के लेबल से स्कैन किया गया",
     "arrivalUnitOf": "{tool} की एक इकाई",
@@ -291,6 +338,39 @@
   "demoBanner": {
     "label": "डेमो डेटा",
     "body": "यह कैटलॉग अंतर्निहित नमूना डेटा है, {institution} की वास्तविक इन्वेंटरी नहीं। Notion कॉन्फ़िगर नहीं है।"
+  },
+  "footer": {
+    "report": "समस्या की रिपोर्ट करें",
+    "reportSeed": "मैं एक समस्या की रिपोर्ट करना चाहता हूँ।"
+  },
+  "unsubscribe": {
+    "loading": "लोड हो रहा है…",
+    "eyebrow": "ईमेल",
+    "confirmTitle": "ये ईमेल बंद करें?",
+    "confirm": {
+      "ticketFiled": "जब भी कोई किसी मशीन की समस्या बताएगा, आपको अब ईमेल नहीं मिलेगा।",
+      "maintenanceDue": "बकाया नियमित रखरखाव का सुबह वाला रिमाइंडर आपको अब नहीं मिलेगा।"
+    },
+    "confirmScope": "सिर्फ़ यही ईमेल बंद होगा। आपके खाते में और कुछ नहीं बदलेगा।",
+    "turnOff": "बंद करें",
+    "keep": "मिलते रहने दें",
+    "failed": "सेव नहीं हो सका। थोड़ी देर में फिर कोशिश करें।",
+    "doneTitle": "बंद कर दिया गया",
+    "done": {
+      "ticketFiled": "जब कोई किसी मशीन की समस्या बताएगा, आपको ईमेल नहीं मिलेगा।",
+      "maintenanceDue": "आपको सुबह का रखरखाव रिमाइंडर नहीं मिलेगा।"
+    },
+    "doneUndo": "टिकट और काम ऐप में दिखते रहेंगे। ये ईमेल फिर से पाने के लिए लैब के निदेशक से कहें।",
+    "invalidTitle": "यह लिंक काम नहीं करता",
+    "invalidBody": "यह अधूरा या पुराना हो सकता है। कुछ भी नहीं बदला गया। अगर अनचाहे ईमेल आते रहें, तो लैब स्टाफ़ को बताएँ।",
+    "rateLimitedTitle": "बहुत ज़्यादा कोशिशें",
+    "rateLimitedBody": "इस कनेक्शन से बहुत ज़्यादा अनुरोध आए। एक घंटा रुकें, फिर लिंक दोबारा खोलें।",
+    "home": "{site} पर वापस जाएँ"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "MakerLAB AI से पूछें: “{query}”",
+    "askEmpty": "MakerLAB AI से पूछें"
   },
   "kiosk": {
     "onShiftLabel": "अभी शिफ़्ट पर"

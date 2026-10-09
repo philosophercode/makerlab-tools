@@ -249,6 +249,13 @@ export const ROUTE_TIERS = {
   // Starter answers: the chat reads a page's cached chip answers when it
   // opens, and says when a chip served one. A handful a page view.
   starters: { limit: 60, windowMs: 60_000 },
+  // The email unsubscribe page and its one-click POST (email notifications
+  // spec §5.3), per hashed IP, checked before the token is verified or
+  // anything is read. One unsubscribe is a page view and a press.
+  notificationsUnsubscribe: { limit: 20, windowMs: HOUR_MS },
+  // A chat illustration's image (`/api/chat/illustrations/[id]`), per person:
+  // a chat shows a handful; what makes one is capped in `illustrations/limits.ts`.
+  illustrations: { limit: 60, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;

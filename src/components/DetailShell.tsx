@@ -7,6 +7,7 @@ import type { ManualContents } from "../lib/data/manual-documents";
 import type { ToolMaintenanceEntry } from "../lib/data/maintenance";
 import { officialNameShown } from "../lib/tool-names";
 import { isoDay } from "../lib/iso-day";
+import { allToolsHref, categoryHref } from "../lib/gallery-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -119,7 +120,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
     [
       t("category"),
       <span key="category">
-        <Link data-slot="category-link" href={`/?category=${encodeURIComponent(tool.category)}`} className="text-primary-ink hover:underline">
+        <Link data-slot="category-link" href={categoryHref(tool.category)} className="text-primary-ink hover:underline">
           {tool.category}
         </Link>
         {tool.categorySub && tool.categorySub !== tool.category ? ` › ${tool.categorySub}` : ""}
@@ -139,7 +140,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
     [
       t("location"),
       <span key="location">
-        <Link data-slot="location-link" href={`/?location=${encodeURIComponent(tool.location)}`} className="text-primary-ink hover:underline">
+        <Link data-slot="location-link" href={allToolsHref({ location: tool.location })} className="text-primary-ink hover:underline">
           {tool.location}
         </Link>
         {tool.zone ? ` › ${tool.zone}` : ""}

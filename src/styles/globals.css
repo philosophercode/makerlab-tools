@@ -62,6 +62,17 @@
   box-shadow: none !important;
 }
 
+/* The exceptions to square corners, both in the chat (owner decisions
+   2026-10-07): the composer's three controls (attach, dictate, send) are
+   circles, and the suggested replies under the latest answer are pill
+   bubbles (parity spec amendment "Suggested replies"). */
+[data-slot="prompt-input"] .composer-round {
+  border-radius: 9999px !important;
+}
+#makerlab-chat-sheet .chat-reply-chip {
+  border-radius: 9999px !important;
+}
+
 html {
   min-height: 100%;
   /* The scrollbar is always there, so a page that does not scroll lays the
@@ -176,16 +187,15 @@ body::selection {
   text-transform: uppercase;
 }
 
-/* The MakerLAB lockup (identity spec 2026-09-28 §2): the wordmark, large as
-   in the Director's mockup, and under it the site's name and tagline on one
-   line. Names keep their own case — "MakerLAB Tools", never "MAKERLAB TOOLS".
-   48 + 4 + 20 = 72px, inside the 96px bar's 12px padding. */
+/* The lockup (identity spec 2026-09-28 §2, amended 2026-10-07): "MakerLAB AI"
+   on one line — the official wordmark, then "AI" in the accent with its caps
+   as tall as the wordmark and on the same baseline. */
 .brand-lockup {
   justify-self: start;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: calc(var(--wordmark-height) * 0.2);
   min-width: 0;
   /* In the one-row bar the brand keeps its width; the compact bar lets it
      ellipsize (below). */
@@ -194,13 +204,49 @@ body::selection {
   color: var(--on-surface);
 }
 
-/* The wordmark PNG as a mask, painted in the text colour: black on light,
-   white on dark, from the one asset (as the kiosk draws the full logo). Its
-   width follows the height at the crop's own 475 × 79. */
+/* On `/` the header's lockup steps aside while the page's big one is on
+   screen (student home spec, amendment "One page: the list at rest";
+   `HeaderBrand`): the logo shows once. Transparent, not hidden — it keeps its
+   box, so the bar does not move between pages, and stays a link a keyboard
+   reaches; focused, it shows. It fades back once the page's lockup has
+   scrolled away. */
+.brand-lockup[data-concealed] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.brand-lockup[data-concealed]:focus-visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .brand-lockup {
+    transition: opacity 150ms ease;
+  }
+}
+
+/* The landing lockup: the same lettering and "AI" at display size, centred
+   above the home page's search (`LandingLockup`, identity spec amendment "The
+   landing lockup"). The header's rules draw it; only the height changes. */
+.landing-lockup {
+  --wordmark-height: clamp(40px, 7vw, 84px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: calc(var(--wordmark-height) * 0.2);
+  margin: 0;
+  color: var(--on-surface);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* The wordmark as a mask, painted in the text colour: black on light, white
+   on dark, from the one asset (as the kiosk draws the full logo). Its width
+   follows the height at the crop's own 112.5 × 19.4. */
 .brand-wordmark {
   display: block;
   flex: none;
-  width: calc(var(--wordmark-height) * 475 / 79);
+  width: calc(var(--wordmark-height) * 112.5 / 19.4);
   height: var(--wordmark-height);
   background-color: currentColor;
   mask-size: contain;
@@ -242,30 +288,27 @@ body::selection {
   }
 }
 
-.brand-text {
+/* Space Grotesk's caps are 0.70 em, so this font size makes them as tall as
+   the wordmark; a 0.8 line box puts the baseline on the box's bottom edge,
+   level with the wordmark's. The box is held to the wordmark's height (the
+   line's empty top overflows it), so "AI" never makes the bar taller. */
+.brand-ai {
+  flex: none;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  max-width: 100%;
-  line-height: 20px;
-}
-
-.brand-name {
+  align-items: flex-end;
+  height: var(--wordmark-height);
+  color: var(--primary);
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: calc(var(--wordmark-height) / 0.7);
   font-weight: 700;
-}
-
-.brand-tagline {
-  color: var(--on-surface-muted);
-  font-size: 13px;
-  font-weight: 400;
+  line-height: 0.8;
+  letter-spacing: -0.01em;
 }
 
 .primary-nav {
   position: relative; /* anchors .primary-nav-notice */
   display: flex;
-  /* One center line for every item — links, Report, the profile control and
+  /* One center line for every item — links, ADMIN, the profile control and
      Sign in. Without it the row stretched, and a child with no padding of its
      own (the old name label) sat at the top of the row, above the rest. */
   align-items: center;
@@ -278,7 +321,7 @@ body::selection {
   font-size: 12px;
 }
 
-/* The links and Report sit in a wrapper that is the short bar's MENU panel
+/* The links (and ADMIN) sit in a wrapper that is the short bar's MENU panel
    (below) and, everywhere else, no box at all: its children lay out in the
    bar as the nav's own. The MENU button is drawn on a short viewport only. */
 .primary-nav-links {
@@ -311,27 +354,28 @@ body::selection {
   border-color: var(--primary-ink);
 }
 
-/* "Report" is an action, not a page — accent-colored to stand out, but it
-   inherits the nav's mono/uppercase/size so it sits inline with the links. */
-.primary-nav-report {
+/* The bar's controls that are not pages (Sign in, the dev sign-in) inherit
+   the nav's mono/uppercase/size so they sit inline with the links. REPORT,
+   the bar's one accent, left on 2026-10-07 (identity spec amendment "ADMIN in
+   the bar"); the accent now marks only the current page. */
+.primary-nav-button {
   padding-block: 8px;
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--primary-ink);
+  color: inherit;
   font: inherit;
   cursor: pointer;
   transition: color 160ms ease-in, border-color 160ms ease-in;
 }
 
-.primary-nav-report:hover,
-.primary-nav-report:focus-visible {
+.primary-nav-button:hover,
+.primary-nav-button:focus-visible {
   border-color: var(--primary-ink);
 }
 
-/* Sign in is a control, not a page: a hairline box in ink, so the bar keeps
-   one accent (Report). The dev sign-in is local-only plumbing: muted, dashed,
-   never wrapping (UI system phase 5a). */
+/* Sign in is a control, not a page: a hairline box in ink. The dev sign-in is
+   local-only plumbing: muted, dashed, never wrapping (UI system phase 5a). */
 .primary-nav .primary-nav-auth {
   padding: 5px 10px;
   border: 1px solid var(--outline-strong);
@@ -386,8 +430,9 @@ body::selection {
 }
 
 /* ── Profile control and menu (Isaac, 2026-09-23) ─────────────────────────
-   Square Google photo + first name + caret; the menu holds Admin, Add
-   equipment and Sign out. 0 radius throughout, per the Blueprint system. */
+   Square Google photo + first name + caret; the menu holds Add equipment,
+   Account, Connect AI assistant (MCP) and Sign out (Admin is in the bar
+   since 2026-10-07). 0 radius throughout, per the Blueprint system. */
 .profile-menu {
   position: relative; /* anchors .profile-menu-panel */
   display: flex;
@@ -399,7 +444,7 @@ body::selection {
   align-items: center;
   gap: 8px;
   /* Same box as a nav link — 2px of transparent underline under the content —
-     so its text sits on the same line as TOOLS, REPORT and the rest. */
+     so its text sits on the same line as TOOLS, ADMIN and the rest. */
   padding: 2px 0;
   border: none;
   border-bottom: 2px solid transparent;
@@ -539,6 +584,15 @@ body::selection {
 .primary-nav .profile-menu-item:disabled {
   opacity: 0.6;
   cursor: progress;
+}
+
+/* Sign out leaves; it is drawn in the crimson ink so it reads apart from the
+   entries that go somewhere (Isaac, 2026-10-07). AA in both themes on the
+   frosted plate and on the hover fill. */
+.primary-nav .profile-menu-signout,
+.primary-nav .profile-menu-signout:hover,
+.primary-nav .profile-menu-signout:focus-visible {
+  color: var(--secondary-ink);
 }
 
 @media (max-width: 480px) {
@@ -754,8 +808,10 @@ body::selection {
    then the links across the width. (The compact switch used to be 860px,
    and from there to ~1180px the brand ran into the links and "Sign in"
    wrapped.) The wordmark steps down with the width — 48px from 1440, 40
-   from xl, 32 from lg — so the longest translation of the links (Spanish)
-   still fits between it and the controls with the scrollbar showing. */
+   from xl, 30 from lg — so the longest translation of the links (Spanish)
+   still fits between it and the controls with the scrollbar showing. From
+   lg the links close up to 16px too: the "MakerLAB AI" lockup is wider than
+   the wordmark alone was. */
 @media (min-width: 1280px) and (max-width: 1439.98px) {
   :root {
     --nav-height: 88px;
@@ -766,7 +822,7 @@ body::selection {
 @media (max-width: 1279.98px) {
   :root {
     --nav-height: 80px;
-    --wordmark-height: 32px;
+    --wordmark-height: 30px;
   }
 
   .top-nav {
@@ -775,23 +831,15 @@ body::selection {
   }
 
   .primary-nav {
-    gap: 20px;
-  }
-}
-
-/* The tagline needs the room: from 1440 only (at 1280 it pushed the bar past
-   the window in Spanish). Below, the lockup is the wordmark and the name. */
-@media (max-width: 1439.98px) {
-  .brand-tagline {
-    display: none;
+    gap: 16px;
   }
 }
 
 @media (max-width: 1023.98px) {
-  /* 12 + (36 + 4 + 20) + 10 + 36 (the links) + 10. A translation that wraps
-     a link grows the bar past it (min-height); the gallery measures. */
+  /* 12 + 36 (the lockup) + 10 + 36 (the links) + 10. A translation that
+     wraps a link grows the bar past it (min-height); the gallery measures. */
   :root {
-    --nav-height: 128px;
+    --nav-height: 104px;
     --wordmark-height: 36px;
   }
 
@@ -806,12 +854,6 @@ body::selection {
   .brand-lockup {
     max-width: 100%;
     overflow: hidden;
-  }
-
-  .brand-name {
-    overflow: hidden;
-    font-size: 16px;
-    text-overflow: ellipsis;
   }
 
   .primary-nav {
@@ -851,18 +893,10 @@ body::selection {
 }
 
 @media (max-width: 560px) {
-  /* 12 + (30 + 4 + 18) + 10 + 36 + 10. */
+  /* 12 + 30 + 10 + 36 + 10. */
   :root {
-    --nav-height: 120px;
+    --nav-height: 98px;
     --wordmark-height: 30px;
-  }
-
-  .brand-text {
-    line-height: 18px;
-  }
-
-  .brand-name {
-    font-size: 15px;
   }
 
   .status-strip {
@@ -878,7 +912,7 @@ body::selection {
    §8.12, amendment "A phone on its side"). At 844 × 390 the compact bar and
    the status strip took 159px — 41% of the screen — and the bar stayed pinned
    while scrolling. Here the bar is one 48px row — the wordmark at 24px, then
-   MENU (the links and Report, in a frosted panel), the account control and
+   MENU (the links and ADMIN, in a frosted panel), the account control and
    the utility controls, with the search field down to its icon — and
    nothing sticks: the bar and the strip scroll away with the page, so
    --sticky-chrome-height is 0 and every offset built on it follows. The
@@ -905,17 +939,9 @@ body::selection {
     padding: 8px 16px;
   }
 
-  /* The lockup on one line: the wordmark, then the name beside it. */
   .brand-lockup {
     flex: 0 1 auto;
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
     margin-inline-end: auto;
-  }
-
-  .brand-name {
-    font-size: 14px;
   }
 
   .primary-nav {
@@ -1019,19 +1045,6 @@ body::selection {
   .status-strip {
     position: static;
     padding: 4px 16px;
-  }
-}
-
-/* Below md the name gives its room to the controls; it stays the link's
-   accessible name, and the wordmark still says MakerLAB. */
-@media (orientation: landscape) and (max-height: 500px) and (max-width: 767.98px) {
-  .brand-text {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 }
 

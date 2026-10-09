@@ -33,4 +33,7 @@ export * from "./action-proposals.ts";
 export * from "./usage.ts";
 export * from "./lab-settings.ts";
 export * from "./starter-answers.ts";
+export * from "./notifications.ts";
+export * from "./illustrations.ts";
+export * from "./tool-skills.ts";
 export * from "./staff-shifts.ts";

@@ -76,10 +76,10 @@ describe("/about", () => {
 
     const project = section("About this project");
     expect(project).toHaveTextContent("MakerLAB Tools is the lab's digital guide");
-    expect(project).toHaveTextContent("MakerLAB Assistant");
+    expect(project).toHaveTextContent("MakerLAB AI");
     for (const mode of ["Operate", "Debug", "Create"]) expect(within(project).getByText(mode)).toBeInTheDocument();
     expect(project).toHaveTextContent(
-      "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run."
+      "Built by Isaac Steinberg (Software Engineer and Architect, Johnson Cornell Tech MBA '26) with Claude-assisted development for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run."
     );
   });
 

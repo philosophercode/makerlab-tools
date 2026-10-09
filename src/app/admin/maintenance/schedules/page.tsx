@@ -12,8 +12,9 @@ import { completeSchedule, createSchedule, editSchedule, setScheduleStatus } fro
 
 /**
  * `/admin/maintenance/schedules` — where the lab's recurring tasks are set up
- * (recurring maintenance spec §6, amendment 2026-10-06). A sub-route of the
- * Maintenance surface: no nav entry of its own, the crumb leads back.
+ * (recurring maintenance spec §6, amendment 2026-10-06). The Maintenance
+ * section's **Recurring tasks** tab (admin sections spec 2026-10-07); the
+ * tasks due are worked on the Shift checklist tab and the overview.
  *
  * Requires `maintenance.manage`, like the queue, and says so when refused.
  * Nothing is cached: the list is what is due right now. The actions travel
@@ -39,8 +40,7 @@ export default async function AdminSchedulesPage() {
   return (
     <section className="flex flex-col gap-4">
       <AdminPageHeader
-        surface="maintenance"
-        item
+        surface="schedules"
         title={t("schedules.title")}
         lede={t("schedules.lede")}
         facts={[

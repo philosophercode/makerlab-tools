@@ -66,6 +66,7 @@ Director) and Isaac Steinberg (Tech Lead).
 | `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly cron prove it is Vercel (§3) |
 | `CRON_HEARTBEAT_URL` + heartbeat monitor | Vercel env vars; Healthchecks.io or Better Stack | ⬜ **TBD** | Emails the shared address when the nightly backup fails or does not run ([`operations.md`](operations.md)) |
 | Uptime monitor on `/api/health` | UptimeRobot or Better Stack | ⬜ **TBD** | Emails the shared address when the site or database is down |
+| Resend (staff email) + sending domain | Vercel Marketplace → Resend; the domain's DNS | ⬜ **TBD** | `RESEND_API_KEY` (injected), `EMAIL_FROM`, `EMAIL_REPLY_TO`. Ticket alerts and the 08:00 maintenance reminder. Resend processes staff addresses ([`architecture/notifications.md`](architecture/notifications.md)) |
 
 > [!WARNING]
 > **Inference is a live bill and the only cost here that scales with use.** Every question a
@@ -103,14 +104,19 @@ would change, field by field, to accept or reject. Nothing changes until someone
 
 ### Handle a maintenance ticket
 
-Tickets from the assistant and the report form land on **Admin → Maintenance**, with photos
-if the student attached any. Corrections students report land on **Admin → Corrections**,
-and project submissions on **Admin → Projects** (unpublished until someone publishes them).
-The admin home shows how many are waiting.
+Tickets from the assistant and the report form land on **Admin → Maintenance → Tickets**,
+with photos if the student attached any. Corrections students report land on **Admin →
+Inventory → Page corrections**, and project submissions on **Admin → People → Student
+projects** (unpublished until someone publishes them). The admin **Overview** says what is
+urgent (Need to know), what recurring checks are due (Shift checklist) and how many items are
+waiting for a decision.
 
-Nothing in the app makes anyone look. **A ticket queue nobody reads is worse than no ticket
-queue** — students stop reporting after a couple of unanswered reports. Decide who checks it
-and how often, and write that down here:
+Once email is set up (`RESEND_API_KEY`, `EMAIL_FROM`; [`deploy.md`](deploy.md) step 4),
+everyone who can work tickets gets an email when one is filed, with a link straight to it,
+and a reminder at 08:00 when a recurring task comes due (once per due date). Each email has
+a one-click "Turn off" link for that person. Email helps, but it does not replace an owner.
+**A ticket queue nobody reads is worse than no ticket queue**: students stop reporting after
+a couple of unanswered reports. Decide who checks it and how often, and write that down here:
 
 > **Ticket owner:** ⬜ **TBD** · **Checked:** ⬜ **TBD**
 
@@ -229,7 +235,7 @@ Body:   {"tag": "catalog"}
 | Uptime monitor on `/api/health` | Emails when the site or database is down | Automatic — [`operations.md`](operations.md#monitoring) |
 | Heartbeat monitor | Emails when the nightly backup fails or does not run | Automatic — [`operations.md`](operations.md#monitoring) |
 | Vercel → AI Gateway → Budgets | **Spend**, against a limit with an alert | Weekly, at minimum |
-| Admin home | Waiting tickets, corrections, projects, intake | Per §3 |
+| Admin Overview | Need to know, the Shift checklist, items waiting for a decision | Per §3 |
 | Vercel logs | `DbUnavailableError` (Postgres unreachable), failed functions | When something looks wrong |
 | Vercel → Cron Jobs | The nightly backup ran green | When the heartbeat or `/admin` says otherwise — see §3 |
 

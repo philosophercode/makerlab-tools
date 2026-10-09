@@ -11,12 +11,14 @@ import {
   oauthApplication,
   session,
   tools,
+  toolSkills,
   user,
   verification,
 } from "../db/schema/index";
 import { DEPLOYMENT_BOUND, EXCLUDED_TABLES, isDeploymentBound, isExcludedFromBackup, isRebuiltAfterRestore, isRetentionBound, REBUILT_AFTER_RESTORE, RETENTION_BOUND, redactRows } from "./backup-policy";
 import { staffShifts } from "../db/schema/staff-shifts";
 import { starterAnswers } from "../db/schema/starter-answers";
+import { chatIllustrations } from "../db/schema/illustrations";
 import { usageEvents, usageGaps, usageRollups } from "../db/schema/usage";
 
 /**
@@ -39,7 +41,7 @@ describe("RETENTION_BOUND (usage insight spec §4, §8)", () => {
   });
 });
 
-describe("DEPLOYMENT_BOUND (starter answers, staff shifts)", () => {
+describe("DEPLOYMENT_BOUND (starter answers, staff shifts, chat illustrations)", () => {
   it("keeps who is on shift out of data:push, so a local test shift never reaches the live site, but in the nightly backup", () => {
     expect(isDeploymentBound(staffShifts)).toBe(true);
     expect(isExcludedFromBackup(staffShifts)).toBe(false);
@@ -47,10 +49,23 @@ describe("DEPLOYMENT_BOUND (starter answers, staff shifts)", () => {
 
   it("keeps pre-run starter answers out of data:push but in the nightly backup", () => {
     expect(isDeploymentBound(starterAnswers)).toBe(true);
-    expect(DEPLOYMENT_BOUND.size).toBe(2);
+    expect(DEPLOYMENT_BOUND.size).toBe(3);
     expect(isExcludedFromBackup(starterAnswers)).toBe(false);
     expect(isRetentionBound(starterAnswers)).toBe(false);
     expect(isRebuiltAfterRestore(starterAnswers)).toBe(false);
+  });
+
+  it("keeps chat illustrations out of data:push (their blobs are the deployment's own) but in the nightly backup", () => {
+    expect(isDeploymentBound(chatIllustrations)).toBe(true);
+    expect(isExcludedFromBackup(chatIllustrations)).toBe(false);
+    expect(isRetentionBound(chatIllustrations)).toBe(false);
+  });
+
+  it("backs up and pushes tool skills: they name no blob and no local address, so they hold on another deployment (tool skills spec §4.3)", () => {
+    expect(isDeploymentBound(toolSkills)).toBe(false);
+    expect(isExcludedFromBackup(toolSkills)).toBe(false);
+    expect(isRetentionBound(toolSkills)).toBe(false);
+    expect(isRebuiltAfterRestore(toolSkills)).toBe(false);
   });
 });
 

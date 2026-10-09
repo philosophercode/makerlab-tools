@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "報告",
-    "reportAria": "問題を報告",
-    "reportSeed": "問題を報告したいです。",
     "tools": "ツール",
     "projects": "プロジェクト",
     "about": "概要",
@@ -19,7 +16,10 @@
     "signIn": "サインイン",
     "signInAria": "{institution} のアカウントでサインイン",
     "signOut": "サインアウト",
-    "signedInAria": "{name} としてサインイン中"
+    "signedInAria": "{name} としてサインイン中",
+    "admin": "管理",
+    "account": "アカウント",
+    "connectAssistant": "AIアシスタントを接続（MCP）"
   },
   "catalogRefresh": {
     "action": "カタログを更新",
@@ -34,9 +34,6 @@
     "onShiftNow": "現在シフト中：{names}"
   },
   "gallery": {
-    "title": "ツール",
-    "searchPlaceholder": "在庫を検索...",
-    "searchAria": "在庫を検索",
     "category": "カテゴリ：",
     "training": "トレーニング：",
     "materials": "素材：",
@@ -52,7 +49,40 @@
     "columnTraining": "トレーニング",
     "trainingBeginner": "初級",
     "trainingIntermediate": "中級",
-    "trainingAdvanced": "上級"
+    "trainingAdvanced": "上級",
+    "home": {
+      "searchSection": "ラボを検索",
+      "toolCount": "{count}件のツール",
+      "unitsDown": "{count}台が使用停止中"
+    },
+    "search": {
+      "landmark": "ツールを検索して MakerLAB AI に質問",
+      "label": "ツールを検索、または MakerLAB AI に質問",
+      "categories": "カテゴリ",
+      "categoryCount": "{count}件のツール",
+      "assistant": "MakerLAB AI",
+      "ask": "MakerLAB AI に質問：「{query}」",
+      "askNote": "質問を入れてチャットを開きます。MakerLAB AI は間違えることがあります。",
+      "clear": "検索をクリア",
+      "noMatch": "「{query}」に一致するツールやカテゴリはありません。",
+      "enterOpens": "Enter で「{name}」を開きます",
+      "lines": {
+        "search": "{count}件のツールを検索",
+        "build": "何をつくりますか？",
+        "findMachine": "使う機械を探す",
+        "x1Filament": "X1-Carbon にフィラメントを入れるには？",
+        "x1Start": "X1-Carbon で3Dプリントを始める方法を聞く",
+        "trotecAcrylic": "Trotec のレーザーでアクリルは切れますか？"
+      }
+    },
+    "results": {
+      "heading": "「{query}」の検索結果"
+    },
+    "browse": {
+      "label": "表示",
+      "all": "すべてのツール"
+    },
+    "backToCategories": "すべてのカテゴリ"
   },
   "detail": {
     "breadcrumbTools": "ツール",
@@ -143,17 +173,18 @@
     "browseTools": "ツールを閲覧"
   },
   "chat": {
-    "openAria": "MakerLAB アシスタントを開く",
-    "title": "MakerLAB アシスタント",
+    "openAria": "MakerLAB AI を開く",
+    "title": "MakerLAB AI",
     "newChatAria": "新しいチャットを開始",
     "newChatTitle": "新しいチャットを開始",
-    "closeAria": "アシスタントを閉じる",
+    "closeAria": "MakerLAB AI を閉じる",
     "closeTitle": "閉じる（会話は保持されます）",
     "greetingTool": "このツールについて質問してください。仕様、素材、リソースリンクを把握しています。",
     "greetingGeneral": "本日はどのようなご用件でしょうか？",
-    "composerPlaceholder": "ラボコンソールに質問...",
-    "composerAria": "ラボコンソールに質問",
+    "composerPlaceholder": "MakerLAB AI に質問...",
+    "composerAria": "MakerLAB AI に質問",
     "aiNote": "MakerLAB AI は間違えることがあります。安全に関わることは必ずスタッフに確認してください。",
+    "aiNoteDismiss": "お知らせを閉じる",
     "sendAria": "送信",
     "attachAria": "写真を添付",
     "attachTitle": "写真を添付",
@@ -162,8 +193,10 @@
     "onlyImages": "画像ファイルのみ対応しています。",
     "uploadFailed": "写真のアップロードに失敗しました",
     "uploadsUnavailable": "写真のアップロードは現在利用できません。写真なしでもメッセージを送信できます。",
+    "photoUnsupported": "この写真の形式には対応していません。JPEG または PNG をお試しください。",
+    "photoTooLarge": "写真が大きすぎてアップロードできません。小さい写真または JPEG をお試しください。",
     "toolRunningAria": "ツール実行中",
-    "typingAria": "アシスタントが入力中です",
+    "typingAria": "MakerLAB AI が入力中です",
     "readingManualsAria": "マニュアルを読み込み中",
     "reading": "読み込み中：{titles}…",
     "error": "問題が発生しました。もう一度お試しください。",
@@ -172,13 +205,27 @@
     "working": "処理中…",
     "rateLimitSignIn": "サインインしていない訪問者向けのメッセージ上限に達しました。{institution} のアカウントでサインインすると会話を続けられます。カタログの閲覧はどちらの場合も引き続きご利用いただけます。",
     "rateLimitSignInCta": "サインイン",
-    "rateLimited": "1 時間あたりのメッセージ上限に達しました。しばらくしてからもう一度お試しください。"
+    "rateLimited": "1 時間あたりのメッセージ上限に達しました。しばらくしてからもう一度お試しください。",
+    "showingTool": "▣ ツールの写真を取得しています…",
+    "toolCard": {
+      "label": "この回答のツール",
+      "open": "開く"
+    },
+    "drawingIllustration": "✎ イラストを描いています…",
+    "suggestedReplies": "返信の候補",
+    "illustration": {
+      "badge": "AIイラスト",
+      "caption": "AIが生成したイラストです。当ラボの機材の写真ではありません。正確な手順はマニュアルとスタッフに確認してください。",
+      "altPlan": "AIが生成した計画のインフォグラフィック",
+      "altConcept": "AIが生成したプロジェクトのアイデアのコンセプトレンダー",
+      "unavailable": "このイラストはもう表示できません。"
+    }
   },
   "qr": {
     "arrivalLabel": "この機械から読み取りました",
     "arrivalEyebrow": "機械の前で読み取り",
     "arrivalTitle": "{tool} について質問する",
-    "arrivalBody": "この機械のコードを読み取りました。アシスタントが機械に関する質問に答えたり、セットアップを案内したり、メンテナンス報告を登録したりできます。",
+    "arrivalBody": "この機械のコードを読み取りました。MakerLAB AI が機械に関する質問に答えたり、セットアップを案内したり、メンテナンス報告を登録したりできます。",
     "arrivalSeed": "{tool} の前にいます。この機械について質問があります。",
     "arrivalUnitLabel": "このユニットのラベルから読み取り",
     "arrivalUnitOf": "{tool} のユニット",
@@ -291,6 +338,39 @@
   "demoBanner": {
     "label": "デモデータ",
     "body": "このカタログは組み込みのサンプルデータであり、{institution} の実際の在庫ではありません。Notion が設定されていません。"
+  },
+  "footer": {
+    "report": "問題を報告",
+    "reportSeed": "問題を報告したいです。"
+  },
+  "unsubscribe": {
+    "loading": "読み込み中…",
+    "eyebrow": "メール",
+    "confirmTitle": "このメールを停止しますか？",
+    "confirm": {
+      "ticketFiled": "誰かが機械の不具合を報告するたびに届くメールが止まります。",
+      "maintenanceDue": "期限の来た定期メンテナンスを知らせる朝のリマインダーが止まります。"
+    },
+    "confirmScope": "止まるのはこのメールだけです。アカウントのほかの設定は変わりません。",
+    "turnOff": "停止する",
+    "keep": "受け取り続ける",
+    "failed": "保存できませんでした。少ししてからもう一度お試しください。",
+    "doneTitle": "停止しました",
+    "done": {
+      "ticketFiled": "機械の不具合が報告されても、メールは届きません。",
+      "maintenanceDue": "朝のメンテナンスのリマインダーは届きません。"
+    },
+    "doneUndo": "チケットとタスクは引き続きアプリに表示されます。このメールをまた受け取りたい場合は、ラボの責任者に依頼してください。",
+    "invalidTitle": "このリンクは使えません",
+    "invalidBody": "リンクが不完全か、古い可能性があります。何も変更されていません。不要なメールが届き続ける場合は、ラボのスタッフに知らせてください。",
+    "rateLimitedTitle": "試行回数が多すぎます",
+    "rateLimitedBody": "この接続からのリクエストが多すぎます。1時間待ってから、もう一度リンクを開いてください。",
+    "home": "{site}に戻る"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "MakerLAB AI に質問：「{query}」",
+    "askEmpty": "MakerLAB AI に質問"
   },
   "kiosk": {
     "onShiftLabel": "現在シフト中"
