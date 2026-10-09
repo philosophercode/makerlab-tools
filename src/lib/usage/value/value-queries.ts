@@ -97,7 +97,7 @@ export async function loadValueCounts(query: ValueCountsQuery, options: { db?: D
       sql`select case when date_resolved is not null then date_resolved - date_reported end as days,
                  (status in ('resolved', 'closed') and date_resolved is not null) as resolved
             from maintenance_logs
-           where type = 'issue_report' and notion_page_id is null
+           where type = 'issue_report' and notion_page_id is null and not demo
              and coalesce(date_reported, (created_at at time zone 'UTC')::date) between ${query.from}::date and ${query.to}::date
              and created_at < ${end}::timestamptz`
     ),

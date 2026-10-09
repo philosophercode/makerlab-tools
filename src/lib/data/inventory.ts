@@ -351,7 +351,7 @@ export async function countInventory(options: InventoryQueryOptions = {}): Promi
              ), false) as no_manual,
              exists (
                select 1 from maintenance_logs m
-                where m.tool_id = t.id and m.status in (${openStatuses})
+                where m.tool_id = t.id and m.status in (${openStatuses}) and not m.demo
              ) as open_tickets
         from tools t
     )
@@ -459,7 +459,10 @@ async function selectManualFlags(db: Db, toolIds: string[]): Promise<Map<string,
   return byTool;
 }
 
-/** Open and in-progress tickets per tool (§4.8) — resolved ones are history. */
+/**
+ * Open and in-progress tickets per tool (§4.8) — resolved ones are history,
+ * and a demo pass's are not the lab's (demo pass spec 2026-10-07 §5.4).
+ */
 async function selectOpenTicketCounts(db: Db, toolIds: string[]): Promise<Map<string, number>> {
   const rows = await db
     .select({ toolId: maintenanceLogs.toolId, total: count() })
@@ -467,7 +470,8 @@ async function selectOpenTicketCounts(db: Db, toolIds: string[]): Promise<Map<st
     .where(
       and(
         inArray(maintenanceLogs.toolId, toolIds),
-        inArray(maintenanceLogs.status, [...OPEN_TICKET_STATUSES])
+        inArray(maintenanceLogs.status, [...OPEN_TICKET_STATUSES]),
+        eq(maintenanceLogs.demo, false)
       )
     )
     .groupBy(maintenanceLogs.toolId);

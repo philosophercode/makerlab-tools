@@ -12,6 +12,10 @@ import { inspectImage } from "./inspect.ts";
  * (`inspectImage`, which also checks the header is well formed) and GIF. The
  * answer is the type the file is stored and recorded under.
  *
+ * HEIC is not one of them: no browser but Safari can show it, so the route
+ * converts it to a JPEG (`heif.ts`, `convert-photo.ts`; amendment 2026-10-08)
+ * rather than storing it.
+ *
  * Plain Node: relative imports only.
  */
 export type UploadImageType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";

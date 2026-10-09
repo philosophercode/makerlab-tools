@@ -28,10 +28,11 @@ const OPEN = new Set(["open", "in_progress"]);
 
 /** Open or in-progress tickets only, reduced to what the checklist shows. */
 export function openIssues(
-  tickets: readonly { id: string; title: string; status: string; toolId: string | null; unitId: string | null; priority: string | null }[]
+  tickets: readonly { id: string; title: string; status: string; toolId: string | null; unitId: string | null; priority: string | null; demo?: boolean }[]
 ): ChecklistIssue[] {
   return tickets
-    .filter((ticket) => OPEN.has(ticket.status))
+    // A demo pass's ticket is not the machine's issue (demo pass spec 2026-10-07 §5.4).
+    .filter((ticket) => OPEN.has(ticket.status) && !ticket.demo)
     .map(({ id, title, toolId, unitId, priority }) => ({ id, title, toolId, unitId, priority }));
 }
 

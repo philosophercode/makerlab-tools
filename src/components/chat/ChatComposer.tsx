@@ -13,14 +13,20 @@ import {
 } from "../ai-elements/prompt-input";
 import { Loader } from "../ai-elements/loader";
 import { IMPORT_FILE_EXTENSIONS } from "../../lib/import/detect";
+import { PHOTO_ACCEPT } from "../../lib/images/photo-rules";
 import { cn } from "@/lib/utils";
 import { useAiNoteDismissed } from "./ai-note-store";
 import type { ChatT } from "./chat-text";
 import type { Dictation } from "./use-dictation";
 import type { PendingDocument, PendingPhoto } from "./use-chat-attachments";
 
-/** What the file picker offers: photos, and lists to import. */
-const CHAT_FILE_ACCEPT = ["image/*", ...IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`)].join(",");
+/**
+ * What the file picker offers: photos — JPEG, PNG, WebP and an iPhone's HEIC
+ * (`PHOTO_ACCEPT`) — and lists to import. Not `capture`, so a phone offers
+ * both the camera and the library. iOS hands over HEIC as it is when the list
+ * names it (and transcodes to JPEG when it does not); Safari reads either.
+ */
+const CHAT_FILE_ACCEPT =[...PHOTO_ACCEPT, ...IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`)].join(",");
 
 /**
  * The chat's composer (UI system phase 5b; DESIGN.md §8.11) on AI Elements'
@@ -112,7 +118,7 @@ export function ChatComposer({
             ))}
             {photos.map((photo) => (
               <div key={photo.key} className="relative size-14 border border-border bg-background">
-                {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, not an optimisable image */}
+                {/* eslint-disable-next-line @next/next/no-img-element -- a local object or data: URL, not an optimisable image */}
                 <img src={photo.previewUrl} alt={photo.name} className="size-full object-cover" />
                 <RemoveButton
                   label={t("removePhotoAria", { name: photo.name })}

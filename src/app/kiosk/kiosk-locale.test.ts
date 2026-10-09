@@ -23,8 +23,9 @@ describe("kioskMessages", () => {
     expect(Object.keys(await kioskMessages("en"))).toEqual(["kiosk"]);
   });
 
-  it("falls back to English for a locale that has not translated it yet (Article 6)", async () => {
+  it("falls back to English for every string a locale has not translated yet (Article 6)", async () => {
     const messages = await kioskMessages("ja");
-    expect(messages.kiosk).toEqual(en.kiosk);
+    // Japanese translates only the on-shift label so far (on-shift spec 2026-10-07).
+    expect(messages.kiosk).toEqual({ ...en.kiosk, onShiftLabel: "現在シフト中" });
   });
 });

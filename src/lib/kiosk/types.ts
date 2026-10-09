@@ -66,6 +66,12 @@ export interface KioskSnapshot {
   featured: KioskFeatured[];
   /** What the QR code encodes: the catalogue with the assistant open. */
   askUrl: string;
+  /**
+   * Who is on shift right now, as students see them ("Alex M."), or empty
+   * (on-shift spec 2026-10-07). Read per response against a cached roster,
+   * never inside the snapshot's cache, so a shift ends on screen on time.
+   */
+  onShift: string[];
 }
 
 /** What `/api/kiosk` answers: the snapshot plus when this response was served. */

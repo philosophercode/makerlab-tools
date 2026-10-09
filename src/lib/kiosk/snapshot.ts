@@ -36,8 +36,11 @@ import type { KioskFeatured, KioskSnapshot, KioskTicketCounts } from "./types";
  * here, on the server (owner answer Q3).
  */
 
-/** The snapshot as cached: everything but the QR target, which depends on the request's origin. */
-export type KioskSnapshotData = Omit<KioskSnapshot, "askUrl">;
+/**
+ * The snapshot as cached: everything but the QR target, which depends on the
+ * request's origin, and who is on shift, which depends on the clock.
+ */
+export type KioskSnapshotData = Omit<KioskSnapshot, "askUrl" | "onShift">;
 
 const DESCRIPTION_MAX = 180;
 
@@ -80,9 +83,13 @@ export async function loadKioskSnapshot(): Promise<KioskSnapshotData> {
   return assembleKioskSnapshot();
 }
 
-/** The cached snapshot with the QR target for `origin`. */
-export function withAskUrl(snapshot: KioskSnapshotData, origin: string): KioskSnapshot {
-  return { ...snapshot, askUrl: kioskAskUrl(origin) };
+/**
+ * The cached snapshot with the QR target for `origin` and who is on shift now
+ * (on-shift spec 2026-10-07; empty when nobody is or the roster could not be
+ * read).
+ */
+export function withAskUrl(snapshot: KioskSnapshotData, origin: string, onShift: string[] = []): KioskSnapshot {
+  return { ...snapshot, askUrl: kioskAskUrl(origin), onShift };
 }
 
 async function readTicketCounts(db: Db): Promise<KioskTicketCounts | null> {

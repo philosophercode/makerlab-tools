@@ -66,6 +66,8 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/api/report/route.ts#POST":
     "Already shared: the quick report form files through fileProblemTicket (lib/maintenance/file-ticket.ts), the one write behind report_issue (amendment 2026-10-07, quick report spec §3.2)",
   "src/app/api/uploads/route.ts#POST": "Never: uploading a file is not a sentence; photos reach the chat as attachments (§2)",
+  "src/app/api/demo-pass/route.ts#POST":
+    "Never: a visitor's own demo sign-up with their name and email, which must never enter a model's context (demo pass spec 2026-10-07 §8)",
   "src/app/account/tokens/actions.ts#createTokenAction": "Never: creates a secret (§2)",
   "src/app/account/tokens/actions.ts#revokeTokenAction":
     "Account gate, not an admin permission: a person manages their own credentials on /account/tokens beside the list, and performAction gates on a permission; revoking a credential from a model that may have read outside text is not offered (§4.9 #7, stage 4)",

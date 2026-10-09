@@ -34,6 +34,11 @@ export function hintId(id: string): string {
   return `${id}-hint`;
 }
 
+/** The id a field's error carries, for the control's `aria-describedby` while it shows. */
+export function errorId(id: string): string {
+  return `${id}-error`;
+}
+
 export function Field({ id, label, marks, hint, error, tone = "default", updated = false, className, children }: FieldProps) {
   return (
     <div
@@ -56,7 +61,11 @@ export function Field({ id, label, marks, hint, error, tone = "default", updated
           {hint}
         </div>
       ) : null}
-      {error ? <p className="text-xs leading-snug text-bad">{error}</p> : null}
+      {error ? (
+        <p id={errorId(id)} className="text-xs leading-snug text-bad">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -578,6 +578,10 @@ What `npm run data:push` (`scripts/push-local-to-hosted.ts`) does:
 - **It ends every hosted sign-in.** Sessions, OAuth handshakes and MCP access tokens are
   never copied; people sign in again. Users, roles, titles and blocks are copied; Google's
   OAuth tokens, the Notion mirror's token and OAuth client secrets are blanked.
+- **Some rows belong to the deployment that made them** and are never copied: pre-run
+  starter answers (the hosted site makes its own with `npm run starters:refresh`) and who
+  is on shift (`staff_shifts`), so a test shift on your laptop never puts a name on the
+  live home page.
 - **Schema check.** It never migrates. The checkout, the local database and the hosted one
   must all be at the same latest migration; otherwise it refuses and says which is behind
   (redeploy the matching commit, or `npm run db:migrate` locally).
@@ -666,7 +670,11 @@ all of this: [`operations.md` → Monitoring](operations.md#monitoring).
 
 **One with a deadline:** `RATE_LIMIT_ANON_CHAT` for ISAM. Conference wifi puts every visitor
 behind one NAT'd IP, so the default of 8/hour would be exhausted minutes after the demo
-opens. Raise it, or use a shared demo account.
+opens. Raise it, or point visitors at the **demo pass** (`/demo`, on by default; spec
+2026-10-07): each sign-up gets its own 60 messages an hour and a `DEMO_PASS_BUDGET_USD`
+(default $0.50) AI budget, and needs only `AUTH_SECRET`. A spent pass's contact line offers
+ies22@cornell.edu unless `DEMO_PASS_CONTACT_EMAIL` names another address (`off` points to the About
+page instead). Set `DEMO_PASS=off` after the event if the lab wants it closed.
 
 ---
 

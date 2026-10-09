@@ -136,4 +136,9 @@ export const handlers = [
   // answers live as before; a test that wants a cached chip overrides this.
   http.get(/\/api\/chat\/starters(\?.*)?$/, () => HttpResponse.json({ answers: [] })),
   http.post(/\/api\/chat\/starters$/, () => new HttpResponse(null, { status: 204 })),
+
+  // The chat asks for the visitor's demo pass when it first opens (demo pass
+  // spec 2026-10-07 §6). By default there is none; a test that wants one
+  // overrides this.
+  http.get(/\/api\/demo-pass$/, () => HttpResponse.json({ active: false })),
 ];

@@ -127,6 +127,15 @@ describe("mirror source rows", () => {
     });
   });
 
+  it("never sends a demo pass's ticket to Notion (demo pass spec 2026-10-07 §5.4)", async () => {
+    const { db, mirrorId } = await setup();
+    await db.insert(maintenanceLogs).values([
+      { title: "Real fault", dateReported: "2026-10-11" },
+      { title: "Demo fault", dateReported: "2026-10-11", demo: true },
+    ]);
+    expect((await all(db, mirrorId, "maintenance")).map((row) => row.title)).toEqual(["Real fault"]);
+  });
+
   it("excludes unpublished projects unless already mirrored, carries the author's email, and leaves archived tools out", async () => {
     const { db, mirrorId } = await setup();
     await db.insert(user).values({ id: "author-1", name: "Luis", email: "luis@cornell.edu" });

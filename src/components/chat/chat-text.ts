@@ -35,10 +35,13 @@ export function toolStatusLabel(partType: string, t: ChatT, input?: unknown): st
 }
 
 /**
- * The two ways `/api/chat` refuses at the allowance ceiling: an anonymous
- * visitor who can sign in to continue, and a signed-in caller who can only wait.
+ * The ways `/api/chat` refuses at the allowance ceiling: an anonymous visitor
+ * who can sign in to continue, a signed-in caller who can only wait, and a
+ * visitor whose demo pass is spent and who has reached the visitor limit too
+ * (demo pass spec 2026-10-07 §5.3) — thanked, never offered a sign-in their
+ * address cannot use.
  */
-export type Ceiling = "sign-in" | "wait";
+export type Ceiling = "sign-in" | "wait" | "demo-pass";
 
 /**
  * Recognize the rate-limit ceiling in a chat error.
@@ -59,6 +62,7 @@ export function parseCeiling(error: Error | undefined): Ceiling | null {
     const body = JSON.parse(raw) as { code?: string };
     if (body.code === "rate_limited_sign_in") return "sign-in";
     if (body.code === "rate_limited") return "wait";
+    if (body.code === "rate_limited_demo_pass") return "demo-pass";
   } catch {
     // Not JSON — an ordinary streaming error. Falls through to the error row.
   }

@@ -113,6 +113,14 @@ const PHOTOS_NOT_ATTACHED =
   "The photos could not be attached to this ticket — tell the student the report was filed without them and to describe what the photo showed if it matters.";
 
 /**
+ * What the model is told after a demo pass files a ticket (demo pass spec
+ * 2026-10-07 §5.4), so it can tell the visitor. English for the same reason as
+ * {@link PHOTOS_NOT_ATTACHED}: a hint to the model, not a string shown to a person.
+ */
+const DEMO_TICKET_NOTE =
+  "This visitor is using a demo pass, so the ticket is marked as a demo report: staff can see it in the queue, but it does not alert anyone or count toward the lab's open issues. Tell the visitor that, briefly.";
+
+/**
  * Tickets filed per turn. Keyed on the `ctx` object, which the chat adapter
  * builds once per turn and hands to every tool call of it — the same pattern
  * as `read_page`'s budget — so parallel calls in one step are counted too.
@@ -155,8 +163,10 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
       if (!limit.allowed) {
         return {
           success: false,
-          error:
-            "Too many tickets have been filed from this connection without signing in. Nothing was recorded; tell the student to sign in to report more, or to find staff if it is urgent.",
+          // A demo pass is keyed on the pass, and its holder cannot sign in.
+          error: ctx.identity.demoPass
+            ? "This demo pass has filed as many tickets as it may this hour. Nothing was recorded; tell the visitor to try again later."
+            : "Too many tickets have been filed from this connection without signing in. Nothing was recorded; tell the student to sign in to report more, or to find staff if it is urgent.",
         };
       }
     }
@@ -197,6 +207,11 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         // Stamped by the adapter, never by a request: the staff email says
         // "via a connected app" for an MCP ticket (email notifications §5.1).
         surface: ctx.surface ?? null,
+        // A demo pass's report lands flagged (demo pass spec 2026-10-07 §5.4):
+        // badged in the queue, out of the lab's counts and histories. From the
+        // server-resolved pass, never from input; nothing from the pass's
+        // sign-up is copied onto the ticket.
+        demo: Boolean(ctx.identity?.demoPass),
       });
 
       // Photos offered but none claimed: say so rather than let the student
@@ -211,13 +226,14 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         );
       }
 
+      const logged = ctx.identity?.demoPass
+        ? `Logged maintenance ticket ${record.id}. ${DEMO_TICKET_NOTE}`
+        : `Logged maintenance ticket ${record.id}.`;
       return {
         success: true,
         ticket_id: record.id,
         unit_resolved: match ? { id: match.id, label: match.label } : null,
-        message: photosLost
-          ? `Logged maintenance ticket ${record.id}. ${PHOTOS_NOT_ATTACHED}`
-          : `Logged maintenance ticket ${record.id}.`,
+        message: photosLost ? `${logged} ${PHOTOS_NOT_ATTACHED}` : logged,
       };
     } catch (err) {
       // The database's own words never reach the model: a driver message can

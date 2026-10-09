@@ -48,3 +48,17 @@ export const KIOSK_CACHE = {
   revalidate: 5 * 60, //  5 min — backstop
   expire: 60 * 60 * 24, // 24 h — hard ceiling
 } as const;
+
+/**
+ * The on-shift roster (`getShiftRoster`, on-shift spec 2026-10-07). Freshness
+ * comes from invalidation: marking yourself on or off shift clears the tag,
+ * and every reader drops shifts that have ended outside the cache, so a
+ * shift ends on time whatever this says. The five-minute revalidate is the
+ * backstop for what does not clear the tag: a staff member renamed or
+ * demoted while on shift.
+ */
+export const ON_SHIFT_CACHE = {
+  stale: 60, //  1 min
+  revalidate: 5 * 60, //  5 min — backstop
+  expire: 60 * 60, //  1 h — hard ceiling
+} as const;

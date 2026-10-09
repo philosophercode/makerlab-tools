@@ -33,11 +33,28 @@ function ticket(overrides: Partial<MaintenanceQueueEntry> = {}): MaintenanceQueu
     dateReported: "2026-03-04",
     dateResolved: "",
     createdAt: new Date("2026-03-04T15:00:00.000Z"),
+    demo: false,
     ...overrides,
   };
 }
 
 const STAFF = [{ id: "u-niti", name: "Niti Parikh" }];
+
+describe("MaintenanceQueue — demo passes' tickets (demo pass spec 2026-10-07 §5.4)", () => {
+  it("badges a demo ticket and filters by who filed it", async () => {
+    const user = userEvent.setup();
+    renderQueue([ticket(), ticket({ id: "log-2", title: "Demo: laser haunted", demo: true, reportedByName: "", reportedByEmail: "" })]);
+
+    const demoCard = screen.getByRole("article", { name: "Demo: laser haunted" });
+    expect(within(demoCard).getByText("Demo")).toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "Laser bed out of focus" })).queryByText("Demo")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Filed by/ }));
+    await user.click(await screen.findByRole("menuitemradio", { name: /Demo pass/ }));
+    expect(screen.queryByRole("article", { name: "Laser bed out of focus" })).not.toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Demo: laser haunted" })).toBeInTheDocument();
+  });
+});
 
 function renderQueue(
   tickets: MaintenanceQueueEntry[],

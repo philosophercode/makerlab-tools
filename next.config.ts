@@ -90,7 +90,12 @@ const nextConfig: NextConfig = {
   // or a request without `DATABASE_URL` dies on "Extension bundle not found".
   // Kept external, it loads from node_modules and the demo database works in a
   // built app exactly as it does under `next dev` (spec §3.2).
-  serverExternalPackages: ["@electric-sql/pglite", "@electric-sql/pglite-pgvector"],
+  // `heic-decode` and its `libheif-js` (HEIC photos converted by
+  // `POST /api/uploads`, data platform spec amendment 2026-10-08) are an
+  // Emscripten bundle — ~2 MB with the WebAssembly inlined, written for
+  // `require`. Kept external, it is loaded from node_modules as written, only
+  // on the first HEIC, and traced into the functions that import it.
+  serverExternalPackages: ["@electric-sql/pglite", "@electric-sql/pglite-pgvector", "heic-decode", "libheif-js"],
   images: {
     localPatterns: [
       {

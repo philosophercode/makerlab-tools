@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { Button } from "@/components/ui/button";
+import { countDemoSignups } from "../../../lib/data/demo-signups";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { BlockedEmailsList } from "../../../components/admin/BlockedEmailsList";
@@ -50,7 +53,7 @@ export default async function AdminUsersPage({
 
   if (!can(identity, "users.manage")) return <AdminNotice kind="forbidden" />;
 
-  const [users, blocked] = await Promise.all([listUsers(), listBlockedEmails()]);
+  const [users, blocked, demoSignups] = await Promise.all([listUsers(), listBlockedEmails(), countDemoSignups()]);
 
   const admins = users.filter((person) => person.role === "admin" || person.role === "super_admin").length;
 
@@ -65,6 +68,12 @@ export default async function AdminUsersPage({
           t("facts.admins", { count: admins }),
           t("facts.blocked", { count: blocked.length }),
         ]}
+        // Visitors who signed up for a demo pass (demo pass spec 2026-10-07 §5.6).
+        actions={
+          <Button asChild size="sm">
+            <Link href="/admin/users/demo-signups">{t("demoSignups.link", { count: demoSignups })}</Link>
+          </Button>
+        }
       />
 
       {/* Super admins only, like everything on this page (`users.manage`,

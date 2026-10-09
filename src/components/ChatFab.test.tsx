@@ -1,4 +1,7 @@
 import { act, render, screen, userEvent, waitFor, within } from "../../test/utils/render";
+import type { PreparedPhoto } from "../lib/chat/downscale-image";
+import { http, HttpResponse } from "msw";
+import { server } from "../../test/msw/server";
 
 // ── Mocks ──────────────────────────────────────────────────────────
 //
@@ -73,14 +76,15 @@ vi.mock("../lib/auth/sign-in-client", async (importOriginal) => {
   };
 });
 
-// The copy of a photo the model sees is drawn on a canvas, which jsdom does not
-// have. Its own behaviour is covered in `lib/chat/downscale-image.test.ts`; here
-// each test decides whether the browser could encode the photo.
-const downscaleForVision = vi.hoisted(() =>
-  vi.fn<(file: Blob) => Promise<string | null>>(async () => null)
+// A picked photo is downsized on a canvas, which jsdom does not have. Its own
+// behaviour is covered in `lib/chat/downscale-image.test.ts`; here each test
+// decides what the browser made of the photo. By default it read it and
+// uploads it as picked, with no copy for the model.
+const preparePhoto = vi.hoisted(() =>
+  vi.fn<(file: File) => Promise<PreparedPhoto>>(async (file) => ({ kind: "ready", upload: file, visionDataUrl: null }))
 );
 vi.mock("../lib/chat/downscale-image", () => ({
-  downscaleForVision: (file: Blob) => downscaleForVision(file),
+  preparePhoto: (file: File) => preparePhoto(file),
 }));
 
 // Imported after the mocks above are hoisted.
@@ -809,13 +813,17 @@ describe("ChatFab — photo uploads", () => {
   it("sends the photo itself with the message, so the model can see it", async () => {
     // Intake spec §6.1: the stored upload is the record and the downscaled copy
     // is what the model looks at. Both go out on the same message.
-    downscaleForVision.mockClear();
-    downscaleForVision.mockResolvedValue("data:image/jpeg;base64,SMALL");
+    preparePhoto.mockClear();
+    preparePhoto.mockImplementationOnce(async (file) => ({
+      kind: "ready",
+      upload: file,
+      visionDataUrl: "data:image/jpeg;base64,SMALL",
+    }));
     const user = userEvent.setup();
 
     await attachPhotoAndSend(user, "what printer is this?");
 
-    expect(downscaleForVision).toHaveBeenCalledTimes(1);
+    expect(preparePhoto).toHaveBeenCalledTimes(1);
     expect(sendMessage).toHaveBeenCalledTimes(1);
     const arg = sendMessage.mock.calls[0][0] as {
       text: string;
@@ -834,8 +842,7 @@ describe("ChatFab — photo uploads", () => {
     ]);
   });
 
-  it("still sends the upload hint when the browser cannot encode the photo", async () => {
-    downscaleForVision.mockResolvedValue(null);
+  it("still sends the upload hint when no copy for the model could be made", async () => {
     const user = userEvent.setup();
 
     await attachPhotoAndSend(user, "what printer is this?");
@@ -845,6 +852,183 @@ describe("ChatFab — photo uploads", () => {
         "[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3302 name=plate.jpg]"
       ),
     });
+  });
+});
+
+/**
+ * Photos from any phone (data platform spec amendment 2026-10-08): the photo
+ * is downsized before it uploads, a HEIC the browser cannot read goes up as it
+ * is and the route's converted copy is what the model sees, and a photo that
+ * cannot be sent says why in the visitor's language.
+ */
+describe("ChatFab — photos from any phone", () => {
+  let origCreate: typeof URL.createObjectURL;
+  let origRevoke: typeof URL.revokeObjectURL;
+
+  beforeEach(() => {
+    origCreate = URL.createObjectURL;
+    origRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:preview");
+    URL.revokeObjectURL = vi.fn();
+    preparePhoto.mockClear();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = origCreate;
+    URL.revokeObjectURL = origRevoke;
+    vi.unstubAllGlobals();
+  });
+
+  function uploadAnswer(body: Record<string, unknown>, status = 200) {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  /** The form each `POST /api/uploads` sent (the panel fetches its starters too). */
+  function uploadedForms(fetchMock: ReturnType<typeof uploadAnswer>): FormData[] {
+    return fetchMock.mock.calls.filter(([url]) => url === "/api/uploads").map(([, init]) => init?.body as FormData);
+  }
+
+  async function openAndPick(user: ReturnType<typeof userEvent.setup>, file: File) {
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+    await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);
+  }
+
+  it("offers JPEG, PNG, WebP and HEIC, and leaves the camera-or-library choice to the phone", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const accept = input.accept.split(",");
+    for (const type of ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", ".heic", ".heif"]) {
+      expect(accept).toContain(type);
+    }
+    // Lists to import are still offered beside photos.
+    expect(accept).toContain(".csv");
+    expect(input.hasAttribute("capture")).toBe(false);
+    expect(input.multiple).toBe(true);
+  });
+
+  it("uploads the downsized copy, not the original", async () => {
+    const user = userEvent.setup();
+    const downsized = new File([new Uint8Array([9, 9])], "IMG_0412.jpg", { type: "image/jpeg" });
+    preparePhoto.mockResolvedValueOnce({ kind: "ready", upload: downsized, visionDataUrl: "data:image/jpeg;base64,V" });
+    const fetchMock = uploadAnswer({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3310", name: "IMG_0412.jpg" });
+
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0412.HEIC", { type: "image/heic" }));
+
+    // The name the photo was picked under is the one shown.
+    expect(await screen.findByRole("button", { name: "Remove IMG_0412.HEIC" })).toBeInTheDocument();
+    const [form] = uploadedForms(fetchMock);
+    expect(form.get("file")).toBe(downsized);
+    expect(form.get("kind")).toBe("chat");
+  });
+
+  it("uploads a HEIC this browser cannot read as it is, and sends the model the route's converted copy", async () => {
+    const user = userEvent.setup();
+    const original = new File([new Uint8Array(64)], "IMG_0413.HEIC", { type: "image/heic" });
+    preparePhoto.mockResolvedValueOnce({ kind: "original", upload: original });
+    const fetchMock = uploadAnswer({
+      attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3311",
+      name: "IMG_0413.jpg",
+      contentType: "image/jpeg",
+      visionDataUrl: "data:image/jpeg;base64,FROMTHEROUTE",
+    });
+
+    await openAndPick(user, original);
+
+    await screen.findByRole("button", { name: "Remove IMG_0413.HEIC" });
+    expect(uploadedForms(fetchMock)[0].get("file")).toBe(original);
+    // The browser cannot draw a HEIC, so the preview is the route's JPEG.
+    expect(screen.getByAltText("IMG_0413.HEIC")).toHaveAttribute("src", "data:image/jpeg;base64,FROMTHEROUTE");
+
+    await user.type(screen.getByRole("textbox", { name: "Ask MakerLAB AI" }), "what is this?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    const arg = sendMessage.mock.calls[0][0] as { text: string; files?: { url: string; mediaType: string }[] };
+    expect(arg.text).toContain("attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3311 name=IMG_0413.HEIC");
+    expect(arg.files).toEqual([
+      { type: "file", mediaType: "image/jpeg", filename: "IMG_0413.HEIC", url: "data:image/jpeg;base64,FROMTHEROUTE" },
+    ]);
+  });
+
+  it("takes an untyped .heic as a photo, not as an unsupported file", async () => {
+    const user = userEvent.setup();
+    uploadAnswer({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3312", name: "IMG_0414.jpg" });
+
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0414.heic", { type: "" }));
+
+    expect(await screen.findByRole("button", { name: "Remove IMG_0414.heic" })).toBeInTheDocument();
+    expect(preparePhoto).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Only image files are supported.")).not.toBeInTheDocument();
+  });
+
+  it("prepares several photos one at a time, so a phone never holds them all decoded at once", async () => {
+    const user = userEvent.setup();
+    uploadAnswer({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3313", name: "a.jpg" });
+    let releaseFirst: () => void = () => {};
+    preparePhoto.mockImplementationOnce(
+      (file) =>
+        new Promise((resolve) => {
+          releaseFirst = () => resolve({ kind: "ready", upload: file, visionDataUrl: null });
+        })
+    );
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+
+    await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, [
+      new File([new Uint8Array(8)], "a.jpg", { type: "image/jpeg" }),
+      new File([new Uint8Array(8)], "b.jpg", { type: "image/jpeg" }),
+    ]);
+
+    await waitFor(() => expect(preparePhoto).toHaveBeenCalledTimes(1));
+    expect(preparePhoto.mock.calls[0][0].name).toBe("a.jpg");
+    await act(async () => releaseFirst());
+    await waitFor(() => expect(preparePhoto).toHaveBeenCalledTimes(2));
+    expect(preparePhoto.mock.calls[1][0].name).toBe("b.jpg");
+    expect(await screen.findByRole("button", { name: "Remove b.jpg" })).toBeInTheDocument();
+  });
+
+  it("says a photo is too large before uploading anything", async () => {
+    const user = userEvent.setup();
+    preparePhoto.mockResolvedValueOnce({ kind: "tooLarge" });
+    const fetchMock = uploadAnswer({});
+
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0415.HEIC", { type: "image/heic" }));
+
+    expect(
+      await screen.findByText("This photo is too large to upload — try a smaller one, or a JPEG.")
+    ).toBeInTheDocument();
+    expect(uploadedForms(fetchMock)).toEqual([]);
+  });
+
+  it("says, in the visitor's language, that a format cannot be read", async () => {
+    const user = userEvent.setup();
+    uploadAnswer({ code: "unsupported_image", error: "Only JPEG, PNG, WebP, GIF or HEIC images are supported" }, 400);
+
+    // Named and typed as a JPEG; its bytes are not one.
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0417.jpg", { type: "image/jpeg" }));
+
+    expect(
+      await screen.findByText("This photo format isn't supported — try a JPEG or PNG.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Remove / })).not.toBeInTheDocument();
+  });
+
+  it("explains the platform's 413 as a photo too large", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("Request Entity Too Large", { status: 413 })));
+
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0416.jpg", { type: "image/jpeg" }));
+
+    expect(
+      await screen.findByText("This photo is too large to upload — try a smaller one, or a JPEG.")
+    ).toBeInTheDocument();
   });
 });
 
@@ -936,6 +1120,16 @@ describe("ChatFab — rate-limit ceiling", () => {
 
     const message = screen.getByText(/Something else broke/);
     expect(message.closest("[data-role]")).toHaveAttribute("data-kind", "error");
+  });
+
+  it("thanks a spent demo pass at the visitor limit, and offers no sign-in its address cannot use (demo pass spec §5.3)", async () => {
+    await openWith(new Error(JSON.stringify({ code: "rate_limited_demo_pass", limit: 8, windowMs: 3600000, retryAfterSeconds: 3600 })));
+
+    const message = screen.getByText(/this hour's visitor limit/i);
+    expect(message.closest("[data-role]")).toHaveAttribute("data-role", "assistant");
+    expect(message.closest("[data-role]")).not.toHaveAttribute("data-kind", "error");
+    expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Contact the MakerLAB team" })).toHaveAttribute("href", "/about#about-people");
   });
 
   describe('tool-specific starter chips (amendment "Tool-specific starter questions")', () => {
@@ -1586,5 +1780,57 @@ describe("ChatFab — suggested replies", () => {
   it("shows none after a failed turn", async () => {
     await openWith({ status: "error", error: new Error("boom"), messages: [userMsg("u1", "Laser cut"), laserAnswer()] });
     expect(replies()).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A visitor's demo pass in the chat (demo pass spec 2026-10-07 §6): the
+ * balance under the title, kept current by each turn's `data-demo-pass` part,
+ * and the thank-you once it is spent. The pass itself comes from
+ * `GET /api/demo-pass`, answered here by MSW.
+ */
+describe("ChatFab — demo pass", () => {
+  const ENDS = "2026-10-25T15:00:00.000Z";
+
+  function withPass(pass: Record<string, unknown> | null) {
+    server.use(http.get(/\/api\/demo-pass$/, () => HttpResponse.json(pass ? { active: true, pass } : { active: false })));
+  }
+
+  async function openChat() {
+    render(<ChatFab />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+  }
+
+  it("shows what is left on the pass under the title", async () => {
+    withPass({ remainingUsd: 0.42, budgetUsd: 0.5, exhausted: false, expiresAt: ENDS, contactEmail: null });
+    await openChat();
+    expect(await within(screen.getByRole("dialog")).findByText("Demo pass · $0.42 left")).toBeInTheDocument();
+    expect(screen.queryByText(/used this demo pass's AI allowance/)).not.toBeInTheDocument();
+  });
+
+  it("shows nothing for a visitor without a pass", async () => {
+    withPass(null);
+    await openChat();
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    expect(screen.queryByText(/Demo pass ·/)).not.toBeInTheDocument();
+  });
+
+  it("follows each turn's balance from the stream", async () => {
+    withPass({ remainingUsd: 0.5, budgetUsd: 0.5, exhausted: false, expiresAt: ENDS, contactEmail: null });
+    await openChat();
+    await screen.findByText("Demo pass · $0.50 left");
+    const { onData } = lastUseChatOptions as { onData: (part: { type: string; data: unknown }) => void };
+    act(() => onData({ type: "data-demo-pass", data: { remainingUsd: 0.3712, budgetUsd: 0.5, exhausted: false, expiresAt: ENDS, contactEmail: null } }));
+    expect(screen.getByText("Demo pass · $0.37 left")).toBeInTheDocument();
+  });
+
+  it("thanks the visitor once the pass is spent, with the contact address when one is set", async () => {
+    withPass({ remainingUsd: 0, budgetUsd: 0.5, exhausted: true, expiresAt: ENDS, contactEmail: "makerlab@example.edu" });
+    useChatReturn = baseReturn({ messages: [userMsg("u1", "hi"), assistantMsg("a1", "Hello.")] });
+    await openChat();
+    expect(await screen.findByText("Demo pass · used up")).toBeInTheDocument();
+    const thanks = screen.getByText(/You've used this demo pass's AI allowance\. Thank you for trying MakerLAB AI!/);
+    expect(thanks.closest("[data-role]")).toHaveAttribute("data-role", "assistant");
+    expect(screen.getByRole("link", { name: "makerlab@example.edu" })).toHaveAttribute("href", "mailto:makerlab@example.edu");
   });
 });

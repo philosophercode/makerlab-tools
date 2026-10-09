@@ -16,8 +16,10 @@ import {
   verification,
 } from "../db/schema/index";
 import { DEPLOYMENT_BOUND, EXCLUDED_TABLES, isDeploymentBound, isExcludedFromBackup, isRebuiltAfterRestore, isRetentionBound, REBUILT_AFTER_RESTORE, RETENTION_BOUND, redactRows } from "./backup-policy";
+import { staffShifts } from "../db/schema/staff-shifts";
 import { starterAnswers } from "../db/schema/starter-answers";
 import { chatIllustrations } from "../db/schema/illustrations";
+import { demoSignups } from "../db/schema/demo-signups";
 import { usageEvents, usageGaps, usageRollups } from "../db/schema/usage";
 
 /**
@@ -40,10 +42,15 @@ describe("RETENTION_BOUND (usage insight spec §4, §8)", () => {
   });
 });
 
-describe("DEPLOYMENT_BOUND (starter answers, chat illustrations)", () => {
+describe("DEPLOYMENT_BOUND (starter answers, staff shifts, chat illustrations, demo sign-ups)", () => {
+  it("keeps who is on shift out of data:push, so a local test shift never reaches the live site, but in the nightly backup", () => {
+    expect(isDeploymentBound(staffShifts)).toBe(true);
+    expect(isExcludedFromBackup(staffShifts)).toBe(false);
+  });
+
   it("keeps pre-run starter answers out of data:push but in the nightly backup", () => {
     expect(isDeploymentBound(starterAnswers)).toBe(true);
-    expect(DEPLOYMENT_BOUND.size).toBe(2);
+    expect(DEPLOYMENT_BOUND.size).toBe(4);
     expect(isExcludedFromBackup(starterAnswers)).toBe(false);
     expect(isRetentionBound(starterAnswers)).toBe(false);
     expect(isRebuiltAfterRestore(starterAnswers)).toBe(false);
@@ -53,6 +60,12 @@ describe("DEPLOYMENT_BOUND (starter answers, chat illustrations)", () => {
     expect(isDeploymentBound(chatIllustrations)).toBe(true);
     expect(isExcludedFromBackup(chatIllustrations)).toBe(false);
     expect(isRetentionBound(chatIllustrations)).toBe(false);
+  });
+
+  it("keeps visitors' demo sign-ups where they were collected: never pushed, still backed up (demo pass spec §8)", () => {
+    expect(isDeploymentBound(demoSignups)).toBe(true);
+    expect(isExcludedFromBackup(demoSignups)).toBe(false);
+    expect(isRetentionBound(demoSignups)).toBe(false);
   });
 
   it("backs up and pushes tool skills: they name no blob and no local address, so they hold on another deployment (tool skills spec §4.3)", () => {

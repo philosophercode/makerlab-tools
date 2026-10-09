@@ -22,7 +22,10 @@ its people (owner meeting with the Director and Assistant Director,
 - **It points you to people.** For first use, safety and hands-on technique it
   also suggests a person: a SuperMaker or other staff ("ask a SuperMaker to
   show you the first time"), the training the tool requires, or another maker
-  who has used it. It never invents a name or says who is on shift.
+  who has used it. When staff have marked themselves on shift, it may name one
+  ("Alex M. is on shift, ask them to show you"): first name and last initial,
+  only people on shift right now. Otherwise it names nobody. It never invents
+  a name.
 - **It can be wrong.** Under the chat's text box, always: "MakerLAB AI can make
   mistakes. Check anything safety-related with staff." It still cites its
   sources and says when it does not know.
@@ -82,6 +85,14 @@ its people (owner meeting with the Director and Assistant Director,
   title, priority and unit, and the same ticket `report_issue` files lands
   for staff (quick report spec 2026-10-07). Reporting in the chat works as
   before.
+
+**Visitors with a demo pass** (signed up at `/demo`; demo pass spec 2026-10-07)
+can do everything above, with 60 messages an hour instead of a visitor's 8,
+until the pass's AI allowance (about $0.50) is spent; then they carry on at the
+visitor limit. Their reports are filed as **demo** tickets — in the queue,
+badged, but not counted, not on the tool page and not in the assistant's unit
+history — and the assistant tells them so. The assistant never sees what they
+typed when signing up.
 
 ## Lab staff (SuperMakers and directors)
 
