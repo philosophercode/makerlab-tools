@@ -28,6 +28,7 @@ function snapshot(overrides: Partial<KioskSnapshot> = {}): KioskSnapshot {
       { kind: "project", slug: "lamp", title: "Laser-cut lamp", coverSrc: "", toolNames: ["Trotec Speedy 400"], author: "Maya R." },
     ],
     askUrl: "https://makerlab-ai.vercel.app/?src=kiosk&ask=1",
+    onShift: [],
     ...overrides,
   };
 }
@@ -139,6 +140,25 @@ describe("KioskScreen — what is on screen", () => {
     expect(screen.getByText("Lab status is unavailable right now")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /QR code that opens/ })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Machines" })).toBeNull();
+  });
+
+  it("shows who is on shift, by first name and initial, beside the hours (on-shift spec 2026-10-07)", () => {
+    const { container } = renderScreen(snapshot({ onShift: ["Alex M.", "Jordan P."] }));
+    const line = container.querySelector("[data-kiosk-on-shift]");
+    expect(line).not.toBeNull();
+    expect(line).toHaveTextContent("On shift now");
+    expect(line).toHaveTextContent("Alex M. and Jordan P.");
+  });
+
+  it("shows no on-shift line at all when nobody is on shift, and none for an older payload without the field", () => {
+    const { container, unmount } = renderScreen(snapshot({ onShift: [] }));
+    expect(container.querySelector("[data-kiosk-on-shift]")).toBeNull();
+    expect(container).not.toHaveTextContent("On shift now");
+    unmount();
+    const older = snapshot();
+    delete (older as Partial<KioskSnapshot>).onShift;
+    const again = renderScreen(older);
+    expect(again.container.querySelector("[data-kiosk-on-shift]")).toBeNull();
   });
 
   it("shows a featured project's author as first name and initial", () => {

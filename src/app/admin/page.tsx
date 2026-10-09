@@ -6,6 +6,7 @@ import { openIssues } from "../../components/admin/checklist-issues";
 import { RowStatus } from "../../components/admin/RowStatus";
 import { NeedToKnowList, OverviewBlock, OverviewRowList } from "../../components/admin/overview/OverviewBlocks";
 import { healthRows, needToKnow, needToKnowCount, waitingRows, waitingTotal } from "../../components/admin/overview/overview-model";
+import { OnShiftPanel } from "../../components/on-shift/OnShiftPanel";
 import { EmptyState } from "../../components/system/EmptyState";
 import { countLoadersFor, surfacesFor } from "../../lib/admin/surfaces";
 import { can } from "../../lib/auth/permissions";
@@ -104,6 +105,24 @@ export default async function AdminOverviewPage() {
       {backupNotice ? <RowStatus tone="warn">{t(backupNotice.key, { date: backupNotice.date })}</RowStatus> : null}
 
       {open.length === 0 ? <EmptyState>{t("indexNothingYet")}</EmptyState> : null}
+
+      {/* Who's on shift (on-shift spec 2026-10-07): staff mark themselves
+          here, first thing, so students can see who to ask. */}
+      {can(identity, "shifts.set") ? (
+        <section
+          id="on-shift"
+          aria-labelledby="on-shift-heading"
+          className="flex flex-col gap-3 border border-border bg-card p-4 sm:grid sm:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] sm:gap-6"
+        >
+          <div className="flex flex-col gap-1">
+            <h2 id="on-shift-heading" className="font-heading text-base font-medium uppercase">
+              {t("onShift.title")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{t("onShift.lede")}</p>
+          </div>
+          <OnShiftPanel identity={identity} nameHref="/account" />
+        </section>
+      ) : null}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
         <div className="flex min-w-0 flex-col gap-8">

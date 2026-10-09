@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { VisibilityState } from "@tanstack/react-table";
 import type { GalleryTool } from "../catalog-types";
@@ -34,8 +34,20 @@ import { useFiltersOpen } from "./use-filters-open";
  * Everything but the panel's open state lives in the URL
  * (`useCatalogueState`), so a view, a search or a filter is a link, and the
  * page stays one cached prerender for everybody.
+ *
+ * `onShift` is "On shift now: Alex M." under the search (on-shift spec
+ * 2026-10-07), a dynamic hole the page passes in its own Suspense boundary;
+ * nobody on shift renders nothing.
  */
-export function HomeShell({ tools, categoryOrder }: { tools: readonly GalleryTool[]; categoryOrder: readonly string[] }) {
+export function HomeShell({
+  tools,
+  categoryOrder,
+  onShift = null,
+}: {
+  tools: readonly GalleryTool[];
+  categoryOrder: readonly string[];
+  onShift?: ReactNode;
+}) {
   const t = useTranslations("gallery.home");
   const { state, set, view } = useCatalogueState(tools, categoryOrder);
   const categories = useMemo(() => categoryEntries(tools), [tools]);
@@ -87,6 +99,7 @@ export function HomeShell({ tools, categoryOrder }: { tools: readonly GalleryToo
             onVisibility={setVisibility}
           />
         </div>
+        {onShift}
       </section>
 
       <GalleryShell state={state} set={set} view={view} columns={columns} visibility={visibility} />

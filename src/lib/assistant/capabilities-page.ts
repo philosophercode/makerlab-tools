@@ -148,6 +148,8 @@ export const ACTION_AREAS: Readonly<Record<string, AreaId>> = {
   lab: "catalog",
   // Tool skills (tool skills spec 2026-10-07): a tool's operating guide.
   skills: "catalog",
+  // Who's on shift (on-shift spec 2026-10-07): the lab's people.
+  shifts: "people",
 };
 
 /** The area of each capability tool that is not an action's, and of the chat's web search. */

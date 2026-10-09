@@ -37,7 +37,8 @@
   },
   "status": {
     "labStatusLabel": "Lab status",
-    "toolsInInventory": "{count} TOOLS IN INVENTORY"
+    "toolsInInventory": "{count} TOOLS IN INVENTORY",
+    "onShiftNow": "On shift now: {names}"
   },
   "gallery": {
     "filterLabel": "Filter the tools",
@@ -1051,7 +1052,9 @@
       "retired_target": "That category is retired. Choose a live one, or restore it first.",
       "invalid_decision": "That decision does not apply here: an audit flag can be merged or dismissed, and a merge needs a category.",
       "nothing_to_write": "There is nothing to write a skill from yet: this machine has no searchable public manual, no research and no lab notes. Add one, then try again.",
-      "skill_daily_limit": "The lab has written today's limit of tool skills. More can be written over the next 24 hours."
+      "skill_daily_limit": "The lab has written today's limit of tool skills. More can be written over the next 24 hours.",
+      "invalid_shift_time": "Pick a time of day, like 18:00.",
+      "shift_time_passed": "That time has already passed today. Pick a later time."
     },
     "warnings": {
       "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment.",
@@ -2805,6 +2808,21 @@
       "backToInventory": "Back to inventory",
       "afterResearchOn": "Skills are written after research for this lab.",
       "afterResearchOff": "Skills are not written after research for this lab; a director can turn that on in Settings › AI agents."
+    },
+    "onShift": {
+      "title": "On shift",
+      "lede": "Let students know who to ask. While you're on shift, the home page, tool pages and the lab screen show “On shift now” with your first name and last initial, and MakerLAB AI can suggest asking you. It ends by itself at the time you pick.",
+      "everyone": "What students see now: “On shift now: {names}”",
+      "nobody": "Nobody is on shift right now, so students see no on-shift line.",
+      "off": "You're not on shift.",
+      "onUntil": "You're on shift until {time}.",
+      "shownAs": "Students see you as: {name}",
+      "noName": "Students can't see you yet: your account's name is your email address. Add your name on <link>Your account</link>.",
+      "untilLabel": "Until (today, lab time)",
+      "start": "Go on shift",
+      "change": "Change end time",
+      "end": "End shift now",
+      "unreadable": "Your shift could not be read just now. Reload the page to try again."
     }
   },
   "account": {
@@ -3439,7 +3457,8 @@
     "offlineBar": "Offline — showing {time}",
     "demo": "Demo data",
     "unavailableTitle": "Lab status is unavailable right now",
-    "unavailableBody": "The assistant still works: scan the code to ask it."
+    "unavailableBody": "The assistant still works: scan the code to ask it.",
+    "onShiftLabel": "On shift now"
   },
   "map": {
     "crumb": "Map",
@@ -3909,7 +3928,8 @@
       "schedules_set_status": "Pause, resume or archive a recurring task",
       "schedules_complete": "Check off a recurring task as done",
       "skills_write": "Write or rewrite a tool's operating guide",
-      "skills_set_after_research": "Turn on writing a tool's guide after research"
+      "skills_set_after_research": "Turn on writing a tool's guide after research",
+      "shifts_set": "Mark yourself on shift"
     },
     "pageOnly": {
       "imports_confirm_columns": "A form of column choices made while looking at the file, not a sentence.",
@@ -3923,7 +3943,8 @@
       "schedules_set_status": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
       "schedules_complete": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
       "skills_write": "The guide is what the assistant itself reads on a tool's page, so it never writes its own; staff do, on the tool's skill page.",
-      "skills_set_after_research": "It spends the lab's money with nobody pressing a button; directors set it on Settings › AI agents."
+      "skills_set_after_research": "It spends the lab's money with nobody pressing a button; directors set it on Settings › AI agents.",
+      "shifts_set": "Being shown to students is a person's own choice, so staff mark it themselves on the admin overview or their account page."
     },
     "never": {
       "super_admin": "Make someone a super admin, or change a super admin's role",

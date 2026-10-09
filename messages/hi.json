@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "लैब की स्थिति",
-    "toolsInInventory": "इन्वेंटरी में {count} उपकरण"
+    "toolsInInventory": "इन्वेंटरी में {count} उपकरण",
+    "onShiftNow": "अभी शिफ़्ट पर: {names}"
   },
   "gallery": {
     "category": "श्रेणी:",
@@ -370,5 +371,8 @@
     "assistant": "MakerLAB AI",
     "ask": "MakerLAB AI से पूछें: “{query}”",
     "askEmpty": "MakerLAB AI से पूछें"
+  },
+  "kiosk": {
+    "onShiftLabel": "अभी शिफ़्ट पर"
   }
 }

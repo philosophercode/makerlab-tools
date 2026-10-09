@@ -57,6 +57,8 @@ export function KioskScreen({ initial, renderedAt, qrSvg, askUrl, timeZone, dir 
   const [x, y] = burnInOffset(now);
   const featured = snapshot?.featured ?? [];
   const item = featured.length > 0 ? featured[rotationIndex(now, featured.length)] : null;
+  // An older payload (a screen open across a deploy) has no `onShift`: nobody shown.
+  const onShift = snapshot?.onShift ?? [];
 
   return (
     <div
@@ -93,7 +95,18 @@ export function KioskScreen({ initial, renderedAt, qrSvg, askUrl, timeZone, dir 
               {t("title")}
             </h1>
           </div>
-          <div className="flex min-w-0 shrink-0 items-center gap-[3vmin] max-sm:justify-between max-sm:gap-4">
+          <div className="flex min-w-0 shrink-0 items-center gap-[3vmin] max-sm:flex-wrap max-sm:justify-between max-sm:gap-4">
+            {/* Who is on shift (on-shift spec 2026-10-07): first name and last
+                initial, or nothing at all when nobody is. */}
+            {onShift.length > 0 ? (
+              <p data-kiosk-on-shift="" className="flex min-w-0 flex-col items-end gap-[0.6vmin] max-sm:items-start">
+                <span className={KIOSK_TYPE.label}>{t("onShiftLabel")}</span>
+                <span className={cn(KIOSK_TYPE.small, "flex items-center gap-[1vmin] font-mono uppercase")}>
+                  <KioskGlyph tone="ok" />
+                  {format.list(onShift, { type: "conjunction" })}
+                </span>
+              </p>
+            ) : null}
             <p className="flex min-w-0 flex-col items-end gap-[0.6vmin] max-sm:items-start">
               <span className={KIOSK_TYPE.label}>{t("hoursLabel")}</span>
               <span className={cn(KIOSK_TYPE.small, "font-mono uppercase")}>{snapshot?.lab.hoursText ?? siteConfig.labHours}</span>

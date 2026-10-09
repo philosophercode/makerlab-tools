@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "Status do laboratório",
-    "toolsInInventory": "{count} FERRAMENTAS NO INVENTÁRIO"
+    "toolsInInventory": "{count} FERRAMENTAS NO INVENTÁRIO",
+    "onShiftNow": "De plantão agora: {names}"
   },
   "gallery": {
     "category": "CATEGORIA:",
@@ -370,5 +371,8 @@
     "assistant": "MakerLAB AI",
     "ask": "Perguntar ao MakerLAB AI: “{query}”",
     "askEmpty": "Perguntar ao MakerLAB AI"
+  },
+  "kiosk": {
+    "onShiftLabel": "De plantão agora"
   }
 }

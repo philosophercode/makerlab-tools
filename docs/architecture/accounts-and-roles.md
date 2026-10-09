@@ -41,6 +41,12 @@ approval. Do not mint one.
   page, in the chat's focused tool and in `get_unit_details` /
   `get_tool_details`. Like reporter names, that is a field narrowed in a
   result, not a refused tool.
+- **Staff mark themselves on shift** (`shifts.set`, admins and super admins;
+  on-shift spec 2026-10-07). The same permission decides who may *appear*:
+  the public roster runs each shift's account through `evaluateUser` (floor
+  and ban, as a sign-in would) and `can(…, "shifts.set")`, so somebody demoted
+  or banned while on shift drops off. Students see first name and last
+  initial only (`lib/on-shift/names.ts`).
 - **`AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` are retired.** Nothing reads them.
   The one env list left is **`AUTH_SUPER_ADMIN_EMAILS`, a floor, not a roster**
   (`src/lib/auth/super-admins.ts`): a listed address is created as

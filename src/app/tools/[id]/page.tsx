@@ -7,6 +7,7 @@ import { QrArrivalNotice } from "./QrArrivalNotice";
 import { toolPageMetadata } from "./metadata";
 import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
+import { OnShiftNow } from "../../../components/on-shift/OnShiftNow";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
 import { ToolQrButton } from "../../../components/tool/ToolQrButton";
 import { UnitsForViewer } from "../../../components/tool/UnitsForViewer";
@@ -190,6 +191,13 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
           // cached shell sent to everyone else carries no placement.
           <Suspense fallback={null}>
             <SignedInToolLocation tool={tool} />
+          </Suspense>
+        }
+        onShift={
+          // Who is on shift (on-shift spec 2026-10-07): a dynamic hole of its
+          // own, read per request against a cached roster; nothing when nobody is.
+          <Suspense fallback={null}>
+            <OnShiftNow className="pt-1" />
           </Suspense>
         }
         unitsTable={

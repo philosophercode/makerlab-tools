@@ -67,7 +67,9 @@ export const PUBLIC_CLIENT_MESSAGES = [
 
 export const ADMIN_CLIENT_MESSAGES = ["admin"] as const;
 
-export const ACCOUNT_CLIENT_MESSAGES = ["account"] as const;
+// The "On shift" control on /account is staff-only and worded as admin
+// strings, like the rest of it on the admin overview (on-shift spec 2026-10-07).
+export const ACCOUNT_CLIENT_MESSAGES = ["account", "admin.onShift"] as const;
 
 export type ClientMessagesScope = "admin" | "account";
 

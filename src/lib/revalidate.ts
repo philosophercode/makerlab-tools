@@ -57,6 +57,14 @@ export const PROJECTS_TAG = "projects";
  */
 export const MAINTENANCE_TAG = "maintenance";
 
+/**
+ * Who is on shift (on-shift spec 2026-10-07): the cached roster the home page,
+ * tool pages, the kiosk and the chat read. Marking yourself on shift, or
+ * ending it, clears it. A shift that simply runs out needs no clearing: every
+ * reader filters on the end time outside the cache.
+ */
+export const ON_SHIFT_TAG = "on-shift";
+
 /** Tags a full refresh has to clear. */
 export const ALL_TAGS = [CATALOG_TAG, PROJECTS_TAG] as const;
 
@@ -87,4 +95,9 @@ export function invalidateProjects(): void {
  */
 export function invalidateMaintenance(): void {
   revalidateTag(MAINTENANCE_TAG, EXPIRE_NOW);
+}
+
+/** Drop the cached on-shift roster, after somebody marks themselves on or off shift. */
+export function invalidateOnShift(): void {
+  revalidateTag(ON_SHIFT_TAG, EXPIRE_NOW);
 }

@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "حالة المختبر",
-    "toolsInInventory": "{count} أداة في المخزون"
+    "toolsInInventory": "{count} أداة في المخزون",
+    "onShiftNow": "في المناوبة الآن: {names}"
   },
   "gallery": {
     "category": "الفئة:",
@@ -370,5 +371,8 @@
     "assistant": "MakerLAB AI",
     "ask": "اسأل MakerLAB AI: “{query}”",
     "askEmpty": "اسأل MakerLAB AI"
+  },
+  "kiosk": {
+    "onShiftLabel": "في المناوبة الآن"
   }
 }

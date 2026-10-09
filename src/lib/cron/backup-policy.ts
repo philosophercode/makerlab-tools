@@ -4,6 +4,7 @@ import { account, session, verification } from "../db/schema/auth.ts";
 import { manualChunks, manualPages } from "../db/schema/manuals.ts";
 import { notionMirrors } from "../db/schema/mirror.ts";
 import { oauthAccessToken, oauthApplication } from "../db/schema/access.ts";
+import { staffShifts } from "../db/schema/staff-shifts.ts";
 import { starterAnswers } from "../db/schema/starter-answers.ts";
 import { chatIllustrations } from "../db/schema/illustrations.ts";
 import { usageEvents, usageGaps } from "../db/schema/usage.ts";
@@ -131,6 +132,11 @@ export const RETENTION_BOUND: ReadonlySet<string> = new Set([getTableName(usageE
  * `npm run starters:refresh`. The nightly backup keeps them — a restore is
  * the same deployment.
  *
+ * `staff_shifts` (on-shift spec 2026-10-07) for the same reason: a shift is
+ * somebody saying "I am at this lab right now". Pushed from a local copy, a
+ * test shift would put a name on the live home page and kiosk. The backup
+ * keeps it; a restored shift has ended by its own time anyway.
+ *
  * `chat_illustrations` (gateway spec amendment 2026-10-07) too: each row names
  * a private blob in the store of the deployment that drew it, which `data:push`
  * does not copy, and a person's daily ledger means nothing on another
@@ -143,7 +149,11 @@ export const RETENTION_BOUND: ReadonlySet<string> = new Set([getTableName(usageE
  * the same rows on both sides. A skill written on a local copy is valid on the
  * hosted one, so it travels, like `manual_eval_questions`.
  */
-export const DEPLOYMENT_BOUND: ReadonlySet<string> = new Set([getTableName(starterAnswers), getTableName(chatIllustrations)]);
+export const DEPLOYMENT_BOUND: ReadonlySet<string> = new Set([
+  getTableName(starterAnswers),
+  getTableName(staffShifts),
+  getTableName(chatIllustrations),
+]);
 
 /** True when this table's rows are made per deployment and never pushed to another. */
 export function isDeploymentBound(table: PgTable): boolean {

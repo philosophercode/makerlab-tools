@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { HomeFallback } from "../components/home/HomeFallback";
 import { HomeShell } from "../components/home/HomeShell";
+import { OnShiftNow } from "../components/on-shift/OnShiftNow";
 import { toGalleryTool } from "../components/catalog-types";
 import { getCatalogTools, getCategoryOrder } from "../lib/catalog";
 
@@ -22,5 +23,17 @@ export default function HomePage() {
 async function HomeData() {
   const [tools, categoryOrder] = await Promise.all([getCatalogTools(), getCategoryOrder()]);
   // Only what the list reads travels to the browser (`toGalleryTool`).
-  return <HomeShell tools={tools.map(toGalleryTool)} categoryOrder={categoryOrder} />;
+  // Who is on shift is its own dynamic hole (on-shift spec 2026-10-07), so
+  // the page itself stays cached.
+  return (
+    <HomeShell
+      tools={tools.map(toGalleryTool)}
+      categoryOrder={categoryOrder}
+      onShift={
+        <Suspense fallback={null}>
+          <OnShiftNow className="justify-center text-center" />
+        </Suspense>
+      }
+    />
+  );
 }

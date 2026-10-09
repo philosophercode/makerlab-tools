@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "Laboratuvar durumu",
-    "toolsInInventory": "ENVANTERDE {count} ARAÇ"
+    "toolsInInventory": "ENVANTERDE {count} ARAÇ",
+    "onShiftNow": "Şu an vardiyada: {names}"
   },
   "gallery": {
     "category": "KATEGORİ:",
@@ -370,5 +371,8 @@
     "assistant": "MakerLAB AI",
     "ask": "MakerLAB AI'ya sor: “{query}”",
     "askEmpty": "MakerLAB AI'ya sor"
+  },
+  "kiosk": {
+    "onShiftLabel": "Şu an vardiyada"
   }
 }

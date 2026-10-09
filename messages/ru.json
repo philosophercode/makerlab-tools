@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "Статус лаборатории",
-    "toolsInInventory": "ИНСТРУМЕНТОВ НА СКЛАДЕ: {count}"
+    "toolsInInventory": "ИНСТРУМЕНТОВ НА СКЛАДЕ: {count}",
+    "onShiftNow": "Сейчас на смене: {names}"
   },
   "gallery": {
     "category": "КАТЕГОРИЯ:",
@@ -370,5 +371,8 @@
     "assistant": "MakerLAB AI",
     "ask": "Спросить MakerLAB AI: «{query}»",
     "askEmpty": "Спросить MakerLAB AI"
+  },
+  "kiosk": {
+    "onShiftLabel": "Сейчас на смене"
   }
 }

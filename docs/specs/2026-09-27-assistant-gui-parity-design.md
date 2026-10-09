@@ -1709,6 +1709,23 @@ closed lists), its own limiter tier (`quickReport`, 8 an hour per person or hash
 anonymous caller, a slot of `anonTickets`, the budget `report_issue` already spends. **Counts:** the
 registry, action tools, chat tools and the MCP lists do not change.
 
+### 2026-10-07 — who's on shift: one GUI-only action and one permission
+
+The on-shift spec (`2026-10-07-on-shift-design.md`) lets staff mark themselves on shift until a time
+today, in lab time, or end their shift now. One registered action, run by one server action
+(`app/account/shift-actions.ts`, `setMyShift`) that the admin overview and `/account` both use:
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `shifts.set` | `set_my_shift` | operational | `shifts.set` | never | never |
+
+`assistant: "never"`, no tool and no preview: appearing to students as on shift is a person's own
+choice, made on a page, not proposed by an assistant. The input names nobody; the row is always the
+caller's. **New permission** `shifts.set`, held by `admin` and `super_admin`. No name matches the deny
+list. `/assistant` shows it as page-only, in the people area (`ACTION_AREAS` gains `shifts`).
+**Counts:** action tools, chat tools and the MCP lists do not change. The registry holds 59
+definitions (57 in the stack; rebuilt on `main` after Tool skills' 58, 2026-10-09). Migration
+`0033_staff_shifts`.
 ### 2026-10-07 — Images in the chat: tool cards, and labelled illustrations
 
 The owner asked (2026-10-07): "In the chat you could show the tool's image if it makes sense; the

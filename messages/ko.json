@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "랩 상태",
-    "toolsInInventory": "재고 도구 {count}개"
+    "toolsInInventory": "재고 도구 {count}개",
+    "onShiftNow": "지금 근무 중: {names}"
   },
   "gallery": {
     "category": "카테고리:",
@@ -370,5 +371,8 @@
     "assistant": "MakerLAB AI",
     "ask": "MakerLAB AI에 질문: “{query}”",
     "askEmpty": "MakerLAB AI에 질문"
+  },
+  "kiosk": {
+    "onShiftLabel": "지금 근무 중"
   }
 }
