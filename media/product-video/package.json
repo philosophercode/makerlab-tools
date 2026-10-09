@@ -1,0 +1,33 @@
+{
+  "name": "makerlab-product-video",
+  "private": true,
+  "type": "module",
+  "description": "MakerLAB AI product video: Playwright footage capture + Remotion composition. Self-contained; not part of the app.",
+  "scripts": {
+    "capture": "node --experimental-strip-types capture/run.ts",
+    "studio": "remotion studio src/index.ts",
+    "render:16x9": "remotion render src/index.ts Product16x9 out/makerlab-ai-60s-16x9.mp4 --codec=h264 --crf=26 --x264-preset=slow",
+    "render:9x16": "remotion render src/index.ts Product9x16 out/makerlab-ai-60s-9x16.mp4 --codec=h264 --crf=26 --x264-preset=slow",
+    "render:poster": "remotion still src/index.ts Product16x9 out/makerlab-ai-60s-poster.png --frame=326",
+    "render": "npm run render:16x9 && npm run render:16x9-vo && npm run render:9x16 && npm run render:poster",
+    "typecheck": "tsc --noEmit",
+    "voiceover:md": "node --experimental-strip-types scripts/voiceover-md.ts",
+    "timing": "node --experimental-strip-types scripts/timing.ts",
+    "tts": "node --experimental-strip-types scripts/tts.ts",
+    "captions": "node --experimental-strip-types scripts/captions-vtt.ts",
+    "render:16x9-vo": "remotion render src/index.ts Product16x9VO out/.render-16x9-vo.mp4 --codec=h264 --crf=26 --x264-preset=slow --audio-codec=aac --audio-bitrate=160k && npm run captions && npm run mux",
+    "mux": "node --experimental-strip-types scripts/mux-captions.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.532",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "^4.0.532"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "playwright": "^1.60.0",
+    "typescript": "^5.9.3"
+  }
+}

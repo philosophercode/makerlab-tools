@@ -32,5 +32,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", ".claude"]
+  "exclude": ["node_modules", ".claude", "media"]
 }
