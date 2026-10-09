@@ -17,6 +17,7 @@ import { QUICK_REPORT_TEXT_MAX } from "@/lib/maintenance/quick-report-limits";
 import { ticketRef } from "@/lib/maintenance/ticket-ref";
 import { recordedCalls, resetModelStubs, setLanguageModel, textModel } from "../../../../test/ai/models-stub";
 import { signInAsNew } from "../../../../test/utils/session";
+import { POST as signUpForDemoPass } from "../demo-pass/route";
 import { POST } from "./route";
 
 /**
@@ -235,6 +236,64 @@ describe("POST /api/report", () => {
       reportedByName: "Ada Lovelace",
       reportedByEmail: "ada@cornell.edu",
       reportedByUserId: session.user.id,
+    });
+  });
+
+  describe("with a demo pass (demo pass spec 2026-10-07 §5.4)", () => {
+    /** Sign up through the real route and keep the pass's cookie. */
+    async function demoPassCookie(): Promise<string> {
+      const res = await signUpForDemoPass(
+        new Request("http://localhost/api/demo-pass", {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-forwarded-for": uniqueIp() },
+          body: JSON.stringify({
+            name: "Grace Hopper",
+            email: `grace-${Date.now()}-${(ipCounter += 1)}@example.org`,
+            institution: "Harvard Computation Lab",
+            consent: true,
+          }),
+        })
+      );
+      expect(res.status).toBe(201);
+      return (res.headers.get("set-cookie") ?? "").split(";")[0];
+    }
+
+    beforeEach(() => {
+      vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
+      resetAuthForTests();
+      setLanguageModel("reportTriage", triageAnswer({ title: "Resin tank not detected", category: "wont_start", severity: "High", unit: "" }));
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      resetAuthForTests();
+    });
+
+    it("files the report as a demo ticket, as the chat's report_issue does, and copies nothing from the sign-up", async () => {
+      const res = await POST(reportRequest(payload(), uniqueIp(), await demoPassCookie()));
+
+      expect(res.status).toBe(201);
+      const [ticket] = await storedTickets();
+      expect(ticket).toMatchObject({ demo: true, reportedByName: null, reportedByEmail: null, reportedByUserId: null });
+    });
+
+    it("files a lab ticket without a pass, and with a cookie that is not a valid pass", async () => {
+      expect((await POST(reportRequest(payload()))).status).toBe(201);
+      expect((await POST(reportRequest(payload(), uniqueIp(), "makerlab.demo_pass=forged.value"))).status).toBe(201);
+
+      const tickets = await storedTickets();
+      expect(tickets).toHaveLength(2);
+      expect(tickets.every((ticket) => ticket.demo === false)).toBe(true);
+    });
+
+    it("lets a signed-in student's session win over a pass, so the ticket is the lab's", async () => {
+      const session = await signInAsNew({ email: "ada@cornell.edu", name: "Ada Lovelace" });
+      const pass = await demoPassCookie();
+
+      const res = await POST(reportRequest(payload(), uniqueIp(), `${session.cookie}; ${pass}`));
+
+      expect(res.status).toBe(201);
+      expect((await storedTickets())[0]).toMatchObject({ demo: false, reportedByUserId: session.user.id });
     });
   });
 

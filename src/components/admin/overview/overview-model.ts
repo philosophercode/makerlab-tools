@@ -41,10 +41,14 @@ export interface NeedToKnow {
 
 const OPEN = new Set(["open", "in_progress"]);
 
-/** Need to know, from the ticket queue (null: unreadable) and the overdue task count. */
+/**
+ * Need to know, from the ticket queue (null: unreadable) and the overdue task
+ * count. A demo pass's tickets are not the lab's work (demo pass spec
+ * 2026-10-07 §5.4): they stay in the queue, badged, and out of this list.
+ */
 export function needToKnow(tickets: readonly MaintenanceQueueEntry[] | null, overdueTasks: number | null): NeedToKnow {
   if (!tickets) return { urgent: null, moreUrgent: 0, unlinked: 0, overdueTasks };
-  const open = tickets.filter((ticket) => OPEN.has(ticket.status));
+  const open = tickets.filter((ticket) => OPEN.has(ticket.status) && !ticket.demo);
   const urgent = open
     .filter((ticket) => ticket.priority === "high" || ticket.priority === "critical")
     .map<UrgentTicket>((ticket) => ({

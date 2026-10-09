@@ -70,6 +70,8 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
   const facts = [
     t("facts.period", { days: params.days }),
     params.includeStaff ? t("facts.staffIncluded") : t("facts.staffExcluded"),
+    // Always: a demo pass is never the lab's usage (demo pass spec 2026-10-07 §5.5).
+    t("facts.demoExcluded"),
     data.since ? t("facts.since", { date: isoDay(data.since) }) : null,
     t("facts.approximate"),
   ].filter((fact): fact is string => Boolean(fact));

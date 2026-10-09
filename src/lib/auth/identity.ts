@@ -47,6 +47,14 @@ export interface Identity {
   title?: string | null;
   /** Stable key for rate limiting: user id when signed in, hashed IP otherwise. */
   rateLimitKey: string;
+  /**
+   * A demo pass the anonymous caller holds (demo pass spec 2026-10-07 §3).
+   * Never set here: the chat route adds it (`lib/demo-pass/identity.ts`), and
+   * with an unspent pass `rateLimitKey` is `demo:<id>`. It grants nothing —
+   * the role stays `anonymous` — it marks demo traffic and picks the pass's
+   * chat tier. Optional like `image`.
+   */
+  demoPass?: { id: string; exhausted: boolean } | null;
 }
 
 export type { Role };

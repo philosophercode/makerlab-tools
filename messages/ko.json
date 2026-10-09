@@ -170,7 +170,10 @@
   },
   "about": {
     "eyebrow": "소개",
-    "browseTools": "도구 둘러보기"
+    "browseTools": "도구 둘러보기",
+    "demoHeading": "전체 데모 체험하기",
+    "demoBody": "다른 학교나 연구실에서 오셨나요? 무료 데모 패스로 {days}일 동안 {institution} 계정 없이 이곳 학생처럼 어시스턴트를 사용할 수 있습니다.",
+    "demoCta": "가입하고 전체 데모 체험하기"
   },
   "chat": {
     "openAria": "MakerLAB AI 열기",
@@ -219,7 +222,13 @@
       "altPlan": "AI가 생성한 계획 인포그래픽",
       "altConcept": "AI가 생성한 프로젝트 아이디어 콘셉트 렌더",
       "unavailable": "이 일러스트는 더 이상 볼 수 없습니다."
-    }
+    },
+    "demoPassLeft": "데모 패스 · {amount} 남음",
+    "demoPassUsedUp": "데모 패스 · 모두 사용함",
+    "demoPassSpent": "이 데모 패스의 AI 사용량을 모두 사용했습니다. MakerLAB AI를 체험해 주셔서 감사합니다! 다른 방문자처럼 시간당 몇 가지 질문은 계속할 수 있습니다.",
+    "demoPassLimited": "이 데모 패스의 AI 사용량과 이번 시간의 방문자 한도를 모두 사용했습니다. MakerLAB AI를 체험해 주셔서 감사합니다! 잠시 후 다시 시도해 주세요.",
+    "demoPassContactLead": "이야기 나눠 보시겠어요?",
+    "demoPassContactTeam": "MakerLAB 팀에 연락하기"
   },
   "qr": {
     "arrivalLabel": "이 장비에서 스캔함",
@@ -374,5 +383,62 @@
   },
   "kiosk": {
     "onShiftLabel": "지금 근무 중"
+  },
+  "demoPass": {
+    "eyebrow": "데모 패스",
+    "title": "전체 데모 체험하기",
+    "lede": "무료 데모 패스로 이곳 학생처럼 {site}를 사용해 보세요. 연구실 장비에 대해 어시스턴트에게 물으면 매뉴얼을 인용해 답하고, 문제도 신고할 수 있습니다. {institution} 계정은 필요 없습니다.",
+    "passFacts": "패스는 이 기기에서 {days}일 동안 유효하며 약 {budget} 상당의 AI 사용량이 포함됩니다.",
+    "required": "필수",
+    "optional": "선택",
+    "nameLabel": "이름",
+    "emailLabel": "이메일",
+    "emailHint": "후속 연락에만 사용합니다. 어시스턴트는 절대 볼 수 없습니다.",
+    "institutionLabel": "소속 기관",
+    "institutionHint": "대학, 회사, 연구실 또는 메이커스페이스.",
+    "roleLabel": "역할",
+    "roleChoose": "선택하세요",
+    "role": {
+      "student": "학생",
+      "staff_technician": "직원 또는 기술자",
+      "faculty": "교수진",
+      "lab_manager": "연구실 책임자 또는 관리자",
+      "other": "기타"
+    },
+    "makerspaceLabel": "메이커스페이스를 운영하거나 그곳에서 일하시나요?",
+    "yes": "예",
+    "no": "아니요",
+    "useCaseLabel": "어디에 사용하시겠어요?",
+    "useCaseHint": "한두 문장이면 충분합니다.",
+    "consentLabel": "MakerLAB AI에 관해 연락을 받는 데 동의합니다.",
+    "honeypotLabel": "이 칸은 비워 두세요",
+    "privacy": "신청 정보는 12개월 동안 보관합니다. 연구실 책임자만 볼 수 있으며, 여기에 입력한 내용은 AI와 공유되지 않습니다. 더 일찍 삭제를 원하시면 연구실에 연락하세요.",
+    "submit": "데모 패스 받기",
+    "submitting": "신청하는 중…",
+    "browseTools": "도구 둘러보기",
+    "askAssistant": "어시스턴트에게 묻기",
+    "errors": {
+      "required": "이 칸을 입력해 주세요.",
+      "tooLong": "너무 깁니다.",
+      "invalidEmail": "올바른 이메일 주소를 입력해 주세요.",
+      "invalid": "옵션 중 하나를 선택해 주세요.",
+      "summary": "위에 표시된 칸을 확인해 주세요.",
+      "rateLimited": "지금 이 네트워크에서 신청이 너무 많습니다. 몇 분 후에 다시 시도해 주세요.",
+      "unavailable": "지금은 신청할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      "failed": "문제가 발생했습니다. 다시 시도해 주세요."
+    },
+    "thanksTitle": "신청 완료",
+    "thanksBody": "신청해 주셔서 감사합니다. 데모 패스는 이 기기에서 {date}까지 유효하며 약 {budget} 상당의 AI 사용량이 포함됩니다.",
+    "thanksReturning": "다시 오신 것을 환영합니다. 데모 패스가 이 기기에서 다시 활성화되었습니다. {remaining} 남았으며 {date}까지 유효합니다.",
+    "thanksNext": "어느 페이지에서든 채팅 버튼으로 어시스턴트를 열거나, 여기서 바로 시작하세요.",
+    "thanksExpired": "다시 신청해 주셔서 감사합니다. 이 이메일의 데모 패스는 만료되었지만, 정보는 잘 받았습니다.",
+    "thanksReceived": "신청해 주셔서 감사합니다.",
+    "closedTitle": "데모 신청이 마감되었습니다",
+    "closedBody": "관심 가져 주셔서 감사합니다. 도구를 둘러보고 어시스턴트에게 몇 가지 질문은 계속 하실 수 있습니다.",
+    "callout": {
+      "label": "데모 패스",
+      "text": "방문 중이신가요? 무료 데모 패스로 연구실 어시스턴트와 대화하고 문제를 신고해 보세요. {institution} 계정은 필요 없습니다.",
+      "cta": "가입하고 전체 데모 체험하기"
+    }
   }
 }

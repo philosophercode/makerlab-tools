@@ -1,6 +1,7 @@
 import { getTableName } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { account, session, verification } from "../db/schema/auth.ts";
+import { demoSignups } from "../db/schema/demo-signups.ts";
 import { manualChunks, manualPages } from "../db/schema/manuals.ts";
 import { notionMirrors } from "../db/schema/mirror.ts";
 import { oauthAccessToken, oauthApplication } from "../db/schema/access.ts";
@@ -142,6 +143,11 @@ export const RETENTION_BOUND: ReadonlySet<string> = new Set([getTableName(usageE
  * does not copy, and a person's daily ledger means nothing on another
  * deployment.
  *
+ * **Demo sign-ups** (demo pass spec 2026-10-07 §8) belong to the deployment
+ * that collected them too, for a sharper reason: `data:push` truncates what it
+ * copies, so a push from a laptop would wipe the hosted sign-ups and replace
+ * them with whatever test sign-ups the local database holds. Visitors' details
+ * never travel between databases; the nightly backup keeps them.
  * Deliberately **not** `tool_skills` (tool skills spec 2026-10-07 §4.3),
  * though it too is AI-written and cached: a skill names its manual sources by
  * document id and page (ids survive `data:push`) and its links by the
@@ -153,6 +159,7 @@ export const DEPLOYMENT_BOUND: ReadonlySet<string> = new Set([
   getTableName(starterAnswers),
   getTableName(staffShifts),
   getTableName(chatIllustrations),
+  getTableName(demoSignups),
 ]);
 
 /** True when this table's rows are made per deployment and never pushed to another. */

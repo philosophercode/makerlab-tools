@@ -87,6 +87,22 @@ approval. Do not mint one.
   cookie, before redirecting. With `hd` in force (no `AUTH_ALLOWED_EMAILS`), Better
   Auth's claim check refuses a personal account first with `unable_to_get_user_info`,
   and the auth route sends that to `/auth/rejected` too.
+- **A demo pass is not an account** (demo pass spec 2026-10-07). A visitor
+  whose address the domain rule refuses signs up at `/demo`
+  (`POST /api/demo-pass`) and gets `makerlab.demo_pass`: an httpOnly cookie
+  naming a `demo_signups` row, HMAC-signed under a key derived from
+  `AUTH_SECRET` (`lib/demo-pass/token.ts`), valid 14 days. It is not the retired
+  `makerlab.identity` cookie: it only names a row, and the row decides (expiry
+  is read on every turn). `resolveIdentity` is unchanged — a pass holder is
+  `anonymous` and holds no permission. The chat route and the quick report form (`POST /api/report`) read the
+  pass (`resolveDemoPass`) and mark the identity (`identityWithDemoPass`): with
+  budget left, `rateLimitKey` is `demo:<id>` and `checkRateLimit("chat")` gives
+  `DEMO_PASS_CHAT_TIER` (60 an hour); each turn's cost is charged to the row's
+  ledger up to `DEMO_PASS_BUDGET_USD`; once spent, the anonymous tier on the IP
+  key, still marked so its turns and tickets count as demo (a report from the
+  form too, filed `demo`). A signed-in
+  caller's pass is ignored; MCP never reads one. Sign-ups are limited to 60 an
+  hour per hashed IP (`demoSignup`). `DEMO_PASS=off` turns it all off.
 - **Testing a role needs no Google.** `test/utils/session.ts` seeds a `user` and
   a `session` row and mints the cookie Better Auth would have set; the demo seed
   ships one account per role for E2E. See `test/README.md`.

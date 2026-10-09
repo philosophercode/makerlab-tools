@@ -170,7 +170,10 @@
   },
   "about": {
     "eyebrow": "Hakkında",
-    "browseTools": "Araçlara göz at"
+    "browseTools": "Araçlara göz at",
+    "demoHeading": "Tam demoyu deneyin",
+    "demoBody": "Başka bir okuldan ya da laboratuvardan mı geliyorsunuz? Ücretsiz bir demo kartıyla asistanı {days} gün boyunca buradaki bir öğrenci gibi, {institution} hesabı olmadan kullanabilirsiniz.",
+    "demoCta": "Tam demoyu denemek için kaydolun"
   },
   "chat": {
     "openAria": "MakerLAB AI'yı aç",
@@ -219,7 +222,13 @@
       "altPlan": "Planın yapay zekâ ile oluşturulmuş infografiği",
       "altConcept": "Proje fikrinin yapay zekâ ile oluşturulmuş konsept görseli",
       "unavailable": "Bu çizim artık mevcut değil."
-    }
+    },
+    "demoPassLeft": "Demo kartı · {amount} kaldı",
+    "demoPassUsedUp": "Demo kartı · bitti",
+    "demoPassSpent": "Bu demo kartının yapay zekâ hakkını kullandınız. MakerLAB AI'yi denediğiniz için teşekkürler! Her ziyaretçi gibi saatte birkaç soru sormaya devam edebilirsiniz.",
+    "demoPassLimited": "Bu kartın yapay zekâ hakkını ve bu saatin ziyaretçi sınırını kullandınız. MakerLAB AI'yi denediğiniz için teşekkürler! Lütfen biraz sonra tekrar deneyin.",
+    "demoPassContactLead": "Konuşmak ister misiniz?",
+    "demoPassContactTeam": "MakerLAB ekibiyle iletişime geçin"
   },
   "qr": {
     "arrivalLabel": "Bu makineden tarandı",
@@ -374,5 +383,62 @@
   },
   "kiosk": {
     "onShiftLabel": "Şu an vardiyada"
+  },
+  "demoPass": {
+    "eyebrow": "Demo kartı",
+    "title": "Tam demoyu deneyin",
+    "lede": "{site} uygulamasını buradaki bir öğrenci gibi kullanmak için ücretsiz bir demo kartı alın: laboratuvarın makineleri hakkında asistana sorun, yanıtlar kılavuzlardan alıntılarla gelsin; bir sorunu da bildirebilirsiniz. {institution} hesabı gerekmez.",
+    "passFacts": "Kartınız bu cihazda {days} gün geçerlidir ve yaklaşık {budget} tutarında yapay zekâ kullanımını karşılar.",
+    "required": "Zorunlu",
+    "optional": "İsteğe bağlı",
+    "nameLabel": "Ad",
+    "emailLabel": "E-posta",
+    "emailHint": "Yalnızca sizinle iletişim için. Asistan bunu asla görmez.",
+    "institutionLabel": "Kurum veya bağlı olunan yer",
+    "institutionHint": "Bir üniversite, şirket, laboratuvar veya maker alanı.",
+    "roleLabel": "Rol",
+    "roleChoose": "Birini seçin",
+    "role": {
+      "student": "Öğrenci",
+      "staff_technician": "Personel veya teknisyen",
+      "faculty": "Öğretim üyesi",
+      "lab_manager": "Laboratuvar direktörü veya yöneticisi",
+      "other": "Diğer"
+    },
+    "makerspaceLabel": "Bir maker alanı yönetiyor ya da birinde çalışıyor musunuz?",
+    "yes": "Evet",
+    "no": "Hayır",
+    "useCaseLabel": "Ne için kullanırdınız?",
+    "useCaseHint": "Bir iki cümle yeterli.",
+    "consentLabel": "MakerLAB AI hakkında benimle iletişime geçebilirsiniz.",
+    "honeypotLabel": "Bu alanı boş bırakın",
+    "privacy": "Kayıtları 12 ay saklıyoruz. Yalnızca laboratuvar yöneticileri görebilir ve buraya yazdıklarınızın hiçbiri yapay zekâyla paylaşılmaz. Daha erken silinmek için laboratuvarla iletişime geçin.",
+    "submit": "Demo kartımı al",
+    "submitting": "Kaydediliyor…",
+    "browseTools": "Araçlara göz at",
+    "askAssistant": "Asistana sor",
+    "errors": {
+      "required": "Lütfen bu alanı doldurun.",
+      "tooLong": "Bu çok uzun.",
+      "invalidEmail": "Lütfen geçerli bir e-posta adresi girin.",
+      "invalid": "Lütfen seçeneklerden birini seçin.",
+      "summary": "Lütfen yukarıda işaretli alanları kontrol edin.",
+      "rateLimited": "Şu anda bu ağdan çok fazla kayıt var. Lütfen birkaç dakika sonra tekrar deneyin.",
+      "unavailable": "Kayıt şu anda kullanılamıyor. Lütfen birazdan tekrar deneyin.",
+      "failed": "Bir şeyler ters gitti. Lütfen tekrar deneyin."
+    },
+    "thanksTitle": "Hazırsınız",
+    "thanksBody": "Kaydolduğunuz için teşekkürler. Demo kartınız bu cihazda {date} tarihine kadar geçerli ve yaklaşık {budget} tutarında yapay zekâ kullanımını karşılıyor.",
+    "thanksReturning": "Tekrar hoş geldiniz. Demo kartınız bu cihazda yeniden etkin: {date} tarihine kadar geçerli, {remaining} kaldı.",
+    "thanksNext": "Asistanı herhangi bir sayfadan sohbet düğmesiyle açın ya da buradan başlayın.",
+    "thanksExpired": "Yeniden kaydolduğunuz için teşekkürler. Bu e-postanın demo kartının süresi doldu, ancak bilgileriniz bizde.",
+    "thanksReceived": "Kaydolduğunuz için teşekkürler.",
+    "closedTitle": "Demo kayıtları kapandı",
+    "closedBody": "İlginiz için teşekkürler. Araçlara yine göz atabilir ve asistana birkaç soru sorabilirsiniz.",
+    "callout": {
+      "label": "Demo kartı",
+      "text": "Ziyaret mi ediyorsunuz? Laboratuvarın asistanıyla sohbet etmek ve bir sorunu bildirmek için ücretsiz bir demo kartı alın. {institution} hesabı gerekmez.",
+      "cta": "Tam demoyu denemek için kaydolun"
+    }
   }
 }

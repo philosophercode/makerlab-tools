@@ -224,6 +224,17 @@ describe("loadInsights", () => {
     expect((await loadInsights({ ...query, includeStaff: true }, { db })).totals.chatTurns).toBe(2);
   });
 
+  it("always leaves demo passes out, rolled or raw (demo pass spec 2026-10-07 §5.5)", async () => {
+    await eventsAt(new Date("2026-09-27T14:00:00Z"), [{ audience: "demo" }, { audience: "demo", kind: "tool_asked", toolId: toolA }]);
+    await runUsageRollup({ db, now: new Date("2026-09-28T00:30:00Z") });
+    await eventsAt(new Date("2026-09-28T15:00:00Z"), [{ audience: "demo" }, { audience: "anonymous" }]);
+    for (const includeStaff of [false, true]) {
+      const data = await loadInsights({ ...query, includeStaff }, { db });
+      expect(data.totals.chatTurns).toBe(1);
+      expect(data.tools.find((t) => t.toolId === toolA)).toBeUndefined();
+    }
+  });
+
   it("lists published tools nobody asked about or viewed, and never a draft", async () => {
     await eventsAt(new Date("2026-09-28T15:00:00Z"), [{ kind: "tool_asked", toolId: toolA }, { kind: "tool_view", surface: "web", toolId: toolB }]);
     const names = (await loadInsights(query, { db })).neverAsked.map((t) => t.name);

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { DemoSignupCallout } from "../components/demo/DemoSignupCallout";
 import { HomeFallback } from "../components/home/HomeFallback";
 import { HomeShell } from "../components/home/HomeShell";
 import { OnShiftNow } from "../components/on-shift/OnShiftNow";
@@ -34,6 +35,9 @@ async function HomeData() {
           <OnShiftNow className="justify-center text-center" />
         </Suspense>
       }
+      // The demo pass's way in (demo pass spec 2026-10-07 §6): one small line
+      // under the search, above the categories. Nothing with DEMO_PASS=off.
+      demoCallout={<DemoSignupCallout variant="inline" />}
     />
   );
 }

@@ -20,7 +20,7 @@ import {
   type ToolResource,
 } from "../../../lib/data/resources";
 import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit";
-import { resolveIdentity } from "../../../lib/auth/identity";
+import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
 import { siteConfig } from "../../../lib/site-config";
 import { chatProviderOptions, languageModelFor } from "../../../lib/ai/models";
 import { chatExaSearch, EXA_SEARCH_TOOL } from "../../../lib/ai/exa";
@@ -41,6 +41,11 @@ import { ILLUSTRATIONS_CAPABILITY_ID, illustrationsAvailable } from "../../../li
 import { loadPageContext, pageContextSection } from "../../../lib/actions/page-context";
 import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
 import { recordChatTurnUsage } from "../../../lib/usage/chat-turn";
+import { resolveDemoPass } from "../../../lib/demo-pass/resolve";
+import { identityWithDemoPass } from "../../../lib/demo-pass/identity";
+import { chargeDemoPassTurn } from "../../../lib/demo-pass/charge";
+import { demoPassContactEmail } from "../../../lib/demo-pass/config";
+import { toDemoPassView } from "../../../lib/demo-pass/state";
 import { chatPrepareStep } from "./prepare-step";
 import { chatStopWhen } from "./stop-when";
 import { boundChatHistory, historyBudgetFor } from "../../../lib/chat/bound-history";
@@ -80,8 +85,17 @@ interface ChatRequest {
 
 export async function POST(req: Request) {
   // Who is asking and what they sent, together: reading the body does not wait
-  // on the session lookup (performance plan, quick win 8).
-  const [identity, body] = await Promise.all([resolveIdentity(req), req.json() as Promise<ChatRequest>]);
+  // on the session lookup (performance plan, quick win 8). A demo pass is read
+  // beside the session (demo pass spec 2026-10-07 §5.3) — a forged cookie costs
+  // an HMAC, never a query — and counts only for an anonymous caller: the turn
+  // then runs as that pass (its own chat tier and key while it has budget).
+  const [session, body, demoPass] = await Promise.all([
+    resolveIdentity(req),
+    req.json() as Promise<ChatRequest>,
+    resolveDemoPass(req.headers),
+  ]);
+  const identity = identityWithDemoPass(session, demoPass);
+  const pass = identity.demoPass ? demoPass : null;
   const { messages: rawMessages, toolId, locale, pendingId, id: rawChatId, page } = body;
   const chatId = typeof rawChatId === "string" && rawChatId.trim() ? rawChatId.slice(0, 200) : undefined;
 
@@ -93,7 +107,7 @@ export async function POST(req: Request) {
   // depend only on the caller and the page then run together.
   const decision = await checkRateLimit("chat", identity);
   if (!decision.allowed) {
-    return rateLimitedResponse(decision);
+    return rateLimitedResponse(decision, identity.demoPass);
   }
   // The rate limit counts requests, so what one request may carry is bounded
   // too: history length, characters and photos (security fix 2026-10-05).
@@ -168,6 +182,10 @@ export async function POST(req: Request) {
     // it names no provider and no configuration value.
     onError: reportChatError,
     execute: async ({ writer }) => {
+      // The pass's balance before this turn, for the chat's indicator and, when
+      // it is spent, its thank-you (demo pass spec §5.3, §6). Money and an end
+      // date only — never anything the visitor typed when signing up.
+      if (pass) writer.write({ type: "data-demo-pass", data: toDemoPassView(pass, demoPassContactEmail()), transient: true });
       const { manuals, skipped } = await collectToolManuals(focusedResources, toolManuals.searchableResourceIds);
       if (focused) {
         console.info(`[chat] manuals attached: ${manuals.length}`);
@@ -268,10 +286,23 @@ export async function POST(req: Request) {
         // after the answer ends the turn (parity spec amendment 2026-10-07).
         stopWhen: chatStopWhen(),
         // Usage insight (usage insight spec §5.1): what this turn was about,
-        // counted with no one in it and written after the response. Never
-        // throws; a failed insert costs the student nothing.
-        onFinish: ({ steps }) =>
-          recordChatTurnUsage({ steps, messages, role: identity.role, focusedToolId: focused?.id, locale, turn: ctx.turn }),
+        // counted with no one in it and written after the response — a demo
+        // pass's turn as the `demo` audience. Never throws; a failed insert
+        // costs the student nothing. Then an unspent pass is charged what the
+        // turn cost (demo pass spec §5.3): awaited, so the next turn sees it;
+        // it never throws either.
+        onFinish: async ({ steps }) => {
+          recordChatTurnUsage({
+            steps,
+            messages,
+            role: identity.role,
+            demo: Boolean(identity.demoPass),
+            focusedToolId: focused?.id,
+            locale,
+            turn: ctx.turn,
+          });
+          if (identity.demoPass && !identity.demoPass.exhausted) await chargeDemoPassTurn(identity.demoPass.id, steps, ctx.turn);
+        },
       });
 
       writer.merge(result.toUIMessageStream({ onError: reportChatError }));
@@ -290,9 +321,26 @@ export async function POST(req: Request) {
  * 429 (spec §5, §6). `code` is the contract — the English `error` is only a
  * fallback for non-UI clients, since translated copy lives in `messages/*.json`
  * (Article 6).
+ *
+ * A visitor whose demo pass is spent is not offered a sign-in they cannot use
+ * (their address is not on the institution's domain): `rate_limited_demo_pass`,
+ * which the chat draws as the pass's thank-you and contact line (demo pass spec
+ * §5.3). An unspent pass at its own hourly ceiling just waits.
  */
-function rateLimitedResponse(decision: RateLimitDecision): Response {
-  const canSignIn = decision.role === "anonymous";
+function rateLimitedResponse(decision: RateLimitDecision, demoPass: Identity["demoPass"]): Response {
+  if (demoPass?.exhausted) {
+    return Response.json(
+      {
+        code: "rate_limited_demo_pass",
+        limit: decision.limit,
+        windowMs: decision.windowMs,
+        retryAfterSeconds: decision.retryAfterSeconds,
+        error: "Too many requests. This demo pass has used its AI allowance, and the visitor limit for this hour is reached.",
+      },
+      { status: 429, headers: { "Retry-After": String(decision.retryAfterSeconds) } }
+    );
+  }
+  const canSignIn = decision.role === "anonymous" && !demoPass;
   return Response.json(
     {
       code: canSignIn ? "rate_limited_sign_in" : "rate_limited",
