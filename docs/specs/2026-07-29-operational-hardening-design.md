@@ -466,3 +466,75 @@ source of truth and staff edit on `/admin`: inventory edits and intake approvals
 no Notion edit left to listen for. Open question 3 is moot for the same reason.
 
 **Status.** Accepted.
+
+### 2026-10-05 — CI supply chain, image optimizer hosts, preview isolation (as-built)
+
+From a security review of the CI and deployment configuration (findings ci-01, ci-02,
+ci-04, ci-05; all low).
+
+**1. Actions are pinned to commit SHAs** (`.github/workflows/ci.yml`). `actions/checkout`
+and `actions/setup-node` were referenced by the mutable `v4` tag, so a moved or
+compromised tag would run in every PR and push to `main`. Both are now pinned to the
+v4.4.0 commit with the version in a comment, and `.github/dependabot.yml` (ecosystem
+`github-actions`, monthly, one grouped PR) proposes the bumps. npm updates are not
+enabled there: the lockfile is written with a pinned npm.
+
+**2. Checkout no longer persists the token** (`persist-credentials: false` on both
+checkout steps). `npm ci` runs dependency lifecycle scripts and the tests run repo code;
+neither needs git credentials, so the `GITHUB_TOKEN` is no longer left readable in
+`.git/config`. The token is `contents: read`, so this is defence in depth.
+
+`test/ci-hardening.test.ts` fails if a step goes back to a tag, a checkout drops the
+setting, or the Dependabot entry disappears.
+
+**3. `next/image` remote hosts are narrower.** The production list moved from
+`next.config.ts` to `src/lib/images/remote-patterns.ts` (`REMOTE_IMAGE_PATTERNS`, tested
+with Next's own matcher). The path-style `s3.us-west-2.amazonaws.com` host matched every
+bucket in the region, letting anyone make `/_next/image` fetch and transform their own
+images at this project's expense; it now allows only `/secure.notion-static.com/**`,
+Notion's legacy file bucket, which is the only reason it was there. **Not changed, owner
+decision:** `*.public.blob.vercel-storage.com` still matches every Vercel customer's
+public store (narrowing it needs the production store's hostname and confirmation that no
+row points at another store), and `images.unsplash.com` / `v5.airtableusercontent.com`
+stay until the database is confirmed free of them.
+*Superseded the same day* by the data platform spec's 2026-10-05 amendment (security fixes, `security/web`): `remotePatterns` now names only the lab's own public Blob store, and the S3, Notion, Unsplash and Airtable hosts are gone; the live catalogue was checked to use only that store.
+
+**4. Previews get their own database and secrets** (`docs/deploy.md` steps 2 and 4). The
+guide said to connect Neon and copy variables to all environments, so a preview — branch
+code before review — ran against production's `DATABASE_URL` and secrets;
+`scripts/db-migrate.ts` only skipped migrations. The guide now says to leave
+`DATABASE_URL` off Preview (the demo database) or use a database branch per preview with
+`MIGRATE_ON_PREVIEW=1`, and to give Preview its own secrets. No code changed: the
+project's Vercel variables are the owner's to move.
+
+**Status.** Accepted.
+
+### 2026-10-06 — Deploys: E2E in CI, a post-deploy smoke test, production gated on CI (as-built)
+
+**Why.** `main` deployed to production the moment a merge landed, nothing checked the live
+site afterwards, and the E2E suite ran only on laptops. On 2026-10-06 five security PRs were
+merged one at a time with a hand-run smoke test after each deploy; this makes that routine.
+
+**What changed.**
+
+1. **E2E in CI.** `.github/workflows/ci.yml` gains a job, `e2e (playwright)`: Chromium,
+   then `npm run test:e2e` against the production build with the demo database and local
+   stubs (no network beyond the runner). Not a required check until it has proved stable.
+2. **Post-deploy smoke test.** `scripts/smoke-production.sh` (`npm run smoke:production`;
+   `SMOKE_BASE_URL` overrides the default `https://makerlab-ai.vercel.app`): read-only GETs
+   of `/api/health` (`status: ok`, `catalog: live`), the public pages, `/kiosk`, `/mcp`,
+   `/admin`, `/opengraph-image`, one optimized image from the lab's Blob store, and the
+   optimizer refusing an outside host with 400. No sign-in and no chat (a chat turn costs
+   money and counts as usage). `.github/workflows/deploy-smoke.yml` runs it on every
+   successful **Production** `deployment_status` Vercel reports, against the production
+   alias (deployment URLs are behind Vercel Authentication), three attempts 30 s apart; it
+   can also be run by hand (`workflow_dispatch`).
+3. **Production gated on CI** — a dashboard setting, not code: Vercel **Deployment Checks**
+   on the CI jobs, so a production build is promoted only when they pass
+   (`docs/deploy.md` §7).
+
+`test/ci-hardening.test.ts` now checks every workflow file (SHA pins, `persist-credentials:
+false`), not only `ci.yml`.
+
+**Status.** Accepted. Deployment Checks are the owner's to switch on in Vercel.
+

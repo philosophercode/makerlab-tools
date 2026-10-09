@@ -2,11 +2,14 @@ import { answerDeclaresAbsence } from "./absence";
 import { audienceFor, usageLocale } from "./events";
 import { fromTurn, type TurnInput } from "./from-turn";
 import { classifyQuestion } from "./question-kind";
+import { citationRef } from "../manuals/citation-ref";
+import { logManualPassages, turnUsage } from "./turn-log";
 
 const FORM4 = "11111111-1111-4111-8111-111111111111";
 const TROTEC = "22222222-2222-4222-8222-222222222222";
 const DOC = "33333333-3333-4333-8333-333333333333";
 const URL12 = "https://blob.example/form4.pdf#page=12";
+const REF12 = citationRef(DOC, 12);
 
 function turn(overrides: Partial<TurnInput> = {}): TurnInput {
   return {
@@ -30,7 +33,7 @@ describe("fromTurn", () => {
         focusedToolId: FORM4,
         steps: [result("search_manual", { status: "ok", passages: [{ url: URL12 }] })],
         text: `Lift it straight up ([Resin tank (Form 4 Manual, p. 12)](${URL12})).`,
-        passages: new Map([[URL12, { documentId: DOC, toolId: FORM4, page: 12 }]]),
+        passages: new Map([[URL12, { documentId: DOC, toolId: FORM4, page: 12, ref: REF12 }]]),
         scopedToolIds: [FORM4],
       })
     );
@@ -38,6 +41,77 @@ describe("fromTurn", () => {
     expect(events[0]).toMatchObject({ surface: "chat", audience: "anonymous", questionKind: "operate" });
     expect(events[2]).toMatchObject({ manualDocumentId: DOC, page: 12, toolId: FORM4 });
     expect(gap).toBeNull();
+  });
+
+  it("records a citation of another machine's document as cross_tool, and none in a lab-wide comparison (amendment 2026-10-06)", () => {
+    const PRUSA_DOC = "66666666-6666-4666-8666-666666666666";
+    const PRUSA = "77777777-7777-4777-8777-777777777777";
+    const URL25 = "https://blob.example/prusa.pdf#page=25";
+    const passages = new Map([
+      [URL12, { documentId: DOC, toolId: FORM4, page: 12, ref: REF12 }],
+      [URL25, { documentId: PRUSA_DOC, toolId: PRUSA, page: 25, ref: citationRef(PRUSA_DOC, 25) }],
+    ]);
+    const text = `Lift it ([a](#cite-${REF12})) and load it ([b](#cite-${citationRef(PRUSA_DOC, 25)})).`;
+
+    const scoped = fromTurn(turn({ focusedToolId: FORM4, text, passages, scopedToolIds: [FORM4] })).events.filter((e) => e.kind === "manual_cited");
+    expect(scoped.map((e) => [e.manualDocumentId, e.source ?? null])).toEqual([
+      [DOC, null],
+      [PRUSA_DOC, "cross_tool"],
+    ]);
+
+    const offPage = fromTurn(turn({ text, passages, scopedToolIds: [PRUSA] })).events.filter((e) => e.kind === "manual_cited");
+    expect(offPage.map((e) => e.source ?? null)).toEqual(["cross_tool", null]);
+
+    const wide = fromTurn(turn({ text, passages, scopedToolIds: [], wideSearch: true })).events.filter((e) => e.kind === "manual_cited");
+    expect(wide.map((e) => e.source ?? null)).toEqual([null, null]);
+  });
+
+  // Regression (production, 2026-09-30): the chat prompt has the model cite a
+  // passage as `#cite-<ref>` and never write its URL (manual text spec
+  // amendment 2026-09-28), so a recorder that matched only `](url)` counted no
+  // citations at all while the chat drew them as "N MANUAL PAGES".
+  it("counts a passage the answer cites by its #cite-<ref>, as the chat prompt asks", () => {
+    const shopbot = "44444444-4444-4444-8444-444444444444";
+    const shaper = "55555555-5555-4555-8555-555555555555";
+    const turnState = {};
+    logManualPassages(turnState, [
+      { documentId: shopbot, toolId: TROTEC, pageStart: 74, pdfUrl: "https://blob.example/shopbot.pdf#page=74" },
+      { documentId: shopbot, toolId: TROTEC, pageStart: 5, pdfUrl: "https://blob.example/shopbot.pdf#page=5" },
+      { documentId: shaper, toolId: FORM4, pageStart: 14, pdfUrl: "https://blob.example/shaper.pdf#page=14" },
+      { documentId: shaper, toolId: FORM4, pageStart: 30, pdfUrl: "https://blob.example/shaper.pdf#page=30" },
+    ]);
+    const log = turnUsage(turnState);
+    const { events, gap } = fromTurn(
+      turn({
+        lastUserText: "I want to CNC a chair with laser-cut inlays. Can you help me plan?",
+        steps: [result("search_manual", { status: "ok" })],
+        text: [
+          `Zero the bit first ([Zeroing (ShopBot User Guide, p. 74)](#cite-${citationRef(shopbot, 74)})).`,
+          `Check the table ([Setup (ShopBot User Guide, p. 5)](#cite-${citationRef(shopbot, 5).toUpperCase()})).`,
+          `Then inlay ([Offset cuts (Shaper Origin Product Manual, pp. 14–15)](#cite-${citationRef(shaper, 14)})),`,
+          `again ([see above](#cite-${citationRef(shaper, 14)})).`,
+          `A garbled ref is not a citation ([x](#cite-${citationRef(shaper, 31)})).`,
+        ].join("\n"),
+        passages: log.passages,
+        scopedToolIds: log.scopedToolIds,
+      })
+    );
+    expect(events.filter((e) => e.kind === "manual_cited").map((e) => [e.manualDocumentId, e.page])).toEqual([
+      [shopbot, 74],
+      [shopbot, 5],
+      [shaper, 14],
+    ]);
+    expect(gap).toBeNull();
+  });
+
+  it("counts a passage once when the answer links it by both its ref and its URL", () => {
+    const { events } = fromTurn(
+      turn({
+        text: `[a](#cite-${REF12}) and [b](${URL12})`,
+        passages: new Map([[URL12, { documentId: DOC, toolId: FORM4, page: 12, ref: REF12 }]]),
+      })
+    );
+    expect(events.filter((e) => e.kind === "manual_cited")).toHaveLength(1);
   });
 
   it("counts each tool once however many ways the turn reached it", () => {
@@ -56,7 +130,7 @@ describe("fromTurn", () => {
       turn({
         steps: [result("search_manual", { status: "ok" })],
         text: "The manual covers it on page 12.",
-        passages: new Map([[URL12, { documentId: DOC, toolId: FORM4, page: 12 }]]),
+        passages: new Map([[URL12, { documentId: DOC, toolId: FORM4, page: 12, ref: REF12 }]]),
       })
     );
     expect(events.some((e) => e.kind === "manual_cited")).toBe(false);

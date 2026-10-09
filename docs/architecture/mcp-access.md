@@ -25,8 +25,16 @@ MCP callers act as a person, with that person's role and never more
   (`capabilities/actions.ts`, parity spec phase 7 — see "The action layer": an
   `action_proposals` row with `surface = mcp`, confirmed by its creator on `/admin/proposals`).
   Nothing over MCP publishes or edits the catalogue (Article 5).
+- **Usage counts, super admins only** (usage insight spec amendment 2026-09-30):
+  `get_usage_summary` and the MCP twin of `get_value_report` (the `insights` capability,
+  `capabilities/insights.ts`, last in the registry), `mcpOnly` reads on `insights.export` — the one permission only
+  `super_admin` holds besides `catalog.export` and `users.manage` — so `mcpToolAllowed` lists them
+  for nobody else, read-only connections included. Counts only, no question text. `/mcp` lists them
+  under Staff, marked for super admins only.
 - **Staff queue tools, chat and MCP** (amendment 2026-09-25): `list_intake_queue`
-  (`tools.approve`), `list_open_tickets` and `update_ticket` (`maintenance.manage`, through
+  (`tools.approve`), `list_maintenance_due` (`maintenance.manage`, read-only: the recurring tasks
+  overdue or due soon, recurring maintenance spec amendment 2026-10-06), `list_open_tickets` and
+  `update_ticket` (`maintenance.manage`, through
   `lib/admin/ticket-write.ts`, the admin page's own path) in `capabilities/staff.ts`. The chat
   offers them only through `capabilitiesForIdentity` (never to anonymous or students). **Since
   the parity spec's phase 2 `staff.ts`'s `update_ticket` is MCP only** (the one direct MCP write,
@@ -46,7 +54,7 @@ MCP callers act as a person, with that person's role and never more
   action `runMcpTryIt` → `lib/mcp/try-it.ts`, which builds a `tools/call` `Request` with no cookie
   and no `Authorization` and hands it to `handleMcpRequest`: always anonymous, under the `mcp`
   per-IP limit, and a write or staff tool is `not_runnable` before any call.
-- **Tokens** (`/account/tokens`, profile menu → Connect an AI assistant): shown once, stored as a
+- **Tokens** (`/account/tokens`, profile menu → Connect AI assistant (MCP)): shown once, stored as a
   hash, prefix for display, **90 days for every token, no choice** (`TOKEN_LIFETIME_DAYS`,
   `lib/account/token-lifetime.ts`; a posted `expiry` is ignored — amendment 2026-09-25 "One
   lifetime"), read-only option, ≤ 20 live, audited `token.created` / `token.revoked`. The

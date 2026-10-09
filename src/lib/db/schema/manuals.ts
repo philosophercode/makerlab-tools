@@ -154,3 +154,47 @@ export const manualChunks = pgTable(
     index("manual_chunks_document_idx").on(t.documentId, t.ordinal),
   ]
 );
+
+/**
+ * Eval questions from a manual (manual text spec amendment 2026-10-07,
+ * migration `0028`): when a document's passages are built, a few questions a
+ * student could ask, each answered on a known page of that document
+ * (`manuals/eval-questions.ts`, job `evalQuestions`). The retrieval eval
+ * checks that `search_manual` finds the page; the end-to-end eval checks that
+ * the assistant cites this document at that page.
+ *
+ * - `source_hash` is a digest of the document's page texts at generation
+ *   time. Questions are made once per text: a document whose text hashes the
+ *   same is never asked about again, and one whose text changed has its
+ *   questions replaced in one transaction.
+ * - `expected_pages` are the 1-based PDF pages the source passage spans;
+ *   `chunk_ordinal` and `section_path` name that passage (the passage row
+ *   itself is replaced whenever passages are rebuilt, so it is not a key).
+ * - `tool_id` is the document's machine, copied for scoping like
+ *   `manual_chunks.tool_id`.
+ *
+ * Eval data only: nothing in the app reads it, and no student sees it.
+ */
+export const manualEvalQuestions = pgTable(
+  "manual_eval_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => manualDocuments.id, { onDelete: "cascade" }),
+    toolId: uuid("tool_id").references(() => tools.id, { onDelete: "cascade" }),
+    question: text("question").notNull(),
+    expectedPages: integer("expected_pages").array().notNull(),
+    chunkOrdinal: integer("chunk_ordinal").notNull(),
+    sectionPath: text("section_path").array().notNull().default(sql`'{}'::text[]`),
+    expectedAnswer: text("expected_answer").notNull(),
+    sourceHash: text("source_hash").notNull(),
+    model: text("model").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("manual_eval_questions_document_idx").on(t.documentId),
+    index("manual_eval_questions_tool_idx").on(t.toolId),
+    index("manual_eval_questions_hash_idx").on(t.sourceHash),
+  ]
+);

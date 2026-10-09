@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
-import { createMaintenanceLog } from "../data/maintenance";
-import { invalidateMaintenance } from "../revalidate";
+import { describeDbError } from "../db/describe-error";
+import { CHAT_MAX_TICKETS_PER_TURN } from "../intake/limits";
+import { fileProblemTicket } from "../maintenance/file-ticket";
+import { checkRateLimit } from "../rate-limit";
 import { buildUnitLookup, findUnit } from "./helpers";
 import type {
   Capability,
@@ -27,12 +29,26 @@ import type {
  * - **The ticket lands in Postgres** (data platform spec §3.10, §4.8), not in
  *   a Notion page. The capability no longer knows anything about Notion: it
  *   resolves the unit against the catalogue, hands a validated ticket to
- *   `src/lib/data/maintenance.ts`, and reports what came back. A write that
+ *   `fileProblemTicket` (`src/lib/maintenance/file-ticket.ts`, the write the
+ *   quick report form shares), and reports what came back. A write that
  *   throws is reported to the student as a ticket that did **not** land — the
  *   one thing this path may never get wrong (Article 4).
  */
 
 const PRIORITIES = ["Critical", "High", "Medium", "Low"] as const;
+
+/**
+ * Bounds on what one ticket may carry (security fix 2026-10-05). Generous for
+ * a real report — a title is a line, a description a few paragraphs — and a
+ * ceiling for a script that would fill the queue with megabytes of text.
+ */
+export const TICKET_TITLE_MAX = 200;
+export const TICKET_DESCRIPTION_MAX = 4_000;
+export const TICKET_REPORTER_MAX = 100;
+const TICKET_PHOTOS_MAX = 8;
+
+/** The name `report_issue` is registered under, which the chat's per-turn cap is keyed on. */
+export const REPORT_ISSUE_TOOL = "report_issue";
 
 // ── report_issue ───────────────────────────────────────────────────
 
@@ -54,12 +70,15 @@ interface ReportIssueResult {
 }
 
 const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
-  title: z.string().describe("Short summary of the issue"),
-  description: z.string().describe("Full description of what's wrong"),
+  title: z.string().max(TICKET_TITLE_MAX).describe("Short summary of the issue"),
+  description: z.string().max(TICKET_DESCRIPTION_MAX).describe("Full description of what's wrong"),
   unit_label: z
     .string()
+    .max(TICKET_REPORTER_MAX)
     .optional()
-    .describe("Unit label if the issue is tied to a specific unit"),
+    .describe(
+      "Unit label if the issue is tied to a specific unit, or the unit's id when you have it (a scanned unit label gives one, and it is exact)"
+    ),
   priority: z
     .enum(PRIORITIES)
     .default("Medium")
@@ -68,12 +87,14 @@ const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
     ),
   reported_by: z
     .string()
+    .max(TICKET_REPORTER_MAX)
     .optional()
     .describe(
       "Student name or NetID if they gave one. Ignored when the student is signed in — the verified name from their session is recorded instead."
     ),
   photo_attachment_ids: z
-    .array(z.string())
+    .array(z.string().max(64))
+    .max(TICKET_PHOTOS_MAX)
     .optional()
     .describe(
       "Attachment ids of photos the student uploaded. Parse the attachment_id values out of the [Attached photos: ...] hint in their message."
@@ -91,10 +112,24 @@ const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
 const PHOTOS_NOT_ATTACHED =
   "The photos could not be attached to this ticket — tell the student the report was filed without them and to describe what the photo showed if it matters.";
 
+/**
+ * Tickets filed per turn. Keyed on the `ctx` object, which the chat adapter
+ * builds once per turn and hands to every tool call of it — the same pattern
+ * as `read_page`'s budget — so parallel calls in one step are counted too.
+ */
+const ticketsThisTurn = new WeakMap<CapabilityCtx, number>();
+
+function takeTicketSlot(ctx: CapabilityCtx): boolean {
+  const taken = ticketsThisTurn.get(ctx) ?? 0;
+  if (taken >= CHAT_MAX_TICKETS_PER_TURN) return false;
+  ticketsThisTurn.set(ctx, taken + 1);
+  return true;
+}
+
 const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
-  name: "report_issue",
+  name: REPORT_ISSUE_TOOL,
   description:
-    "File a maintenance ticket in the app when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1'), include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
+    "File a maintenance ticket in the app when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1') or scanned a unit's label, include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
   inputSchema: reportIssueInputSchema,
   kind: "write",
   async run(input: ReportIssueInput, ctx: CapabilityCtx): Promise<ReportIssueResult> {
@@ -104,6 +139,28 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
     // there rather than reaching a uuid column.
     const photoIds = input.photo_attachment_ids ?? [];
 
+    // Anonymous reporting stays open, but bounded (security fix 2026-10-05):
+    // a few tickets per turn for everybody, and a per-hour ceiling for a
+    // caller nobody signed in as, keyed on the hashed IP. Signed-in callers
+    // already carry their name on every ticket, and MCP writes pass
+    // `mcpWrite` on top.
+    if (!takeTicketSlot(ctx)) {
+      return {
+        success: false,
+        error: `report_issue has already filed ${CHAT_MAX_TICKETS_PER_TURN} tickets in this reply, its limit. Nothing more was recorded; tell the student to send the next report in a new message.`,
+      };
+    }
+    if (ctx.identity && !ctx.identity.userId) {
+      const limit = await checkRateLimit("anonTickets", ctx.identity);
+      if (!limit.allowed) {
+        return {
+          success: false,
+          error:
+            "Too many tickets have been filed from this connection without signing in. Nothing was recorded; tell the student to sign in to report more, or to find staff if it is urgent.",
+        };
+      }
+    }
+
     // The catalogue read is inside the try with the write: an unreachable
     // database fails the label lookup first, and a thrown tool call is a worse
     // answer than a reported failure — the student has to be told the report
@@ -111,17 +168,19 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
     try {
       const tools = await getCatalogTools();
       const unitLookup = buildUnitLookup(tools);
-      const match = unit_label ? findUnit(unitLookup, unit_label) : null;
+      // The tool whose page the person is on wins a label two tools share; a
+      // unit id (a scanned unit label gives one) is exact either way.
+      const match = unit_label ? findUnit(unitLookup, unit_label, { preferToolId: ctx.focusedToolId }) : null;
 
-      const record = await createMaintenanceLog({
+      // The one ticket write, shared with the quick report form (quick report
+      // spec §3.2): an open issue report, then the ticket-count caches.
+      const record = await fileProblemTicket({
         title,
         description,
         // The capability speaks Notion's display casing because that is what
         // the input schema was written against; the data module maps it down to
-        // the stored vocabulary (`issue_report`, `medium`, `open`).
-        type: "Issue Report",
+        // the stored vocabulary (`medium`).
         priority,
-        status: "Open",
         // The catalogue id is a Postgres uuid, and so is `unit_id` — no
         // translation left to do. An unresolved label files an unlinked
         // ticket, which is normal: most live logs have no unit at all.
@@ -135,16 +194,10 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         reportedByEmail: ctx.identity?.email || null,
         reportedByUserId: ctx.identity?.userId || null,
         photoAttachmentIds: photoIds,
+        // Stamped by the adapter, never by a request: the staff email says
+        // "via a connected app" for an MCP ticket (email notifications §5.1).
+        surface: ctx.surface ?? null,
       });
-
-      // The kiosk's open-ticket count (kiosk spec §3.1) and the tool page's
-      // maintenance history. A cache that cannot
-      // be dropped is a screen a poll behind, never a lost ticket.
-      try {
-        invalidateMaintenance();
-      } catch (err) {
-        console.warn(`[maintenance] ticket ${record.id} filed; the ticket-count cache could not be cleared`, err);
-      }
 
       // Photos offered but none claimed: say so rather than let the student
       // believe staff can see the picture they took (Article 4). Until the
@@ -169,8 +222,9 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
     } catch (err) {
       // The database's own words never reach the model: a driver message can
       // carry a connection string, and nothing the student can do with it is
-      // useful. The detail stays in the server log.
-      console.error("[maintenance] filing a ticket failed", err);
+      // useful. The server log gets the failure's kind, never the row's values
+      // (the reporter's email, name and description — `describeDbError`).
+      console.error("[maintenance] filing a ticket failed", describeDbError(err));
       return {
         success: false,
         error:

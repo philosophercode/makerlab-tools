@@ -4,8 +4,10 @@ import { writeTicket } from "../admin/ticket-write";
 import { can } from "../auth/permissions";
 import { listCatalogTools } from "../data/catalog";
 import { listMaintenanceQueue } from "../data/maintenance";
+import { listDueSchedules } from "../data/maintenance-schedules";
 import { listIntakeQueue, OPEN_PENDING_STATUSES } from "../data/pending-tools";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../db/schema/vocabulary";
+import { labToday } from "../lab-time";
 import { CHAT_PROPOSAL_FIELDS, PROPOSAL_VALUE_DESCRIPTION, proposeChange } from "./curation";
 import { findTool } from "./helpers";
 import type { Capability, CapabilityCtx, CapabilityTool, PromptEnv } from "./types";
@@ -24,6 +26,11 @@ import type { Capability, CapabilityCtx, CapabilityTool, PromptEnv } from "./typ
  *   on `/admin/maintenance`: reporter names (the caller holds
  *   `maintenance.manage`, the redaction rule's bar), never their email
  *   addresses (emails never enter a model's context).
+ * - `list_maintenance_due` (`maintenance.manage`) — the recurring tasks
+ *   overdue or due soon, as on `/admin/maintenance` (recurring maintenance
+ *   spec, amendment 2026-10-06). Read-only: a task is checked off with
+ *   **Done** in the app. Titles and instructions are staff-written, so the
+ *   result does not taint the turn.
  * - `update_ticket` (`maintenance.manage`) — **MCP only** since the
  *   assistant–GUI parity spec's phase 2: status, priority, assignee,
  *   resolution, through `writeTicket`, the path the admin page's own action
@@ -132,6 +139,68 @@ const listOpenTicketsTool: CapabilityTool<Record<string, never>, { count: number
         })
       );
     return { count: tickets.length, tickets };
+  },
+};
+
+// ── list_maintenance_due ──────────────────────────────────────────
+
+interface DueTaskEntry {
+  id: string;
+  title: string;
+  /** "General lab upkeep" when the task belongs to no tool. */
+  where: string;
+  every: string;
+  due_on: string;
+  state: "overdue" | "due_today" | "upcoming";
+  overdue_days: number;
+  last_done_on: string | null;
+  instructions: string | null;
+}
+
+interface ListDueInput {
+  within_days?: number;
+  tool?: string;
+}
+
+const listDueSchema: z.ZodType<ListDueInput> = z.object({
+  within_days: z
+    .number()
+    .int()
+    .min(0)
+    .max(90)
+    .optional()
+    .describe("How many days ahead to look. 0 is today and overdue only; default 7"),
+  tool: z.string().max(200).optional().describe("Only tasks on this tool: part of its name or its slug"),
+});
+
+const listMaintenanceDueTool: CapabilityTool<ListDueInput, { today: string; within_days: number; count: number; tasks: DueTaskEntry[]; page: string }> = {
+  name: "list_maintenance_due",
+  description:
+    "List the lab's recurring maintenance tasks that are overdue or due soon (default: the next 7 days) — the due list on /admin/maintenance — with each task's title, tool and unit (or general lab upkeep), how often it repeats, its due date, days overdue, when it was last done and the lab's instructions. Staff only. Read-only: a task is checked off with Done in the app.",
+  inputSchema: listDueSchema,
+  kind: "read",
+  requiredPermission: "maintenance.manage",
+  run: async (input) => {
+    const today = labToday();
+    const withinDays = input.within_days ?? 7;
+    const wanted = input.tool?.trim().toLowerCase() ?? "";
+    const items = await listDueSchedules(today, { withinDays });
+    const tasks = items
+      .filter((item) => !wanted || (item.toolName ?? "").toLowerCase().includes(wanted) || (item.toolSlug ?? "").toLowerCase() === wanted)
+      .map(
+        (item): DueTaskEntry => ({
+          id: item.id,
+          title: item.title,
+          where: item.toolName ? [item.toolName, item.unitLabel].filter(Boolean).join(" · ") : "General lab upkeep",
+          every: `every ${item.interval.count} ${item.interval.unit}${item.interval.count === 1 ? "" : "s"}`,
+          due_on: item.nextDueOn,
+          state: item.state === "overdue" ? "overdue" : item.state === "today" ? "due_today" : "upcoming",
+          overdue_days: item.overdueDays,
+          last_done_on: item.lastDoneOn,
+          instructions: item.instructions,
+        })
+      );
+    return { today, within_days: withinDays, count: tasks.length, tasks, page: "/admin/maintenance" };
   },
 };
 
@@ -289,6 +358,7 @@ The person you are talking to is lab staff, signed in. Besides helping like you 
 - **Changing a ticket is a card the person confirms.** When they ask to change one ("mark it resolved: replaced the tank"), call \`update_ticket\` with the ticket id(s) and the change — it proposes a confirmation card and changes nothing by itself. Several tickets with the same change go in one call. If more than one ticket could be meant, list them and ask which.
 - Use the ticket id from \`list_open_tickets\` (call it first if you do not have the id) — never guess an id. Assign only to \`me\` or \`nobody\`; to hand a ticket to someone else, point them to /admin/maintenance.
 - **Work already done** ("log maintenance on the WEN: replaced the belt") is \`log_completed_maintenance\` — a resolved log with the person as the one who did it. A problem that still needs fixing is \`report_issue\`.
+- **Recurring tasks.** When staff ask what upkeep is due ("what's due today?", "is anything overdue?"), call \`list_maintenance_due\` (\`within_days: 0\` for today and overdue only) and answer from its result: each task's title, where, and its due date or days overdue. If nothing is due, say so plainly. You cannot check a task off: point them to **Done** on /admin/maintenance.
 - Resolution notes and logs are always written in **English**, whatever language the conversation is in.`);
   }
 
@@ -308,6 +378,7 @@ export const staff: Capability = {
   tools: [
     listIntakeQueueTool as unknown as CapabilityTool<unknown, unknown>,
     listOpenTicketsTool as unknown as CapabilityTool<unknown, unknown>,
+    listMaintenanceDueTool as unknown as CapabilityTool<unknown, unknown>,
     updateTicketTool as unknown as CapabilityTool<unknown, unknown>,
     mcpProposeTool as unknown as CapabilityTool<unknown, unknown>,
   ],

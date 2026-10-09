@@ -71,7 +71,8 @@ test.describe("/admin/users — who may open it", () => {
     // `tools.edit` gets them through the layout…
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
-    await expect(page.getByRole("link", { name: "People", exact: true })).toHaveCount(0);
+    // Their People section opens Student projects; the roster is never offered.
+    await expect(page.getByRole("link", { name: "Roster", exact: true })).toHaveCount(0);
 
     // …and `users.manage`, which only a director holds, stops them here.
     await page.goto("/admin/users");
@@ -92,9 +93,9 @@ test.describe("/admin/users — who may open it", () => {
 
     await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
     await page.reload();
-    // The way into /admin is in the profile menu (2026-09-23).
-    await nav.getByRole("button", { name: /signed in as/i }).click();
-    await expect(nav.getByRole("menuitem", { name: "ADMIN" })).toBeVisible();
+    // The way into /admin is ADMIN in the bar (2026-10-07; it was in the
+    // profile menu from 2026-09-23).
+    await expect(nav.getByRole("link", { name: "ADMIN" })).toHaveAttribute("href", "/admin");
   });
 });
 
@@ -174,9 +175,9 @@ test.describe("/admin/users — changing a role", () => {
     await page.goto("/");
 
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
+    await expect(nav.getByRole("link", { name: "ADMIN" })).toBeVisible();
     await nav.getByRole("button", { name: /signed in as/i }).click();
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toBeVisible();
-    await expect(nav.getByRole("menuitem", { name: "ADMIN" })).toBeVisible();
   });
 });
 

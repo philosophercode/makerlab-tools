@@ -25,7 +25,7 @@ import { setPublished } from "./actions";
  */
 
 export const metadata = {
-  title: "Projects",
+  title: "Student projects",
 };
 
 export default async function AdminProjectsPage() {

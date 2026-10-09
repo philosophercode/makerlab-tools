@@ -36,7 +36,7 @@ import { summaryToPendingToolView } from "../../../../lib/intake/view";
  */
 
 export const metadata = {
-  title: "Intake",
+  title: "Add equipment",
 };
 
 export default async function AdminIntakePage() {

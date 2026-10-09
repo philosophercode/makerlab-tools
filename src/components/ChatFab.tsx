@@ -46,7 +46,7 @@ function savesData(): boolean {
 const LazyPanel = lazy(() => preloadChatPanel().then((panel) => ({ default: panel })));
 
 /**
- * The MakerLAB Assistant's floating button (identity spec 2026-09-28), its
+ * The MakerLAB AI's floating button (identity spec 2026-09-28), its
  * one-time introduction, and the assistant itself once it has been opened
  * (performance: the panel is not part of any page's first load).
  *
@@ -114,8 +114,8 @@ export function ChatFab() {
           aria-label={t("openAria")}
           title={t("openAria")}
           onClick={() => open()}
-          onPointerEnter={() => void preloadChatPanel()}
-          onFocus={() => void preloadChatPanel()}
+          onPointerEnter={() => void preloadChatPanel().catch(() => undefined)}
+          onFocus={() => void preloadChatPanel().catch(() => undefined)}
           className="ui fixed end-4 bottom-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center border border-primary bg-primary text-primary-foreground transition-colors duration-150 hover:bg-primary/85 sm:end-6 sm:bottom-6"
         >
           <BotMessageSquareIcon aria-hidden="true" className="size-6" />

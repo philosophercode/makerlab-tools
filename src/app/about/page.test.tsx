@@ -18,6 +18,16 @@ describe("/about", () => {
     expect(metadata.title).toBe("About");
   });
 
+  it("shows the lab's official logo under the title, before the first section", () => {
+    const { container } = render(<AboutPage />);
+
+    const logo = container.querySelector('[data-slot="brand-logo"]');
+    expect(logo).not.toBeNull();
+    expect(logo).toHaveAttribute("aria-hidden", "true");
+    const firstSection = screen.getByRole("region", { name: "The MakerLAB" });
+    expect(logo!.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("follows the official page's order, then About this project", () => {
     render(<AboutPage />);
 
@@ -66,7 +76,7 @@ describe("/about", () => {
 
     const project = section("About this project");
     expect(project).toHaveTextContent("MakerLAB Tools is the lab's digital guide");
-    expect(project).toHaveTextContent("MakerLAB Assistant");
+    expect(project).toHaveTextContent("MakerLAB AI");
     for (const mode of ["Operate", "Debug", "Create"]) expect(within(project).getByText(mode)).toBeInTheDocument();
     expect(project).toHaveTextContent(
       "Built by Isaac Steinberg (Software Engineer and Architect, Johnson Cornell Tech MBA '26) with Claude-assisted development for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run."

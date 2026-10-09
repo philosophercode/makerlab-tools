@@ -1,19 +1,21 @@
-import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { Button } from "@/components/ui/button";
-import { Prose, PublicPage } from "../../../components/system/PublicPage";
-import { siteConfig } from "../../../lib/site-config";
+import { Suspense } from "react";
+import { RefusedSignInView } from "../../../components/account/RefusedSignIn";
 import { allowedEmailDomain } from "../../../lib/auth/roles";
+import { readRefusedSignIn } from "../../../lib/auth/refused-sign-in-cookie";
 
 /**
- * `/auth/rejected` — where a non-institutional Google account lands (auth design
- * spec §5, §6). `DOMAIN_REJECTED_PATH` in `lib/auth/config.ts` points here.
+ * `/auth/rejected` — where a Google account outside the allowed domain lands
+ * (auth design spec §5, §6; amendment 2026-10-07). `DOMAIN_REJECTED_PATH` in
+ * `lib/auth/config.ts` points here.
  *
  * The one rule for this page: **it must not dead-end.** Someone who just picked
- * the wrong Google account has done nothing wrong and loses nothing — the
- * catalog and the assistant are open to anonymous visitors, and the page says
- * so and links straight back to them. A stack trace here is on the spec's list
- * of things that would embarrass us in production (§10).
+ * the wrong Google account has done nothing wrong and loses nothing. The page
+ * names the address that was refused, offers "Use a different Google account"
+ * (Google's chooser, after signing this browser out), and links back to the
+ * catalog, which is open to anonymous visitors.
+ *
+ * The address is read from a cookie, which makes the page dynamic, so it sits
+ * in a Suspense boundary; the fallback is the same page without the address.
  */
 
 export const metadata = {
@@ -21,25 +23,15 @@ export const metadata = {
 };
 
 export default function AuthRejectedPage() {
-  const t = useTranslations("auth");
-
+  const domain = allowedEmailDomain();
   return (
-    <PublicPage width="narrow" crumbs={[{ label: t("eyebrow") }]} title={t("title", { institution: siteConfig.institution })}>
-      <Prose className="pt-2">
-        <p>
-          {t("body", {
-            site: siteConfig.name,
-            institution: siteConfig.institution,
-            domain: allowedEmailDomain(),
-          })}
-        </p>
-        <p>{t("stillWorks")}</p>
-      </Prose>
-      <div className="pt-6">
-        <Button asChild variant="default">
-          <Link href="/">{t("browseTools")}</Link>
-        </Button>
-      </div>
-    </PublicPage>
+    <Suspense fallback={<RefusedSignInView reason="domain" refused={null} domain={domain} />}>
+      <Rejected domain={domain} />
+    </Suspense>
   );
+}
+
+async function Rejected({ domain }: { domain: string }) {
+  const refused = await readRefusedSignIn();
+  return <RefusedSignInView reason="domain" refused={refused} domain={domain} />;
 }

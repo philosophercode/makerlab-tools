@@ -33,7 +33,7 @@ export interface ModelImage {
   mediaType: ImageFormat;
 }
 
-type SharpFactory = typeof import("sharp");
+type SharpFactory = typeof import("sharp").default;
 
 /** How `sharp` is loaded — replaceable so a test can take it away. */
 export type SharpLoader = () => Promise<SharpFactory | null>;

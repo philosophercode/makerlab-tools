@@ -418,10 +418,12 @@ function validateAssertion(raw: YamlValue, file: string, caseId: string): Assert
     "called_tool",
     "not_called_tool",
     "contains_all",
+    "contains_any",
     "not_contains_any",
     "identified_items",
     "identified_count",
     "identified_tool",
+    "cites_only_tool",
   ];
   if (needsValue.includes(kind) && (spec.value === undefined || spec.value.length === 0)) {
     fail(file, 0, `case "${caseId}": ${kind} requires a "value"`);
@@ -431,6 +433,10 @@ function validateAssertion(raw: YamlValue, file: string, caseId: string): Assert
   }
   if (kind === "identified_count" && (typeof spec.value !== "string" || !/^\d+(-\d+)?$/.test(spec.value))) {
     fail(file, 0, `case "${caseId}": identified_count takes a count or a range, like "3" or "3-4"`);
+  }
+
+  if (kind === "cites_only_tool" && (typeof spec.value !== "string" || !/^[a-z0-9][a-z0-9-]*$/.test(spec.value))) {
+    fail(file, 0, `case "${caseId}": cites_only_tool takes one catalog slug, like "bambu-lab-x1-carbon"`);
   }
 
   if (kind === "identified_tool" && (typeof spec.value !== "string" || !/^(none|[a-z0-9][a-z0-9-]*(\|ask)?)$/.test(spec.value))) {

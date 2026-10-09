@@ -39,6 +39,14 @@ export const BLOCKED_SIGN_IN_PATH = "/auth/blocked";
  */
 export const EMAIL_NOT_ALLOWED_CODE = "email_not_allowed";
 
+/**
+ * Better Auth's code when the Google provider returned no user. With `hd` on
+ * the provider, that is what an account outside the domain gets: the provider
+ * checks the id token's `hd` claim and a personal account carries none, so it
+ * is refused before this app's create hook ever sees the address.
+ */
+export const HOSTED_DOMAIN_REFUSED_CODE = "unable_to_get_user_info";
+
 /** `DOMAIN_REJECTED_PATH`, repeated here because `config.ts` imports this module. */
 const DOMAIN_REJECTED_SIGN_IN_PATH = "/auth/rejected";
 
@@ -62,9 +70,19 @@ export function emailBlockedError(): APIError {
  * If `response` is Better Auth sending a refused sign-up to its error page,
  * the same redirect pointed at {@link BLOCKED_SIGN_IN_PATH} (a blocked address)
  * or the domain page (an address outside the allowed domain) instead; otherwise
- * `response` unchanged. Cookies the callback set (clearing its state) ride along.
+ * `response` unchanged. Cookies the callback set (clearing its state, naming
+ * the refused address) ride along.
+ *
+ * `hostedDomainOnly` is true when the provider sends `hd` (no named
+ * exceptions): then {@link HOSTED_DOMAIN_REFUSED_CODE} is the domain refusal
+ * too, and goes to the domain page rather than Better Auth's bare error page
+ * (auth spec amendment 2026-10-07). With named exceptions `hd` is not sent, and
+ * that code means something else went wrong, so it is left alone.
  */
-export function redirectBlockedSignIn(response: Response): Response {
+export function redirectBlockedSignIn(
+  response: Response,
+  { hostedDomainOnly = false }: { hostedDomainOnly?: boolean } = {}
+): Response {
   if (response.status < 300 || response.status >= 400) return response;
   const location = response.headers.get("location");
   if (!location) return response;
@@ -76,7 +94,11 @@ export function redirectBlockedSignIn(response: Response): Response {
   }
   const error = url.searchParams.get("error");
   const target =
-    error === EMAIL_BLOCKED_CODE ? BLOCKED_SIGN_IN_PATH : error === EMAIL_NOT_ALLOWED_CODE ? DOMAIN_REJECTED_SIGN_IN_PATH : null;
+    error === EMAIL_BLOCKED_CODE
+      ? BLOCKED_SIGN_IN_PATH
+      : error === EMAIL_NOT_ALLOWED_CODE || (hostedDomainOnly && error === HOSTED_DOMAIN_REFUSED_CODE)
+        ? DOMAIN_REJECTED_SIGN_IN_PATH
+        : null;
   if (!target) return response;
   const headers = new Headers(response.headers);
   headers.set("location", target);

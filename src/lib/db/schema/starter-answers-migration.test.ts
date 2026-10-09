@@ -16,16 +16,18 @@ import { tools } from "./tools";
  */
 
 describe("migration 0026 — starter_answers", () => {
-  it("is the journal's last entry, after 0025's timestamp", () => {
+  it("is in the journal at 26, after 0025's timestamp and before every later migration's", () => {
     const journal = JSON.parse(readFileSync(join(migrationsFolder(), "meta", "_journal.json"), "utf8")) as {
       entries: { idx: number; when: number; tag: string }[];
     };
-    const last = journal.entries[journal.entries.length - 1];
-    expect(last.tag).toBe("0026_starter_answers");
-    expect(last.idx).toBe(26);
+    const at = journal.entries.findIndex((entry) => entry.tag === "0026_starter_answers");
+    expect(at).toBeGreaterThanOrEqual(0);
+    const entry = journal.entries[at];
+    expect(entry.idx).toBe(26);
     // PR #121's 0025_multi_item_intake: 1790655200848.
-    expect(last.when).toBeGreaterThan(1790655200848);
-    for (const entry of journal.entries.slice(0, -1)) expect(entry.when).toBeLessThan(last.when);
+    expect(entry.when).toBeGreaterThan(1790655200848);
+    for (const before of journal.entries.slice(0, at)) expect(before.when).toBeLessThan(entry.when);
+    for (const after of journal.entries.slice(at + 1)) expect(after.when).toBeGreaterThan(entry.when);
   });
 
   it("creates the table with its columns, its chip key and its tool index", async () => {

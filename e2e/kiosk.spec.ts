@@ -41,7 +41,7 @@ test.describe("Kiosk", () => {
     await expect(page.locator(".status-strip")).toHaveCount(0);
     await expect(page.locator(".demo-banner")).toHaveCount(0);
     await expect(page.locator('[data-slot="chat-launcher"]')).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open MakerLAB AI" })).toHaveCount(0);
 
     // The demo seed: one open ticket, the lab hours, the demo chip in place of the banner.
     await expect(page.locator("[data-kiosk-tickets]")).toHaveText("1");
@@ -165,9 +165,9 @@ test.describe("Kiosk", () => {
 
       if (viewport.width < 640) {
         // On a phone the assistant is a link as well as a (smaller) QR code.
-        await expect(page.getByRole("link", { name: "Open the assistant" })).toHaveAttribute("href", /\/\?src=kiosk&ask=1$/);
+        await expect(page.getByRole("link", { name: "Open MakerLAB AI" })).toHaveAttribute("href", /\/\?src=kiosk&ask=1$/);
       } else {
-        await expect(page.getByRole("link", { name: "Open the assistant" })).toBeHidden();
+        await expect(page.getByRole("link", { name: "Open MakerLAB AI" })).toBeHidden();
       }
       await screenshot(page, `${viewport.name}-machines-down`);
     });
@@ -228,12 +228,12 @@ test.describe("Kiosk", () => {
     await page.goto("/?src=kiosk&ask=1");
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("heading", { name: "MakerLAB Assistant" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "MakerLAB AI" })).toBeVisible();
   });
 
   test("the catalogue without ?ask=1 leaves the assistant closed", async ({ page }) => {
     await page.goto("/?src=kiosk");
-    await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open MakerLAB AI" })).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 });

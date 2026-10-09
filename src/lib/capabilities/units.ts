@@ -8,6 +8,7 @@ import {
   type UnitLookupEntry,
 } from "./helpers";
 import { can } from "../auth/permissions";
+import { serialsForViewer } from "../unit-serials";
 import type { Capability, CapabilityCtx, CapabilityTool, PromptEnv } from "./types";
 import type { MakerLabUnit } from "../../components/catalog-types";
 
@@ -42,7 +43,14 @@ type GetUnitDetailsResult =
       status: MakerLabUnit["status"];
       condition: MakerLabUnit["condition"];
       location: string;
-      serial: string;
+      /** The whole serial: only for a caller holding `catalog.view_serials` (amendment 2026-10-06). */
+      serial?: string;
+      /**
+       * Everyone else's view of it: the last four characters, masked
+       * (`•••• 9831`). Absent for staff, and when the serial is missing or four
+       * characters or fewer.
+       */
+      serial_masked?: string;
       date_acquired: string | null;
       detail_page: string;
       maintenance_logs: MaintenanceEntry[];
@@ -51,7 +59,7 @@ type GetUnitDetailsResult =
 const getUnitDetailsInputSchema: z.ZodType<GetUnitDetailsInput> = z.object({
   unit_label: z
     .string()
-    .describe("The unit label, e.g. 'Prusa #1' or 'Form 2 #1'."),
+    .describe("The unit label, e.g. 'Prusa #1' or 'Form 2 #1', or the unit's id when you have it."),
 });
 
 const getUnitDetails: CapabilityTool<
@@ -66,7 +74,7 @@ const getUnitDetails: CapabilityTool<
   run: async ({ unit_label }: GetUnitDetailsInput, ctx: CapabilityCtx): Promise<GetUnitDetailsResult> => {
     const tools = await getCatalogTools();
     const lookup = buildUnitLookup(tools);
-    const match = findUnit(lookup, unit_label);
+    const match = findUnit(lookup, unit_label, { preferToolId: ctx.focusedToolId });
     if (!match) {
       const sample = lookup
         .slice(0, 8)
@@ -78,6 +86,11 @@ const getUnitDetails: CapabilityTool<
       };
     }
 
+    const [serials, maintenanceLogs] = await Promise.all([
+      serialsForViewer(ctx.identity, [match.id]),
+      recentMaintenance(match.id, reporterOption(ctx)),
+    ]);
+    const serial = serials.get(match.id);
     return {
       found: true,
       unit_id: match.id,
@@ -87,10 +100,12 @@ const getUnitDetails: CapabilityTool<
       status: match.status,
       condition: match.condition,
       location: match.location,
-      serial: match.serial,
+      // The whole serial for staff, the masked last four for everyone else
+      // (amendment 2026-10-06); absent, not empty, when there is nothing to show.
+      ...(serial !== undefined ? { serial } : match.serialMasked ? { serial_masked: match.serialMasked } : {}),
       date_acquired: match.dateAcquired,
       detail_page: `/tools/${match.toolSlug}`,
-      maintenance_logs: await recentMaintenance(match.id, reporterOption(ctx)),
+      maintenance_logs: maintenanceLogs,
     };
   },
 };
@@ -142,7 +157,7 @@ const getMaintenanceHistory: CapabilityTool<
   ): Promise<GetMaintenanceHistoryResult> => {
     const tools = await getCatalogTools();
     const lookup = buildUnitLookup(tools);
-    const match = findUnit(lookup, unit_label);
+    const match = findUnit(lookup, unit_label, { preferToolId: ctx.focusedToolId });
     if (!match) {
       return {
         found: false,

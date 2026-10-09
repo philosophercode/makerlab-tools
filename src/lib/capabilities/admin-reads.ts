@@ -147,6 +147,7 @@ export const adminReads: Capability = {
     listCorrectionsTool as unknown as CapabilityTool<unknown, unknown>,
     listProjectQueueTool as unknown as CapabilityTool<unknown, unknown>,
     // The value report's summary (usage insight spec amendment "Value report"): chat only, insights.view.
+    // Its MCP twin, super admins only, is in `insights.ts` (amendment 2026-09-30).
     getValueReportTool as unknown as CapabilityTool<unknown, unknown>,
   ],
 };

@@ -6,12 +6,18 @@ import { MaintenanceQueue } from "../../../components/admin/MaintenanceQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listMaintenanceQueue } from "../../../lib/data/maintenance";
+import { countDueSchedules } from "../../../lib/data/maintenance-schedules";
 import { listToolUnitOptions } from "../../../lib/data/tool-options";
 import { listAssignableStaff } from "../../../lib/data/users";
+import { labToday } from "../../../lib/lab-time";
 import { logCompletedMaintenance, updateTicket } from "./actions";
 
 /**
- * `/admin/maintenance` — the ticket queue (spec §5.6, §6).
+ * `/admin/maintenance` — the Maintenance section's **Tickets** tab (admin
+ * sections spec 2026-10-07): the ticket queue (spec §5.6, §6). The recurring
+ * tasks due, which opened this page from 2026-10-06, are on the **Shift
+ * checklist** tab and the overview; the facts line still counts the overdue
+ * and due-today ones.
  *
  * Requires `maintenance.manage`. The layout above answered the coarse question
  * and let anyone holding an admin permission through; the exact refusal happens
@@ -43,7 +49,14 @@ export default async function AdminMaintenancePage() {
 
   // The roster read is the assignee list, not an authorization input: assigning
   // a ticket grants nobody anything (see `listAssignableStaff`).
-  const [tickets, staff, toolOptions] = await Promise.all([listMaintenanceQueue(), listAssignableStaff(), listToolUnitOptions()]);
+  const today = labToday();
+  const [tickets, staff, toolOptions, taskCounts] = await Promise.all([
+    listMaintenanceQueue(),
+    listAssignableStaff(),
+    listToolUnitOptions(),
+    // Recurring tasks overdue or due today, for the facts line (the list is the Shift checklist's).
+    countDueSchedules(today),
+  ]);
 
   const open = tickets.filter((ticket) => ticket.status === "open").length;
   const inProgress = tickets.filter((ticket) => ticket.status === "in_progress").length;
@@ -62,6 +75,8 @@ export default async function AdminMaintenancePage() {
           t("facts.inProgress", { count: inProgress }),
           t("facts.urgent", { count: urgent }),
           t("facts.tickets", { count: tickets.length }),
+          taskCounts.overdue > 0 && t("facts.tasksOverdue", { count: taskCounts.overdue }),
+          taskCounts.dueToday > 0 && t("facts.tasksDueToday", { count: taskCounts.dueToday }),
         ]}
       />
 

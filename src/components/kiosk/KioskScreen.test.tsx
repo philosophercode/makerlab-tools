@@ -106,6 +106,15 @@ describe("KioskScreen — what is on screen", () => {
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
   });
 
+  it("heads the top bar with the lab's official logo, beside the title that names the lab", () => {
+    const { container } = renderScreen();
+    const logo = container.querySelector('[data-kiosk] header [data-slot="brand-logo"]') as HTMLElement;
+    expect(logo).not.toBeNull();
+    expect(logo).toHaveAttribute("aria-hidden", "true");
+    expect(logo.style.maskImage || logo.getAttribute("style")).toContain("/brand/cornell-tech-makerlab-logo.svg");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("MakerLAB Tools");
+  });
+
   it("says all machines are running, with how many, when nothing is down", () => {
     renderScreen(snapshot({ down: [] }));
     expect(screen.getByText("All machines running")).toBeInTheDocument();

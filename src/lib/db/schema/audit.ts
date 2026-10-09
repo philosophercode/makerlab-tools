@@ -56,6 +56,11 @@ export const AUDIT_ACTIONS = [
   "category.created",
   "category.merged",
   "category.retired",
+  // Somebody turned an email off with the one-click unsubscribe (email
+  // notifications spec §3.7). The actor is that person; `detail` is
+  // `{ event, from, to }` and never an address. Individual sends are not
+  // audited: the delivery table is their log.
+  "notification.unsubscribed",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -1,6 +1,6 @@
 import { waitForElementToBeRemoved } from "@testing-library/react";
 import { PrimaryNav } from "./PrimaryNav";
-import { render, screen, userEvent } from "../../test/utils/render";
+import { act, render, screen, userEvent } from "../../test/utils/render";
 import type { ClientIdentity, SignInStart } from "../lib/auth/sign-in-client";
 
 // PrimaryNav is a client component that reads the active route from
@@ -262,8 +262,10 @@ describe("PrimaryNav — sign-in control", () => {
 });
 
 // Floor map spike (spec 2026-09-25, open question): MAP joins the links.
-// Isaac, 2026-09-23: the bar holds TOOLS, PROJECTS, ABOUT, REPORT and the
-// profile control (or SIGN IN) — nothing else, whatever the role. Admin, Add
+// Isaac, 2026-10-07 (identity spec amendment "ADMIN in the bar"): the bar
+// holds TOOLS, MAP, PROJECTS, ABOUT, then ADMIN for those who can reach
+// /admin, and the profile control (or SIGN IN) — nothing else. REPORT left
+// the bar (the footer, the tool page and the chat keep reporting); Add
 // equipment and Sign out are in the profile menu; Refresh is on /admin.
 describe("PrimaryNav — what the bar holds", () => {
   beforeEach(() => {
@@ -273,10 +275,9 @@ describe("PrimaryNav — what the bar holds", () => {
   });
 
   it.each([
-    ["user", "Ada Lovelace", "Ada"],
     ["admin", "Niti Parikh", "Niti"],
     ["super_admin", "Isaac Steinberg", "Isaac"],
-  ] as const)("shows only links, Report and the profile control to %s", async (role, name, first) => {
+  ] as const)("shows the links, ADMIN and the profile control to %s", async (role, name, first) => {
     fetchIdentity.mockResolvedValue({ role, name });
     render(<PrimaryNav />);
 
@@ -287,37 +288,72 @@ describe("PrimaryNav — what the bar holds", () => {
       "MAP",
       "PROJECTS",
       "ABOUT",
+      "ADMIN",
     ]);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Report a problem",
-      `Signed in as ${first}`,
-    ]);
+    expect(screen.getByRole("link", { name: "ADMIN" })).toHaveAttribute("href", "/admin");
+    // MENU is in the DOM everywhere and drawn only on a short viewport (CSS).
+    expect(
+      screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent)
+    ).toEqual(["MENU", `Signed in as ${first}`]);
   });
 
-  it("shows only links, Report and Sign in to an anonymous visitor", async () => {
+  it("gives a signed-in student the links and the profile control, and no ADMIN", async () => {
+    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
+    render(<PrimaryNav />);
+
+    await screen.findByRole("button", { name: "Signed in as Ada" });
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "TOOLS",
+      "MAP",
+      "PROJECTS",
+      "ABOUT",
+    ]);
+    expect(
+      screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent)
+    ).toEqual(["MENU", "Signed in as Ada"]);
+  });
+
+  it("shows only the links and Sign in to an anonymous visitor — no Report, no Admin", async () => {
     render(<PrimaryNav />);
 
     await screen.findByRole("button", { name: /Sign in/ });
     expect(screen.getAllByRole("link")).toHaveLength(4);
-    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "REPORT",
-      "SIGN IN",
-    ]);
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual(["MENU", "SIGN IN"]);
+    expect(screen.queryByRole("button", { name: "Report a problem" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
   });
 
-  it("keeps Admin, Add, Refresh and Sign out out of the bar until the menu opens", async () => {
+  it("marks ADMIN as the current page anywhere under /admin, colour and underline only", async () => {
+    usePathname.mockReturnValue("/admin/maintenance");
+    fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
+    render(<PrimaryNav />);
+
+    const admin = await screen.findByRole("link", { name: "ADMIN" });
+    expect(admin).toHaveClass("primary-nav-admin", "is-active");
+    expect(screen.getByRole("link", { name: "TOOLS" })).not.toHaveClass("is-active");
+  });
+
+  it("does not mark ADMIN elsewhere", async () => {
+    usePathname.mockReturnValue("/map");
+    fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
+    render(<PrimaryNav />);
+
+    expect(await screen.findByRole("link", { name: "ADMIN" })).not.toHaveClass("is-active");
+    expect(screen.getByRole("link", { name: "MAP" })).toHaveClass("is-active");
+  });
+
+  it("keeps Add, Refresh and Sign out out of the bar until the menu opens", async () => {
     fetchIdentity.mockResolvedValue({ role: "super_admin", name: "Isaac Steinberg" });
     render(<PrimaryNav />);
 
     await screen.findByRole("button", { name: "Signed in as Isaac" });
-    expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add new equipment/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Refresh catalog" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "SIGN OUT" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
-  it("opens the profile menu from the bar, with the entries the role holds", async () => {
+  it("opens the profile menu from the bar, with the entries the role holds and no Admin", async () => {
     const user = userEvent.setup();
     fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
     render(<PrimaryNav />);
@@ -325,7 +361,7 @@ describe("PrimaryNav — what the bar holds", () => {
     await user.click(await screen.findByRole("button", { name: "Signed in as Niti" }));
 
     const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(items).toEqual(["ADMIN", "ADD EQUIPMENT", "YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]);
+    expect(items).toEqual(["ADD EQUIPMENT", "ACCOUNT", "CONNECT AI ASSISTANT (MCP)", "SIGN OUT"]);
   });
 
   it("offers development-only sign-in only when the server says every guard passed", async () => {
@@ -343,5 +379,153 @@ describe("PrimaryNav — what the bar holds", () => {
 
     await screen.findByRole("button", { name: /Sign in with your/ });
     expect(screen.queryByRole("link", { name: "Sign in as (dev)" })).not.toBeInTheDocument();
+  });
+});
+
+// The short bar (a phone on its side, DESIGN.md §8.12): the links (and ADMIN,
+// for those who can reach /admin) sit behind MENU, a disclosure button. CSS decides where MENU is drawn; these
+// tests cover what it does — jsdom applies no stylesheet.
+describe("PrimaryNav — the short bar's MENU", () => {
+  beforeEach(() => {
+    usePathname.mockReturnValue("/");
+    fetchIdentity.mockClear();
+    fetchIdentity.mockResolvedValue(null);
+  });
+
+  const menuButton = () => screen.getByRole("button", { name: "MENU" });
+  const panel = () => document.getElementById(menuButton().getAttribute("aria-controls")!)!;
+
+  it("is a disclosure button naming the panel that holds the links", () => {
+    render(<PrimaryNav />);
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).not.toHaveAttribute("aria-haspopup");
+    expect(panel()).not.toBeNull();
+    expect(panel()).not.toHaveAttribute("data-open");
+    expect(Array.from(panel().children).map((child) => child.textContent)).toEqual([
+      "TOOLS",
+      "MAP",
+      "PROJECTS",
+      "ABOUT",
+    ]);
+  });
+
+  it("holds ADMIN too, last, for someone who can reach /admin", async () => {
+    fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
+    render(<PrimaryNav />);
+
+    await screen.findByRole("link", { name: "ADMIN" });
+    expect(Array.from(panel().children).map((child) => child.textContent)).toEqual([
+      "TOOLS",
+      "MAP",
+      "PROJECTS",
+      "ABOUT",
+      "ADMIN",
+    ]);
+  });
+
+  it("opens and closes from the button", async () => {
+    const user = userEvent.setup();
+    render(<PrimaryNav />);
+
+    await user.click(menuButton());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    expect(panel()).toHaveAttribute("data-open", "true");
+
+    await user.click(menuButton());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(panel()).not.toHaveAttribute("data-open");
+  });
+
+  it("walks the links with Tab, and Escape closes it with focus back on the button", async () => {
+    const user = userEvent.setup();
+    render(<PrimaryNav />);
+
+    menuButton().focus();
+    await user.keyboard("{Enter}");
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+
+    await user.tab();
+    expect(screen.getByRole("link", { name: "TOOLS" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "MAP" })).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).toHaveFocus();
+  });
+
+  it("closes when a link is followed", async () => {
+    const user = userEvent.setup();
+    render(<PrimaryNav />);
+    // Keep jsdom from navigating; the link's own handler still runs.
+    const stop = (event: Event) => event.preventDefault();
+    window.addEventListener("click", stop, { capture: true });
+
+    await user.click(menuButton());
+    await user.click(screen.getByRole("link", { name: "PROJECTS" }));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+
+    window.removeEventListener("click", stop, { capture: true });
+  });
+
+  it("closes when ADMIN is followed", async () => {
+    const user = userEvent.setup();
+    fetchIdentity.mockResolvedValue({ role: "super_admin", name: "Isaac Steinberg" });
+    render(<PrimaryNav />);
+    const stop = (event: Event) => event.preventDefault();
+    window.addEventListener("click", stop, { capture: true });
+
+    await user.click(menuButton());
+    await user.click(await screen.findByRole("link", { name: "ADMIN" }));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+
+    window.removeEventListener("click", stop, { capture: true });
+  });
+
+  it("closes on a press outside, and when focus moves to anything else", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <PrimaryNav />
+        <p>Page</p>
+        <button type="button">Elsewhere</button>
+      </>
+    );
+
+    await user.click(menuButton());
+    await user.click(screen.getByText("Page"));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(menuButton());
+    act(() => screen.getByRole("button", { name: "Elsewhere" }).focus());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Elsewhere" })).toHaveFocus();
+  });
+
+  it("closes when the viewport stops being short — a phone turned upright", async () => {
+    const listeners = new Set<() => void>();
+    const list = {
+      matches: true,
+      addEventListener: (_: string, fn: () => void) => listeners.add(fn),
+      removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
+    };
+    const matchMedia = vi.fn(() => list);
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: matchMedia });
+    try {
+      const user = userEvent.setup();
+      render(<PrimaryNav />);
+
+      await user.click(menuButton());
+      expect(matchMedia).toHaveBeenCalledWith("(orientation: landscape) and (max-height: 500px)");
+      expect(listeners.size).toBe(1);
+
+      list.matches = false;
+      act(() => listeners.forEach((fn) => fn()));
+      expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+      expect(listeners.size).toBe(0);
+    } finally {
+      Reflect.deleteProperty(window, "matchMedia");
+    }
   });
 });

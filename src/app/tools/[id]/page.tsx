@@ -9,6 +9,8 @@ import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
 import { ToolQrButton } from "../../../components/tool/ToolQrButton";
+import { UnitsForViewer } from "../../../components/tool/UnitsForViewer";
+import { UnitsTable } from "../../../components/tool/UnitsTable";
 import { qrSiteUrl } from "../../../lib/qr/site-url";
 import { toolPageUrl, toolQrTargetUrl } from "../../../lib/qr/urls";
 import { UsageBeacon } from "../../../components/usage/UsageBeacon";
@@ -160,10 +162,15 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
   return (
     <>
       {/* Arrivals from a QR label on a machine get the assistant surfaced above
-          the specs. Suspended so reading `?src=qr` stays a dynamic hole and the
-          prerendered detail shell below is untouched. */}
+          the specs, and a unit's label (`?unit=`) names that unit with Report
+          a problem first (the quick report form, that unit preselected). Suspended so reading the query stays a dynamic hole
+          and the prerendered detail shell below is untouched. */}
       <Suspense fallback={null}>
-        <QrArrivalNotice toolName={tool.name} />
+        <QrArrivalNotice
+          toolSlug={tool.slug}
+          toolName={tool.name}
+          units={tool.units.map((unit) => ({ id: unit.id, name: unit.name, status: unit.status }))}
+        />
       </Suspense>
       <DetailShell
         tool={tool}
@@ -183,6 +190,14 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
           // cached shell sent to everyone else carries no placement.
           <Suspense fallback={null}>
             <SignedInToolLocation tool={tool} />
+          </Suspense>
+        }
+        unitsTable={
+          // Whole serials for staff only (amendment 2026-10-06). The cached
+          // shell holds the public table, built from a catalogue that carries
+          // only the masked last four; the hole swaps in the staff table for staff.
+          <Suspense fallback={<UnitsTable units={tool.units} />}>
+            <UnitsForViewer units={tool.units} />
           </Suspense>
         }
       />

@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { useSharedIdentity } from "../../lib/auth/identity-store";
 import { useChatLauncher } from "../ChatLauncherContext";
 import { CommandPalette } from "./CommandPalette";
 import { usePaletteScope } from "./palette-scope";
 import type { PaletteTool } from "./palette-types";
+import { ALL_TOOLS_PATH } from "../../lib/gallery-links";
 
 /**
  * The header's search field and the ⌘K palette behind it, on every page
@@ -24,8 +26,11 @@ export function HeaderSearch({ tools }: { tools: readonly PaletteTool[] }) {
   const identity = useSharedIdentity();
   const scope = usePaletteScope();
   const { open } = useChatLauncher();
+  // The home page — the tool list — has its own search box (student home spec 2026-10-07 §6).
+  const pathname = usePathname();
+  const pageHasSearch = pathname === ALL_TOOLS_PATH;
   const role = scope?.role ?? identity?.role ?? "anonymous";
   const drafts = scope?.drafts;
   const all = useMemo(() => (drafts && drafts.length > 0 ? [...tools, ...drafts] : tools), [tools, drafts]);
-  return <CommandPalette role={role} tools={all} onAsk={(query) => open(query || undefined)} />;
+  return <CommandPalette role={role} tools={all} onAsk={(query) => open(query || undefined)} triggerHidden={pageHasSearch} />;
 }

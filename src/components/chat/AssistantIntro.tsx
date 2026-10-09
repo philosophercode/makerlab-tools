@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * The first-visit callout beside the chat button (identity spec 2026-09-28
- * §3): "Meet the MakerLAB Assistant". Not a dialog — it takes no focus, traps
+ * §3): "Meet MakerLAB AI". Not a dialog — it takes no focus, traps
  * nothing and covers only its own corner, so the page stays usable. The
  * parent decides when it shows (`useAssistantIntroSeen`) and what opening and
  * dismissing do. The entrance animation runs only for viewers who allow motion.

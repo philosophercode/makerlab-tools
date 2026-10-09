@@ -206,6 +206,29 @@ export interface PromptEnv {
   manualOutlines?: ManualOutlineForPrompt[];
   /** The record being curated, for the fenced "Curating" block (refresh research spec §12.1). */
   curation?: CurationContext;
+  /**
+   * The lab-wide notes, one per line (identity spec amendment "Lab notes"),
+   * read by the surface (`lib/lab-notes/read.ts`). The same for every request
+   * until staff change them, so they go in the prompt's stable prefix.
+   */
+  labNotes?: readonly string[];
+  /**
+   * The focused tool's current tool skill, compact and within its budget
+   * (tool skills spec 2026-10-07 §5.6) — loaded by the surface
+   * (`chat/tool-skill.ts`). Absent off a tool page, for a tool with no
+   * skill, or when the read failed.
+   */
+  toolSkill?: ToolSkillForPrompt | null;
+}
+
+/** The focused tool's skill, as the prompt carries it. */
+export interface ToolSkillForPrompt {
+  toolName: string;
+  version: number;
+  /** ISO 8601. */
+  generatedAt: string;
+  /** The compact skill (`renderSkillCompact`), already within the budget. */
+  text: string;
 }
 
 /** One searchable manual of the focused tool, as the prompt lists it. */

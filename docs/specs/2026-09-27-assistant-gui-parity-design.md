@@ -400,7 +400,7 @@ least role holding the permission: *anyone* (no sign-in), *user* (signed in), *a
 | # | Action | Page | Route / server action | Permission · role | Assistant today |
 |---|---|---|---|---|---|
 | 1 | Report a correction | `/tools/[id]` (FlagButton) | `POST /api/flags` | — · anyone | **yes** — `report_correction` |
-| 2 | Report a maintenance problem | *(no GUI form; chat only)* | — | — · anyone (chat), user (MCP) | **yes** — `report_issue` |
+| 2 | Report a maintenance problem | `/tools/[id]` and the QR arrival notice (quick report form, amendment 2026-10-07); before that chat only | `POST /api/report` | — · anyone (form, chat), user (MCP) | **yes** — `report_issue` |
 | 3 | Submit a project | `/projects/new` | `POST /api/projects` (+ `POST /api/uploads`, kind `project`) | `projects.submit` · user | **no** |
 | 4 | Change language | header | `changeLocale` (`src/i18n/actions.ts`) | — · anyone | **no** — non-goal (client preference) |
 | 5 | Upload a photo | chat, project form | `POST /api/uploads` | per kind | **partial** — chat attachments only |
@@ -1558,3 +1558,332 @@ highlighting, notes, the never list. `e2e/assistant-page.spec.ts`: visitor and s
 highlighting, the four links, no sideways scroll at 375px.
 
 No action, tool, permission or count changes.
+
+### 2026-10-06 — lab notes: one GUI-only action
+
+The identity spec's "Lab notes" amendment (`2026-09-28-makerlab-identity-design.md`) adds the
+lab-wide notes: the lab's own rules, one per line, which the assistant knows in every conversation.
+They are one `lab_settings` row (`lab_notes`), saved whole from `/admin/inventory/lab-notes` by one
+registered action, run by the page's server action (`app/admin/inventory/lab-notes/actions.ts`,
+`saveLabNotes`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `lab.set_notes` | `set_lab_notes` | catalog | `tools.edit` | never | never |
+
+`assistant: "never"`, no tool and no preview: the notes are instructions the assistant reads on
+every turn, so it never proposes its own, and a page or a manual it read could otherwise word them.
+A tool's lab notes are `tools.notes`, written by the editor's save (`saveTool`, already exempt:
+field edits stay on curation's `propose_change`, which does not offer `notes`). No new permission.
+No name matches the deny list. `/assistant` shows it as page-only, in the catalog area (`ACTION_AREAS`
+gains `lab`). **Counts:** action tools, chat tools and the MCP lists do not change. The registry
+holds 52 definitions. No migration: `lab_settings` (`0024`) takes a new key without one.
+
+### 2026-10-06 — recurring maintenance v1: four GUI-only actions and one read
+
+The recurring maintenance spec's v1 amendment (2026-10-06) adds recurring tasks: set up on
+`/admin/maintenance/schedules`, checked off with **Done** on `/admin/maintenance`. Four registered
+actions, each run by a one-line server action in `app/admin/maintenance/schedule-actions.ts`
+(`createSchedule`, `editSchedule`, `setScheduleStatus`, `completeSchedule`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `schedules.create` | `create_maintenance_task` | operational | `maintenance.manage` | never | never |
+| `schedules.update` | `edit_maintenance_task` | operational | `maintenance.manage` | never | never |
+| `schedules.set_status` | `set_maintenance_task_status` | operational | `maintenance.manage` | never | never |
+| `schedules.complete` | `complete_maintenance_task` | operational | `maintenance.manage` | never | never |
+
+`assistant: "never"` for now, no tool and no preview: proposing a task or checking one off from the
+chat needs a card and its strings, which the recurring maintenance spec lists as a follow-up. One read
+joins the staff capability on both surfaces: `list_maintenance_due` (`maintenance.manage`) — the
+recurring tasks overdue or due within N days, with where, how often, due date, days overdue, last done
+and the lab's instructions. Staff wrote all of that text, so it does not taint the turn. No name
+matches the deny list. **Counts:** action tools unchanged (42 / 38); chat tools 64 → **65** for a
+director and 59 → **60** for a SuperMaker; the MCP lists gain `list_maintenance_due` for both staff
+roles. The registry holds 56 definitions (with `lab.set_notes` above). Migration
+`0027_recurring_maintenance`.
+
+### 2026-10-07 — manual triage: the Manuals view and confirming a tool's proposals in one step
+
+**Why.** An AI connected over MCP proposed 36 resource changes in one sitting: 5 new manuals, 7
+replaced links, 15 kind or title fixes, 7 hides and 2 archive re-runs, across about 30 tools. The
+inbox showed them as 36 cards in one "Resources" area, one card per call, in no useful order. Worse,
+every tool-editor proposal stores the tool's revision when it is proposed, and a confirmed write
+moves that revision. So on the five tools with two or three proposals, confirming one made the
+others answer `conflict`, though nobody else had touched the tool.
+
+**What was built.**
+
+| Where | What |
+|---|---|
+| `app/admin/proposals/page.tsx` | Two views of the same inbox, as tabs that are links (`LinkTabs`, which now takes a `current` href for tabs that differ only by query): **All proposals** (the cards, unchanged) and **Manuals · N tools** (`?view=manuals`). The tabs show only when a resource proposal is open |
+| `lib/actions/manual-triage.ts` | `buildManualTriage`: the viewer's open, unexpired `resources.add` and `resources.edit` rows, grouped by tool, sorted by tool name, oldest proposal first inside a tool. Each row is described from its **stored input** (what will run) and **stored preview** (the "before" the assistant saw): a label for what it does (Add manual, Add link, Replace link, Retype, Retitle, Hide, Show, Edit note, Re-archive), the document's kind, title, link and visibility before and after, the link's host, and what **Open PDF** opens. A field the row changes whose value moved since it was proposed is marked (confirming will answer `conflict`), and so is an edit whose document is gone. Only `http(s)` links become links |
+| `lib/data/manual-triage-tools.ts` | The named tools' names, cover thumbnails (`selectCoverPhotos`, now exported from `inventory.ts`) and every document now, hidden ones included (`listResourcesForEditor`), read together |
+| `components/admin/ManualTriage.tsx`, `ManualTriageTool.tsx`, `ManualTriageRow.tsx`, `manual-triage-state.ts` | The view: one section per tool (name, picture, documents now, its rows), per-row **Open PDF**, **Confirm** and **Dismiss**, and **Confirm all for this tool** / **Dismiss all**. A progress line ("12 of 30 tools decided", announced politely), keys, and focus that moves to the next undecided tool after a decision |
+| `lib/actions/revision-chain.ts`, `proposals.ts` | The same-tool rule, below, inside `decideActionProposals` |
+
+**The same-tool rule.** Inside **one** confirm request, rows run in the order they were proposed (as
+before). When a row for tool T confirms, its write checked T's revision A and answered T's new
+revision B **in the same statement** (`touchTool` inside `withTouchedTool`). So T went from A to B
+through that write alone. A later row of the same request for T that **stored A** runs with B
+instead. Its own write checks B in the database, so it lands only if nothing else wrote to T since
+our last write. The chain continues (A to B to C) for as many rows as the request holds.
+
+- **Only `resources.add` and `resources.edit` take part** (`CHAINED_ACTIONS`): the actions whose
+  write checks and returns the tool's revision atomically. Every other action runs with the revision
+  it stored. A confirmed row of another action on T stops the chain for T.
+- **Never across requests.** Nothing is remembered between clicks. Confirming one row of a tool now
+  and another later still answers `conflict`, as before: the second card was drawn before the first
+  change, and only a single step can prove that nothing else happened in between.
+- **Any row of T that does not confirm** (refused, failed, conflict) **stops the chain for T** for
+  the rest of the request: the rows after it run with what they stored and come back as `conflict`
+  for the person to look at. So does a confirmed write that reports no revision, or one that
+  confirmed from a revision our last write did not leave.
+- **Every other rule still runs per row** in `performAction`: the permission, the action's `check`,
+  and the field-by-field drift check (`staleness.ts`). A row whose shown "before" was changed by an
+  earlier row of the same step (two retitles of one document) still answers `conflict`, with the
+  value now. Only the revision token moves; the input is otherwise the stored one.
+- **The trail says so.** A row that ran on a moved revision has `chained: true` on its stored
+  result. The audit event is the action's own, as for any confirm.
+- **Someone else's edit in between is a conflict, always.** If the editor saved T between two rows,
+  T's revision is no longer the one our last write left, the next write matches no row, and the
+  card shows the conflict.
+
+**§6 amended: bulk confirm across groups, within one tool.** §6 said bulk confirm is not offered
+across groups (a group is what one MCP call proposed). The Manuals view crosses groups, but only
+within one tool and only for rows that are all on screen in that tool's section, each with its
+before and after. The cards view is unchanged.
+
+**How the view decides.** **Dismiss** sends at once: a dismissal never changes the tool, so it
+cannot make another row conflict. **Confirm** on a row sends at once when it is the tool's only
+open row; otherwise it marks the row **chosen** (with **Undo**), and the chosen rows are sent
+together, in one request, once no row of the tool is left open. **Confirm all for this tool** (or
+`y`) sends every open and chosen row in one request; **Dismiss all** (or `n`) dismisses them. At most
+20 ids go in one request (the route's limit). A confirm refreshes the page so each tool's documents
+are current; the list itself stays as loaded, with each row's outcome.
+
+**Keys and accessibility.** `j` / `k` move to the next / previous tool, `y` confirms the tool's open
+rows, `n` dismisses them, `o` opens the focused row's PDF (or the tool's first) in a new tab with no
+opener, `?` lists the keys in a dialog. The keys work only while focus is inside the view (WCAG 2.1.4,
+"active only on focus"), never while typing in a field, never with Ctrl, Alt or Cmd held, and not
+while the keys dialog is open. Every key has a real button that does the same. Tab moves as usual
+and nothing traps it. Each tool is a labelled section that takes focus when the view opens, on
+`j` / `k`, and after a decision; the focused tool also carries a thick accent rule on its leading
+edge. Rows are labelled lists, before and after is a table with row and column headers, and a
+changed value says "changed" to screen readers.
+
+**Page count and size.** The view shows a document's page count when the manual archive already
+processed its PDF and the row keeps its link. It never fetches a PDF, and it makes no HEAD request
+on page load: a new link's size and page count are unknown until it is confirmed and archived.
+
+**Strings.** `actions.triage.*`, English only like the rest of `actions.*` (§6: other locales fall
+back). The view is admin UI.
+
+**Tests.** `lib/actions/revision-chain.test.ts` (the rule, pure), `lib/actions/same-tool-confirm.test.ts`
+(PGlite: three MCP proposals for one tool confirm in one request; an editor save between two requests
+still conflicts; the chain does not carry between clicks; two retitles of one document conflict on the
+second; a drifted row stops the chain), `api/action-proposals/route.test.ts` (two proposals for one
+tool in one POST), `lib/actions/manual-triage.test.ts`, `lib/data/manual-triage-tools.test.ts`,
+`components/admin/manual-triage-state.test.ts`, `components/admin/ManualTriage.test.tsx` (grouping,
+before and after, one request per tool, chosen rows, keys, the dialog, modifier keys and Tab, conflict
+and request failure). No migration, no new route, no new env var.
+
+### 2026-10-07 — quick report: a public form over `report_issue`'s write
+
+The quick report spec (`2026-10-07-quick-report-design.md`) gives §4.1 row 2 its GUI: **Report a
+problem** on the tool page and the QR arrival notice opens a form with one box, and
+`POST /api/report` files the ticket. It is a GUI write the parity guard sees, and it is an
+**"Already shared"** entry in `EXEMPT`, like `POST /api/flags` over `report_correction`: the route
+and `report_issue` call one write, `fileProblemTicket` (`lib/maintenance/file-ticket.ts`), which
+writes an open issue report through `createMaintenanceLog` and drops the ticket-count caches.
+`report_issue` moved onto it without a change in behaviour.
+
+| GUI write | Shared with | Permission | Chat | MCP |
+|---|---|---|---|---|
+| `POST /api/report` (quick report form) | `report_issue` (`fileProblemTicket`) | — · anyone | `report_issue`, unchanged | `report_issue`, unchanged (signed in) |
+
+No registered action, no generated tool and no preview: the assistant already files tickets, so
+parity holds in both directions. What the form adds on top of `report_issue` is presentation and
+bounds: a model guess of the title, category, severity and unit (job `reportTriage`, the words fenced,
+closed lists), its own limiter tier (`quickReport`, 8 an hour per person or hashed IP) and, for an
+anonymous caller, a slot of `anonTickets`, the budget `report_issue` already spends. **Counts:** the
+registry, action tools, chat tools and the MCP lists do not change.
+
+### 2026-10-07 — Images in the chat: tool cards, and labelled illustrations
+
+The owner asked (2026-10-07): "In the chat you could show the tool's image if it makes sense; the
+AI can pull the images; if it does research it can do image search; or even generate cheap images —
+give the AI tools to make an infographic or a render." Built in that order, real images first.
+
+**1. The tool's own photo: `show_tool`** (`lib/capabilities/tool-cards.ts`, capability
+`tool-cards`; `components/chat/ChatToolCards.tsx`). A read for everybody, anonymous included,
+chat only. The model passes up to three tools (slug, id or name); the server resolves each
+**published** tool and writes one `data-tool-cards` part. The chat draws a small card per tool:
+its catalogue image (the pre-rendered thumbnails through `ToolImage`, the initials plate when it has
+none), name, category, status (`StatusGlyph`), the whole card a link to `/tools/<slug>` that closes
+the chat like a tool link in the answer. A turn's cards are one list where the first arrived, each
+tool once.
+
+- **A capability the model calls, not cards derived from the answer's links.** The owner asked for
+  the image "if it makes sense", which is a judgement: an answer about one machine wants its
+  picture, a list answer ("what 3D printers do you have?") links eight tools and wants none.
+  Deriving cards from links would either card every link or need a threshold, and would only know
+  the tools once the answer had finished. The QR card already set the pattern. The prompt asks for
+  the call in the same step as the other lookups, so it adds no model step.
+- **Rules, in code:** published tools only (staff too: a card links to a public page); the tool
+  whose page the person is on is skipped (the page shows it); at most three; once per reply
+  (counted in the tool, and `CHAT_TOOL_CAPS.show_tool = 1`). Every field comes from the catalogue
+  row; no URL the model writes becomes an image, and **nothing is fetched from the web into the
+  chat**.
+- It returns only catalogue data, so it does not taint a turn (§8.4), and it is never registered
+  over MCP, where `get_tool_details` already gives the page.
+- A stored starter answer drops its `data-tool-cards` parts (`starters/answer.ts`
+  `storableMessage`): a card shows the status of the moment it was made, and a cached answer
+  served later must not call a machine that is down "Available".
+
+**A manual's own figure: not built.** The manual pipeline draws page images only for OCR of
+scanned manuals, in memory, and stores none (`manuals/page-images.ts` composites the pictures a
+scanned page paints; text pages and vector drawings are not drawn at all). Showing a cited page's
+figure would mean downloading and decoding the PDF during the chat for every citation. A citation
+already opens the PDF at that page (Sources). If figures are wanted, the index step could store a
+page thumbnail per cited page; that is a manual text spec change, not this one.
+
+**2. Image search during research: no change.** Research already finds product images: the
+`og:image`, `twitter:image`, JSON-LD and gallery pictures of the pages it read, topped up with Exa's
+image links when the pages offer fewer than three, probed, ranked by a vision model and cut out
+deterministically (gateway spec §3.5 and its amendments). No gap was found, and no web image search
+is added to the student chat.
+
+**3. Generated illustrations: `make_illustration`** (`lib/capabilities/illustrations.ts`,
+capability `illustrations`; `components/chat/ChatIllustration.tsx`). One labelled AI picture for
+two uses only — an infographic of a plan the assistant just wrote, or a concept render of the
+student's own idea — offered ("Want a sketch of this plan?"), made after a yes, never of the lab's
+equipment, its controls, labels or safety steps. Signed-in people only (new permission
+`chat.illustrate`, held by `user`, `admin` and `super_admin`); an anonymous visitor's assistant is
+told to point them to sign-in. One per reply (`CHAT_TOOL_CAPS.make_illustration = 1`), 3 a day per
+person, $1 a day lab-wide. Left out entirely when `MODEL_ILLUSTRATION=off` or there is no Blob
+store. The job, the model, the cost, the caps, the storage and why this is not the retired redraw
+are the gateway spec's amendment of the same date. Neither tool reads outside content.
+
+**`/assistant`.** Two rows: `show_tool` ("Show the catalogue photo, status and page of the tool it
+is talking about", catalog area, everybody) and `make_illustration` ("Draw a labelled AI sketch of a
+plan or of your project idea, when you ask for one", projects area, signed in). **Counts:** action
+tools unchanged (42 / 38); chat tools 65 → **67** for a director, 60 → **62** for a SuperMaker,
+10 → **12** for a signed-in student; an anonymous visitor gains `show_tool`. The MCP lists do not
+change (both tools are chat only).
+
+**Strings.** `chat.showingTool`, `chat.toolCard.*`, `chat.drawingIllustration`,
+`chat.illustration.*` in all 12 locales; `assistantPage.tools.show_tool` and
+`assistantPage.tools.make_illustration` in English (the page's other strings are English-only too).
+
+**Tests.** `capabilities/tool-cards.test.ts` (published tools by slug or name, the payload's
+fields, the tool on screen and unknown names skipped, drafts not found, once per reply, at most
+three, offered to anonymous visitors and never over MCP); `components/chat/ChatImages.test.tsx`
+(the card's photo, name, category, status and link; initials without a photo; one list per turn;
+the chat closes on open; the illustration's mark and caption, and nothing for a foreign image URL);
+`app/api/chat/prepare-step.test.ts` (both caps); `app/api/chat/route.test.ts` (who is offered
+what); `capabilities/actions.test.ts` (the counts above); `starters/answer.test.ts` (a stored answer
+keeps no tool card); the illustration suites listed in the gateway spec amendment.
+
+**Status.** Built on `v5/chat-images`. Awaiting the owner's review.
+
+### 2026-10-07 — Suggested replies: `suggest_replies`, and bubbles under the answer
+
+The owner, reading an answer on his phone (he typed "Laser cut"; the assistant listed the two laser
+cutters and ended "What material or project are you looking to cut?"): "For these kinda answers can
+you make like text suggestions to click in bubbles". Then: "Be sparing with the suggested answers
+only when there's 2-3 choices easy to respond."
+
+**The tool** (`lib/capabilities/suggest-replies.ts`, capability `suggested-replies`; the rules in
+`lib/chat/suggested-replies.ts`). `suggest_replies({ replies })` is **display only**, the same
+pattern as `show_tool`: a read for everybody, anonymous included, chat only, free. Its input is
+**2–3 replies**, each trimmed, 1–40 characters, no two the same ignoring case (zod; a refused call
+is a tool error and shows nothing). `run` writes nothing and returns `{ ok: true, replies }`, the
+replies cleaned (control and invisible characters dropped, one space between words). It reads no
+outside content, so it does not taint a turn (§8.4), and it is never registered over MCP, where a
+bubble means nothing.
+
+- **The model proposes, sparingly.** The prompt section "Suggested replies" asks for the call only
+  when the answer ends by asking the student to choose between two or three clear, easy options
+  (which of two machines, which material from a short list): a few words each, as the student would
+  say them, in the language of the answer, never what they just said; once, last in the turn; the
+  text must still ask the question on its own. Not for next steps, open-ended questions or factual
+  answers, not on most turns, and never for safety, training or permission ("Yes, it's safe", "Skip
+  the training"). Derived bubbles (from a question mark, say) were not built: whether the options
+  are clear and few is a judgement, as it was for tool cards.
+- **Once per reply, and no extra step.** `CHAT_TOOL_CAPS.suggest_replies = 1`. The route's
+  `stopWhen` (`app/api/chat/stop-when.ts`, also used by starter answers) ends the turn on a step
+  whose only calls were `suggest_replies` once the turn has written text: the tool only hands the
+  replies back, and another model step would cost a call and hold the bubbles back. Called before
+  any text, the turn carries on and the answer follows.
+- **A tap is the student's own message.** It sends exactly the bubble's text through
+  `handleSuggestion` (`ChatPanel`), asked live — never a starter's cached answer, even when the text
+  matches a chip, since a reply answers this conversation. Anything it leads to goes through the
+  usual tools and confirmation cards.
+
+**The bubbles** (`components/chat/SuggestedReplies.tsx`, drawn last in `ChatMessage`, after the
+text, the cards and the Sources). The AI Elements `Suggestions` / `Suggestion` the starters use,
+laid out as a wrapping row of pill bubbles; round corners are the second exception to the square
+rule, scoped to the chat (`#makerlab-chat-sheet .chat-reply-chip` in `globals.css`, beside the
+composer's). Shown **only on the latest assistant message, only once its turn has finished**
+(`status === "ready"`, not cut off) — not while submitted or streaming, not after an error, and gone
+as soon as the student sends anything, since their message becomes the latest. Disabled while a
+starter answer is being fetched. The call draws no status line while it runs. The row is a group
+named `chat.suggestedReplies` ("Suggested replies", 12 locales); each bubble is named by its text.
+The chat reads the call's output from the stored message and checks it again with the same rules, so
+a stored message can never make more, longer or other bubbles. A stored starter answer keeps its
+replies: unlike a tool card's status, they do not go stale.
+
+**`/assistant`.** One row: `suggest_replies` ("Offer two or three short replies to tap when it asks
+you to choose", catalog area, everybody). **Counts:** action tools unchanged (42 / 38); chat tools
+67 → **68** for a director, 62 → **63** for a SuperMaker, 12 → **13** for a signed-in student; an
+anonymous visitor gains `suggest_replies`. The MCP lists do not change (chat only).
+
+**Tests.** `lib/chat/suggested-replies.test.ts` (cleaning, distinctness, 2–3 kept, reading the last
+finished call, a stored output checked again); `capabilities/suggest-replies.test.ts` (the schema's
+limits and the JSON Schema the model is sent, `run` returns what is shown and writes nothing,
+offered to anonymous visitors and never over MCP, no taint, the prompt's rules);
+`app/api/chat/stop-when.test.ts` and `prepare-step.test.ts` (the stop and the cap);
+`app/api/chat/route.test.ts` (offered to everybody, one model call when the replies follow the
+answer, the turn carries on when they come first); `components/chat/SuggestedReplies.test.tsx` (the
+named group, the tap, disabled, none without `onReply`, no status line, a stored output checked
+again); `ChatFab.test.tsx` (latest finished answer only: not older answers, not while streaming,
+not after the student sent, not after an error; the tap sends the text);
+`ChatPanel.starters.test.tsx` (a reply is asked live even when it matches a cached chip);
+`capabilities/actions.test.ts` (the counts above).
+
+**Status.** Built 2026-10-07. Awaiting the owner's review.
+
+### 2026-10-07 — Tool skills: two GUI-only actions and one read
+
+The tool skills spec (`2026-10-07-tool-skills-design.md`) gives each tool a cited operating guide
+written by AI after research. Two registered actions, each run by a one-line server action:
+`writeSkill` (`app/admin/inventory/[tool]/skill/actions.ts`) and `setSkillWriting`
+(`app/admin/settings/ai-agents/actions.ts`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `skills.write` | `write_tool_skill` | spend | `tools.edit` | never | never |
+| `skills.set_after_research` | `set_skills_after_research` | operational | `users.manage` | never | never |
+
+`assistant: "never"`, no tool and no preview. A skill is the operating guide the assistant itself
+reads on a tool's page, so it never asks for its own (the lab-wide notes' reason). The setting spends
+the lab's money with nobody pressing a button each time, so it is a director's, beside the research
+budget on Settings › AI agents. `skills.write` starts the skill workflow, forced. It honours the lab's
+daily cap in its `check` and again in the step, and refuses a tool with nothing to write from
+(`nothing_to_write`). No audit event, like `lab.set_notes`: the skill's row records its trigger, and the
+setting's row records who set it. No new permission. No name matches the deny list. `/assistant` shows
+both as page-only, in the catalog area (`ACTION_AREAS` gains `skills`).
+
+One read joins the registry in its own capability, `skills`, on both surfaces and for everybody:
+`get_tool_skill` (the tool skill as fenced markdown, with its sources, version, date, model and a note
+to check the manual and staff for anything safety-related). It is model-written from manuals and web
+pages, so it is in `OUTSIDE_CONTENT_TOOLS` and taints the turn. On a tool's page the chat route also
+puts that tool's skill into the prompt, and the turn starts tainted, as with an attached manual.
+`get_tool_details` gains a `skill` pointer when one exists.
+
+**Counts:** action tools unchanged (42 / 38). Chat tools go from 68 to **69** for a director, 63 to
+**64** for a SuperMaker and 13 to **14** for a signed-in student (after suggested replies, above),
+and an anonymous visitor gains `get_tool_skill`. The MCP lists gain `get_tool_skill` for every audience: it is one of the public reads
+(`PUBLIC_READS` in the MCP route, access and catalog tests). The registry holds 58 definitions.
+Migration `0031_tool_skills`.

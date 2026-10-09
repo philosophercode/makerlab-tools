@@ -19,10 +19,12 @@ import {
   hasSessionEnv,
   resetAuthForTests,
 } from "@/lib/auth/config";
+import { REFUSED_SIGN_IN_COOKIE, decodeRefusedSignIn } from "@/lib/auth/refused-sign-in";
 import { addPersonAccount } from "@/lib/data/user-add";
 import { updateUserName } from "@/lib/data/users";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { account, session, user } from "@/lib/db/schema/index";
+import { seedUser } from "../../../test/utils/session";
 
 // No live OAuth (Article 3). Google's token endpoint is mocked by MSW and the
 // id_token is a hand-built JWT — the Google provider decodes it rather than
@@ -101,14 +103,14 @@ let sub = 0;
  * Step 1 gets the state cookie + state param; step 2 is the callback Google
  * would redirect the browser to.
  */
-async function signInThroughGoogle(email: string, name = "Ada Lovelace") {
+async function signInThroughGoogle(email: string, name = "Ada Lovelace", callbackURL = "/tools") {
   const auth = createAuth(await getDb());
 
   const start = await auth.handler(
     new Request(`${ORIGIN}${AUTH_BASE_PATH}/sign-in/social`, {
       method: "POST",
       headers: { "content-type": "application/json", origin: ORIGIN },
-      body: JSON.stringify({ provider: "google", callbackURL: "/tools" }),
+      body: JSON.stringify({ provider: "google", callbackURL }),
     })
   );
   expect(start.status).toBe(200);
@@ -226,6 +228,21 @@ describe("Google authorization URL", () => {
     const { authorizeUrl } = await signInThroughGoogle("student@example.edu");
     expect(authorizeUrl.searchParams.get("hd")).toBe("example.edu");
   });
+
+  it("always asks Google for the account chooser", async () => {
+    stubAuthEnv();
+    const { authorizeUrl } = await signInThroughGoogle("student@cornell.edu");
+    expect(authorizeUrl.searchParams.get("prompt")).toBe("select_account");
+  });
+
+  it("still asks for the chooser once named exceptions drop hd", async () => {
+    // The case that bit: a personal Gmail on the allowlist removes `hd`, and
+    // without `prompt` Google picked that account with no chance to switch.
+    stubAuthEnv({ AUTH_ALLOWED_EMAILS: "steinbergisaac@gmail.com" });
+    const { authorizeUrl } = await signInThroughGoogle("student@cornell.edu");
+    expect(authorizeUrl.searchParams.get("hd")).toBeNull();
+    expect(authorizeUrl.searchParams.get("prompt")).toBe("select_account");
+  });
 });
 
 describe("sign-in callback — institutional account", () => {
@@ -309,6 +326,94 @@ describe("sign-in callback — non-institutional account", () => {
     const { callback } = await signInThroughGoogle("someone@gmail.com");
     expect([302, 303, 307].includes(callback.status)).toBe(true);
     expect(callback.headers.get("location")).toBeTruthy();
+  });
+});
+
+describe("a refused sign-in names the address it refused (amendment 2026-10-07)", () => {
+  function refusedFrom(res: Response) {
+    const raw = setCookieFor(res, REFUSED_SIGN_IN_COOKIE);
+    if (!raw) return null;
+    return decodeRefusedSignIn(decodeURIComponent(raw.split(";")[0].split("=").slice(1).join("=")), SECRET);
+  }
+
+  // Production names exceptions in AUTH_ALLOWED_EMAILS, so `hd` is dropped and
+  // a personal account reaches this app's own create hook. (With `hd` on,
+  // Better Auth's claim check refuses it earlier; see blocked-sign-in.test.ts.)
+  const NAMED_EXCEPTION = { AUTH_ALLOWED_EMAILS: "guest@gmail.com" };
+
+  it("leaves a signed, short-lived HttpOnly cookie with the address and the page to return to", async () => {
+    stubAuthEnv(NAMED_EXCEPTION);
+    const { callback } = await signInThroughGoogle("someone@gmail.com", "Some One", "/tools/form-4");
+
+    const raw = setCookieFor(callback, REFUSED_SIGN_IN_COOKIE) ?? "";
+    expect(raw).toMatch(/HttpOnly/i);
+    expect(raw).toMatch(/Max-Age=600/);
+    expect(raw).toMatch(/SameSite=Lax/i);
+    expect(refusedFrom(callback)).toEqual({ email: "someone@gmail.com", retryPath: "/tools/form-4" });
+    // The address rides in the cookie only, never in the redirect.
+    expect(callback.headers.get("location") ?? "").not.toContain("someone");
+  });
+
+  it("revokes the session an existing out-of-domain row was given, and still names it", async () => {
+    // Enforcement #2's path: a row outside the domain already exists (a domain
+    // changed after the fact, a restored backup). Better Auth links Google to
+    // it and writes a session before the after-hook runs.
+    stubAuthEnv(NAMED_EXCEPTION);
+    const foreign = await seedUser({ email: "old-row@gmail.com", name: "Old Row" });
+
+    const { callback } = await signInThroughGoogle("old-row@gmail.com", "Old Row");
+
+    expect(callback.headers.get("location")).toBe(DOMAIN_REJECTED_PATH);
+    const db = await getDb();
+    expect(await db.select().from(session).where(eq(session.userId, foreign.id))).toHaveLength(0);
+    const sessionCookie = setCookieFor(callback, "better-auth.session_token");
+    expect(sessionCookie?.split(";")[0].split("=")[1] ?? "").toBe("");
+    expect(refusedFrom(callback)?.email).toBe("old-row@gmail.com");
+  });
+
+  it("is forgotten when sign-in starts again", async () => {
+    stubAuthEnv();
+    const auth = createAuth(await getDb());
+    const res = await auth.handler(
+      new Request(`${ORIGIN}${AUTH_BASE_PATH}/sign-in/social`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: ORIGIN,
+          cookie: `${REFUSED_SIGN_IN_COOKIE}=anything`,
+        },
+        body: JSON.stringify({ provider: "google", callbackURL: "/" }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const cleared = setCookieFor(res, REFUSED_SIGN_IN_COOKIE) ?? "";
+    expect(cleared).toMatch(/Max-Age=0/);
+    // And the restarted flow still asks Google for the chooser.
+    const { url } = (await res.json()) as { url: string };
+    expect(new URL(url).searchParams.get("prompt")).toBe("select_account");
+  });
+
+  it("is forgotten at sign-out", async () => {
+    stubAuthEnv();
+    const auth = createAuth(await getDb());
+    const res = await auth.handler(
+      new Request(`${ORIGIN}${AUTH_BASE_PATH}/sign-out`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: ORIGIN,
+          cookie: `${REFUSED_SIGN_IN_COOKIE}=anything`,
+        },
+        body: "{}",
+      })
+    );
+    expect(setCookieFor(res, REFUSED_SIGN_IN_COOKIE) ?? "").toMatch(/Max-Age=0/);
+  });
+
+  it("sets nothing for an ordinary sign-in", async () => {
+    stubAuthEnv();
+    const { callback } = await signInThroughGoogle("grace@cornell.edu", "Grace Hopper");
+    expect(setCookieFor(callback, REFUSED_SIGN_IN_COOKIE)).toBeUndefined();
   });
 });
 

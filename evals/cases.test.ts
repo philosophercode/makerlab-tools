@@ -79,6 +79,9 @@ describe("parseCaseFile validation", () => {
       parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: mentions_tool\n`, "t.yaml")
     ).toThrow(/requires a "value"/);
     expect(() =>
+      parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: contains_any\n`, "t.yaml")
+    ).toThrow(/requires a "value"/);
+    expect(() =>
       parseCaseFile(
         `- id: a\n  prompt: "hi"\n  assert:\n    - kind: no_fabricated_specs\n`,
         "t.yaml"
@@ -129,6 +132,17 @@ describe("parseCaseFile validation", () => {
       expect(() =>
         parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: identified_tool\n      value: ${bad.startsWith("[") ? bad : `"${bad}"`}\n`, "t.yaml")
       ).toThrow(/identified_tool takes a catalog slug/);
+    }
+  });
+
+  it("takes cites_only_tool as one catalog slug", () => {
+    const [parsed] = parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: cites_only_tool\n      value: form-4\n`, "t.yaml");
+    expect(parsed.assert[0]).toEqual({ kind: "cites_only_tool", value: "form-4" });
+    expect(() => parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: cites_only_tool\n`, "t.yaml")).toThrow(/requires a "value"/);
+    for (const bad of ['"Form 4"', "[form-4, trotec-speedy-400]"]) {
+      expect(() => parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: cites_only_tool\n      value: ${bad}\n`, "t.yaml")).toThrow(
+        /cites_only_tool takes one catalog slug/
+      );
     }
   });
 
@@ -201,16 +215,18 @@ describe("the shipped case set", () => {
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it("covers bulk import, catalog lookup, citations, curation, lab identity, manual grounding, manual search, photo identification, staff maintenance, tool calling and honest absence", () => {
+  it("covers bulk import, catalog lookup, citations, curation, lab companion, lab identity, manual grounding, manual search, photo identification, staff maintenance, tool calling and honest absence", () => {
     const files = new Set(loadCases().map((c) => c.file));
     expect(files).toEqual(
       new Set([
         "assistant-actions.yaml",
         "bulk-import.yaml",
         "catalog-lookup.yaml",
+        "citations-real-questions.yaml",
         "citations-resolve.yaml",
         "curation.yaml",
         "honest-absence.yaml",
+        "lab-companion.yaml",
         "lab-identity.yaml",
         "manual-grounding.yaml",
         "manual-search.yaml",
@@ -222,11 +238,24 @@ describe("the shipped case set", () => {
     );
   });
 
-  it("only focuses machines that exist in the fixture catalog", async () => {
+  it("only focuses machines that exist in the fixture catalog (a lab case: the lab fixture's too)", async () => {
     const { evalFixture } = await import("./fixtures");
+    const { LAB_FIXTURE_SLUGS } = await import("./lab-catalog-fixture");
     for (const evalCase of loadCases()) {
       if (!evalCase.context.toolId) continue;
-      expect(evalFixture.slugs).toContain(evalCase.context.toolId);
+      const slugs = evalCase.context.catalog === "lab" ? [...evalFixture.slugs, ...LAB_FIXTURE_SLUGS] : evalFixture.slugs;
+      expect(slugs).toContain(evalCase.context.toolId);
+    }
+  });
+
+  it("names a machine of its own catalog in every cites_only_tool", async () => {
+    const { evalFixture } = await import("./fixtures");
+    const { LAB_FIXTURE_SLUGS } = await import("./lab-catalog-fixture");
+    for (const evalCase of loadCases()) {
+      const slugs = evalCase.context.catalog === "lab" ? [...evalFixture.slugs, ...LAB_FIXTURE_SLUGS] : evalFixture.slugs;
+      for (const spec of evalCase.assert.filter((a) => a.kind === "cites_only_tool")) {
+        expect(slugs, `${evalCase.id}`).toContain(spec.value);
+      }
     }
   });
 });

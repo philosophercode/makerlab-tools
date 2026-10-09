@@ -28,9 +28,16 @@ import { defaultRerankTarget, rerankDocuments, type RerankTarget } from "./reran
  *    model (`rerank.ts`) and its order replaces the fused one before the top
  *    `limit` are kept. A reranker that fails or is slow leaves the fused order
  *    (`rerankFailed`); `MODEL_RERANK=off` skips it.
- * 4. **Merge** passages next to each other in the same section into one span,
+ *    **A relevance floor** (amendment 2026-10-06): with `minRerankScore`, a
+ *    reranked passage scoring below it is dropped (`search_manual` passes
+ *    {@link rerankMinScore}). Fused scores are ranks, not relevance, so the
+ *    floor applies only when the reranker ran.
+ * 4. **De-duplicate** (amendment 2026-10-06): the same text stored twice (one
+ *    PDF attached to two tools, as the Prusa handbook is) is one passage, the
+ *    better-ranked copy, so copies cannot fill the slots.
+ * 5. **Merge** passages next to each other in the same section into one span,
  *    so the model reads a section, not fragments.
- * 5. **Access, in the SQL** (§8): a viewer who may edit tools (lab staff,
+ * 6. **Access, in the SQL** (§8): a viewer who may edit tools (lab staff,
  *    `can(viewer, "tools.edit")`) searches every manual of every non-archived
  *    tool; anybody else only public files on published resources of published
  *    tools. Archived tools are never searched. Only a resource's *current* PDF
@@ -49,6 +56,33 @@ export const CANDIDATES = 30;
 export const RRF_K = 60;
 /** Fused passages handed to the reranker, when reranking. */
 export const RERANK_CANDIDATES = 24;
+
+/**
+ * The reranker score below which `search_manual` drops a passage (amendment
+ * 2026-10-06 "An answer cites only its machine's documents"). Conservative on
+ * purpose: rerank scores run from 0 to 1, and a passage under 0.05 is one the
+ * reranker judged unrelated to the question (a spec sheet for a "how do I
+ * focus" question). Anything that might help is kept. Calibrate it on the
+ * retrieval eval before raising it.
+ */
+export const DEFAULT_RERANK_MIN_SCORE = 0.05;
+
+/**
+ * The relevance floor for reranked passages: `MANUAL_RERANK_MIN_SCORE` (a
+ * number from 0 to 1; `0` turns the floor off), else
+ * {@link DEFAULT_RERANK_MIN_SCORE}. A value that is not a number in range is
+ * ignored, with a warning.
+ */
+export function rerankMinScore(): number {
+  const raw = process.env.MANUAL_RERANK_MIN_SCORE?.trim();
+  if (!raw) return DEFAULT_RERANK_MIN_SCORE;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    console.warn("[manuals] MANUAL_RERANK_MIN_SCORE is not a number from 0 to 1; using the default");
+    return DEFAULT_RERANK_MIN_SCORE;
+  }
+  return value;
+}
 
 export type SearchMode = "hybrid" | "fts" | "vector";
 
@@ -79,10 +113,24 @@ export interface SearchManualsInput {
    * job, or a model (tests, the eval). Default: no reranking.
    */
   rerank?: boolean | RerankTarget;
+  /**
+   * Drop reranked passages scoring below this (amendment 2026-10-06). Applied
+   * only when the reranker ran. Default: no floor.
+   */
+  minRerankScore?: number;
+  /**
+   * Only public files on published resources, whoever the viewer is and
+   * whatever the tool's own state (a draft's manuals included): what a visitor
+   * may read once the tool is published. The tool skill writer's inputs (tool
+   * skills spec 2026-10-07 §5.1) — a skill is served to everyone, so a
+   * staff-only SOP must never reach one. Archived tools stay out.
+   */
+  publicFilesOnly?: boolean;
 }
 
 export interface ManualPassage {
   documentId: string;
+  /** The machine the document is on: its resource's tool. */
   toolId: string | null;
   toolName: string | null;
   toolSlug: string | null;
@@ -101,6 +149,8 @@ export interface ManualPassage {
   ordinals: number[];
   /** Its first page's text was read by OCR from a scan (phase 3). */
   ocr: boolean;
+  /** The resource's type as staff set it ("Manual", "SOP", "Safety"…), or null. */
+  resourceType: string | null;
 }
 
 export interface SearchManualsResult {
@@ -114,6 +164,10 @@ export interface SearchManualsResult {
   reranked: boolean;
   /** Reranking was asked for and failed or timed out: the fused order stands. */
   rerankFailed: boolean;
+  /** Passages dropped under the relevance floor. */
+  droppedWeak: number;
+  /** Passages dropped as copies of a better-ranked one. */
+  droppedDuplicates: number;
 }
 
 /** Search manual passages. Never throws for an embedding failure; a database failure throws. */
@@ -128,6 +182,8 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
     cost: null,
     reranked: false,
     rerankFailed: false,
+    droppedWeak: 0,
+    droppedDuplicates: 0,
   };
   if (!query) return empty;
   const toolIds = input.toolIds?.filter(isUuid);
@@ -165,10 +221,21 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
     rerankTarget = input.rerank;
   }
 
-  const includePrivate = canSearchPrivateManuals(input.viewer);
+  const includePrivate = !input.publicFilesOnly && canSearchPrivateManuals(input.viewer);
   const lexical = mode !== "vector" || vectorFailed;
-  const fusedLimit = rerankTarget ? Math.max(limit, RERANK_CANDIDATES) : limit;
-  const fused = fusedQuery({ query, toolIds, includePrivate, vector, lexical, tokens: partNumberTokens(query), limit: fusedLimit });
+  // Twice the limit at least, so copies dropped by `dropDuplicates` leave
+  // enough distinct passages to fill it.
+  const fusedLimit = Math.max(limit * 2, rerankTarget ? RERANK_CANDIDATES : 0);
+  const fused = fusedQuery({
+    query,
+    toolIds,
+    includePrivate,
+    publicFilesOnly: Boolean(input.publicFilesOnly),
+    vector,
+    lexical,
+    tokens: partNumberTokens(query),
+    limit: fusedLimit,
+  });
   // An unscoped vector leg reads the HNSW index: widen its beam for this one
   // statement (`set_config(…, true)` lasts until the transaction ends).
   const rows =
@@ -187,7 +254,8 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
         })
       : await rawRows<PassageRow>(db, fused);
 
-  let passages = rows.map(toPassage);
+  const unique = dropDuplicates(rows.map(toPassage));
+  let passages = unique.passages;
   let reranked = false;
   let rerankFailed = false;
   if (rerankTarget && passages.length > 1) {
@@ -200,6 +268,13 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
       rerankFailed = true;
     }
   }
+  let droppedWeak = 0;
+  const floor = input.minRerankScore ?? 0;
+  if (reranked && floor > 0) {
+    const kept = passages.filter((passage) => passage.score >= floor);
+    droppedWeak = passages.length - kept.length;
+    passages = kept;
+  }
   passages = passages.slice(0, limit);
 
   return {
@@ -209,7 +284,27 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
     cost,
     reranked,
     rerankFailed,
+    droppedWeak,
+    droppedDuplicates: unique.dropped,
   };
+}
+
+/**
+ * Keep the first of passages with the same page and the same words: one PDF
+ * attached to two tools is stored twice, and would otherwise return every
+ * passage twice. The input is best first, so the better-ranked copy stays.
+ */
+export function dropDuplicates(passages: readonly ManualPassage[]): { passages: ManualPassage[]; dropped: number } {
+  const seen = new Set<string>();
+  const kept: ManualPassage[] = [];
+  for (const passage of passages) {
+    const words = passage.content.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const key = `${passage.pageStart}:${words}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(passage);
+  }
+  return { passages: kept, dropped: passages.length - kept.length };
 }
 
 /** What the reranker reads of a passage: where it sits in the manual, then its text. */
@@ -224,6 +319,7 @@ interface PassageRow {
   document_id: string;
   ordinal: number;
   tool_id: string | null;
+  resource_type: string | null;
   tool_name: string | null;
   tool_slug: string | null;
   document_title: string;
@@ -267,6 +363,7 @@ function fusedQuery(args: {
   query: string;
   toolIds: readonly string[] | undefined;
   includePrivate: boolean;
+  publicFilesOnly: boolean;
   vector: string | null;
   lexical: boolean;
   tokens: string[];
@@ -274,7 +371,9 @@ function fusedQuery(args: {
 }): SQL {
   const access = args.includePrivate
     ? sql``
-    : sql` and a.access = 'public' and r.published = true and t.published = true`;
+    : args.publicFilesOnly
+      ? sql` and a.access = 'public' and r.published = true`
+      : sql` and a.access = 'public' and r.published = true and t.published = true`;
   const scope = args.toolIds
     ? sql` and r.tool_id in (${sql.join(args.toolIds.map((id) => sql`${id}::uuid`), sql`, `)})`
     : sql``;
@@ -379,14 +478,16 @@ function fusedQuery(args: {
        order by score desc, id
        limit ${args.limit}
     )
-    select c.document_id, c.ordinal, c.tool_id, t.name as tool_name, t.slug as tool_slug,
+    select c.document_id, c.ordinal, coalesce(r.tool_id, c.tool_id) as tool_id, r.type as resource_type,
+           t.name as tool_name, t.slug as tool_slug,
            d.title as document_title, c.section_path, c.page_start, c.page_end, p.page_label,
            c.content, a.public_url, p.source as page_source, f.score
       from fused f
       join manual_chunks c on c.id = f.id
       join manual_documents d on d.id = c.document_id
       join attachments a on a.id = d.attachment_id
-      left join tools t on t.id = c.tool_id
+      left join resources r on a.owner_type = 'resource' and r.id = a.owner_id
+      left join tools t on t.id = coalesce(r.tool_id, c.tool_id)
       left join manual_pages p on p.document_id = c.document_id and p.page_number = c.page_start
      order by f.score desc, c.document_id, c.ordinal`;
 }
@@ -438,6 +539,7 @@ function toPassage(row: PassageRow): ManualPassage {
     score: Number(row.score),
     ordinals: [Number(row.ordinal)],
     ocr: row.page_source === "ocr",
+    resourceType: row.resource_type ?? null,
   };
 }
 

@@ -1,9 +1,15 @@
-import type { SurfaceKey } from "../../lib/admin/surfaces";
 import type { OverviewCounts } from "../../lib/data/admin-overview";
 import type { TileFact, TileProps } from "../system/Tile";
 
 /**
- * What each surface's tile on `/admin` says, from its count loader's numbers
+ * **No callers since 2026-10-07; awaits deletion approval.** The admin
+ * sections spec replaced the tiles home with the Overview
+ * (`components/admin/overview/`), which says waiting work as rows. Kept, and
+ * its test kept, until the owner approves removing it with `system/Tile`.
+ * `TiledSurfaceKey` freezes the twelve surfaces the tiles knew, so new
+ * surfaces need no builder here.
+ *
+ * What each surface's tile on `/admin` said, from its count loader's numbers
  * (UI system spec §8.1; DESIGN.md §8.2): the headline number and what it
  * counts, whether that number is **work waiting for a person** (the accent),
  * up to four facts, and a 30-day sparkline where a trend matters — tickets,
@@ -21,8 +27,23 @@ export type TileContent = Pick<TileProps, "value" | "unit" | "waiting" | "facts"
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;
 
-type CountsFor = { [K in SurfaceKey]: OverviewCounts[LoaderOf<K>] };
-type LoaderOf<K extends SurfaceKey> = K extends "research" ? "manuals" : K extends keyof OverviewCounts ? K : never;
+/** The surfaces the tiles home showed, before the admin sections spec. */
+export type TiledSurfaceKey =
+  | "intake"
+  | "inventory"
+  | "refresh"
+  | "research"
+  | "taxonomy"
+  | "insights"
+  | "maintenance"
+  | "corrections"
+  | "projects"
+  | "proposals"
+  | "users"
+  | "mirror";
+
+type CountsFor = { [K in TiledSurfaceKey]: OverviewCounts[LoaderOf<K>] };
+type LoaderOf<K extends TiledSurfaceKey> = K extends "research" ? "manuals" : K extends keyof OverviewCounts ? K : never;
 
 /**
  * The extra counts a tile carries beside its own (`AdminSurface.alsoCounts`):
@@ -39,13 +60,14 @@ export interface TileResult {
   unreadable: boolean;
   /**
    * Work waiting for a person that the tile states as a fact rather than as
-   * its headline — Intake's imported lists ready for review — so the home's
-   * "items waiting on you" still counts it.
+   * its headline — Intake's imported lists ready for review, Maintenance's
+   * recurring tasks overdue or due today — so the home's "items waiting on
+   * you" still counts it.
    */
   alsoWaiting: number;
 }
 
-export function tileContent<K extends SurfaceKey>(
+export function tileContent<K extends TiledSurfaceKey>(
   key: K,
   counts: CountsFor[K] | null | undefined,
   t: Translate,
@@ -53,11 +75,16 @@ export function tileContent<K extends SurfaceKey>(
 ): TileResult {
   if (!counts) return { content: { value: null, note: t("home.unavailable"), size: "half" }, unreadable: true, alsoWaiting: 0 };
   const content = BUILDERS[key](counts as never, t, extra);
-  const alsoWaiting = key === "intake" && extra.imports ? extra.imports.ready : 0;
+  const alsoWaiting = key === "intake" && extra.imports ? extra.imports.ready : key === "maintenance" ? maintenanceTasksWaiting(counts as OverviewCounts["maintenance"]) : 0;
   return { content, unreadable: false, alsoWaiting };
 }
 
 const sum = (values: readonly number[]) => values.reduce((a, b) => a + b, 0);
+
+/** Recurring tasks overdue or due today: work waiting on staff that the tile states as facts. */
+function maintenanceTasksWaiting(counts: OverviewCounts["maintenance"]): number {
+  return counts.tasksOverdue + counts.tasksDueToday;
+}
 
 /**
  * Each tile's size (DESIGN.md §8.2): **full** when it has facts or a trend to
@@ -69,7 +96,7 @@ const sum = (values: readonly number[]) => values.reduce((a, b) => a + b, 0);
  * active for work waiting on you — and a neutral or in-progress row has none
  * (DESIGN.md §8.5). `Tile` draws no glyph on a zero (`factGlyph`).
  */
-const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra: ExtraCounts) => TileContent } = {
+const BUILDERS: { [K in TiledSurfaceKey]: (counts: CountsFor[K], t: Translate, extra: ExtraCounts) => TileContent } = {
   intake: (c, t, extra) => ({
     value: c.researched,
     unit: t("home.intakeUnit"),
@@ -126,6 +153,10 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     facts: [
       fact(t("home.maintenanceInProgress"), c.inProgress),
       fact(t("home.maintenanceUrgent"), c.urgent, "bad"),
+      // Recurring tasks (recurring maintenance spec, amendment 2026-10-06):
+      // upkeep due today waits on staff; overdue upkeep is late.
+      fact(t("home.maintenanceTasksDueToday"), c.tasksDueToday, "active"),
+      fact(t("home.maintenanceTasksOverdue"), c.tasksOverdue, "bad"),
     ],
     series: {
       values: c.series,

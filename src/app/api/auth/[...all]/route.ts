@@ -1,6 +1,7 @@
 import { redirectBlockedSignIn } from "../../../../lib/auth/blocked-sign-in";
 import { AUTH_BASE_PATH, getAuth, hasGoogleEnv } from "../../../../lib/auth/config";
 import { anonymousIdentity } from "../../../../lib/auth/identity";
+import { allowedEmails } from "../../../../lib/auth/roles";
 import { checkRateLimit } from "../../../../lib/rate-limit";
 
 /**
@@ -66,10 +67,14 @@ async function handle(req: Request): Promise<Response> {
     return Response.json(NOT_CONFIGURED, { status: 503 });
   }
 
-  // A blocked address (auth spec amendment 2026-09-25) comes back from the
-  // OAuth callback as Better Auth's generic error redirect; it is sent to the
-  // page that says why instead.
-  return redirectBlockedSignIn(await auth.handler(req));
+  // A blocked address (auth spec amendment 2026-09-25), or one outside the
+  // domain (amendment 2026-10-07), comes back from the OAuth callback as Better
+  // Auth's generic error redirect; it is sent to the page that says why instead.
+  // With no named exceptions the provider sends `hd`, and its own claim check
+  // is where a personal account is refused (`config.ts`).
+  return redirectBlockedSignIn(await auth.handler(req), {
+    hostedDomainOnly: allowedEmails().length === 0,
+  });
 }
 
 /**
@@ -80,17 +85,24 @@ async function handle(req: Request): Promise<Response> {
  * whoever holds a session. Registration is open (dynamic client registration
  * is how claude.ai and ChatGPT connect), so without this a page could send a
  * signed-in person's browser through `/mcp/authorize` to a redirect URI of its
- * own choosing and walk away with a grant. So an authorization request without
- * `consent` in its `prompt` is sent back to itself with it added — one
- * redirect, before the plugin ever sees it.
+ * own choosing and walk away with a grant. So an authorization request whose
+ * `prompt` is not exactly `consent` is sent back to itself with `prompt=consent`
+ * — one redirect, before the plugin ever sees it.
+ *
+ * **Exactly, not "contains".** The plugin tests `query.prompt === "consent"`;
+ * any other value — `none`, `CONSENT`, `login consent`, `none consent`, or the
+ * parameter given twice — skips its consent page and sends the code straight to
+ * the redirect URI. So every other value, and every repeat, is replaced rather
+ * than added to (security fix 2026-10-05).
  */
 function forceConsent(req: Request): Response | null {
   if (req.method !== "GET") return null;
   if (normalizedPath(req) !== `${AUTH_BASE_PATH}/mcp/authorize`) return null;
   const url = new URL(req.url);
-  const prompt = (url.searchParams.get("prompt") || "").split(/\s+/).filter(Boolean);
-  if (prompt.includes("consent")) return null;
-  url.searchParams.set("prompt", [...prompt, "consent"].join(" "));
+  const prompt = url.searchParams.getAll("prompt");
+  if (prompt.length === 1 && prompt[0] === "consent") return null;
+  url.searchParams.delete("prompt");
+  url.searchParams.set("prompt", "consent");
   return Response.redirect(url.toString(), 302);
 }
 

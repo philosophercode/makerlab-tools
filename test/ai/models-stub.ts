@@ -1,11 +1,12 @@
-import { MockLanguageModelV3, MockRerankingModelV3 } from "ai/test";
+import { MockImageModelV3, MockLanguageModelV3, MockRerankingModelV3 } from "ai/test";
 import type * as ModelsModule from "../../src/lib/ai/models";
 
 /**
  * Models stubbed at the AI SDK boundary (gateway spec §10: "Unit and
  * integration tests stub at the AI SDK boundary with `MockLanguageModelV3`…
- * Nothing in a test knows the provider"). There is no image job any more (the
- * generative background redraw was retired), so there is no image stub either.
+ * Nothing in a test knows the provider"). The one image job, `illustration`
+ * (chat illustrations; the product-photo redraw stays retired), is stubbed with
+ * `setImageModel(imageModel(…))`.
  *
  * The registry (`src/lib/ai/models.ts`) is the one place a job becomes a
  * model, so it is the one place a test swaps one in:
@@ -40,6 +41,8 @@ const languageModels = new Map<LanguageJob, LanguageModel>();
 let embeddingModel: ReturnType<Models["embeddingModelFor"]> | null = null;
 type RerankingModel = ReturnType<Models["rerankingModelFor"]>;
 let stubbedReranker: RerankingModel | null = null;
+type ImageModel = ReturnType<Models["imageModelFor"]>;
+let stubbedImageModel: ImageModel | null = null;
 
 /** The module factory for `vi.mock("@/lib/ai/models", …)`: the real module with the model factory swapped. */
 export function stubModelsModule(actual: Models): Models {
@@ -64,6 +67,12 @@ export function stubModelsModule(actual: Models): Models {
       actual.modelIdFor(job);
       return stubbedReranker ?? keepOrderReranker();
     },
+    // Chat illustrations (job `illustration`): nothing unless a test sets one.
+    imageModelFor: (job = "illustration") => {
+      actual.modelIdFor(job);
+      if (!stubbedImageModel) throw new Error(`no image model stubbed — call setImageModel(…)`);
+      return stubbedImageModel;
+    },
   };
 }
 
@@ -81,10 +90,45 @@ export function setRerankingModel(model: RerankingModel): void {
   stubbedReranker = model;
 }
 
+/** The model job `illustration` resolves to, e.g. `imageModel([pngBytes])`. */
+export function setImageModel(model: ImageModel): void {
+  stubbedImageModel = model;
+}
+
 export function resetModelStubs(): void {
   languageModels.clear();
   embeddingModel = null;
   stubbedReranker = null;
+  stubbedImageModel = null;
+}
+
+/**
+ * An image model that answers every call with `images` (their bytes) and
+ * the Gateway's `providerMetadata` (its reported cost, when given) — or
+ * throws `error`. Calls are on `.doGenerateCalls` (prompt, size, n).
+ */
+export function imageModel(
+  images: readonly Uint8Array[],
+  options: { cost?: string | number; error?: Error } = {}
+): MockImageModelV3 & { doGenerateCalls: { prompt: string | undefined; size: string | undefined; n: number }[] } {
+  const calls: { prompt: string | undefined; size: string | undefined; n: number }[] = [];
+  const model = new MockImageModelV3({
+    provider: "gateway",
+    modelId: "stub/image",
+    doGenerate: async (call) => {
+      calls.push({ prompt: call.prompt, size: call.size, n: call.n });
+      if (options.error) throw options.error;
+      return {
+        images: [...images],
+        warnings: [],
+        response: { timestamp: new Date(), modelId: "stub/image", headers: undefined },
+        providerMetadata: {
+          ...(options.cost !== undefined ? { gateway: { images: [], cost: String(options.cost) } } : {}),
+        },
+      };
+    },
+  });
+  return Object.assign(model, { doGenerateCalls: calls });
 }
 
 /**

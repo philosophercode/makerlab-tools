@@ -13,7 +13,7 @@ import { claimAttachments, createAttachment } from "../data/attachments";
 import { createPendingBatch, getPendingTool, markResearching, queueForResearch } from "../data/pending-tools";
 import { getDb, resetDbForTests } from "../db/client";
 import { DEMO_ACCOUNTS } from "../db/demo-seed";
-import { attachments } from "../db/schema/index";
+import { attachments, pendingTools } from "../db/schema/index";
 import { inspectImage } from "../images/inspect";
 import { IMAGE_STEP_MAX_RETRIES } from "../intake/limits";
 import type { ImageHint } from "../web/read-page";
@@ -484,6 +484,51 @@ describe("findImages", () => {
     expect(await ownedBy(id)).toEqual([]);
     // Not counted as an uploaded photo: the stage ran.
     expect((await getPendingTool(id))?.research?.images).toEqual({ candidates: [], cleaned: null });
+  });
+
+  it("keeps the cleaned copy of the photo looked up at identification — approval lets it go, not research (amendment \"A photo for a name\")", async () => {
+    const id = await researchingItem();
+    const db = await getDb();
+    const found = await createAttachment({
+      blobPathname: "research/cleaned/found.png",
+      access: "private",
+      publicUrl: null,
+      contentType: "image/png",
+      sizeBytes: 1,
+      originalFilename: "background-removed.png",
+      uploadedBy: null,
+      origin: "research_image_cleaned",
+      sourceUrl: "https://maker.example/img/found.png",
+    });
+    const stale = await createAttachment({
+      blobPathname: "research/cleaned/stale.png",
+      access: "private",
+      publicUrl: null,
+      contentType: "image/png",
+      sizeBytes: 1,
+      originalFilename: "background-removed.png",
+      uploadedBy: null,
+      origin: "research_image_cleaned",
+      sourceUrl: "https://maker.example/img/stale.png",
+    });
+    await claimAttachments(db, [found.id, stale.id], { ownerType: "pending_tool", ownerId: id });
+    await db
+      .update(pendingTools)
+      .set({
+        foundPhoto: {
+          requestId: crypto.randomUUID(),
+          requestedAt: new Date().toISOString(),
+          status: "found",
+          candidate: null,
+          cleaned: { attachmentId: found.id, fromUrl: "https://maker.example/img/found.png" },
+          error: null,
+        },
+      })
+      .where(eq(pendingTools.id, id));
+
+    await findImages(id, REQUEST, RESULT, []);
+
+    expect((await ownedBy(id)).map((row) => row.id)).toEqual([found.id]);
   });
 
   it("writes nothing to a row that is no longer this run's", async () => {

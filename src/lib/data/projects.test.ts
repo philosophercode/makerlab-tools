@@ -276,6 +276,24 @@ describe("src/lib/data/projects.ts", () => {
       expect(rows.every((row) => row.ownerType === "project")).toBe(true);
     });
 
+    it("claims only the author's own uploads, never somebody else's by id", async () => {
+      await insertUserRow(db, { id: "author-1", email: "author@cornell.edu" });
+      await insertUserRow(db, { id: "victim-1", email: "victim@cornell.edu" });
+      const mine = await upload({ uploadedBy: "author-1" });
+      const theirs = await upload({ uploadedBy: "victim-1" });
+
+      const created = await createProjectSubmission(
+        submission({ authorUserId: "author-1", photoAttachmentIds: [theirs, mine] }),
+        { db }
+      );
+
+      expect(created.photosAttached).toBe(1);
+      const [victimRow] = await db.select().from(attachments).where(eq(attachments.id, theirs));
+      expect(victimRow.ownerId).toBeNull();
+      const [authorRow] = await db.select().from(attachments).where(eq(attachments.id, mine));
+      expect(authorRow.ownerId).toBe(created.id);
+    });
+
     it("records the author id from the session, and nothing when anonymous", async () => {
       // Since Phase 4 `created_by` references `user.id`, so the author has to
       // be a row — which in production they are, because the id comes from a

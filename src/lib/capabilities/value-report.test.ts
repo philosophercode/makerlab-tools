@@ -9,11 +9,12 @@ import { resetDbForTests } from "../db/client";
 import { capabilitiesForIdentity } from "./access";
 import { CAPABILITIES } from "./index";
 import { mcpToolsFor } from "./mcp-access";
-import { getValueReportTool } from "./value-report";
+import { getValueReportMcpTool, getValueReportTool } from "./value-report";
 
 /**
  * `get_value_report` (usage insight spec amendment "Value report"): staff
- * only, chat only, never on the deny list, and the page's own numbers.
+ * only in the chat (super admins only over MCP, amendment 2026-09-30),
+ * never on the deny list, and the page's own numbers.
  */
 
 beforeEach(() => vi.stubEnv("DATABASE_URL", ""));
@@ -31,10 +32,13 @@ describe("who is offered get_value_report", () => {
     expect(chatTools("anonymous")).not.toContain("get_value_report");
   });
 
-  it("is never offered over MCP, whatever the role", () => {
-    for (const role of ["anonymous", "user", "admin", "super_admin"] as const) {
+  it("is offered over MCP to super admins only, through its twin (amendment 2026-09-30)", () => {
+    for (const role of ["anonymous", "user", "admin"] as const) {
       expect(mcpToolsFor(CAPABILITIES, mcpAccessFor(role)).map(({ tool }) => tool.name)).not.toContain("get_value_report");
     }
+    const superAdmin = mcpToolsFor(CAPABILITIES, mcpAccessFor("super_admin")).filter(({ tool }) => tool.name === "get_value_report");
+    expect(superAdmin).toHaveLength(1);
+    expect(superAdmin[0].tool).toBe(getValueReportMcpTool);
   });
 
   it("is a read on insights.view, and its name is nowhere near the deny list", () => {

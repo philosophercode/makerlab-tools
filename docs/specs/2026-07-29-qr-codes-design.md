@@ -1,7 +1,7 @@
 # QR Codes on Machines — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Implemented — `npm run qr:labels` (status audit 2026-09-27, [`README.md`](README.md)); amended 2026-09-29, "QR labels in the app" (§12)
+**Status:** Implemented — `npm run qr:labels` (status audit 2026-09-27, [`README.md`](README.md)); amended 2026-09-29, "QR labels in the app" (§12); amended 2026-10-06, "Unit labels and reporting from a unit" (§13) and "The lab's official logo on the labels" (§14); amended 2026-10-07, "Report a problem opens the quick report form" (§15)
 **Target:** `v5/`
 **Branch:** `v5/qr-labels`
 
@@ -37,7 +37,9 @@ change to how the page behaves when someone arrives from one.
   prompt, a dependency, and a worse experience than the OS provides.
 - **No per-unit codes.** Codes point at the *tool*, not the individual machine. Per-unit
   codes double the label count and the maintenance burden for a benefit — "this exact
-  Prusa" — that the assistant can resolve by asking.
+  Prusa" — that the assistant can resolve by asking. *Superseded 2026-10-06 (§13):
+  reporting against a unit is the main reason anyone scans, so units get labels too;
+  the tool label stays.*
 - **No NFC.** Cheaper to say no than to explain why the tags stopped working.
 - **No dynamic redirects or short links.** A code encoding the real URL has no service to
   keep running. If URLs change, the labels are wrong — accepted, because tool IDs are Notion
@@ -263,3 +265,155 @@ under 25 mm, start with the wordmark and the extra line off; either can be switc
 
 **Still open.** §11.2 (sticker stock) is now a setting rather than a blocker; print one sheet
 and scan it in the lab before cutting a hundred (§9 step 3 still applies).
+
+## 13. Amendment 2026-10-06 — Unit labels and reporting from a unit
+
+Owner meeting 2026-10-06 (Niti, Luis, Isaac): reporting an issue is the main reason anyone
+scans a machine, and a report should land on the exact unit — "Prusa #4", not "a Prusa".
+§2's "no per-unit codes" is superseded. Each physical unit can have its own label beside the
+tool's; the tool label is unchanged and keeps working.
+
+**One URL format, still the tool page.** A unit's code is the tool's code with the unit named:
+
+```
+https://<site>/tools/<slug>?src=qr&unit=<token>
+```
+
+`unitQrTargetUrl(origin, slug, unitId)` in `lib/qr/urls.ts`, beside `toolQrTargetUrl`. No new
+route: a unit label works wherever the tool label does, and a legacy-id redirect keeps the
+query. The `<token>` is the first eight hex characters of the unit's uuid (`unitQrToken`).
+Unit ids are stable (a rename keeps the row), so the label stays right when a unit is
+relabelled. The token is short on purpose: a full uuid adds 28 characters and two QR versions,
+so smaller modules on a sticker that gets scuffed. It is resolved **only among that tool's own
+units** (`unitForToken`), never across the catalogue; a token that matches none of them, or
+two (about one in four billion per pair), names no unit and the page behaves as for the tool
+label. `parseUnitToken` accepts the token, a longer prefix or a whole uuid, and nothing else,
+so a hand-made link with the full id works and nothing else reaches a lookup.
+
+**The tool page** (`QrArrivalNotice`). When `?unit=` names one of the tool's units (with or
+without `?src=qr`, so a shared link works too), the notice leads with that unit: its name, "A
+unit of the <tool>", its status glyph, and **Report a problem with this unit** as the primary
+action, with **Ask about this machine** beside it. The unit list is already on the cached
+page, so this reads nothing new and stays a dynamic hole; like `?src=qr`, `?unit=` changes
+presentation only. A tool's label now offers **Report a problem** as well (secondary to Ask).
+Nothing auto-opens (§5, §11.1).
+
+**The report form is the assistant.** There is no separate report form: reporting has always
+been the chat's `report_issue` (the header's Report button opens it the same way). Report a
+problem with this unit opens the chat with the report already started — "I'd like to report a
+problem with Prusa MK3S+ #4 (Prusa i3 MK3S+)." — on the tool's page, so the unit is
+preselected by name and the ticket is linked to it. Two fixes make that exact:
+
+- `findUnit` (`capabilities/helpers.ts`) resolves a **unit id** exactly, and with
+  `preferToolId` searches the units of the tool on screen first. `report_issue`,
+  `get_unit_details` and `get_maintenance_history` pass the chat's focused tool, so a label
+  two tools share ("Station 1", "#2") resolves to the machine in front of the person rather
+  than the first in the catalogue. Before this, a shared label could file against another
+  tool's unit.
+- `report_issue`'s `unit_label` may be the unit's id; its description says so.
+
+**Codes in chat photos.** `qrTarget` (`lib/qr/match.ts`) returns the `?unit=` token beside the
+tool's slug. `photoQrHints` looks the token up among that published tool's units and, when it
+names one, the hint names the unit and its id from the catalogue —
+`[QR code in photo "IMG_2050.jpg": links to unit "Prusa MK3S+ #4" (unit id 194e4406-…) of
+tool prusa-i3-mk3s ("Prusa i3 MK3S+")]` — and the section tells the model to pass that id as
+`unit_label` when it files a ticket. An unknown token gives the tool's hint. As before, a
+decoded payload never reaches the prompt: the unit's name and id come from our database.
+
+**Admin: unit labels in the studio.** `/admin/inventory/qr` gains **Tools (n) / Units (n)**
+above the list. Units lists every unit of every published tool — retired units left out, the
+same list Log completed maintenance offers (`listToolUnitOptions`) — with the tool in the
+second column, the same search, category facet, selection and print actions. A unit's label
+is the tool's label with one more line: the tool's name on one line (shrunk, then shortened,
+to fit) and the unit's name under it in bold, in the room a second name line takes on a tool
+label, so a 2″ unit label keeps its code above the 25 mm floor (26 mm with the defaults). The
+unit line follows the name switch and is never dropped for room. A unit named exactly like
+its tool ("Trotec Speedy 400") is not printed twice. The address under the code is the tool's
+(`displayUrl` drops the query). Files are named `<slug>-<token>-label.svg|png`, the sheet
+`qr-unit-labels.pdf`. The style is shared with tool labels. Printing still writes nothing.
+
+**Unchanged.** `/api/qr/[slug]`, the tool page's QR dialog, `get_tool_qr_code` and the label
+script stay tool-only; a unit's code is printed from the studio.
+
+**Tests.** `lib/qr/urls.test.ts` (format, token, parsing, resolution among a tool's units),
+`lib/qr/label-layout.test.ts` (unit content, the unit line, the 2″ floor, the same code size
+for a long name, never dropped, no duplicate), `lib/qr/match.test.ts`,
+`lib/chat/photo-qr.test.ts` (a real photo of a unit label resolves to the unit; an unknown or
+another tool's token gives the tool), `capabilities/helpers.test.ts` and
+`capabilities/maintenance.test.ts` (unit id, focused tool), `app/tools/[id]/QrArrivalNotice.test.tsx`,
+`components/admin/qr/QrLabelStudio.test.tsx`, `app/admin/inventory/qr/page.test.tsx` (units
+handed down, retired ones not).
+
+**Open.**
+
+1. **The extra line on a unit label.** It is shared with tool labels ("Scan for manual &
+   help"). "Scan to report a problem" may suit unit labels better; a per-kind default is a
+   small change once the lab picks the wording.
+2. **A form instead of the chat.** If a direct report form (title, details, priority, photo,
+   unit preselected) is wanted beside the assistant, it is a new public write: it needs the
+   action layer's parity entry, the anonymous ticket limit and the same bounds as
+   `report_issue`. Not built here.
+3. **Units on the tool page itself.** The units table could carry a Report button per row
+   for people who did not scan. Not built here, to keep this change to the scan path.
+4. **Print and scan a unit sheet in the lab** before labelling every machine (§9 step 3).
+
+## 14. Amendment 2026-10-06 — The lab's official logo on the labels
+
+The MakerLAB wordmark on a label (§12's styler, the PDF, the label SVG and PNG,
+`npm run qr:labels -- --pdf`) is now the lab's official logo: the Cornell seal
+beside "CORNELL TECH" over "MakerLAB" (identity spec, amendment "The official
+Cornell Tech MakerLAB logo"). The label draws its PNG, `siteConfig.logoPng`,
+because `pdf-lib` embeds PNG and not SVG.
+
+- **Same height, so no code got smaller.** The logo is drawn at the height the
+  wordmark had on every preset (`typeScale`: 3.6 mm on 2″, 2.7 mm on 1.5″,
+  5.3 mm on 3″), at its own proportions (`BRAND_ASPECT`, 277.68 × 76.13, so
+  13 mm wide on 2″ where the wordmark was 21 mm). The default 2″ code stays
+  25.4 mm, just over §6's floor; a taller logo would have pushed it under. At
+  300 dpi "CORNELL TECH" and "MakerLAB" read on 2″ and 3″ labels and are small
+  on 1.5″. Only a custom label over 78.6 mm on its short side draws the logo
+  taller than before: the cap rose from 5.5 to 9 mm.
+- **Unit labels** (§13) draw the same logo at the same height, so a 2″ unit
+  label's code is unchanged (26 mm with the defaults, above the floor).
+- **Labels for wide stickers** (text beside the code) size the logo from the
+  label's height, as before. A 1″-tall one draws it 1.8 mm tall, too small to
+  read its type. Owner's call whether to give that layout a taller logo; the
+  room is there beside the code (open question below).
+- **Fallback.** When the image cannot be read, or the file is not a PNG, the
+  lab's name is written instead of failing the PDF, sized to fit the box.
+- **Words.** The checkbox reads "MakerLAB logo" and the "not enough room" list
+  says "the logo" (English; the other locales fall back to it, Article 6).
+  The saved style keeps its `showBrand` key, so nobody's choice is lost.
+- **Identifiers.** `wordmarkHref`, `wordmarkPng` and `wordmarkText` became
+  `brandHref`, `brandPng` and `brandText`, matching the layout's `brand` box;
+  `WORDMARK_ASPECT` became `BRAND_ASPECT`.
+- **Tests.** `lib/qr/label-pdf.test.ts` (the logo embedded once per sheet; a
+  file that is not a PNG still makes a PDF), `lib/qr/matrix.test.ts` (the
+  label SVG names the logo's PNG; the fallback name fits its box),
+  `components/admin/qr/QrLabelStudio.test.tsx` (the preview draws the logo),
+  `app/admin/inventory/qr/page.test.tsx` (the page hands the studio the PNG).
+
+**Still open.** Print one sheet of 2″ labels with the logo and check it in the
+lab before printing a hundred. Decide whether wide side-by-side labels get a
+taller logo.
+
+## 15. Amendment 2026-10-07 — Report a problem opens the quick report form
+
+Open question 2 of §13 is answered: the owner chose a form (design review decisions,
+2026-10-07, "Reporting"), and it is the quick report spec (`2026-10-07-quick-report-design.md`).
+
+- **A unit's label.** **Report a problem with this unit** opens the quick report form with that unit
+  preselected ("Chosen from the label you scanned."), not the chat. The student types what is wrong
+  in one box and may add a photo; the ticket lands on the unit.
+- **A tool's label.** Its secondary **Report a problem** opens the same form, with the unit to
+  choose when the tool has several.
+- **Ask** reads **Ask MakerLAB AI about this machine** (`report.ask`) and opens the chat seeded as
+  before. `qr.arrivalAction`, `qr.reportUnitSeed` and `qr.reportToolSeed` are removed.
+- **The tool page** carries Report a problem and Ask MakerLAB AI in its hero too, for people who did
+  not scan (§13 open question 3, in part: one Report for the page, not one per unit row).
+- The chat's handling of a unit (`findUnit` with the focused tool, unit ids in photo hints) is
+  unchanged; it still serves reports made in the chat.
+
+`QrArrivalNotice` takes the tool's slug (`toolSlug`), which the form files against.
+**Tests:** `app/tools/[id]/QrArrivalNotice.test.tsx` (both labels open the form, not the chat; a
+unit's label preselects it).

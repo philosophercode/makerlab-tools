@@ -158,6 +158,14 @@ describe("get_tool_details", () => {
     expect(result.found).toBe(false);
     expect(result.message).toMatch(/Tool not found: no-such-tool-id/);
   });
+
+  it("returns the tool's lab notes as lines, under a name that says whose they are (identity spec amendment \"Lab notes\")", async () => {
+    const result = (await tool("get_tool_details").run({ id_or_name: "trotec-speedy-400" }, ctx)) as Record<string, unknown>;
+
+    expect(result.lab_notes).toEqual(["Run exhaust for 60 seconds after cuts before opening the lid."]);
+    expect(result).not.toHaveProperty("notes");
+    expect(tool("get_tool_details").description).toContain("lab notes");
+  });
 });
 
 // ── Prompt fragment ────────────────────────────────────────────────
@@ -172,6 +180,16 @@ describe("promptFragment", () => {
     expect(fragment).toContain("**Form 4** (official: Formlabs Form 4 Resin 3D Printer) — slug: `form-4`");
     expect(fragment).toContain("**Trotec Speedy 400** — slug: `trotec-speedy-400`");
     expect(fragment).toContain("units: Form 4 // A [In Use]");
+  });
+
+  it("marks a tool that has lab notes, and only such a tool, without listing the notes themselves", async () => {
+    const [form4, trotec] = await getCatalogTools();
+    const fragment = catalog.promptFragment?.({ tools: [form4, { ...trotec, notes: "  \n " }] }) ?? "";
+    const lines = fragment.split("\n");
+
+    expect(lines.find((line) => line.includes("**Form 4**"))).toMatch(/· Intermediate · lab notes$/);
+    expect(lines.find((line) => line.includes("**Trotec Speedy 400**"))).toMatch(/· Advanced$/);
+    expect(fragment).not.toContain("nitrile gloves");
   });
 
   it("is the same on every page: the focused tool is the chat adapter's per-request tail", async () => {
@@ -189,6 +207,43 @@ describe("promptFragment", () => {
     expect(fragment).toMatch(/Answer from it directly/);
     expect(fragment).toContain("what 3D printers do you have?");
     expect(fragment).not.toMatch(/list_tools\` — list everything[^\n]*Use this for "what do you have"/);
+  });
+});
+
+// ── Unit serials (amendment 2026-10-06): whole for staff, last four for everyone else ──
+
+describe("get_tool_details unit serials", () => {
+  it.each(["anonymous", "user"] as const)("gives %s the units by name, with only the masked last four", async (role) => {
+    const result = (await tool("get_tool_details").run(
+      { id_or_name: "form-4" },
+      { identity: identityFor(role) }
+    )) as { units: Record<string, unknown>[] };
+    expect(result.units.map((unit) => unit.name)).toEqual(["Form 4 // A"]);
+    expect(result.units[0]).not.toHaveProperty("serial");
+    expect(result.units[0].serialMasked).toBe("•••• -001");
+    expect(JSON.stringify(result)).not.toContain("ML-F4-001");
+  });
+
+  it("gives a caller with no identity no whole serial either", async () => {
+    const result = (await tool("get_tool_details").run({ id_or_name: "form-4" }, ctx)) as { units: Record<string, unknown>[] };
+    expect(result.units[0]).not.toHaveProperty("serial");
+    expect(result.units[0].serialMasked).toBe("•••• -001");
+  });
+
+  it.each(["admin", "super_admin"] as const)("gives %s each unit's whole serial", async (role) => {
+    const result = (await tool("get_tool_details").run(
+      { id_or_name: "form-4" },
+      { identity: identityFor(role) }
+    )) as { units: Record<string, unknown>[] };
+    expect(result.units).toEqual([expect.objectContaining({ name: "Form 4 // A", serial: "ML-F4-001" })]);
+    expect(result.units[0]).not.toHaveProperty("serialMasked");
+  });
+
+  it("keeps serials out of the catalogue listing in every prompt", async () => {
+    const tools = await getCatalogTools();
+    for (const role of ["anonymous", "user", "admin", "super_admin"] as const) {
+      expect(catalog.promptFragment?.({ tools, identity: identityFor(role) }) ?? "").not.toMatch(/ML-F4-001|ML-LSR-400/);
+    }
   });
 });
 

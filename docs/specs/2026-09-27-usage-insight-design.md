@@ -1,7 +1,7 @@
 # Usage Insight: What the Lab Asks About, and What It Cannot Answer — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Phases 1–2 built, with the Unanswered queue's two decisions (amendment 2026-09-28); phases 3–4 open
+**Status:** Phases 1–2 built, with the Unanswered queue's two decisions (amendment 2026-09-28); the value report; usage counts over MCP for super admins (amendment 2026-09-30); phases 3–4 open
 **Target:** `v5/`
 **Branch:** `docs/feature-specs` · implementation `v5/usage-insight`
 **Spec PR:** — · **Implementation PR:** "v5 usage insights" (phases 1–2)
@@ -618,3 +618,103 @@ CSV download, one-page print, saving an assumption).
 
 **Status.** Built; PR "v5 insights: value report". Migration `0024` is the next free number on
 `main` today; if another PR lands a `0024` first, this one renumbers.
+
+### 2026-09-30 — Citations by ref are counted (fix)
+
+**Observed in production on 2026-09-30.** `/admin/insights` showed **Manual citations 0** and the
+value report **Manual pages cited in answers 0 / Manuals cited 0** over 30 days, while the chat drew
+manual-page citations ("3 MANUAL PAGES": ShopBot User Guide p. 74 and p. 5, Shaper Origin Product
+Manual pp. 14–15) and the same page counted 19 assistant turns.
+
+**Cause.** Manual text spec amendment 2026-09-28 ("Citations always resolve") changed how the model
+cites a passage: as a link to `#cite-<ref>`, never to the PDF's URL. The chat's `citedPassages`
+learned the ref; `from-turn.ts` still matched only `](<passage url>)`, so no `manual_cited` event was
+written after that change.
+
+**Fix — no change to what counts.** §4 and §5.1 stand: a `manual_cited` is a passage `search_manual`
+returned this turn that the final text links to, matched as `citedPassages` matches it. That matching
+is now one helper, `linkPosition` (`lib/manuals/citation-ref.ts`), used by both the chat and
+`from-turn.ts`: a link to the passage's `#cite-<ref>` or to its exact URL, ignoring case, each passage
+once however often it is linked. `turn-log.ts` keeps each logged passage's `ref`, built with the same
+`citationRef(documentId, pageStart)` the tool returned.
+
+**Still not counted** (unchanged, by §4): a page of a manual the route attached whole
+(`#cite-<resource ref>-<page>` or "(<title>, p. N)", manual text amendment 2026-09-28b) — e.g. the
+Bambu Lab X1-Carbon's quick-start guide. It is not a `search_manual` passage and has no
+`manual_documents` row for `manual_document_id`. Counting it is a separate decision (what document
+id it records, how the Manuals cited table names it) and needs its own amendment.
+
+**No backfill.** Events are written from the finished turn in memory; the turns themselves (answer
+text, tool outputs) are not stored anywhere (no chat transcript table; the client keeps them), so
+the citations missed since refs shipped cannot be recovered. The counts start again from the deploy
+of this fix; `chat_turn`, `tool_asked` and `gap` for those turns were recorded correctly.
+
+**Tests.** `lib/usage/from-turn.test.ts` (a turn citing three passages by `#cite-<ref>`, one in upper
+case and one twice, plus a garbled ref; ref and URL to one passage count once);
+`app/api/chat/usage.route.test.ts` (the real route and `search_manual`, the answer citing page 12 by
+`#cite-<ref>`, one `manual_cited` with the document and page).
+
+### 2026-09-30 — Usage counts over MCP, for super admins
+
+**Why.** The owner decided (2026-09-30) that a super admin should be able to pull the lab's
+anonymous usage data over MCP, so an AI client connected to `/api/mcp/signed-in` (Claude Code, for
+one) can answer "how is MakerLAB AI being used?" without opening the Insights page. Admins maybe
+later. This lifts the value report amendment's "never on MCP" for super admins only, and brings
+forward the MCP half of phase 4 ("MCP: aggregates only, no gap text") for the Usage tab's numbers.
+
+**Rules** (all four hold for both tools):
+
+- **Super admins only.** A new permission, **`insights.export`** — held by `super_admin` alone,
+  like `catalog.export` (the catalogue leaving the app in one file) — gates both tools through the
+  tools' `requiredPermission`, so `mcpToolAllowed` lists them for nobody else and the route never
+  registers them for an admin, a student or an anonymous caller. No role name appears in MCP code.
+  "Admins too" is one line in `auth/permissions.ts`.
+- **Counts and aggregates only.** No question text at all — not the Unanswered queue's scrubbed
+  wording either: the queue is its three counts (open, dismissed, filed). Tools and manuals are
+  named from the catalogue; nothing names or describes a person (the usage tables cannot).
+- **Read-only.** Both are `kind: "read"`, so a read-only token or grant gets them too. Nothing
+  over MCP dismisses or files a gap, or changes the value report's assumptions: those stay
+  `assistant: "never"`, GUI only.
+- **Staff left out unless asked.** `get_usage_summary` takes `include_staff` — the page's toggle,
+  off by default. The value report always leaves staff out, as on its page.
+
+**What is built.**
+
+- **`get_value_report` over MCP**: an MCP twin (`getValueReportMcpTool`, `capabilities/value-report.ts`)
+  of the chat tool — the same name, input (`term`, or `from`/`to`), loader (`usage/value/load.ts`)
+  and summary — `mcpOnly`, on `insights.export`. The chat's tool is unchanged: `chatOnly`,
+  `insights.view`, admins and super admins. One name on both surfaces, like `update_ticket`;
+  `chatOnly`/`mcpOnly` keep them from meeting in one tool set.
+- **`get_usage_summary`** (`capabilities/usage-summary.ts`, MCP only, `insights.export`): the Usage
+  tab for the last **7, 30 or 90 days** (`days`, default 30) with `include_staff` (default false).
+  It calls the page's own loader, `loadInsights`, with the page's time zone (`insightsTimeZone`, now
+  shared in `usage/queries.ts`), and the page's "Answered" arithmetic (`usage/answered.ts`, shared
+  with `InsightsSummary`), so every number is the page's for the same window. Out: the period and
+  lab days, `counting_since`; **totals** (assistant questions in the app, MCP tool calls, tool page
+  views, QR scans, kiosk loads and QR arrivals, manual citations, unanswered, answered share); the
+  Unanswered queue's counts; the ten most-asked tools (asked in the app / over MCP, views, QR,
+  citations, unanswered) and how many tools had any activity; tools nobody asked about (count, first
+  25 names); question kinds over the period; the five busiest weekday-hour cells in lab time; the
+  five most-cited manuals with their top pages; notes on what the numbers mean; the page's link.
+  **Not** a custom from/to range: the page has none, and a range would be numbers no page shows.
+  The chat's `usage_summary` (phase 4, with fenced gap text) is still open; when it is built, this
+  stays its MCP side.
+- Both sit in a new capability, **`insights`** (`capabilities/insights.ts`), last in the registry,
+  so they close every super admin's MCP listing; it has no prompt (the chat never sees them).
+- Both are listed on `/mcp` under **Staff** (the page has no super-admin group) and marked "You can
+  use this" only for a super admin; each description ends "Super admins only." The `/assistant` page
+  shows them in Insights.
+- Calling either is itself an `mcp_call` with `audience` `staff`, which the default counts leave out.
+
+**Tests.** `capabilities/usage-summary.test.ts`: listed for a super admin (read-only too) and for no
+admin, student or visitor; one row each on `/mcp`, marked for super admins only; the chat unchanged;
+totals, the queue's counts, top tools and question kinds equal `loadInsights` for the same window;
+the staff toggle; no gap's text and no person field in the output; input refused outside 7/30/90.
+`capabilities/value-report.test.ts`: over MCP for super admins only, through the twin.
+`app/api/mcp/usage-insight.route.test.ts` (the real route, tokens): listed and runnable for a super
+admin, absent and refused for an admin, a student and anonymous; the numbers match the page.
+`auth/permissions.test.ts`: the role table gains the three `insights` permissions.
+`capabilities/mcp-access.test.ts` and `components/mcp/McpToolList.test.tsx`: a director's listing is
+a SuperMaker's plus the two (`SUPER_ADMIN_ONLY_TOOLS`, `test/mcp/expected-tools.ts`).
+
+**Status.** Built on branch `v5/mcp-usage-insight`.

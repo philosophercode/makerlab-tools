@@ -67,9 +67,9 @@ test("a proposal card shows the stored change and confirms by id alone", async (
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
+  await page.getByRole("button", { name: "Open MakerLAB AI" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("Set Niti's title to Tech Lead");
+  await dialog.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill("Set Niti's title to Tech Lead");
   await dialog.getByRole("button", { name: "Send" }).click();
 
   const proposal = dialog.getByRole("article", { name: "Set Niti Parikh's title" });
@@ -93,7 +93,7 @@ test("ticked tickets reach the chat as ids, with the page they were ticked on", 
   await expect(page.getByText("1 selected")).toBeVisible();
   await page.getByRole("button", { name: "Ask the assistant about these" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("Resolve these: refocused the lens");
+  await dialog.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill("Resolve these: refocused the lens");
   await dialog.getByRole("button", { name: "Send" }).click();
   await expect(dialog.getByText("Which change?")).toBeVisible();
 
@@ -135,7 +135,7 @@ test("ticked intake items reach the chat as pending ids (approve these, phase 5)
   await expect(page.getByText("1 selected")).toBeVisible();
   await page.getByRole("button", { name: "Ask the assistant about these" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("Approve these as drafts");
+  await dialog.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill("Approve these as drafts");
   await dialog.getByRole("button", { name: "Send" }).click();
   await expect(dialog.getByText("Approve them as drafts?")).toBeVisible();
 
@@ -182,9 +182,9 @@ test("a destructive card confirms only once the name is typed, and sends it (pha
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
+  await page.getByRole("button", { name: "Open MakerLAB AI" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("Archive the Trotec");
+  await dialog.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill("Archive the Trotec");
   await dialog.getByRole("button", { name: "Send" }).click();
 
   const proposal = dialog.getByRole("article", { name: "Archive Trotec Speedy 400" });
@@ -222,8 +222,11 @@ test("an MCP proposal waits in its owner's Assistant proposals inbox (phase 7)",
   expect(proposed).toMatchObject({ proposed: true, inbox: "/admin/proposals" });
 
   await page.goto("/admin");
+  // The inbox is Settings › MCP since the admin sections spec (2026-10-07).
   const bar = page.getByRole("navigation", { name: "Admin sections" });
-  await bar.getByRole("link", { name: "Assistant proposals", exact: true }).click();
+  await bar.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/settings$/);
+  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "MCP", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/proposals$/);
 
   // The card is drawn from the stored proposal. Dismissing it changes nothing

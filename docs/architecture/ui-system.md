@@ -32,8 +32,12 @@
   `aria-describedby`). Refresh and chat proposals, the intake queue and approve
   page, import review and the chat's intake table are all on them (UI system
   phase 3); `admin-intake.css` and `intake-table.css` are gone.
-  **Admin navigation** (phase 4): `Tile`/`TileGroup`, `LinkTabs` (tabs that
-  are URLs: links with `aria-current`, never `role="tab"`) and `queue/QueueList`
+  **Admin navigation** (phase 4; six sections since the admin sections spec
+  2026-10-07): `LinkTabs` (tabs that are URLs: links with `aria-current`,
+  never `role="tab"`; the section tabs under every admin header are
+  `admin/SectionTabs` over the layout's `AdminSurfacesProvider`), the overview's
+  blocks in `admin/overview/` (`Tile`/`TileGroup` have no callers since and
+  await deletion approval) and `queue/QueueList`
   (search + facets over a queue, open work on the page, settled behind a
   disclosure) in `system/`; `AdminNav`, `AdminPageHeader` and `CommandPalette`
   (shadcn `Command` over `cmdk` in `ui/dialog`; since public polish in
@@ -47,7 +51,26 @@
   `ChoiceMenu` (Sort, Group by), its state in the URL through
   `gallery-filters.ts` and `useUrlSearch` (the page is one cached prerender, so
   the island reads the query string itself); grouped, it is sticky-headed
-  sections with counts. The tool page is one column (`DetailShell`, units as
+  sections with counts. Since the student home spec's amendment "One page: the
+  list at rest" (2026-10-07) the gallery **is the home page** (`/`,
+  `home/HomeShell`): "MakerLAB AI" at display size (`home/LandingLockup`; the
+  header's lockup, `HeaderBrand`, steps aside on `/` while it is on screen),
+  the one search box (`home/HomeSearch`: cmdk inline, the minimal box
+  `search/SearchFrame` with its rotating line), a quiet row
+  (`home/HomeControls`: Categories | All tools, and Filters), the Filters
+  panel (`home/FiltersPanel`, closed until asked for: every facet, Group by,
+  Sort, Grid / Table), then the content (`GalleryShell`, stateless:
+  `use-catalogue-state.ts` reads the URL and `catalogue-view.ts` decides what
+  shows) — the category tiles (`CategoryTileCard`) in the taxonomy's order
+  (`getCategoryOrder`) by default, a category's tools, or all tools grouped by
+  category (`?show=all`). Typing swaps the content for the ranked matches
+  (`rankToolsInPlace`, the palette's `paletteScore` via
+  `palette/palette-search.ts`); the box's own list keeps the matching
+  categories and "Ask MakerLAB AI" (Enter opens the first result, never
+  asks). Links to the list go through `lib/gallery-links.ts`; `next.config.ts`
+  redirects `/tools` to `/`; same-page links reach the list through
+  `openClientQueryPage` and the Navigation API listener in
+  `use-url-state.ts`. The tool page is one column (`DetailShell`, units as
   `tool/UnitsTable`, the maintenance history from `getToolMaintenanceHistory` —
   no names). `app/not-found.tsx` / `app/error.tsx` exist. `account.css`,
   `mcp.css`, the `.tool-detail` palette and the gallery/projects legacy rules
@@ -57,14 +80,22 @@
   `Sheet`, `ui/sheet.tsx`); view switches are `system/SegmentedControl`; the
   gallery table has a Status facet, Columns and sorting on every column
   (`useGalleryColumns`). The ⌘K palette (`palette/CommandPalette`) is in the
-  header on every page (`HeaderSearch`): published tools from the root layout
+  header on every page (`HeaderSearch`; its field is hidden but kept in place
+  on `/`, which has its own box): published tools from the root layout
   (`getPaletteTools`), the role from `PrimaryNav`'s identity
   (`lib/auth/identity-store.ts`), and on admin pages the server-resolved role
   and the drafts via `PaletteScope`, added to the published list. Floating menus use `FROSTED`
   (`system/frosted.ts`). The root always shows its scrollbar so the header
-  never moves (`e2e/header-stability.spec.ts`). Save-on-click controls report
+  never moves (`e2e/header-stability.spec.ts`). On a short viewport (a phone
+  on its side) the header is the short bar: the links behind MENU
+  (`use-nav-menu.ts`, the query repeated in `globals.css`), nothing sticky
+  (DESIGN.md §8.12). Save-on-click controls report
   "Saved" in a reserved `SaveSlot` (`admin/RowStatus.tsx`). The tool page is
-  two columns on desktop and draws no empty section.
+  two columns on desktop and draws no empty section. Its hero carries **Report
+  a problem** (the one filled button) and **Ask MakerLAB AI about this
+  machine** (`tool/report/ToolReportActions`); Report opens the quick report
+  form, a `Dialog` on the frosted plate like Report a correction
+  (`tool/report/ReportProblemButton`, quick report spec 2026-10-07).
   **Chat** (phase 5b): AI Elements copied from `registry.ai-sdk.dev` into
   `src/components/ai-elements/` (Conversation, Message, PromptInput, Tool,
   Sources, InlineCitation, Suggestion, Loader), trimmed to what the chat uses
@@ -75,7 +106,22 @@
   the pages' `MARKDOWN_PROSE`. A link whose address one of the turn's
   `search_manual` passages returned is an inline citation, and the cited
   pages are the answer's Sources (`chat/manual-citations.ts`). Messages carry
-  `data-role` / `data-kind` for tests. The floating button is not drawn on
-  `/admin/*`: the section bar's **Ask the assistant** and ⌘K (`onAsk`, from
+  `data-role` / `data-kind` for tests. **Images in the chat** (amendment
+  2026-10-07) are cards like the QR card, all loaded lazily: `ChatToolCards`
+  (`data-tool-cards`, from `show_tool`) draws the tools an answer is about —
+  the catalogue photo through `ToolImage` on a 72 px plate, name, category and
+  `StatusGlyph`, the card a link that closes the chat; a turn's cards are one
+  list, each tool once. `ChatIllustration` (`data-illustration`, from
+  `make_illustration`) draws a generated illustration from our own route only,
+  with an "AI illustration" mark on the picture and the fixed caption
+  `chat.illustration.caption` under it. **Suggested replies** (amendment
+  2026-10-07): `SuggestedReplies` draws a `suggest_replies` call's two or
+  three replies as a wrapping row of pill bubbles (AI Elements `Suggestion`,
+  `.chat-reply-chip`, the second round exception after the composer's),
+  last in the latest assistant message and only once its turn has finished;
+  a tap sends the text through `handleSuggestion`, always live. Under the composer, always, the
+`chat.aiNote` line ("MakerLAB AI can make mistakes…"), which also describes
+the text field (identity spec amendment 2026-10-06). The floating button is not drawn on
+  `/admin/*`: the section bar's **Ask MakerLAB AI** and ⌘K (`onAsk`, from
   `HeaderSearch`) open it. `FlagButton` is a `Dialog`. The `.chat-*` CSS and
   `admin-import.css` are gone.

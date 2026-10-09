@@ -2,7 +2,13 @@
 import { delay, http, HttpResponse } from "msw";
 import { server } from "../../../test/msw/server";
 import { RESOLVE_HOST_HOOK, setResolvedAddresses } from "../../../test/web/resolver";
-import { guardedFetch, type GuardedFetchResult } from "./guarded-fetch";
+import {
+  FORBIDDEN_AT_CONNECT,
+  guardedFetch,
+  guardedLookup,
+  pinnedDispatcher,
+  type GuardedFetchResult,
+} from "./guarded-fetch";
 
 /**
  * The SSRF-guarded GET (gateway spec §3.3, §8, §10 "Unit"): schemes, addresses
@@ -356,5 +362,77 @@ describe("guardedFetch — READ_PAGE_TEST_ORIGIN", () => {
     vi.stubEnv("VERCEL", "");
 
     expect(await get("http://localhost:3101/page", { allowedHosts: ["maker.test"] })).toMatchObject({ detail: "host_not_allowed" });
+  });
+});
+
+describe("guardedFetch — DNS rebinding: the connection is checked, not only the first lookup", () => {
+  type LookupAnswer = { error: NodeJS.ErrnoException | null; address?: unknown; family?: number };
+
+  function lookupOnce(host: string, options: { all?: boolean; family?: number }): Promise<LookupAnswer> {
+    return new Promise((resolve) => {
+      const callback = (error: NodeJS.ErrnoException | null, address?: unknown, family?: number) =>
+        resolve({ error, address, family });
+      guardedLookup(host, options as never, callback as never);
+    });
+  }
+
+  it("answers each lookup the socket makes with the guard's verdict", async () => {
+    setResolvedAddresses({
+      "public.test": ["93.184.216.34", "2606:2800:220:1::1"],
+      "inward.test": ["93.184.216.34", "10.0.0.5"],
+    });
+
+    expect(await lookupOnce("public.test", {})).toMatchObject({ error: null, address: "93.184.216.34", family: 4 });
+    expect(await lookupOnce("public.test", { family: 6 })).toMatchObject({
+      error: null,
+      address: "2606:2800:220:1::1",
+      family: 6,
+    });
+    expect((await lookupOnce("public.test", { all: true })).address).toEqual([
+      { address: "93.184.216.34", family: 4 },
+      { address: "2606:2800:220:1::1", family: 6 },
+    ]);
+    expect((await lookupOnce("inward.test", { all: true })).error?.code).toBe(FORBIDDEN_AT_CONNECT);
+    expect((await lookupOnce("localhost", {})).error?.code).toBe(FORBIDDEN_AT_CONNECT);
+  });
+
+  it("refuses to open a socket to a name that now resolves inward, where a plain agent would connect", async () => {
+    const { createServer } = await import("node:http");
+    const { Agent, request } = await import("undici");
+    const target = createServer((_req, res) => res.end("internal secret"));
+    await new Promise<void>((resolve) => target.listen(0, "127.0.0.1", resolve));
+    const { port } = target.address() as { port: number };
+    // The check saw a public address; by connect time the name answers loopback.
+    setResolvedAddresses({ "rebind.test": ["127.0.0.1"] });
+    const loopback = (_host: string, options: { all?: boolean }, callback: (e: null, a: unknown, f?: number) => void) =>
+      options?.all ? callback(null, [{ address: "127.0.0.1", family: 4 }]) : callback(null, "127.0.0.1", 4);
+    const unguarded = new Agent({ connect: { lookup: loopback as never } });
+
+    try {
+      // Control: without the guard the same request reaches the internal server.
+      const plain = await request(`http://rebind.test:${port}/`, { dispatcher: unguarded });
+      expect(await plain.body.text()).toBe("internal secret");
+
+      await expect(request(`http://rebind.test:${port}/`, { dispatcher: pinnedDispatcher() })).rejects.toMatchObject({
+        code: FORBIDDEN_AT_CONNECT,
+      });
+    } finally {
+      await unguarded.close();
+      await new Promise((resolve) => target.close(resolve));
+    }
+  });
+
+  it("sends every request through the pinned dispatcher and reports a connect-time refusal as blocked", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new TypeError("fetch failed", { cause: Object.assign(new Error("forbidden"), { code: FORBIDDEN_AT_CONNECT }) })
+    );
+    try {
+      const result = await get("https://rebind.test/manual.pdf");
+
+      expect(result).toMatchObject({ ok: false, reason: "blocked", detail: "forbidden_address" });
+      expect((spy.mock.calls[0][1] as { dispatcher?: unknown }).dispatcher).toBe(pinnedDispatcher());
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

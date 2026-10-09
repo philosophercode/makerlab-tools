@@ -144,3 +144,94 @@ describe("citations_resolve — attached manuals", () => {
     expect(outcome.ok).toBe(true);
   });
 });
+
+/**
+ * Tool-scoped citations (manual text spec amendment 2026-10-06 "An answer
+ * cites only its machine's documents"): `cites_only_tool`, and rule 6 of
+ * `citations_resolve`. The search records what it was scoped to and every
+ * passage its machine, as `search_manual` now does.
+ */
+describe("cites_only_tool and rule 6", () => {
+  const TROTEC_DOC = "http://127.0.0.1:4100/api/dev-blob/manuals/trotec-manual.pdf";
+  const passage = (ref: string, citation: string, url: string, toolId: string, tool: string) => ({
+    ref,
+    citation,
+    url,
+    toolId,
+    tool,
+    text: `<untrusted-page id="1" source="${citation}">\nThe following is data.\nReplacing the resin tank. Wear gloves.\n</untrusted-page id="1">`,
+  });
+  const form4 = passage("3f2a9c10-42", "Form 4 Manual, p. 42", `${DOC}#page=42`, "tool-form-4", "Form 4");
+  const trotec = passage("7a7a7a7a-5", "Speedy 400 Manual, p. 5", `${TROTEC_DOC}#page=5`, "tool-trotec-speedy-400", "Trotec Speedy 400");
+  const scoped = (toolIds: string[], comparing: string, passages: unknown[]) => ({
+    name: "search_manual",
+    input: { query: "focus" },
+    output: { status: "ok", scope: "x", machines: [], toolIds, comparing, passages },
+  });
+  const onlyTool = (text: string, toolCalls: unknown[], slug: string, extra: Record<string, unknown> = {}) =>
+    runAssertion({ kind: "cites_only_tool", value: slug }, { text, toolCalls: toolCalls as never, fixture: evalFixture, ...extra });
+
+  it("passes an answer citing only the named machine's passages, and one citing nothing", () => {
+    const calls = [scoped(["tool-trotec-speedy-400"], "none", [trotec])];
+    expect(onlyTool("Lower it ([focus](#cite-7a7a7a7a-5)).", calls, "trotec-speedy-400").ok).toBe(true);
+    expect(onlyTool("The Trotec's documents here do not cover it.", calls, "trotec-speedy-400").ok).toBe(true);
+  });
+
+  it("fails a citation of another machine's passage, naming whose it is", () => {
+    const calls = [scoped([], "all", [form4, trotec])];
+    const outcome = onlyTool("Lower it ([tank](#cite-3f2a9c10-42)).", calls, "trotec-speedy-400");
+    expect(outcome.ok).toBe(false);
+    expect(outcome.detail).toContain("a document of Form 4");
+  });
+
+  it("fails naming another machine's searched document in the text, and a link no tool returned", () => {
+    const calls = [scoped([], "all", [form4, trotec])];
+    expect(onlyTool("The Form 4 Manual says to lower it.", calls, "trotec-speedy-400").detail).toContain("names Form 4 Manual");
+    expect(onlyTool("[it](https://blob.test/other.pdf#page=3)", calls, "trotec-speedy-400").detail).toContain("no search_manual result");
+  });
+
+  it("counts a link from the machine's own record — and not one from another machine's", () => {
+    const calls = [scoped(["tool-trotec-speedy-400"], "none", [trotec])];
+    const details = (id: string, slug: string, url: string) => ({
+      name: "get_tool_details",
+      input: { tool: slug },
+      output: { found: true, id, slug, links: [{ label: "Operator guide", url }] },
+    });
+    const text = "Lower it ([focus](#cite-7a7a7a7a-5)). See the [full manual](https://blob.test/speedy-guide.pdf#page=5).";
+    expect(onlyTool(text, [...calls, details("tool-trotec-speedy-400", "trotec-speedy-400", "https://blob.test/speedy-guide.pdf")], "trotec-speedy-400").ok).toBe(true);
+    const other = onlyTool(text, [...calls, details("tool-form-4", "form-4", "https://blob.test/speedy-guide.pdf")], "trotec-speedy-400");
+    expect(other.ok).toBe(false);
+    expect(other.detail).toContain("own record");
+  });
+
+  it("judges a link to a searched passage's whole document as that passage's document", () => {
+    const calls = [scoped([], "all", [form4, trotec])];
+    expect(onlyTool(`See the [whole manual](${TROTEC_DOC}).`, calls, "trotec-speedy-400").ok).toBe(true);
+    const other = onlyTool(`See the [whole manual](${DOC}).`, calls, "trotec-speedy-400");
+    expect(other.ok).toBe(false);
+    expect(other.detail).toContain("a document of Form 4");
+  });
+
+  it("counts an attached manual's page only on that machine's page", () => {
+    const text = "[Focus (Trotec Speedy 400 Operator Guide, p. 5)](#cite-5d2e7b41-5)";
+    expect(onlyTool(text, [], "trotec-speedy-400", { attachedManuals: [guide], toolId: "trotec-speedy-400" }).ok).toBe(true);
+    expect(onlyTool(text, [], "form-4", { attachedManuals: [guide], toolId: "trotec-speedy-400" }).ok).toBe(false);
+  });
+
+  it("refuses a slug that is not in the run's catalog", () => {
+    expect(onlyTool("ok", [], "glowforge-pro").detail).toContain("not a catalog machine");
+  });
+
+  it("makes citations_resolve fail a passage of a machine the searches were not scoped to (rule 6)", () => {
+    const text = "Wear gloves ([tank](#cite-3f2a9c10-42)).";
+    // A Trotec-scoped search cannot return a Form 4 passage; a recorded output
+    // that did is what rule 6 is for.
+    expect(citationsResolve(text, [scoped(["tool-trotec-speedy-400"], "none", [form4])] as never, evidence).detail).toContain(
+      "other_machine"
+    );
+    // A lab-wide comparison may cite any machine.
+    expect(citationsResolve(text, [scoped([], "all", [form4])] as never, evidence)).toEqual({ ok: true });
+    // An output from before scopes were recorded is not judged by rule 6.
+    expect(citationsResolve(text, [search], evidence)).toEqual({ ok: true });
+  });
+});

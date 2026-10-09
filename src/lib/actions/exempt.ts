@@ -63,12 +63,16 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/api/projects/route.ts#POST":
     "Never through the assistant: a project is a student's own write-up with its photo uploads, and files through a generated action are §2's non-goal; students are offered no action tools (§4.9 #3, stage 4)",
   "src/app/api/flags/route.ts#POST": "Already shared: the `flags` capability behind report_correction (§1)",
+  "src/app/api/report/route.ts#POST":
+    "Already shared: the quick report form files through fileProblemTicket (lib/maintenance/file-ticket.ts), the one write behind report_issue (amendment 2026-10-07, quick report spec §3.2)",
   "src/app/api/uploads/route.ts#POST": "Never: uploading a file is not a sentence; photos reach the chat as attachments (§2)",
   "src/app/account/tokens/actions.ts#createTokenAction": "Never: creates a secret (§2)",
   "src/app/account/tokens/actions.ts#revokeTokenAction":
     "Account gate, not an admin permission: a person manages their own credentials on /account/tokens beside the list, and performAction gates on a permission; revoking a credential from a model that may have read outside text is not offered (§4.9 #7, stage 4)",
   "src/app/account/tokens/actions.ts#revokeAppAction": "Account gate, not an admin permission: as revokeTokenAction, for OAuth grants (§4.9 #7, stage 4)",
   "src/app/account/actions.ts#updateOwnNameAction": "Account gate, not an admin permission: people rename themselves on /account; the admin rename is people.set_name",
+  "src/app/api/notifications/unsubscribe/route.ts#POST":
+    "Account gate, not an admin permission: one-click unsubscribe from an email, authorised by a signed token that names the person and can only turn their own email off; it works signed out (RFC 8058), so performAction, which gates on a session's permission, cannot run it; the assistant never changes who is emailed (deny list: messaging; email notifications spec §3.7, amendment 2026-10-07)",
   "src/app/oauth/consent/actions.ts#decideConsentAction": "Never: consent must be the person's own act (§2)",
   "src/i18n/actions.ts#changeLocale": "Never: a client preference (§4.1 #4)",
   "src/i18n/locale.ts#resolveLocale": "Not a write: reads the locale cookie",

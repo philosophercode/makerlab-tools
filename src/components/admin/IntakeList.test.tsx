@@ -152,6 +152,13 @@ describe("IntakeList", () => {
       vi.useFakeTimers();
     });
 
+    it("refreshes while a photo is being looked up for an item named without one (amendment \"A photo for a name\")", () => {
+      const searching = { status: "searching" as const, src: null, external: false, host: null, pageUrl: null, cleaned: false };
+      render(<IntakeList items={[item({ foundPhoto: searching })]} />);
+      act(() => vi.advanceTimersByTime(INTAKE_POLL_INTERVAL_MS));
+      expect(router.refresh).toHaveBeenCalledTimes(1);
+    });
+
     it("refreshes while an item is queued, every interval", () => {
       render(<IntakeList items={[item({ status: "queued", hasWorkflowRun: true })]} />);
 
@@ -491,5 +498,22 @@ describe("IntakeList — Research selected (amendment \"Many items at once\")", 
     await user.click(screen.getByRole("button", { name: "Start research (1)" }));
     expect(await screen.findByText(/today's research limit/)).toBeInTheDocument();
     expect(router.refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("IntakeList — a photo for a name (amendment \"A photo for a name\")", () => {
+  it("shows a looked-up photo in place of the missing one, marked found online", () => {
+    const found = {
+      status: "found" as const,
+      src: "https://cdn.maker.example/img/glowforge.png",
+      external: true,
+      host: "maker.example",
+      pageUrl: null,
+      cleaned: false,
+    };
+    render(<IntakeList items={[item({ foundPhoto: found })]} />);
+    const image = screen.getByRole("img", { name: "Glowforge Pro — photo found online, not confirmed" });
+    expect(image).toHaveAttribute("src", found.src);
+    expect(screen.getByText("Found online")).toBeInTheDocument();
   });
 });

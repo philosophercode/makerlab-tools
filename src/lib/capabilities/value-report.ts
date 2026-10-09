@@ -10,8 +10,10 @@ import type { CapabilityTool } from "./types";
  * `get_value_report` (usage insight spec amendment "Value report"): the
  * value report's summary for a term or date range, so a director can ask the
  * assistant "how many staff hours did we save this fall?" and get the page's
- * own numbers. **Chat only, `insights.view`** — never offered to anonymous
- * visitors or students, and not over MCP. Counts and the lab's assumptions
+ * own numbers. **Chat: `insights.view`** — never offered to anonymous
+ * visitors or students. **MCP: super admins only**, through the twin
+ * {@link getValueReportMcpTool} on `insights.export` (amendment 2026-09-30).
+ * Counts and the lab's assumptions
  * only: no question text, nothing about a person, so reading it does not
  * taint the turn. Read-only; changing the assumptions is the page's alone
  * (`insights.set_value_assumptions` is `assistant: "never"`).
@@ -111,4 +113,22 @@ export const getValueReportTool: CapabilityTool<ValueReportInput, ReturnType<typ
       return { status: "error", message: "The value report could not be read just now. Say so; do not guess numbers." };
     }
   },
+};
+
+/**
+ * `get_value_report` **over MCP** (usage insight spec amendment 2026-09-30):
+ * the same input, the same loader, the same summary — a twin rather than the
+ * chat tool with `chatOnly` dropped, because the two surfaces are gated
+ * differently. The chat's stays on `insights.view` (admins and super admins);
+ * this one is on `insights.export`, which only super admins hold. One name on
+ * both surfaces, like `update_ticket`: `chatOnly` and `mcpOnly` keep them from
+ * ever meeting in one tool set.
+ */
+export const getValueReportMcpTool: CapabilityTool<ValueReportInput, ReturnType<typeof valueReportSummary> | { status: "error"; message: string }> = {
+  ...getValueReportTool,
+  description:
+    "The lab's value report: for a term (e.g. 'fall-2026') or a date range, questions the assistant answered, the share handled without staff, estimated staff hours and dollars saved, questions asked outside staffed hours, top tools and follow-up counts, with the previous period and the lab's assumptions. Estimates from anonymous counts; staff activity is always left out; no question text. Omit every argument for the current term. Read-only. Super admins only.",
+  chatOnly: undefined,
+  mcpOnly: true,
+  requiredPermission: "insights.export",
 };

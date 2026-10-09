@@ -60,7 +60,7 @@ vi.mock("@/lib/rate-limit", async (importOriginal) => {
 
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { attachments, pendingTools, tools } from "@/lib/db/schema/index";
-import { createPendingBatch } from "@/lib/data/pending-tools";
+import { createPendingBatch, getPendingTool } from "@/lib/data/pending-tools";
 import { PATCH } from "./route";
 
 /**
@@ -191,16 +191,16 @@ async function storedItem(id: string) {
 describe("PATCH /api/pending-tools/[id] (sign-in and permission gates)", () => {
   it("answers 401 to an anonymous request", async () => {
     const id = await createItem();
-    const res = await patch(id, { name: "New Name" }, { cookie: null });
+    const res = await patch(id, { name: "Renamed Lathe" }, { cookie: null });
 
     expect(res.status).toBe(401);
     expect((await res.json()).code).toBe("sign_in_required");
-    expect((await storedItem(id)).name).not.toBe("New Name");
+    expect((await storedItem(id)).name).not.toBe("Renamed Lathe");
   });
 
   it("answers 403 to a plain `user` role — it never holds tools.add", async () => {
     const id = await createItem();
-    const res = await patch(id, { name: "New Name" }, { cookie: userSession.cookie });
+    const res = await patch(id, { name: "Renamed Lathe" }, { cookie: userSession.cookie });
 
     expect(res.status).toBe(403);
     expect((await res.json()).code).toBe("forbidden");
@@ -212,7 +212,7 @@ describe("PATCH /api/pending-tools/[id] (sign-in and permission gates)", () => {
     // way to isolate "owner" from "approver" is this mock.
     override.permissions = new Set(["tools.add"]);
 
-    const res = await patch(id, { name: "New Name" }, { cookie: approverSession.cookie });
+    const res = await patch(id, { name: "Renamed Lathe" }, { cookie: approverSession.cookie });
 
     expect(res.status).toBe(403);
     expect((await res.json()).code).toBe("forbidden");
@@ -221,7 +221,7 @@ describe("PATCH /api/pending-tools/[id] (sign-in and permission gates)", () => {
   it("answers 200 for the item's own creator", async () => {
     const id = await createItem({ createdBy: ownerSession.user.id });
 
-    const res = await patch(id, { name: "New Name" }, { cookie: ownerSession.cookie });
+    const res = await patch(id, { name: "Renamed Lathe" }, { cookie: ownerSession.cookie });
 
     expect(res.status).toBe(200);
   });
@@ -229,7 +229,7 @@ describe("PATCH /api/pending-tools/[id] (sign-in and permission gates)", () => {
   it("answers 200 for an approver who is not the owner", async () => {
     const id = await createItem({ createdBy: ownerSession.user.id });
 
-    const res = await patch(id, { name: "New Name" }, { cookie: approverSession.cookie });
+    const res = await patch(id, { name: "Renamed Lathe" }, { cookie: approverSession.cookie });
 
     expect(res.status).toBe(200);
   });
@@ -239,13 +239,13 @@ describe("PATCH /api/pending-tools/[id] (sign-in and permission gates)", () => {
 
 describe("PATCH /api/pending-tools/[id] (not found)", () => {
   it("answers 404 for a missing uuid", async () => {
-    const res = await patch(crypto.randomUUID(), { name: "New Name" });
+    const res = await patch(crypto.randomUUID(), { name: "Renamed Lathe" });
     expect(res.status).toBe(404);
     expect((await res.json()).code).toBe("not_found");
   });
 
   it("answers 404 for an id that is not uuid-shaped", async () => {
-    const res = await patch("not-a-uuid", { name: "New Name" });
+    const res = await patch("not-a-uuid", { name: "Renamed Lathe" });
     expect(res.status).toBe(404);
     expect((await res.json()).code).toBe("not_found");
   });
@@ -263,7 +263,7 @@ describe("PATCH /api/pending-tools/[id] (body validation)", () => {
 
   it("answers 400 for an unknown key", async () => {
     const id = await createItem();
-    const res = await patch(id, { name: "New Name", nonsense: true });
+    const res = await patch(id, { name: "Renamed Lathe", nonsense: true });
     expect(res.status).toBe(400);
     expect((await res.json()).code).toBe("invalid_body");
   });
@@ -317,6 +317,16 @@ describe("PATCH /api/pending-tools/[id] (editing)", () => {
     expect(body.item.serialNumber).toBe("SN-42");
   });
 
+  it("refuses a placeholder name with 422 placeholder_name, keeping the old name (amendment \"No empty items\")", async () => {
+    const id = await createItem({ name: "Zzyxq Placeholder Guard 77" });
+
+    const res = await patch(id, { name: "Equipment not specified" });
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).code).toBe("placeholder_name");
+    expect((await getPendingTool(id))?.name).toBe("Zzyxq Placeholder Guard 77");
+  });
+
   it("refuses add_unit with 422 when nothing matched", async () => {
     const id = await createItem({ name: "Zzyxq Widget 12345" });
 
@@ -346,7 +356,7 @@ describe("PATCH /api/pending-tools/[id] (editing)", () => {
     const id = await createItem();
     await markQueued(id);
 
-    const res = await patch(id, { name: "New Name" });
+    const res = await patch(id, { name: "Renamed Lathe" });
 
     expect(res.status).toBe(409);
     expect((await res.json()).code).toBe("not_editable");
@@ -360,11 +370,11 @@ describe("PATCH /api/pending-tools/[id] (rate limiting)", () => {
     const id = await createItem();
     rateLimitOverride.denyOnce = true;
 
-    const res = await patch(id, { name: "New Name" });
+    const res = await patch(id, { name: "Renamed Lathe" });
 
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("60");
     expect((await res.json()).code).toBe("rate_limited");
-    expect((await storedItem(id)).name).not.toBe("New Name");
+    expect((await storedItem(id)).name).not.toBe("Renamed Lathe");
   });
 });

@@ -1,18 +1,17 @@
 import { useTranslations } from "next-intl";
+import { answeredPercent } from "../../../lib/usage/answered";
 import type { InsightTotals } from "../../../lib/usage/queries";
+
+export { answeredPercent };
 
 /**
  * The period's totals as one compact strip (the Manuals page's
  * `ManualStateStrip` idiom): label left, number right-aligned and tabular.
- * "Answered" is 1 − unanswered turns ÷ questions, shown only once there is a
- * question to divide by.
+ * "Answered" is 1 − unanswered turns ÷ questions (`lib/usage/answered.ts`,
+ * shared with MCP's `get_usage_summary`), shown only once there is a question
+ * to divide by.
  */
-const KEYS = ["chatTurns", "mcpCalls", "toolViews", "qrScans", "kioskScreens", "kioskScans", "citations", "gaps"] as const;
-
-export function answeredPercent(totals: Pick<InsightTotals, "chatTurns" | "gaps">): number | null {
-  if (totals.chatTurns <= 0) return null;
-  return Math.max(0, Math.round((1 - totals.gaps / totals.chatTurns) * 100));
-}
+const KEYS = ["chatTurns", "mcpCalls", "toolViews", "qrScans", "kioskScreens", "kioskScans", "citations", "crossToolCitations", "gaps"] as const;
 
 export function InsightsSummary({ totals }: { totals: InsightTotals }) {
   const t = useTranslations("admin.insights.summary");

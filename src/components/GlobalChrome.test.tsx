@@ -35,30 +35,29 @@ const stats: CatalogStats = {
 };
 
 describe("GlobalChrome", () => {
-  it("renders the MakerLAB lockup from siteConfig: wordmark, site name and tagline, linking home", () => {
+  it("renders the lockup as MakerLAB AI: the wordmark, then AI, linking home", () => {
     render(<GlobalChrome stats={stats} />);
 
-    // Defaults from site-config.ts (env unset) — identity spec 2026-09-28 §1.
-    expect(siteConfig.name).toBe("MakerLAB Tools");
-    expect(siteConfig.tagline).toBe("Your digital guide to making at Cornell Tech");
-    const brand = screen.getByRole("link", { name: /MakerLAB Tools/ });
+    const brand = screen.getByRole("link", { name: "MakerLAB AI" });
     expect(brand).toHaveAttribute("href", "/");
     expect(brand).toHaveClass("brand-lockup");
-    expect(brand).toHaveTextContent("MakerLAB Tools");
-    expect(brand).toHaveTextContent("Your digital guide to making at Cornell Tech");
+    // No site name or tagline beside it any more (owner decision 2026-10-07).
+    expect(brand).not.toHaveTextContent("MakerLAB Tools");
+    expect(brand).not.toHaveTextContent(siteConfig.tagline);
+    expect(brand.querySelector(".brand-ai")).toHaveTextContent("AI");
     // The old lockup is gone.
     expect(screen.queryByText("// CORNELL TECH")).not.toBeInTheDocument();
   });
 
-  it("draws the wordmark from the lab's own logo asset, as decoration", () => {
+  it("draws the wordmark from the official lettering, as decoration", () => {
     render(<GlobalChrome stats={stats} />);
 
-    const brand = screen.getByRole("link", { name: /MakerLAB Tools/ });
+    const brand = screen.getByRole("link", { name: "MakerLAB AI" });
     const wordmark = brand.querySelector('[data-slot="brand-wordmark"]') as HTMLElement;
     expect(wordmark).not.toBeNull();
     expect(wordmark).toHaveAttribute("aria-hidden", "true");
-    expect(siteConfig.wordmark).toBe("/makerlab-wordmark.png");
-    expect(wordmark.style.maskImage || wordmark.getAttribute("style")).toContain("/makerlab-wordmark.png");
+    expect(siteConfig.wordmark).toBe("/brand/makerlab-wordmark-official.svg");
+    expect(wordmark.style.maskImage || wordmark.getAttribute("style")).toContain("/brand/makerlab-wordmark-official.svg");
   });
 
   it("renders PrimaryNav with its links", () => {
@@ -119,18 +118,19 @@ describe("GlobalChrome", () => {
     expect(screen.getByLabelText("Lab status")).toBeInTheDocument();
   });
 
-  // Isaac, 2026-09-23: links, REPORT, then the profile control or SIGN IN.
-  it("keeps the header to links, Report and Sign in for a visitor", async () => {
+  // Isaac, 2026-10-07: links, ADMIN for those who can reach /admin, then the
+  // profile control or SIGN IN. REPORT left the bar.
+  it("keeps the header to links and Sign in for a visitor", async () => {
     render(<GlobalChrome stats={stats} />);
 
     const nav = screen.getByRole("navigation", { name: "Primary navigation" });
     expect(await screen.findByRole("button", { name: /Sign in/ })).toBeInTheDocument();
     // TOOLS, MAP (floor map spike), PROJECTS, ABOUT.
     expect(nav.querySelectorAll("a")).toHaveLength(4);
-    expect(screen.getByRole("button", { name: "Report a problem" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Report a problem" })).not.toBeInTheDocument();
   });
 
-  it("gives a director the profile control and nothing else new in the bar", async () => {
+  it("gives a director ADMIN and the profile control, and nothing else new in the bar", async () => {
     fetchIdentity.mockResolvedValue({
       role: "super_admin",
       name: "Isaac Steinberg",
@@ -142,7 +142,7 @@ describe("GlobalChrome", () => {
     expect(
       await screen.findByRole("button", { name: "Signed in as Isaac" })
     ).toHaveAttribute("aria-haspopup", "menu");
-    expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ADMIN" })).toHaveAttribute("href", "/admin");
     expect(screen.queryByRole("button", { name: /Add new equipment/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Refresh catalog" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "SIGN OUT" })).not.toBeInTheDocument();

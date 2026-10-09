@@ -46,12 +46,31 @@ test.describe("QR arrival", () => {
       notice.getByRole("heading", { name: "Ask about the Form 4" })
     ).toBeVisible();
     await expect(
-      notice.getByRole("button", { name: "Ask about this machine" })
+      notice.getByRole("button", { name: "Ask MakerLAB AI about this machine" })
     ).toBeEnabled();
 
     // Surfaced, not auto-opened (spec §5): the chat panel stays shut until the
     // student taps.
     await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("Report a problem opens the quick report form, not the chat", async ({ page }) => {
+    await page.goto("/tools/form-4?src=qr");
+    const notice = page.getByRole("region", { name: ARRIVAL_REGION });
+    // The form is a client island: wait for hydration before the click counts.
+    const report = notice.getByRole("button", { name: "Report a problem" });
+    await expect(report).toBeEnabled();
+    await expect(async () => {
+      await report.click();
+      await expect(page.getByRole("dialog")).toBeVisible({ timeout: 1_000 });
+    }).toPass();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: "Form 4" })).toBeVisible();
+    await expect(dialog.getByLabel("Tell us what's wrong with this machine")).toBeFocused();
+    // One unit: nothing to choose.
+    await expect(dialog.getByRole("group", { name: "Which unit?" })).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Send report" })).toBeDisabled();
   });
 
   test("the same page without ?src=qr does not surface it", async ({ page }) => {
@@ -63,9 +82,10 @@ test.describe("QR arrival", () => {
     await expect(
       page.getByRole("region", { name: ARRIVAL_REGION })
     ).toHaveCount(0);
+    // Only the hero's pair (quick report spec §6): the notice adds none.
     await expect(
-      page.getByRole("button", { name: "Ask about this machine" })
-    ).toHaveCount(0);
+      page.getByRole("button", { name: "Ask MakerLAB AI about this machine" })
+    ).toHaveCount(1);
   });
 
   test("?src=qr changes presentation only — the tool data is identical", async ({
@@ -74,8 +94,12 @@ test.describe("QR arrival", () => {
     const plain = await detailContent(page, "/tools/form-4");
     const scanned = await detailContent(page, "/tools/form-4?src=qr");
 
-    // Guard against two empty strings passing as "identical".
-    expect(plain).toContain("ML-F4-001");
+    // Guard against two empty strings passing as "identical". The unit by
+    // name and its serial's masked last four: the whole serial is for staff
+    // only (amendment 2026-10-06), and a QR scan by a visitor shows none.
+    expect(plain).toContain("Form 4 // A");
+    expect(plain).toContain("•••• -001");
+    expect(plain).not.toContain("ML-F4-001");
     expect(plain.length).toBeGreaterThan(200);
 
     expect(scanned).toBe(plain);

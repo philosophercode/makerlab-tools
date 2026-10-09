@@ -52,8 +52,11 @@ data; the QR code opens the catalogue with the chat.
   in the root layout) drops `GlobalChrome` and `DemoDataBanner` there and
   `ChatFab` returns null (`isKioskPath`, `components/kiosk-path.ts`);
   `app/kiosk/kiosk.css` hides the root's permanent scrollbar with
-  `html:has([data-kiosk])`. The logo is a CSS mask filled with
-  `--on-surface`, so a single-colour logo reads on dark; the QR code is drawn in
+  `html:has([data-kiosk])`. The logo is the lab's official one (`BrandLogo`,
+  `siteConfig.logo`, the Cornell Tech MakerLAB SVG), a CSS mask filled with
+  `--on-surface`, so a single-colour logo reads on dark. It is
+  `clamp(36px, 7vmin, 150px)` tall, 76 px on a 1080p screen (identity spec
+  amendment 2026-10-06). The QR code is drawn in
   `currentColor` on an `--on-surface` plate (no pure white). Type is `vmin` with
   `clamp()` (`kiosk-type.ts`, ceilings at the 4K value). Three layouts, named
   once as custom variants in `styles/ui.css`: `kiosk-wall` (landscape, ≥600px

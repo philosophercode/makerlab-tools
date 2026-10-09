@@ -1,6 +1,7 @@
 import { fenceUntrusted } from "../web/fence";
 import {
   answerLinks,
+  answerScopeOf,
   checkCitations,
   citationLinks,
   evidenceUrls,
@@ -170,6 +171,28 @@ describe("helpers", () => {
 
   it("unfence drops the markers and preamble", () => {
     expect(unfence(fenceUntrusted("Form 4 Manual, p. 1", "Hello\nworld"))).toBe("Hello\nworld");
+  });
+
+  it("rule 6: a passage of another machine than the answer is about is other_machine (amendment 2026-10-06)", () => {
+    const text = "Lift it ([tank](#cite-3f2a9c10-42)).";
+    const prusa: ToolPassage = { ...P42, toolId: "prusa", tool: "Prusa i3 MK3S+" };
+    const report = checkCitations(text, [prusa], goodEvidence(), [], new Set(["bambu"]));
+    expect(report.ok).toBe(false);
+    expect(report.citations[0].problems).toEqual(["other_machine"]);
+    expect(report.citations[0].detail[0]).toContain("the Prusa i3 MK3S+'s document");
+    // The machine asked about, any machine (null), or no scope given: fine.
+    expect(checkCitations(text, [prusa], goodEvidence(), [], new Set(["prusa"])).ok).toBe(true);
+    expect(checkCitations(text, [prusa], goodEvidence(), [], null).ok).toBe(true);
+    expect(checkCitations(text, [prusa], goodEvidence()).ok).toBe(true);
+    // A passage from an output that named no machine is not judged by it.
+    expect(checkCitations(text, [P42], goodEvidence(), [], new Set(["bambu"])).ok).toBe(true);
+  });
+
+  it("toolPassages and answerScopeOf read the machine and the scope a search recorded", () => {
+    const output = { status: "ok", toolIds: ["prusa"], comparing: "none", passages: [{ ...P42, toolId: "prusa", tool: "Prusa i3 MK3S+" }] };
+    expect(toolPassages([output])[0]).toMatchObject({ toolId: "prusa", tool: "Prusa i3 MK3S+" });
+    expect(answerScopeOf([output])).toEqual(new Set(["prusa"]));
+    expect(answerScopeOf([output], "bambu")).toEqual(new Set(["bambu"]));
   });
 
   it("passageOnPages compares words, not whitespace or punctuation", () => {

@@ -114,8 +114,10 @@ export default async function AdminInventoryPage({
         ]}
         actions={
           <>
-            {/* QR labels (`/admin/inventory/qr`): print a code for each machine. Same permission as this page. */}
-            <Button asChild>
+            {/* QR labels (`/admin/inventory/qr`): print a code for each machine. A tab too,
+                but kept here as well so labels stay easy to find (owner, 2026-10-07). Lab
+                notes, which sat beside it, are now only their own tab. */}
+            <Button asChild variant="outline">
               <Link href="/admin/inventory/qr">
                 <QrCode aria-hidden="true" />
                 {t("qrLabels.open")}

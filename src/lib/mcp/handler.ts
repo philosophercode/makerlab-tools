@@ -39,6 +39,10 @@ export interface McpHandlerOptions {
 /** JSON-RPC error codes the route answers outside a method call. */
 const UNAUTHORIZED = -32001;
 const SERVER_ERROR = -32000;
+const INVALID_REQUEST = -32600;
+
+/** The most messages one JSON-RPC batch may carry. */
+export const MAX_BATCH = 10;
 
 /** What a refused bearer is told (§3.1 names the categories). */
 const REFUSAL_MESSAGES: Record<McpAuthRefusal, string> = {
@@ -82,6 +86,23 @@ export async function handleMcpRequest(req: Request, options: McpHandlerOptions)
   // GET is used for SSE streams — not supported in stateless serverless mode.
   if (req.method === "GET") {
     return rpcError(405, SERVER_ERROR, "SSE not supported in serverless mode");
+  }
+
+  // A JSON-RPC batch is many calls in one request (security fix 2026-10-05):
+  // each message past the first spends a unit of the same allowance, and a
+  // batch longer than MAX_BATCH is refused outright, so batching cannot
+  // multiply what one allowed request may cost.
+  const batchSize = await jsonRpcBatchSize(req);
+  if (batchSize > MAX_BATCH) {
+    return rpcError(413, INVALID_REQUEST, `A batch may carry at most ${MAX_BATCH} messages.`);
+  }
+  for (let extra = 1; extra < batchSize; extra += 1) {
+    const more = await checkRateLimit(signedIn ? "mcpSignedIn" : "mcp", caller.identity);
+    if (!more.allowed) {
+      return rpcError(429, SERVER_ERROR, "Too many requests. Please wait a moment.", {
+        "Retry-After": String(more.retryAfterSeconds),
+      });
+    }
   }
 
   const server = createServer(caller);
@@ -131,6 +152,20 @@ function instructionsFor(caller: McpCaller): string {
   }
   const scope = caller.readOnly ? " This connection is read-only." : "";
   return `${base} You are acting as a signed-in lab member with the role "${caller.identity.role}"; the tools listed are exactly the ones that role allows.${scope} Nothing you do publishes or edits the catalogue: new tools are drafts, and every other change (publishing, units, intake approvals, corrections…) except working a maintenance ticket with update_ticket is a proposal that waits in the app's Assistant proposals inbox (/admin/proposals) until this person confirms it there. Never say a proposed change was made. Changes to people, anything that cannot be undone, and anything that spends research budget are not available here. No assistant, here or in the app, can make anyone a super admin, grant research allowances, remove or block people, disconnect the Notion mirror, read or set secrets, create tokens, deploy, run SQL, restore backups, edit the audit trail, export people's email addresses or send messages: those are done by a person in the app.`;
+}
+
+/**
+ * How many JSON-RPC messages the body carries: the array's length for a batch,
+ * otherwise 1. Read from a clone, so the transport still gets the body; a body
+ * that does not parse counts as 1 and is the transport's to refuse.
+ */
+async function jsonRpcBatchSize(req: Request): Promise<number> {
+  try {
+    const body: unknown = await req.clone().json();
+    return Array.isArray(body) ? body.length : 1;
+  } catch {
+    return 1;
+  }
 }
 
 function rpcError(status: number, code: number, message: string, headers: Record<string, string> = {}): Response {

@@ -108,7 +108,7 @@ export function LogCompletedForm({ tools, action }: LogCompletedFormProps) {
     error === "needTool" ? t("needTool") : error === "needText" ? t("needText") : te(error);
 
   return (
-    <section className="ui flex flex-col gap-2" aria-label={t("heading")}>
+    <section id="log-completed" className="ui flex flex-col gap-2" aria-label={t("heading")}>
       {!open ? (
         <Button
           ref={openerRef}

@@ -62,8 +62,12 @@ variable list.
   draft (`createToolRecord`). See "Adding equipment" below.
 - **Files** (tool images, manuals, project photos, maintenance photos) live in
   **Vercel Blob**, recorded row-by-row in `attachments` — see
-  `next.config.ts`'s `images.remotePatterns`. `POST /api/uploads` is the one
-  upload route; it writes the blob, inserts an **unowned** `attachments` row and
+  `next.config.ts`'s `images.remotePatterns`, which names only the lab's own
+  public store (`src/lib/images/remote-patterns.ts`, derived from
+  `BLOB_STORE_ID` / `BLOB_READ_WRITE_TOKEN` at build time). `POST /api/uploads` is the one
+  upload route; it reads an image's bytes (JPEG, PNG, WebP or GIF only, stored
+  under the detected type — `images/upload-type.ts`) and a resource's PDF magic,
+  writes the blob, inserts an **unowned** `attachments` row and
   returns `{ attachmentId, previewUrl }`. The write that follows *claims* those
   ids (`claimAttachments`), and `/api/cron/daily` deletes anything still
   unclaimed after 24 hours. **Both write paths say when a photo did not stick**
@@ -105,6 +109,26 @@ variable list.
   writes to the public one when both are linked (`copy()` cannot cross
   stores). With no `BLOB_PRIVATE_*`, private files use the default store, as
   before; `blobMode()` is unchanged (data platform spec, amendment 2026-09-27).
+- **Chat illustrations are not attachments** (gateway spec amendment
+  2026-10-07). A picture the assistant draws is a private blob under
+  `chat/illustrations/`, recorded in its own table, `chat_illustrations`
+  (migration `0030`: person, kind, status, model, cost, pathname — never the
+  words it was drawn from), and served only to the person who asked for it by
+  `/api/chat/illustrations/[id]`. Nothing that claims, promotes or publishes an
+  `attachments` row can reach one, so an illustration can never become a
+  tool's, a ticket's or a project's photo. The rows are the ledger the daily
+  caps count; they cascade with their person. The nightly backup keeps the
+  table; `data:push` leaves it out (`DEPLOYMENT_BOUND`: the blobs it names are
+  the deployment's own). No sweep deletes the blobs yet (an open question in
+  the amendment).
+- **Tool skills are AI-written and travel** (tool skills spec 2026-10-07,
+  migration `0031`). `tool_skills` holds every operating guide a tool has had
+  (versioned per tool, `ready` or `failed`, cascading with the tool); the
+  current skill is the latest `ready` row. Unlike `starter_answers` and
+  `chat_illustrations` it is backed up **and** copied by `data:push`: a skill
+  cites manuals by document id and page and links by the manufacturer's URL,
+  never a stored file's address, so a skill written on a local copy holds on
+  the hosted one. See `docs/architecture/tool-skills.md`.
 - **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
   the PGlite demo seed with `DemoDataBanner` shown. `DATABASE_URL` set but
   unreachable never falls back to demo or invented data — cached pages keep

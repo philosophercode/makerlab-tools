@@ -385,9 +385,10 @@ export async function countInventory(options: InventoryQueryOptions = {}): Promi
  *
  * `distinct on` so one row comes back per tool rather than every photo in the
  * lab. A private file is not a cover: the table shows what the gallery would
- * show, and the gallery cannot show a file with no public URL.
+ * show, and the gallery cannot show a file with no public URL. Also read by
+ * the manual triage view (`manual-triage-tools.ts`) for its tool pictures.
  */
-async function selectCoverPhotos(
+export async function selectCoverPhotos(
   db: Db,
   toolIds: string[]
 ): Promise<Map<string, { url: string; thumbnails: ImageThumbnails | null }>> {

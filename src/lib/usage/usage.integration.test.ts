@@ -127,7 +127,8 @@ describe("recordUsage", () => {
   it("never throws: a failing database is a warning and a false", async () => {
     const broken = { insert: () => { throw new Error("db down"); }, execute: () => { throw new Error("db down"); } } as unknown as Db;
     await expect(recordUsage([{ kind: "chat_turn", surface: "chat", audience: "anonymous" }], [], { db: broken })).resolves.toBe(false);
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[usage]"), "db down");
+    // Described by `describeDbError`: an app error keeps its words; a database one would lose its params.
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[usage]"), "Error: db down");
   });
 
   it("records nothing with USAGE_INSIGHT=off", async () => {
@@ -203,6 +204,18 @@ describe("loadInsights", () => {
     const formFour = data.tools.find((t) => t.toolId === toolA)!;
     expect(formFour).toMatchObject({ name: "Form 4", asked: 2, views: 1, qr: 1 });
     expect(data.kinds.debug.reduce((a, b) => a + b, 0)).toBe(1);
+  });
+
+  it("counts citations of another machine's document apart, rolled or raw, inside the citations total (amendment 2026-10-06)", async () => {
+    await eventsAt(new Date("2026-09-27T14:00:00Z"), [
+      { kind: "manual_cited", toolId: toolA, page: 3 },
+      { kind: "manual_cited", toolId: toolB, page: 5, source: "cross_tool" },
+    ]);
+    await runUsageRollup({ db, now: new Date("2026-09-28T00:30:00Z") });
+    await eventsAt(new Date("2026-09-28T15:00:00Z"), [{ kind: "manual_cited", toolId: toolB, page: 5, source: "cross_tool" }]);
+    const { totals } = await loadInsights(query, { db });
+    expect(totals.citations).toBe(3);
+    expect(totals.crossToolCitations).toBe(2);
   });
 
   it("leaves staff out unless asked", async () => {

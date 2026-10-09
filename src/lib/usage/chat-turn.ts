@@ -34,6 +34,7 @@ export function recordChatTurnUsage(input: {
       focusedToolId: input.focusedToolId ?? null,
       passages: log.passages,
       scopedToolIds: log.scopedToolIds,
+      wideSearch: log.wideSearch,
       audience: audienceFor(input.role),
       locale: usageLocale(input.locale),
     });
