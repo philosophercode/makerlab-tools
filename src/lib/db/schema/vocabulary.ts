@@ -304,7 +304,7 @@ export type UsageKind = (typeof USAGE_KINDS)[number];
  * role (`user` → member; `admin`, `super_admin` → staff). Staff are excluded
  * from the Insights page by default, so testing does not inflate the counts.
  * `demo` is a visitor holding a demo pass (demo pass spec 2026-10-07 §5.5,
- * migration `0032`): always left out, so a conference keeps the lab's own
+ * migration `0034`): always left out, so a conference keeps the lab's own
  * numbers clean.
  */
 export const USAGE_AUDIENCE = ["anonymous", "member", "staff", "demo"] as const;
@@ -367,12 +367,13 @@ export const CATEGORY_PROPOSAL_STATUS = ["pending", "accepted", "rejected", "mer
 export type CategoryProposalStatus = (typeof CATEGORY_PROPOSAL_STATUS)[number];
 
 /**
- * Email notifications (email notifications spec §4; migration `0030`).
+ * Email notifications (email notifications spec §4; migration `0029`).
  *
  * The events the app emails about. `ticket.filed` is v1: a ticket filed from
  * the chat (the Report button and a unit's QR label open it) or an MCP
- * client. `maintenance.due` is the daily recurring-maintenance reminder
- * (amendment 2026-10-07). v1.1's events (`ticket.resolved`,
+ * client. `maintenance.due` is the recurring-maintenance reminder, sent when
+ * tasks come due, once per task and due date (amendment 2026-10-07, revised
+ * by "The reminder follows each task's cadence"). v1.1's events (`ticket.resolved`,
  * `correction.filed`, `intake.ready`, `staff.digest`) join this list when
  * they are built.
  */
@@ -423,7 +424,7 @@ export type NotificationDelivery = (typeof NOTIFICATION_DELIVERIES)[number];
 
 /**
  * What a chat illustration shows (gateway spec amendment 2026-10-07
- * "Generated illustrations in the chat", migration `0031`): an infographic of
+ * "Generated illustrations in the chat", migration `0030`): an infographic of
  * a plan the assistant wrote, or a concept render of a student's project idea.
  * Never one of the lab's machines.
  */
@@ -433,6 +434,21 @@ export type IllustrationKind = (typeof ILLUSTRATION_KIND)[number];
 /** `pending` while the model draws, `ready` once stored, `failed` when no image came of it. */
 export const ILLUSTRATION_STATUS = ["pending", "ready", "failed"] as const;
 export type IllustrationStatus = (typeof ILLUSTRATION_STATUS)[number];
+
+/**
+ * A tool skill's row (tool skills spec 2026-10-07, migration `0031`): `ready`
+ * is a written, checked skill; `failed` records an attempt that did not give
+ * one, with its reason. A tool's current skill is its latest `ready` row.
+ */
+export const TOOL_SKILL_STATUS = ["ready", "failed"] as const;
+export type ToolSkillStatus = (typeof TOOL_SKILL_STATUS)[number];
+
+/**
+ * What wrote a tool skill: the pass after research (intake approval, or a
+ * manual indexed), staff's Write skill, or `npm run tools:skills`.
+ */
+export const TOOL_SKILL_TRIGGER = ["research", "manual", "backfill"] as const;
+export type ToolSkillTrigger = (typeof TOOL_SKILL_TRIGGER)[number];
 
 /**
  * What a demo-pass visitor says they do (demo pass spec 2026-10-07 §4): the

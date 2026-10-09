@@ -555,7 +555,7 @@ component tests for `DueTasks` and `ScheduleForm`; the admin tile test.
 6. Phase 4, suggestions from manuals, as specced (adds `suggested`, `source`, `source_citation`).
 7. Whether a recurring task should ever open a ticket (for example, when it is a week overdue).
 
-### 2026-10-07 — Follow-up 5 built: the daily email reminder
+### 2026-10-07 — Follow-up 5 built: the email reminder
 
 The owner's design review decisions (2026-10-07) say recurring maintenance "must email: a reminder of
 what is due and overdue". That is follow-up 5, built as a dated amendment to the

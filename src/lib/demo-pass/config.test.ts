@@ -1,4 +1,4 @@
-import { DEFAULT_DEMO_PASS_BUDGET_USD, demoPassBudgetUsd, demoPassContactEmail, demoPassEnabled } from "./config";
+import { DEFAULT_DEMO_PASS_BUDGET_USD, DEFAULT_DEMO_PASS_CONTACT_EMAIL, demoPassBudgetUsd, demoPassContactEmail, demoPassEnabled } from "./config";
 
 /** The demo pass's three settings (demo pass spec 2026-10-07, `.env.example`). */
 
@@ -32,11 +32,17 @@ describe("demo pass settings", () => {
     warn.mockRestore();
   });
 
-  it("offers a contact address only when DEMO_PASS_CONTACT_EMAIL is one", () => {
-    expect(demoPassContactEmail()).toBeNull();
+  it("offers the owner's address by default, DEMO_PASS_CONTACT_EMAIL when it is an address, and none when off", () => {
+    expect(DEFAULT_DEMO_PASS_CONTACT_EMAIL).toBe("ies22@cornell.edu");
+    expect(demoPassContactEmail()).toBe(DEFAULT_DEMO_PASS_CONTACT_EMAIL);
     vi.stubEnv("DEMO_PASS_CONTACT_EMAIL", " makerlab@example.edu ");
     expect(demoPassContactEmail()).toBe("makerlab@example.edu");
-    vi.stubEnv("DEMO_PASS_CONTACT_EMAIL", "<script>@x");
+    vi.stubEnv("DEMO_PASS_CONTACT_EMAIL", "off");
     expect(demoPassContactEmail()).toBeNull();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("DEMO_PASS_CONTACT_EMAIL", "<script>@x");
+    expect(demoPassContactEmail()).toBe(DEFAULT_DEMO_PASS_CONTACT_EMAIL);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

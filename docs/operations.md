@@ -120,9 +120,11 @@ its deliveries' `status` and `reason`:
 | Delivery `skipped` / `preview_blocked` | A preview deployment, and the person is not in `EMAIL_PREVIEW_RECIPIENTS` | Expected on previews |
 | Delivery `sent` | Resend accepted it (`provider_message_id` is its id) | Look in junk; Cornell may need the sender marked "not junk" once |
 
-A failed send never fails the ticket: the student is told it was filed either way. The daily
-08:00 maintenance reminder is the same kind of row, keyed `maintenance.due:<lab date>`; no row
-for a day means nothing was due.
+A failed send never fails the ticket: the student is told it was filed either way. The 08:00
+maintenance reminder is the same kind of row, keyed `maintenance.due:<lab date>`; no row for a day
+means no recurring task came due that day (a task that stays overdue is emailed once, on its due
+date, not every day). Which task and due date each reminder named is in
+`maintenance_reminder_items`.
 
 ---
 

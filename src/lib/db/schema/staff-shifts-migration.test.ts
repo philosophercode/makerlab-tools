@@ -9,21 +9,21 @@ import { user } from "./auth";
 import { staffShifts } from "./staff-shifts";
 
 /**
- * Migration `0029` (on-shift spec 2026-10-07): the `staff_shifts` table. The
+ * Migration `0033` (on-shift spec 2026-10-07): the `staff_shifts` table. The
  * behaviour is `data/staff-shifts.test.ts`; this pins the shape, the journal
  * order and the one foreign key, which must cascade: a removed person's shift
  * goes with them.
  */
 
-describe("migration 0029 — staff shifts", () => {
-  it("is the journal's entry 29, after every earlier migration", () => {
+describe("migration 0033 — staff shifts", () => {
+  it("is the journal's entry 33, after every earlier migration", () => {
     const journal = JSON.parse(readFileSync(join(migrationsFolder(), "meta", "_journal.json"), "utf8")) as {
       entries: { idx: number; when: number; tag: string }[];
     };
-    const at = journal.entries.findIndex((entry) => entry.tag === "0029_staff_shifts");
+    const at = journal.entries.findIndex((entry) => entry.tag === "0033_staff_shifts");
     expect(at).toBeGreaterThanOrEqual(0);
     const entry = journal.entries[at];
-    expect(entry.idx).toBe(29);
+    expect(entry.idx).toBe(33);
     for (const before of journal.entries.slice(0, at)) expect(before.when).toBeLessThan(entry.when);
   });
 

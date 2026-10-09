@@ -9,20 +9,20 @@ import { rawRows } from "../raw";
 import { maintenanceLogs, usageEvents } from "./index";
 
 /**
- * Migration `0032` (demo pass spec 2026-10-07 §4): the `demo_signups` table
+ * Migration `0034` (demo pass spec 2026-10-07 §4): the `demo_signups` table
  * and its `updated_at` trigger, `maintenance_logs.demo` (false for every
  * existing ticket), and `demo` as a usage audience. The behaviour is
  * `data/demo-signups.test.ts`; this pins the shape and the journal order.
  */
 
-describe("migration 0032 — demo pass", () => {
-  it("is the journal's entry 32, after every earlier migration", () => {
+describe("migration 0034 — demo pass", () => {
+  it("is the journal's entry 34, after every earlier migration", () => {
     const journal = JSON.parse(readFileSync(join(migrationsFolder(), "meta", "_journal.json"), "utf8")) as {
       entries: { idx: number; when: number; tag: string }[];
     };
-    const at = journal.entries.findIndex((entry) => entry.tag === "0032_demo_pass");
+    const at = journal.entries.findIndex((entry) => entry.tag === "0034_demo_pass");
     expect(at).toBeGreaterThanOrEqual(0);
-    expect(journal.entries[at].idx).toBe(32);
+    expect(journal.entries[at].idx).toBe(34);
     for (const before of journal.entries.slice(0, at)) expect(before.when).toBeLessThan(journal.entries[at].when);
   });
 

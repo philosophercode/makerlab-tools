@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "REPORTAR",
-    "reportAria": "Reportar un problema",
-    "reportSeed": "Quiero reportar un problema.",
     "tools": "HERRAMIENTAS",
     "projects": "PROYECTOS",
     "about": "ACERCA DE",
@@ -19,7 +16,10 @@
     "signIn": "INICIAR SESIÓN",
     "signInAria": "Inicia sesión con tu cuenta de {institution}",
     "signOut": "CERRAR SESIÓN",
-    "signedInAria": "Sesión iniciada como {name}"
+    "signedInAria": "Sesión iniciada como {name}",
+    "admin": "ADMIN",
+    "account": "CUENTA",
+    "connectAssistant": "CONECTAR ASISTENTE DE IA (MCP)"
   },
   "catalogRefresh": {
     "action": "Actualizar catálogo",
@@ -34,9 +34,6 @@
     "onShiftNow": "De turno ahora: {names}"
   },
   "gallery": {
-    "title": "Herramientas",
-    "allTitle": "Todas las herramientas",
-    "searchAria": "Buscar en el inventario",
     "category": "CATEGORÍA:",
     "training": "FORMACIÓN:",
     "materials": "MATERIALES:",
@@ -55,21 +52,20 @@
     "trainingAdvanced": "Avanzado",
     "home": {
       "searchSection": "Buscar en el laboratorio",
-      "seeAll": "{count, plural, one {Ver la # herramienta} other {Ver las # herramientas}}",
       "toolCount": "{count, plural, one {# herramienta} other {# herramientas}}",
-      "unitsDown": "{count, plural, one {# unidad fuera de servicio} other {# unidades fuera de servicio}}",
-      "empty": "Todavía no hay herramientas en el catálogo."
+      "unitsDown": "{count, plural, one {# unidad fuera de servicio} other {# unidades fuera de servicio}}"
     },
     "search": {
       "landmark": "Buscar herramientas y preguntar a MakerLAB AI",
       "label": "Busca herramientas o hazle una pregunta a MakerLAB AI",
-      "tools": "Herramientas",
       "categories": "Categorías",
       "categoryCount": "{count, plural, one {# herramienta} other {# herramientas}}",
       "assistant": "MakerLAB AI",
       "ask": "Preguntar a MakerLAB AI: “{query}”",
       "askNote": "Abre el chat con tu pregunta. MakerLAB AI puede equivocarse.",
+      "clear": "Borrar la búsqueda",
       "noMatch": "Ninguna herramienta ni categoría coincide con “{query}”.",
+      "enterOpens": "Intro abre {name}",
       "lines": {
         "search": "{count, plural, one {Busca entre # herramienta} other {Busca entre # herramientas}}",
         "build": "¿Qué vas a construir?",
@@ -78,7 +74,15 @@
         "x1Start": "Pregunta cómo empezar una impresión 3D en la X1-Carbon",
         "trotecAcrylic": "¿El láser Trotec corta acrílico?"
       }
-    }
+    },
+    "results": {
+      "heading": "Resultados para “{query}”"
+    },
+    "browse": {
+      "label": "Explorar",
+      "all": "Todas las herramientas"
+    },
+    "backToCategories": "Todas las categorías"
   },
   "detail": {
     "breadcrumbTools": "Herramientas",
@@ -183,6 +187,7 @@
     "composerPlaceholder": "Pregunta a MakerLAB AI...",
     "composerAria": "Pregunta a MakerLAB AI",
     "aiNote": "MakerLAB AI puede equivocarse. Consulta con el personal todo lo relacionado con la seguridad.",
+    "aiNoteDismiss": "Cerrar aviso",
     "sendAria": "Enviar",
     "attachAria": "Adjuntar fotos",
     "attachTitle": "Adjuntar fotos",
@@ -191,6 +196,8 @@
     "onlyImages": "Solo se admiten archivos de imagen.",
     "uploadFailed": "Error al subir la foto",
     "uploadsUnavailable": "La subida de fotos no está disponible en este momento. Puedes enviar tu mensaje sin foto.",
+    "photoUnsupported": "Este formato de foto no es compatible: prueba con un JPEG o PNG.",
+    "photoTooLarge": "Esta foto es demasiado grande para subirla: prueba con una más pequeña o con un JPEG.",
     "toolRunningAria": "Herramienta en ejecución",
     "typingAria": "MakerLAB AI está escribiendo",
     "readingManualsAria": "Leyendo manuales",
@@ -202,25 +209,26 @@
     "rateLimitSignIn": "Has alcanzado el límite de mensajes para visitantes sin sesión iniciada. Inicia sesión con tu cuenta de {institution} para seguir conversando; explorar el catálogo sigue abierto de todos modos.",
     "rateLimitSignInCta": "Iniciar sesión",
     "rateLimited": "Has alcanzado el límite de mensajes por hora. Inténtalo de nuevo dentro de un rato.",
-    "demoPassLeft": "Pase de demostración · quedan {amount}",
-    "demoPassUsedUp": "Pase de demostración · agotado",
-    "demoPassSpent": "Has usado la asignación de IA de este pase de demostración. ¡Gracias por probar MakerLAB AI! Puedes seguir haciendo algunas preguntas por hora, como cualquier visitante.",
-    "demoPassLimited": "Has usado la asignación de IA de este pase y el límite de visitantes de esta hora. ¡Gracias por probar MakerLAB AI! Inténtalo de nuevo dentro de un rato.",
-    "demoPassContactLead": "¿Quieres hablar de ello?",
-    "demoPassContactTeam": "Contacta con el equipo de MakerLAB",
     "showingTool": "▣ Buscando la foto de la herramienta…",
     "toolCard": {
       "label": "Herramientas en esta respuesta",
       "open": "Abrir"
     },
     "drawingIllustration": "✎ Dibujando una ilustración…",
+    "suggestedReplies": "Respuestas sugeridas",
     "illustration": {
       "badge": "Ilustración IA",
       "caption": "Ilustración generada por IA, no es una foto de nuestro equipo. Consulta el manual y al personal para los pasos exactos.",
       "altPlan": "Infografía del plan generada por IA",
       "altConcept": "Render conceptual de la idea del proyecto generado por IA",
       "unavailable": "Esta ilustración ya no está disponible."
-    }
+    },
+    "demoPassLeft": "Pase de demostración · quedan {amount}",
+    "demoPassUsedUp": "Pase de demostración · agotado",
+    "demoPassSpent": "Has usado la asignación de IA de este pase de demostración. ¡Gracias por probar MakerLAB AI! Puedes seguir haciendo algunas preguntas por hora, como cualquier visitante.",
+    "demoPassLimited": "Has usado la asignación de IA de este pase y el límite de visitantes de esta hora. ¡Gracias por probar MakerLAB AI! Inténtalo de nuevo dentro de un rato.",
+    "demoPassContactLead": "¿Quieres hablar de ello?",
+    "demoPassContactTeam": "Contacta con el equipo de MakerLAB"
   },
   "qr": {
     "arrivalLabel": "Escaneado desde esta máquina",
@@ -340,6 +348,42 @@
     "label": "Datos de demostración",
     "body": "Este catálogo son datos de muestra integrados, no el inventario real de {institution}. Notion no está configurado."
   },
+  "footer": {
+    "report": "Reportar un problema",
+    "reportSeed": "Quiero reportar un problema."
+  },
+  "unsubscribe": {
+    "loading": "Cargando…",
+    "eyebrow": "Correo",
+    "confirmTitle": "¿Desactivar estos correos?",
+    "confirm": {
+      "ticketFiled": "Dejarás de recibir un correo cada vez que alguien informe de un problema con una máquina.",
+      "maintenanceDue": "Dejarás de recibir el recordatorio matutino del mantenimiento periódico pendiente."
+    },
+    "confirmScope": "Solo se detiene este correo. Nada más cambia en tu cuenta.",
+    "turnOff": "Desactivar",
+    "keep": "Seguir recibiéndolos",
+    "failed": "No se pudo guardar. Inténtalo de nuevo en un momento.",
+    "doneTitle": "Desactivado",
+    "done": {
+      "ticketFiled": "No recibirás un correo cuando alguien informe de un problema con una máquina.",
+      "maintenanceDue": "No recibirás el recordatorio matutino de mantenimiento."
+    },
+    "doneUndo": "Los tickets y las tareas siguen apareciendo en la aplicación. Para volver a recibir estos correos, pídeselo a la dirección del laboratorio.",
+    "invalidTitle": "Este enlace no funciona",
+    "invalidBody": "Puede estar incompleto o caducado. No se ha cambiado nada. Si sigues recibiendo correos que no quieres, avisa al personal del laboratorio.",
+    "rateLimitedTitle": "Demasiados intentos",
+    "rateLimitedBody": "Llegaron demasiadas solicitudes desde esta conexión. Espera una hora y vuelve a abrir el enlace.",
+    "home": "Volver a {site}"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "Preguntar a MakerLAB AI: “{query}”",
+    "askEmpty": "Preguntar a MakerLAB AI"
+  },
+  "kiosk": {
+    "onShiftLabel": "De turno ahora"
+  },
   "demoPass": {
     "eyebrow": "Pase de demostración",
     "title": "Prueba la demo completa",
@@ -396,40 +440,5 @@
       "text": "¿De visita? Consigue un pase de demostración gratuito para chatear con el asistente del laboratorio y reportar un problema. No necesitas una cuenta de {institution}.",
       "cta": "Regístrate para probar la demo completa"
     }
-  },
-  "kiosk": {
-    "onShiftLabel": "De turno ahora"
-  },
-  "unsubscribe": {
-    "loading": "Cargando…",
-    "eyebrow": "Correo",
-    "confirmTitle": "¿Desactivar estos correos?",
-    "confirm": {
-      "ticketFiled": "Dejarás de recibir un correo cada vez que alguien informe de un problema con una máquina.",
-      "maintenanceDue": "Dejarás de recibir el recordatorio matutino del mantenimiento periódico pendiente."
-    },
-    "confirmScope": "Solo se detiene este correo. Nada más cambia en tu cuenta.",
-    "turnOff": "Desactivar",
-    "keep": "Seguir recibiéndolos",
-    "failed": "No se pudo guardar. Inténtalo de nuevo en un momento.",
-    "doneTitle": "Desactivado",
-    "done": {
-      "ticketFiled": "No recibirás un correo cuando alguien informe de un problema con una máquina.",
-      "maintenanceDue": "No recibirás el recordatorio matutino de mantenimiento."
-    },
-    "doneUndo": "Los tickets y las tareas siguen apareciendo en la aplicación. Para volver a recibir estos correos, pídeselo a la dirección del laboratorio.",
-    "invalidTitle": "Este enlace no funciona",
-    "invalidBody": "Puede estar incompleto o caducado. No se ha cambiado nada. Si sigues recibiendo correos que no quieres, avisa al personal del laboratorio.",
-    "rateLimitedTitle": "Demasiados intentos",
-    "rateLimitedBody": "Llegaron demasiadas solicitudes desde esta conexión. Espera una hora y vuelve a abrir el enlace.",
-    "home": "Volver a {site}"
-  },
-  "palette": {
-    "page": {
-      "allTools": "Todas las herramientas"
-    },
-    "assistant": "MakerLAB AI",
-    "ask": "Preguntar a MakerLAB AI: “{query}”",
-    "askEmpty": "Preguntar a MakerLAB AI"
   }
 }

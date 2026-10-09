@@ -58,7 +58,7 @@ async function rows() {
 
 describe("makeIllustration", () => {
   it("draws, checks and stores the picture privately, and records what the Gateway said it cost", async () => {
-    const model = imageModel([PNG], { cost: "0.007" });
+    const model = imageModel([PNG], { cost: "0.01" });
     setImageModel(model);
     const { store, putUpload } = fakeStore();
 
@@ -67,7 +67,7 @@ describe("makeIllustration", () => {
       { db, store }
     );
 
-    expect(result).toMatchObject({ ok: true, width: 64, height: 64, kind: "plan", costUsd: 0.007 });
+    expect(result).toMatchObject({ ok: true, width: 64, height: 64, kind: "plan", costUsd: 0.01 });
     const id = (result as { id: string }).id;
     expect((result as { url: string }).url).toBe(`/api/chat/illustrations/${id}`);
 
@@ -86,17 +86,17 @@ describe("makeIllustration", () => {
     expect(file.type).toBe("image/png");
 
     const [row] = await rows();
-    expect(row).toMatchObject({ id, userId, kind: "plan", status: "ready", costUsd: 0.007, contentType: "image/png", width: 64, height: 64 });
+    expect(row).toMatchObject({ id, userId, kind: "plan", status: "ready", costUsd: 0.01, contentType: "image/png", width: 64, height: 64 });
     expect(row.blobPathname).toBe("chat/illustrations/illustration.png-abc");
-    expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/\[illustration\] plan answered: cost \$0\.0070/));
+    expect(console.info).toHaveBeenCalledWith(expect.stringMatching(/\[illustration\] plan answered: cost \$0\.0100/));
   });
 
   it("keeps the estimate as the cost when the Gateway reports none", async () => {
     setImageModel(imageModel([PNG]));
     const result = await makeIllustration({ userId, kind: "concept", description: "A birch-ring lamp", catalog: [] }, { db, store: fakeStore().store });
-    expect(result).toMatchObject({ ok: true, costUsd: 0.007 });
-    expect(estimatedCostFor("recraft/recraft-v4.1-flash")).toBe(0.007);
-    expect(estimatedCostFor("meta/muse-image-1.0")).toBe(0.05);
+    expect(result).toMatchObject({ ok: true, costUsd: 0.01 });
+    expect(estimatedCostFor("meta/muse-image-1.0")).toBe(0.01);
+    expect(estimatedCostFor("recraft/recraft-v4.1-flash")).toBe(0.05);
   });
 
   it("calls nothing when switched off, without storage, without a person or with nothing to draw", async () => {
@@ -171,10 +171,10 @@ describe("makeIllustration", () => {
   });
 
   it("records the model that drew it", async () => {
-    vi.stubEnv("MODEL_ILLUSTRATION", "meta/muse-image-1.0");
+    vi.stubEnv("MODEL_ILLUSTRATION", "recraft/recraft-v4.1-flash");
     setImageModel(imageModel([PNG]));
     const result = await makeIllustration({ userId, kind: "concept", description: "A desk organiser", catalog: [] }, { db, store: fakeStore().store });
     const [row] = await db.select().from(chatIllustrations).where(eq(chatIllustrations.id, (result as { id: string }).id));
-    expect(row).toMatchObject({ model: "meta/muse-image-1.0", costUsd: 0.05 });
+    expect(row).toMatchObject({ model: "recraft/recraft-v4.1-flash", costUsd: 0.05 });
   });
 });

@@ -2,7 +2,7 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { user } from "./auth.ts";
 
 /**
- * Who is on shift (on-shift spec 2026-10-07; migration `0029`).
+ * Who is on shift (on-shift spec 2026-10-07; migration `0033`).
  *
  * A staff member (anyone holding `shifts.set`: SuperMakers and directors)
  * marks themselves **On shift** until a time they pick. One row per person:

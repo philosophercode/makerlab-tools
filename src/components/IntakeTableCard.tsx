@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
-import { RESEARCH_MAX_ITEMS_PER_REQUEST } from "../lib/intake/limits";
+import { IDENTIFY_PHOTO_STALE_MS, INTAKE_POLL_INTERVAL_MS, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../lib/intake/limits";
 import {
   ADMIN_INTAKE_PATH,
   type IntakeTablePayload,
@@ -22,6 +22,8 @@ import { StatusGlyph } from "./system/StatusGlyph";
 import { DuplicateChoice } from "./system/review/DuplicateChoice";
 import { ReviewNote } from "./system/review/ReviewCard";
 import { PENDING_STATUS_TONE } from "./admin/pending-status-tone";
+import { usePoll } from "./admin/use-poll";
+import { FoundPhotoThumb } from "./system/review/FoundPhoto";
 import { ResearchSpendConfirm } from "./ResearchSpendConfirm";
 
 /**
@@ -64,6 +66,14 @@ import { ResearchSpendConfirm } from "./ResearchSpendConfirm";
  * (`ResearchSpendConfirm`) — then posts to the research route; **Just add to
  * intake** leaves them identified on `/admin/intake` and says so; **Discard
  * (N)** asks, then discards each through the same PATCH as a row's Remove.
+ *
+ * **A photo for a name** (amendment "A photo for a name"): a row named without
+ * a photo shows "Finding a photo…" while one candidate product photo is looked
+ * up in the background, then the picture in a dashed frame tagged "Found
+ * online" (`FoundPhotoThumb`) — or "No photo". While any row is searching the
+ * card asks `GET /api/pending-tools?ids=…` every few seconds, once for all of
+ * them, and takes only the rows' `foundPhoto` from the answer; it stops when
+ * every lookup has landed, or gives up after `IDENTIFY_PHOTO_STALE_MS`.
  */
 
 const ERROR_CODES: readonly PendingApiErrorCode[] = [
@@ -79,6 +89,7 @@ const ERROR_CODES: readonly PendingApiErrorCode[] = [
   "unresolved_duplicate",
   "not_researchable",
   "start_failed",
+  "placeholder_name",
   "failed",
 ];
 
@@ -112,6 +123,19 @@ async function send<T>(url: string, method: "PATCH" | "POST", body: unknown): Pr
     };
   } catch {
     return { ok: false, refusal: { code: "failed" } };
+  }
+}
+
+/** The rows as the database holds them now, or null when the read failed (the next tick asks again). */
+async function fetchRows(ids: readonly string[]): Promise<PendingToolView[] | null> {
+  if (ids.length === 0) return [];
+  try {
+    const res = await fetch(`/api/pending-tools?ids=${ids.map(encodeURIComponent).join(",")}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = (await res.json().catch(() => null)) as { items?: PendingToolView[] } | null;
+    return Array.isArray(json?.items) ? json.items : null;
+  } catch {
+    return null;
   }
 }
 
@@ -185,6 +209,23 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
   const [refusals, setRefusals] = useState<Record<string, Refusal>>({});
   const [saving, setSaving] = useState<Set<string>>(() => new Set());
   const [research, setResearch] = useState<Research>({ phase: "idle" });
+
+  // A photo for each row named without one: ask until every lookup lands.
+  // `usePoll` always calls the latest function, so this needs no memo.
+  const [shownAt] = useState(() => Date.now());
+  const searchingIds = rows.filter((row) => row.foundPhoto?.status === "searching").map((row) => row.id);
+  async function refreshFoundPhotos() {
+    if (Date.now() - shownAt > IDENTIFY_PHOTO_STALE_MS) {
+      // Gone stale: stop waiting and show no photo, as the server would.
+      setRows((prev) => prev.map((row) => (row.foundPhoto?.status === "searching" ? { ...row, foundPhoto: { ...row.foundPhoto, status: "failed" } } : row)));
+      return;
+    }
+    const answer = await fetchRows(searchingIds);
+    if (!answer) return;
+    const fresh = new Map(answer.map((item) => [item.id, item.foundPhoto ?? null]));
+    setRows((prev) => prev.map((row) => (fresh.has(row.id) ? { ...row, foundPhoto: fresh.get(row.id) ?? null } : row)));
+  }
+  usePoll(refreshFoundPhotos, INTAKE_POLL_INTERVAL_MS, searchingIds.length > 0);
 
   const eligibleIds = rows.filter((row) => !isUnresolved(row)).map((row) => row.id);
   const selectedIds = eligibleIds.filter((id) => selected.has(id));
@@ -571,6 +612,8 @@ function RowPhoto({ row, t }: { row: PendingToolView; t: T }) {
             {cover.filename ? t("table.photoNotShown", { filename: cover.filename }) : t("table.photoNotShownUnnamed")}
           </span>
         )
+      ) : row.foundPhoto ? (
+        <FoundPhotoThumb photo={row.foundPhoto} name={row.name} className="size-12" emptyLabel />
       ) : (
         <span className={frame}>{t("table.noPhoto")}</span>
       )}

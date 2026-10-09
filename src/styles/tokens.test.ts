@@ -67,7 +67,7 @@ function contrast(set: Record<string, string>, fg: string, bg: string): number {
 const SURFACES = ["--background", "--surface-container", "--surface-container-low"];
 
 // Text: 4.5:1 on every surface text sits on.
-const TEXT = ["--on-surface", "--on-surface-muted", "--primary-ink", "--status-ok", "--status-warn", "--status-bad"];
+const TEXT = ["--on-surface", "--on-surface-muted", "--primary-ink", "--secondary-ink", "--status-ok", "--status-warn", "--status-bad"];
 // Non-text (control boundaries, focus indicator): 3:1.
 const NON_TEXT = ["--outline-strong", "--primary-ink"];
 
@@ -112,6 +112,14 @@ it("the known exception stays where it was: --primary-ink on the light muted pla
 
 it("Safety Orange itself is not text-safe on paper — which is why --primary-ink exists", () => {
   expect(contrast(LIGHT, "--primary", "--background")).toBeLessThan(3);
+});
+
+it("crimson ink (the profile menu's Sign out) is crimson on paper and the lighter red in dark mode", () => {
+  expect(resolve(LIGHT, "--secondary-ink")).toBe(resolve(LIGHT, "--secondary"));
+  expect(resolve(DARK, "--secondary-ink")).toBe(resolve(DARK, "--status-bad"));
+  // On the hover fill too (`.profile-menu-item:hover`).
+  expect(contrast(LIGHT, "--secondary-ink", "--surface-container-high")).toBeGreaterThanOrEqual(4.5);
+  expect(contrast(DARK, "--secondary-ink", "--surface-container-high")).toBeGreaterThanOrEqual(4.5);
 });
 
 it("crimson is a heritage stamp, not an error colour: it fails on the dark background", () => {

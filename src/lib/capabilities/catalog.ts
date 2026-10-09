@@ -2,6 +2,8 @@ import { z } from "zod";
 import { getCatalogTool, getCatalogTools } from "../catalog";
 import { can } from "../auth/permissions";
 import { listCatalogTools, listToolStates, type CatalogToolState } from "../data/catalog";
+import { currentSkillVersions } from "../data/tool-skills";
+import { getDb } from "../db/client";
 import { findTool, summarizeTool } from "./helpers";
 import { officialNameShown } from "../tool-names";
 import { mapFactsFor, type ToolMapFacts } from "../map/locate";
@@ -96,6 +98,11 @@ interface ToolDetailsResult {
   map?: ToolMapFacts | null;
   /** Only for a caller holding `tools.edit`: published, draft or archived. */
   state?: CatalogToolState;
+  /**
+   * When the tool has a tool skill (tool skills spec 2026-10-07 §5.5): a
+   * pointer to `get_tool_skill`. Absent when it has none, or the read failed.
+   */
+  skill?: string;
 }
 
 // ── Whose catalogue ────────────────────────────────────────────────
@@ -293,9 +300,25 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
       detail_page: `/tools/${tool.slug}`,
       ...(canSeeMap(ctx.identity) ? { map: mapFactsFor(tool) } : {}),
       ...(view ? stateOf(view, tool.id) : {}),
+      ...(await skillPointer(tool)),
     };
   },
 };
+
+/**
+ * "A skill is available" (tool skills spec 2026-10-07 §5.5): one indexed
+ * query; a tool with no skill, or a read that fails, adds nothing.
+ */
+async function skillPointer(tool: MakerLabTool): Promise<{ skill?: string }> {
+  try {
+    const version = (await currentSkillVersions(await getDb(), [tool.id])).get(tool.id);
+    return version
+      ? { skill: `A cited operating guide for the ${tool.name} is available (version ${version}): call get_tool_skill before explaining how to operate, set up or troubleshoot it.` }
+      : {};
+  } catch {
+    return {};
+  }
+}
 
 // ── Prompt fragment ────────────────────────────────────────────────
 

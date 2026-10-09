@@ -4,7 +4,7 @@ import { inListCheck, timestamps } from "./helpers.ts";
 import { DEMO_SIGNUP_ROLES } from "./vocabulary.ts";
 
 /**
- * Demo sign-ups (demo pass spec 2026-10-07 §4; migration `0032`): a visitor
+ * Demo sign-ups (demo pass spec 2026-10-07 §4; migration `0034`): a visitor
  * from another school who filled in `/demo`, and the demo pass that sign-up
  * holds — one row is both. The pass cookie names a row; the row decides.
  *

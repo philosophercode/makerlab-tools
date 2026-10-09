@@ -15,6 +15,9 @@ export const VALUE_REPORT_SETTING = "value_report";
 /** The lab-wide notes the assistant knows in every conversation (identity spec amendment "Lab notes"). */
 export const LAB_NOTES_SETTING = "lab_notes";
 
+/** Whether a tool skill is written after research (tool skills spec 2026-10-07 §4.4); read by `lib/skills/setting.ts`. */
+export const TOOL_SKILLS_SETTING = "tool_skills";
+
 export interface LabSetting {
   value: unknown;
   updatedAt: string;

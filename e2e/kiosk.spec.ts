@@ -165,9 +165,9 @@ test.describe("Kiosk", () => {
 
       if (viewport.width < 640) {
         // On a phone the assistant is a link as well as a (smaller) QR code.
-        await expect(page.getByRole("link", { name: "Open the assistant" })).toHaveAttribute("href", /\/\?src=kiosk&ask=1$/);
+        await expect(page.getByRole("link", { name: "Open MakerLAB AI" })).toHaveAttribute("href", /\/\?src=kiosk&ask=1$/);
       } else {
-        await expect(page.getByRole("link", { name: "Open the assistant" })).toBeHidden();
+        await expect(page.getByRole("link", { name: "Open MakerLAB AI" })).toBeHidden();
       }
       await screenshot(page, `${viewport.name}-machines-down`);
     });

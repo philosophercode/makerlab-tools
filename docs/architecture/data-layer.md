@@ -68,7 +68,15 @@ variable list.
   upload route; it reads an image's bytes (JPEG, PNG, WebP or GIF only, stored
   under the detected type — `images/upload-type.ts`) and a resource's PDF magic,
   writes the blob, inserts an **unowned** `attachments` row and
-  returns `{ attachmentId, previewUrl }`. The write that follows *claims* those
+  returns `{ attachmentId, previewUrl }`. A **HEIC/HEIF** photo (an iPhone's,
+  from a browser that cannot read it) is converted, not refused: decoded by
+  `heic-decode` (libheif in WebAssembly, loaded on the first HEIC only —
+  `images/heif.ts`), stored as a JPEG of at most 2048 px under a `.jpg` name
+  (`images/convert-photo.ts`, the same rules as the browser's,
+  `images/photo-rules.ts`), and a `chat` upload's answer carries
+  `visionDataUrl`, the 1568 px copy the model sees. The chat downsizes every
+  photo it can read before uploading (`lib/chat/downscale-image.ts`), so the
+  conversion is the fallback (data platform spec amendment 2026-10-08). The write that follows *claims* those
   ids (`claimAttachments`), and `/api/cron/daily` deletes anything still
   unclaimed after 24 hours. **Both write paths say when a photo did not stick**
   — `report_issue` appends it to the message the assistant paraphrases, and
@@ -112,7 +120,7 @@ variable list.
 - **Chat illustrations are not attachments** (gateway spec amendment
   2026-10-07). A picture the assistant draws is a private blob under
   `chat/illustrations/`, recorded in its own table, `chat_illustrations`
-  (migration `0031`: person, kind, status, model, cost, pathname — never the
+  (migration `0030`: person, kind, status, model, cost, pathname — never the
   words it was drawn from), and served only to the person who asked for it by
   `/api/chat/illustrations/[id]`. Nothing that claims, promotes or publishes an
   `attachments` row can reach one, so an illustration can never become a
@@ -121,6 +129,14 @@ variable list.
   table; `data:push` leaves it out (`DEPLOYMENT_BOUND`: the blobs it names are
   the deployment's own). No sweep deletes the blobs yet (an open question in
   the amendment).
+- **Tool skills are AI-written and travel** (tool skills spec 2026-10-07,
+  migration `0031`). `tool_skills` holds every operating guide a tool has had
+  (versioned per tool, `ready` or `failed`, cascading with the tool); the
+  current skill is the latest `ready` row. Unlike `starter_answers` and
+  `chat_illustrations` it is backed up **and** copied by `data:push`: a skill
+  cites manuals by document id and page and links by the manufacturer's URL,
+  never a stored file's address, so a skill written on a local copy holds on
+  the hosted one. See `docs/architecture/tool-skills.md`.
 - **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
   the PGlite demo seed with `DemoDataBanner` shown. `DATABASE_URL` set but
   unreachable never falls back to demo or invented data — cached pages keep

@@ -106,7 +106,7 @@ describe("deliverNotification (in process)", () => {
 });
 
 describe("maintenanceReminder (in process)", () => {
-  it("queues the day's reminder once and emails staff what is due; a second run sends nothing", { timeout: 120_000 }, async () => {
+  it("queues the day's reminder once and emails staff what came due; a second run sends nothing", { timeout: 120_000 }, async () => {
     const fake = useResendFake(server);
     const db = await getDb();
     const [tool] = await db.select({ id: tools.id }).from(tools).limit(1);
@@ -121,10 +121,11 @@ describe("maintenanceReminder (in process)", () => {
     expect(first.queued).toBe(true);
     const staff = await staffAddresses();
     expect(fake.requests.map((r) => r.body.to?.[0]).sort()).toEqual(staff);
-    expect(fake.requests[0].body.subject).toMatch(/^Shift checklist: 1 overdue$/);
+    expect(fake.requests[0].body.subject).toMatch(/^Shift checklist: 1 recurring task came due$/);
 
+    // The task was named for its due date, so the next run has nothing new.
     const second = await (await start(maintenanceReminder, [0])).returnValue;
-    expect(second).toMatchObject({ queued: false, reason: "already_queued" });
+    expect(second).toMatchObject({ queued: false, reason: "nothing_due" });
     expect(fake.requests).toHaveLength(staff.length);
   });
 

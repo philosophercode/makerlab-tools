@@ -18,8 +18,8 @@ vi.mock("next/link", () => ({
 }));
 
 /**
- * Who sees the way into `/admin` — since 2026-09-23 an entry in the header's
- * profile menu rather than a link in the bar. The refusal behind it is the `/admin` layout
+ * Who sees the way into `/admin` — ADMIN in the header's bar (2026-10-07; it
+ * was a profile-menu entry from 2026-09-23). The refusal behind it is the `/admin` layout
  * (`canReachAdmin` again, server-side) — hiding this link is presentation.
  */
 
@@ -53,29 +53,34 @@ describe("AdminLink — who sees it", () => {
   });
 });
 
-describe("AdminLink — as a profile-menu item", () => {
-  it("renders as a menuitem outside the tab order, with the menu's class", () => {
-    render(<AdminLink role="admin" menuItem className="profile-menu-item" />);
+describe("AdminLink — in the bar (2026-10-07)", () => {
+  it("is a plain link in the tab order, with the bar's class unless told otherwise", () => {
+    render(<AdminLink role="admin" />);
 
-    const item = screen.getByRole("menuitem", { name: "ADMIN" });
-    expect(item).toHaveAttribute("href", ADMIN_HREF);
-    expect(item).toHaveAttribute("tabindex", "-1");
-    expect(item).toHaveClass("profile-menu-item");
-    expect(item).not.toHaveClass("primary-nav-admin");
+    const link = screen.getByRole("link", { name: "ADMIN" });
+    expect(link).toHaveAttribute("href", ADMIN_HREF);
+    expect(link).not.toHaveAttribute("tabindex");
+    expect(link).not.toHaveAttribute("role");
+    expect(link).toHaveClass("primary-nav-admin");
   });
 
-  it("still renders nothing for a role with no admin surface", () => {
-    const { container } = render(<AdminLink role="user" menuItem />);
-    expect(container).toBeEmptyDOMElement();
+  it("takes the caller's class, e.g. the bar's current-page mark", () => {
+    render(<AdminLink role="admin" className="primary-nav-admin is-active" />);
+
+    expect(screen.getByRole("link", { name: "ADMIN" })).toHaveClass("primary-nav-admin", "is-active");
   });
 
-  it("tells the menu when it is chosen", async () => {
+  it("tells the bar when it is followed, so the short bar's MENU can close", async () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
-    render(<AdminLink role="super_admin" menuItem onClick={onClick} />);
+    render(<AdminLink role="super_admin" onClick={onClick} />);
+    // Keep jsdom from navigating; the link's own handler still runs.
+    const stop = (event: Event) => event.preventDefault();
+    window.addEventListener("click", stop, { capture: true });
 
-    await user.click(screen.getByRole("menuitem", { name: "ADMIN" }));
+    await user.click(screen.getByRole("link", { name: "ADMIN" }));
 
+    window.removeEventListener("click", stop, { capture: true });
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

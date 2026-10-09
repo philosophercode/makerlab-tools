@@ -57,7 +57,7 @@ unless they marked themselves.
   (`src/app/account/shift-actions.ts`), used by both pages.
 - **One permission.** `shifts.set`, held by `admin` and `super_admin`. It gates the action and
   also decides who may appear: a person who no longer holds it is never shown.
-- **Data.** Migration `0029_staff_shifts`: table `staff_shifts`. Not mirrored to Notion (it is
+- **Data.** Migration `0033_staff_shifts`: table `staff_shifts`. Not mirrored to Notion (it is
   live state, not inventory).
 - **Reads.** `getShiftRoster()` (`src/lib/on-shift/read.ts`) is `"use cache"` under the tag
   `on-shift` (`ON_SHIFT_CACHE`: revalidate 5 min as a backstop). `loadOnShiftNames(now)` drops
@@ -180,10 +180,9 @@ anyone; their grader already rejects answers that depend on who is on shift.
 - Kiosk spec: the payload gains `onShift`, amendment 2026-10-07.
 - The home redesign (option B) and the reporting branch both touch the home page and the tool
   hero. This adds one slot to each (`GalleryShell`'s `onShift`, `DetailShell`'s `onShift`), so a
-  rebase moves one line. Stacked on the student home, the line sits under the home's search
-  (`HomeShell`'s `onShift`) and in the full list's hero on `/tools` (`GalleryShell`'s).
-- **Migration number.** `0029`: written as `0028`, renumbered when stacked after the manual eval
-  questions' `0028_manual_eval_questions`.
+  rebase moves one line.
+- **Migration number.** `0033`: written as `0028`, renumbered `0029` in the stack, then `0033` when
+  rebuilt on `main` after `0032_found_photo` (2026-10-09).
 
 ## 8. Security and safety
 

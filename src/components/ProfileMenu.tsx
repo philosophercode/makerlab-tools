@@ -5,11 +5,9 @@ import type { KeyboardEvent } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
-import { AdminLink } from "./AdminLink";
 import { ProfileAvatar } from "./ProfileAvatar";
 import { FROSTED } from "./system/frosted";
 import { canAddEquipment } from "../lib/capabilities/access";
-import { canReachAdmin } from "../lib/auth/permissions";
 import { displayTitle } from "../lib/people/title";
 import {
   firstNameOf,
@@ -22,10 +20,12 @@ import {
  * a menu holding everything that used to crowd the nav bar (Isaac, 2026-09-23).
  *
  * The menu shows who you are (name, email, title — `lib/people/title.ts`), then only the entries this
- * identity can use: Admin for anyone holding an admin-surface permission
- * (`AdminLink`'s own rule), Add equipment for `tools.add`, and Sign out for
- * everyone. As with every header control, hiding an entry is presentation —
- * `/admin` and the chat's intake capability check again on the server.
+ * identity can use: Add equipment for `tools.add`; Account, Connect AI
+ * assistant (MCP) and Sign out — in the crimson ink, so it stands apart — for
+ * everyone (identity spec amendment "ADMIN in the bar", 2026-10-07). Admin
+ * left the menu for the bar that day (`AdminLink` in `PrimaryNav`). As with
+ * every header control, hiding an entry is presentation — the chat's intake
+ * capability checks again on the server.
  *
  * Keyboard and pointer behaviour follow the WAI-ARIA menu-button pattern:
  * Enter/Space/ArrowDown open on the first item, ArrowUp on the last; arrows,
@@ -210,16 +210,6 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
             className="profile-menu-list"
             onKeyDown={onMenuKeyDown}
           >
-            {canReachAdmin(identity) ? (
-              <li role="none">
-                <AdminLink
-                  role={identity.role}
-                  menuItem
-                  className="profile-menu-item"
-                  onClick={() => close(true)}
-                />
-              </li>
-            ) : null}
             {canAddEquipment(identity) ? (
               <li role="none">
                 <button
@@ -242,7 +232,7 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
                 className="profile-menu-item"
                 onClick={() => close(false)}
               >
-                {t("yourAccount")}
+                {t("account")}
               </Link>
             </li>
             {/* Everyone signed in may create a personal access token (MCP

@@ -3,10 +3,12 @@ import { copy } from "./copy.ts";
 import { buttonHtml, escapeHtml, layout, oneLine, subjectLine, type RenderedEmail } from "./html.ts";
 
 /**
- * The daily recurring-maintenance reminder (email notifications spec,
- * amendment 2026-10-07). Pure. Lists what is overdue, then what is due today,
- * and links to the Shift checklist on `/admin/maintenance`. Never rendered for
- * an empty list: an empty reminder is not sent.
+ * The recurring-maintenance reminder (email notifications spec, amendment
+ * 2026-10-07, revised by "The reminder follows each task's cadence"). Pure.
+ * Lists the tasks that came due today, then any that came due earlier and
+ * were not named yet (a missed day, or a task set up already overdue), and
+ * links to the Shift checklist on `/admin/maintenance`. Never rendered for an
+ * empty list: an empty reminder is not sent.
  */
 
 /** Lines shown per section; the rest are counted. */
@@ -48,13 +50,13 @@ export function renderMaintenanceDue(input: MaintenanceDueInput): RenderedEmail 
   const c = copy.maintenanceDue;
   const { overdue, dueToday } = input.due;
   const intro = c.intro(input.dateLabel);
-  const late = section(c.overdue(overdue.length), overdue);
   const today = section(c.dueToday(dueToday.length), dueToday);
+  const late = section(c.overdue(overdue.length), overdue);
 
   const text = [
     intro,
-    ...late.text,
     ...today.text,
+    ...late.text,
     "",
     `${c.open}: ${input.checklistUrl}`,
     "",
@@ -64,10 +66,10 @@ export function renderMaintenanceDue(input: MaintenanceDueInput): RenderedEmail 
     "",
   ].join("\n");
 
-  const bodyHtml = [`<p style="margin:0 0 4px;">${escapeHtml(intro)}</p>`, late.html, today.html, buttonHtml(input.checklistUrl, c.open)].join("\n");
+  const bodyHtml = [`<p style="margin:0 0 4px;">${escapeHtml(intro)}</p>`, today.html, late.html, buttonHtml(input.checklistUrl, c.open)].join("\n");
 
   return {
-    subject: subjectLine(c.subject(overdue.length, dueToday.length)),
+    subject: subjectLine(c.subject(overdue.length + dueToday.length)),
     text,
     html: layout({
       origin: input.origin,

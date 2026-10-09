@@ -82,7 +82,7 @@ describe("POST /api/demo-pass", () => {
     const res = await post(body);
     expect(res.status).toBe(201);
     const json = await res.json();
-    expect(json).toMatchObject({ ok: true, status: "created", pass: { remainingUsd: 0.5, budgetUsd: 0.5, exhausted: false, contactEmail: null } });
+    expect(json).toMatchObject({ ok: true, status: "created", pass: { remainingUsd: 0.5, budgetUsd: 0.5, exhausted: false, contactEmail: "ies22@cornell.edu" } });
     // The visitor's own details are not echoed back.
     expect(JSON.stringify(json)).not.toContain(body.email);
 

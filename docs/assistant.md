@@ -39,6 +39,11 @@ its people (owner meeting with the Director and Assistant Director,
   notes** (Inventory → Lab notes) come before the manual, win where they differ,
   and are cited as "**Lab note:**", never as the manual. The assistant never
   writes or proposes lab notes; staff do.
+- Follow a machine's **tool skill**: the lab's operating guide for it, written by
+  AI from the lab's own sources, every fact cited, the lab's notes, training and
+  PPE first. On a machine's page the assistant has it already; anywhere else,
+  and over MCP, it reads it with `get_tool_skill`. Staff write and rewrite skills
+  on the tool's skill page; the assistant never writes its own.
 - File a maintenance problem ("Prusa #1's nozzle is clogged") and report a
   mistake on a tool's page. It tries to help you fix the problem first. Once
   the lab's email is set up, a filed ticket emails the staff who work tickets,
@@ -54,6 +59,12 @@ its people (owner meeting with the Director and Assistant Director,
   and a link to its page as a small card (`show_tool`, published tools only;
   not for the tool whose page you are on). These are the lab's own photos;
   the assistant never fetches pictures from the web into the chat.
+- Offer two or three short replies to tap, now and then: when an answer ends
+  by asking you to choose between a few easy options ("What are you cutting?"),
+  bubbles such as "Acrylic sign" and "Engraved wood" appear under it, and
+  tapping one sends it as your message (`suggest_replies`). It is used
+  sparingly, never for safety questions, and you can always type your own
+  answer instead.
 - **Signed in:** draw a sketch when you ask for one. After a plan with several
   steps, or when you describe a project idea, the assistant may offer "Want a
   sketch of this plan?"; say yes and it draws one picture — an infographic of
@@ -127,6 +138,13 @@ since the card was drawn, nothing is saved and the card says what it is now.
   "Not sure". Tick what you want and press **Add to research** (it shows how
   much of today's allowance that uses and about what it costs, and asks first),
   **Just add to intake** for later, or **Discard**.
+- **Say what it is.** "I'd like to add new equipment" alone adds nothing: the
+  assistant asks for a name, a photo or a list. A row is never called
+  "Equipment not specified" or "Unknown" — those names are refused everywhere.
+- **Named without a photo?** The assistant settles the most likely official
+  name, and the card looks up one product photo for it in the background,
+  shown in a dashed frame marked **Found online** — not confirmed until the
+  item is approved. Each lookup costs a quarter of a research item.
 - **Research costs money.** Research, a different image, name suggestions,
   re-processing a manual and refreshing research come as cards that show how
   much of today's allowance is left.

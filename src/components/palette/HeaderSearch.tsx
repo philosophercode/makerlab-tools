@@ -26,9 +26,9 @@ export function HeaderSearch({ tools }: { tools: readonly PaletteTool[] }) {
   const identity = useSharedIdentity();
   const scope = usePaletteScope();
   const { open } = useChatLauncher();
-  // The home page and the full list have their own search box (student home spec 2026-10-07 §6).
+  // The home page — the tool list — has its own search box (student home spec 2026-10-07 §6).
   const pathname = usePathname();
-  const pageHasSearch = pathname === "/" || pathname === ALL_TOOLS_PATH;
+  const pageHasSearch = pathname === ALL_TOOLS_PATH;
   const role = scope?.role ?? identity?.role ?? "anonymous";
   const drafts = scope?.drafts;
   const all = useMemo(() => (drafts && drafts.length > 0 ? [...tools, ...drafts] : tools), [tools, drafts]);

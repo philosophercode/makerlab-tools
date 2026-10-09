@@ -5,7 +5,7 @@ import { ILLUSTRATION_KIND, ILLUSTRATION_STATUS } from "./vocabulary.ts";
 
 /**
  * Chat illustrations (gateway spec amendment 2026-10-07 "Generated
- * illustrations in the chat"; migration `0031`): one row per illustration a
+ * illustrations in the chat"; migration `0030`): one row per illustration a
  * signed-in person asked the assistant for — the ledger the per-person daily
  * cap and the lab-wide daily budget are counted from, and the record of where
  * the picture is.

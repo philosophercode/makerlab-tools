@@ -2,7 +2,6 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  stepCountIs,
   streamText,
   type FilePart,
   type ImagePart,
@@ -34,6 +33,7 @@ import {
   collectToolManuals,
 } from "../../../lib/chat/attached-manuals";
 import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
+import { loadToolSkillForChat } from "../../../lib/chat/tool-skill";
 import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
 import { markOutsideReads, newTurnState } from "../../../lib/chat/taint";
 import { curationCapability } from "../../../lib/capabilities/curation";
@@ -47,6 +47,7 @@ import { chargeDemoPassTurn } from "../../../lib/demo-pass/charge";
 import { demoPassContactEmail } from "../../../lib/demo-pass/config";
 import { toDemoPassView } from "../../../lib/demo-pass/state";
 import { chatPrepareStep } from "./prepare-step";
+import { chatStopWhen } from "./stop-when";
 import { boundChatHistory, historyBudgetFor } from "../../../lib/chat/bound-history";
 import { photoQrHints, photoQrSection } from "../../../lib/chat/photo-qr";
 import {
@@ -144,9 +145,11 @@ export async function POST(req: Request) {
   // spec §3.6 — the fallback for `no_text`, `failed` or unprocessed manuals).
   // The two reads are independent; the PDFs themselves are fetched inside the
   // stream, so its response starts without waiting on a manual host.
-  const [toolManuals, focusedResources] = focused
-    ? await Promise.all([loadToolManualsForChat(focused.id, identity), loadResourcesForManuals(focused.id)])
-    : [{ outlines: [], searchableResourceIds: new Set<string>() }, [] as ToolResource[]];
+  // The tool's skill, when it has one (tool skills spec 2026-10-07 §5.6): one
+  // read beside the manuals, never a failure of the turn.
+  const [toolManuals, focusedResources, toolSkill] = focused
+    ? await Promise.all([loadToolManualsForChat(focused.id, identity), loadResourcesForManuals(focused.id), loadToolSkillForChat(focused)])
+    : [{ outlines: [], searchableResourceIds: new Set<string>() }, [] as ToolResource[], null];
   if (focused) {
     const hosts = resourceHosts(focused);
     console.info(
@@ -156,6 +159,7 @@ export async function POST(req: Request) {
       `[chat] read_page hosts: ${hosts.length ? hosts.join(", ") : "none"}`
     );
     console.info(`[chat] manuals searchable: ${toolManuals.outlines.length}`);
+    console.info(`[chat] tool skill: ${toolSkill ? `version ${toolSkill.version}` : "none"}`);
   }
 
   // Convert the UI messages, attach any server-fetched manuals, and surface the
@@ -226,8 +230,9 @@ export async function POST(req: Request) {
         ...(curation ? { curation } : {}),
         ...(chatId ? { chatId } : {}),
         // Whether this turn read outside content (assistant–GUI parity spec §8.4):
-        // attached manuals and a curation record are in the prompt from the start.
-        turn: newTurnState({ outsideInPrompt: manuals.length > 0 || Boolean(curation) }),
+        // attached manuals, a curation record and a tool skill (written by AI
+        // from manuals and web pages) are in the prompt from the start.
+        turn: newTurnState({ outsideInPrompt: manuals.length > 0 || Boolean(curation) || Boolean(toolSkill) }),
       };
 
       // Compose the system prompt + capability tools from the shared registry
@@ -248,7 +253,7 @@ export async function POST(req: Request) {
       const { tools: capabilityTools, system } = composeChat(
         capabilitiesForIdentity(capabilities, identity),
         ctx,
-        { tools, focusedTool: focused, locale, manualOutlines: toolManuals.outlines, labNotes, onShift, ...(curation ? { curation } : {}) }
+        { tools, focusedTool: focused, locale, manualOutlines: toolManuals.outlines, labNotes, toolSkill, onShift, ...(curation ? { curation } : {}) }
       );
 
       const chatTools: Record<string, Tool> = {
@@ -277,7 +282,9 @@ export async function POST(req: Request) {
           recordSearchResults(ctx, step);
           markOutsideReads(ctx.turn, step);
         },
-        stopWhen: stepCountIs(10),
+        // Ten steps at most, and a step that only offered suggested replies
+        // after the answer ends the turn (parity spec amendment 2026-10-07).
+        stopWhen: chatStopWhen(),
         // Usage insight (usage insight spec §5.1): what this turn was about,
         // counted with no one in it and written after the response — a demo
         // pass's turn as the `demo` audience. Never throws; a failed insert

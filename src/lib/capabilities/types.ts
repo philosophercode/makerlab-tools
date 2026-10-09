@@ -213,12 +213,29 @@ export interface PromptEnv {
    */
   labNotes?: readonly string[];
   /**
+   * The focused tool's current tool skill, compact and within its budget
+   * (tool skills spec 2026-10-07 §5.6) — loaded by the surface
+   * (`chat/tool-skill.ts`). Absent off a tool page, for a tool with no
+   * skill, or when the read failed.
+   */
+  toolSkill?: ToolSkillForPrompt | null;
+  /**
    * Who is on shift now, as students see them ("Alex M."), read by the
    * surface (`lib/on-shift/read.ts`; on-shift spec 2026-10-07). Per request,
    * so it goes in the "This conversation" tail. Absent or empty: nobody is
    * named.
    */
   onShift?: readonly string[];
+}
+
+/** The focused tool's skill, as the prompt carries it. */
+export interface ToolSkillForPrompt {
+  toolName: string;
+  version: number;
+  /** ISO 8601. */
+  generatedAt: string;
+  /** The compact skill (`renderSkillCompact`), already within the budget. */
+  text: string;
 }
 
 /** One searchable manual of the focused tool, as the prompt lists it. */

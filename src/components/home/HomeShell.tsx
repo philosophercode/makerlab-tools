@@ -1,21 +1,39 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowRight } from "lucide-react";
+import type { VisibilityState } from "@tanstack/react-table";
+import type { GalleryTool } from "../catalog-types";
+import { GalleryShell } from "../GalleryShell";
+import { GALLERY_DEFAULT_HIDDEN, useGalleryColumns } from "../gallery-columns";
+import { activeFilterCount } from "../catalogue-view";
+import { categoryEntries } from "../palette/palette-search";
+import { useCatalogueState } from "../use-catalogue-state";
+import { FiltersPanel } from "./FiltersPanel";
+import { HomeControls } from "./HomeControls";
 import { HomeSearch } from "./HomeSearch";
-import { CategoryTileCard } from "./CategoryTileCard";
-import { categoryTiles, galleryToolCount, type HomeTool } from "./home-tools";
-import { HomeWordmark } from "./HomeWordmark";
-import { ALL_TOOLS_PATH } from "../../lib/gallery-links";
+import { LandingLockup } from "./LandingLockup";
+import { useFiltersOpen } from "./use-filters-open";
 
 /**
- * The student home (student home spec 2026-10-07; design review option B,
- * the calmer gallery, with the owner's addendum): generous space, a big
- * MakerLAB wordmark and the smart search box; then **Tools**, the categories
- * as large tiles; then the way to the full list. Nothing else: no "Start
- * here" band, no filters (they are the full list's).
+ * The home page (student home spec 2026-10-07, amendment "One page: the list
+ * at rest", revised after the owner saw the first build). One page where
+ * there were two (the categories at `/`, the full list at `/tools`):
+ *
+ * - **"MakerLAB AI"** at display size, then the one search box. The header's
+ *   own lockup steps aside on this page, so the logo shows once.
+ * - **A quiet row**: Categories | All tools, and a Filters button. Nothing
+ *   else above the content; the filters, sort, grouping and grid/table live
+ *   in the Filters panel, closed until asked for (`FiltersPanel`).
+ * - **The content** (`GalleryShell`): the category tiles, a category's tools,
+ *   or all tools grouped by category.
+ * - **Typing**, in either view, swaps the content for the matching tools on
+ *   the same page; the box's own list keeps the matching categories and "Ask
+ *   MakerLAB AI" (`HomeSearch`). Emptying the box brings the view back.
+ *
+ * Everything but the panel's open state lives in the URL
+ * (`useCatalogueState`), so a view, a search or a filter is a link, and the
+ * page stays one cached prerender for everybody.
  *
  * `onShift` is "On shift now: Alex M." under the search (on-shift spec
  * 2026-10-07), a dynamic hole the page passes in its own Suspense boundary;
@@ -30,72 +48,68 @@ export function HomeShell({
   onShift = null,
   demoCallout = null,
 }: {
-  tools: readonly HomeTool[];
+  tools: readonly GalleryTool[];
   categoryOrder: readonly string[];
   onShift?: ReactNode;
   demoCallout?: ReactNode;
 }) {
   const t = useTranslations("gallery.home");
-  const tGallery = useTranslations("gallery");
-  const tiles = useMemo(() => categoryTiles(tools, categoryOrder), [tools, categoryOrder]);
-  const count = useMemo(() => galleryToolCount(tools), [tools]);
+  const { state, set, view } = useCatalogueState(tools, categoryOrder);
+  const categories = useMemo(() => categoryEntries(tools), [tools]);
+  // What the placeholder counts: the list unfiltered (a hidden-by-default category is not in it).
+  const toolCount = useMemo(() => tools.filter((tool) => !tool.galleryHidden).length, [tools]);
+  const first = view.searching ? view.shown[0] : undefined;
+
+  const active = activeFilterCount(state);
+  const [filtersOpen, toggleFilters] = useFiltersOpen();
+  const panelId = useId();
+  const columns = useGalleryColumns();
+  const [visibility, setVisibility] = useState<VisibilityState>(GALLERY_DEFAULT_HIDDEN);
 
   return (
     <main className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8" data-slot="home">
       <section
         aria-label={t("searchSection")}
-        className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 pt-12 pb-14 sm:gap-10 sm:pt-20 sm:pb-20 lg:pt-24"
+        className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5 pt-8 pb-8 sm:gap-7 sm:pt-12 sm:pb-10 lg:pt-14"
       >
-        <HomeWordmark />
-        <HomeSearch tools={tools} toolCount={count} />
+        <LandingLockup />
+        <div className="flex w-full flex-col gap-3">
+          <HomeSearch
+            value={state.query}
+            onChange={(query) => set({ query })}
+            categories={categories}
+            firstResult={first ? { name: first.name, slug: first.slug } : null}
+            onCategory={(category) => set({ category, query: "" })}
+            toolCount={toolCount}
+          />
+          <HomeControls
+            show={state.show}
+            // Switching what to browse starts it afresh: no category carried over.
+            onShow={(show) => set({ show, category: null })}
+            filtersOpen={filtersOpen}
+            onToggleFilters={toggleFilters}
+            activeCount={active}
+            panelId={panelId}
+          />
+          <FiltersPanel
+            id={panelId}
+            open={filtersOpen}
+            tools={tools}
+            state={state}
+            set={set}
+            view={view}
+            categoryOrder={categoryOrder}
+            columns={columns}
+            visibility={visibility}
+            onVisibility={setVisibility}
+          />
+        </div>
         {onShift}
       </section>
 
       {demoCallout}
 
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-rule pb-3">
-        <h1 id="home-title" className="font-heading text-[clamp(36px,5vw,64px)] leading-[0.92] font-medium tracking-tight normal-case">
-          {tGallery("title")}
-        </h1>
-        <SeeAll count={count} />
-      </div>
-
-      {tiles.length > 0 ? (
-        <ul aria-labelledby="home-title" className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4" data-slot="category-tiles">
-          {tiles.map((tile, index) => (
-            <li key={tile.name} className="min-w-0">
-              <CategoryTileCard tile={tile} imagePriority={index < 2 ? "high" : index < 4 ? "eager" : "lazy"} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="py-10 text-center text-muted-foreground">{t("empty")}</p>
-      )}
-
-      <div className="mt-8 flex justify-center">
-        <Link
-          href={ALL_TOOLS_PATH}
-          data-slot="see-all-button"
-          className="inline-flex h-11 items-center gap-2 border border-foreground px-5 font-mono text-label tracking-[0.08em] uppercase transition-colors duration-150 hover:bg-foreground hover:text-background"
-        >
-          {t("seeAll", { count })}
-          <ArrowRight aria-hidden="true" className="size-4 rtl:rotate-180" />
-        </Link>
-      </div>
+      <GalleryShell state={state} set={set} view={view} columns={columns} visibility={visibility} />
     </main>
-  );
-}
-
-function SeeAll({ count }: { count: number }) {
-  const t = useTranslations("gallery.home");
-  return (
-    <Link
-      href={ALL_TOOLS_PATH}
-      data-slot="see-all-link"
-      className="inline-flex items-center gap-1.5 pb-1 font-mono text-label tracking-[0.08em] text-primary-ink uppercase underline underline-offset-4 hover:no-underline"
-    >
-      {t("seeAll", { count })}
-      <ArrowRight aria-hidden="true" className="size-3.5 rtl:rotate-180" />
-    </Link>
   );
 }

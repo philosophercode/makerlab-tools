@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "דיווח",
-    "reportAria": "דיווח על תקלה",
-    "reportSeed": "אני רוצה לדווח על תקלה.",
     "tools": "כלים",
     "projects": "פרויקטים",
     "about": "אודות",
@@ -19,7 +16,10 @@
     "signIn": "התחברות",
     "signInAria": "התחבר עם חשבון {institution} שלך",
     "signOut": "התנתקות",
-    "signedInAria": "מחובר בתור {name}"
+    "signedInAria": "מחובר בתור {name}",
+    "admin": "ניהול",
+    "account": "חשבון",
+    "connectAssistant": "חיבור עוזר AI (MCP)"
   },
   "catalogRefresh": {
     "action": "רענון הקטלוג",
@@ -34,9 +34,6 @@
     "onShiftNow": "במשמרת עכשיו: {names}"
   },
   "gallery": {
-    "title": "כלים",
-    "allTitle": "כל הכלים",
-    "searchAria": "חיפוש במלאי",
     "category": "קטגוריה:",
     "training": "הכשרה:",
     "materials": "חומרים:",
@@ -55,21 +52,20 @@
     "trainingAdvanced": "מתקדם",
     "home": {
       "searchSection": "חיפוש במעבדה",
-      "seeAll": "לכל הכלים ({count})",
       "toolCount": "{count, plural, one {כלי אחד} two {# כלים} other {# כלים}}",
-      "unitsDown": "{count, plural, one {יחידה אחת מושבתת} two {# יחידות מושבתות} other {# יחידות מושבתות}}",
-      "empty": "אין עדיין כלים בקטלוג."
+      "unitsDown": "{count, plural, one {יחידה אחת מושבתת} two {# יחידות מושבתות} other {# יחידות מושבתות}}"
     },
     "search": {
       "landmark": "חיפוש כלים ושאלות ל-MakerLAB AI",
       "label": "חפשו כלי, או שאלו את MakerLAB AI",
-      "tools": "כלים",
       "categories": "קטגוריות",
       "categoryCount": "{count, plural, one {כלי אחד} two {# כלים} other {# כלים}}",
       "assistant": "MakerLAB AI",
       "ask": "שאלו את MakerLAB AI: “{query}”",
       "askNote": "פותח את הצ׳אט עם השאלה שלכם. MakerLAB AI עלול לטעות.",
+      "clear": "ניקוי החיפוש",
       "noMatch": "אין כלי או קטגוריה שתואמים ל-“{query}”.",
+      "enterOpens": "מקש Enter יפתח את {name}",
       "lines": {
         "search": "חיפוש בין {count} כלים",
         "build": "מה תבנו?",
@@ -78,7 +74,15 @@
         "x1Start": "שאלו איך מתחילים הדפסת תלת-ממד ב-X1-Carbon",
         "trotecAcrylic": "האם הלייזר של Trotec חותך אקריליק?"
       }
-    }
+    },
+    "results": {
+      "heading": "תוצאות עבור “{query}”"
+    },
+    "browse": {
+      "label": "עיון",
+      "all": "כל הכלים"
+    },
+    "backToCategories": "כל הקטגוריות"
   },
   "detail": {
     "breadcrumbTools": "כלים",
@@ -183,6 +187,7 @@
     "composerPlaceholder": "שאלו את MakerLAB AI...",
     "composerAria": "שאלו את MakerLAB AI",
     "aiNote": "MakerLAB AI עלול לטעות. בדקו עם הצוות כל דבר שקשור לבטיחות.",
+    "aiNoteDismiss": "סגירת ההערה",
     "sendAria": "שליחה",
     "attachAria": "צירוף תמונות",
     "attachTitle": "צירוף תמונות",
@@ -191,6 +196,8 @@
     "onlyImages": "נתמכים קבצי תמונה בלבד.",
     "uploadFailed": "העלאת התמונה נכשלה",
     "uploadsUnavailable": "העלאת תמונות אינה זמינה כרגע. עדיין אפשר לשלוח את ההודעה בלי תמונה.",
+    "photoUnsupported": "פורמט התמונה הזה אינו נתמך — אפשר לנסות JPEG או PNG.",
+    "photoTooLarge": "התמונה גדולה מדי להעלאה — אפשר לנסות תמונה קטנה יותר או JPEG.",
     "toolRunningAria": "הכלי פועל",
     "typingAria": "MakerLAB AI מקליד",
     "readingManualsAria": "קורא מדריכים",
@@ -202,25 +209,26 @@
     "rateLimitSignIn": "הגעת למכסת ההודעות למבקרים שאינם מחוברים. התחבר עם חשבון {institution} כדי להמשיך לשוחח — עיון בקטלוג נשאר פתוח בכל מקרה.",
     "rateLimitSignInCta": "התחברות",
     "rateLimited": "הגעת למכסת ההודעות לשעה. נסה שוב בעוד זמן מה.",
-    "demoPassLeft": "כרטיס הדגמה · נותרו {amount}",
-    "demoPassUsedUp": "כרטיס הדגמה · נוצל",
-    "demoPassSpent": "ניצלתם את מכסת ה-AI של כרטיס ההדגמה. תודה שניסיתם את MakerLAB AI! אפשר להמשיך לשאול כמה שאלות בשעה, כמו כל מבקר.",
-    "demoPassLimited": "ניצלתם את מכסת ה-AI של הכרטיס ואת מגבלת המבקרים לשעה הזו. תודה שניסיתם את MakerLAB AI! נסו שוב בעוד זמן קצר.",
-    "demoPassContactLead": "רוצים לדבר על זה?",
-    "demoPassContactTeam": "פנו לצוות MakerLAB",
     "showingTool": "▣ טוען את תמונת הכלי…",
     "toolCard": {
       "label": "כלים בתשובה הזו",
       "open": "פתיחה"
     },
     "drawingIllustration": "✎ מצייר איור…",
+    "suggestedReplies": "תשובות מוצעות",
     "illustration": {
       "badge": "איור AI",
       "caption": "איור שנוצר בבינה מלאכותית, לא תמונה של הציוד שלנו. בדקו במדריך ועם הצוות את השלבים המדויקים.",
       "altPlan": "אינפוגרפיקה של התוכנית שנוצרה בבינה מלאכותית",
       "altConcept": "הדמיה רעיונית של רעיון הפרויקט שנוצרה בבינה מלאכותית",
       "unavailable": "האיור הזה כבר לא זמין."
-    }
+    },
+    "demoPassLeft": "כרטיס הדגמה · נותרו {amount}",
+    "demoPassUsedUp": "כרטיס הדגמה · נוצל",
+    "demoPassSpent": "ניצלתם את מכסת ה-AI של כרטיס ההדגמה. תודה שניסיתם את MakerLAB AI! אפשר להמשיך לשאול כמה שאלות בשעה, כמו כל מבקר.",
+    "demoPassLimited": "ניצלתם את מכסת ה-AI של הכרטיס ואת מגבלת המבקרים לשעה הזו. תודה שניסיתם את MakerLAB AI! נסו שוב בעוד זמן קצר.",
+    "demoPassContactLead": "רוצים לדבר על זה?",
+    "demoPassContactTeam": "פנו לצוות MakerLAB"
   },
   "qr": {
     "arrivalLabel": "נסרק מהמכונה הזו",
@@ -340,6 +348,42 @@
     "label": "נתוני הדגמה",
     "body": "קטלוג זה מכיל נתוני דוגמה מובנים, לא המלאי האמיתי של {institution}. Notion אינו מוגדר."
   },
+  "footer": {
+    "report": "דיווח על תקלה",
+    "reportSeed": "אני רוצה לדווח על תקלה."
+  },
+  "unsubscribe": {
+    "loading": "טוען…",
+    "eyebrow": "דוא״ל",
+    "confirmTitle": "לכבות את ההודעות האלה?",
+    "confirm": {
+      "ticketFiled": "לא תקבלו יותר הודעה בכל פעם שמישהו מדווח על תקלה במכונה.",
+      "maintenanceDue": "לא תקבלו יותר את תזכורת הבוקר על תחזוקה תקופתית שהגיע מועדה."
+    },
+    "confirmScope": "רק ההודעה הזו נעצרת. שום דבר אחר בחשבון שלכם לא משתנה.",
+    "turnOff": "כיבוי",
+    "keep": "להמשיך לקבל",
+    "failed": "השמירה נכשלה. נסו שוב בעוד רגע.",
+    "doneTitle": "כובה",
+    "done": {
+      "ticketFiled": "לא תקבלו הודעה כשמישהו מדווח על תקלה במכונה.",
+      "maintenanceDue": "לא תקבלו את תזכורת התחזוקה של הבוקר."
+    },
+    "doneUndo": "קריאות ומשימות עדיין מופיעות באפליקציה. כדי לקבל שוב את ההודעות האלה, פנו להנהלת המעבדה.",
+    "invalidTitle": "הקישור הזה לא עובד",
+    "invalidBody": "ייתכן שהוא חלקי או ישן. שום דבר לא שונה. אם ממשיכות להגיע הודעות שאינכם רוצים, ספרו לצוות המעבדה.",
+    "rateLimitedTitle": "יותר מדי ניסיונות",
+    "rateLimitedBody": "הגיעו יותר מדי בקשות מהחיבור הזה. המתינו שעה ופתחו שוב את הקישור.",
+    "home": "חזרה אל {site}"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "שאלו את MakerLAB AI: “{query}”",
+    "askEmpty": "שאלו את MakerLAB AI"
+  },
+  "kiosk": {
+    "onShiftLabel": "במשמרת עכשיו"
+  },
   "demoPass": {
     "eyebrow": "כרטיס הדגמה",
     "title": "נסו את ההדגמה המלאה",
@@ -396,40 +440,5 @@
       "text": "באים לביקור? קבלו כרטיס הדגמה חינמי כדי לשוחח עם עוזר המעבדה ולדווח על תקלה. אין צורך בחשבון {institution}.",
       "cta": "הרשמה לניסיון ההדגמה המלאה"
     }
-  },
-  "kiosk": {
-    "onShiftLabel": "במשמרת עכשיו"
-  },
-  "unsubscribe": {
-    "loading": "טוען…",
-    "eyebrow": "דוא״ל",
-    "confirmTitle": "לכבות את ההודעות האלה?",
-    "confirm": {
-      "ticketFiled": "לא תקבלו יותר הודעה בכל פעם שמישהו מדווח על תקלה במכונה.",
-      "maintenanceDue": "לא תקבלו יותר את תזכורת הבוקר על תחזוקה תקופתית שהגיע מועדה."
-    },
-    "confirmScope": "רק ההודעה הזו נעצרת. שום דבר אחר בחשבון שלכם לא משתנה.",
-    "turnOff": "כיבוי",
-    "keep": "להמשיך לקבל",
-    "failed": "השמירה נכשלה. נסו שוב בעוד רגע.",
-    "doneTitle": "כובה",
-    "done": {
-      "ticketFiled": "לא תקבלו הודעה כשמישהו מדווח על תקלה במכונה.",
-      "maintenanceDue": "לא תקבלו את תזכורת התחזוקה של הבוקר."
-    },
-    "doneUndo": "קריאות ומשימות עדיין מופיעות באפליקציה. כדי לקבל שוב את ההודעות האלה, פנו להנהלת המעבדה.",
-    "invalidTitle": "הקישור הזה לא עובד",
-    "invalidBody": "ייתכן שהוא חלקי או ישן. שום דבר לא שונה. אם ממשיכות להגיע הודעות שאינכם רוצים, ספרו לצוות המעבדה.",
-    "rateLimitedTitle": "יותר מדי ניסיונות",
-    "rateLimitedBody": "הגיעו יותר מדי בקשות מהחיבור הזה. המתינו שעה ופתחו שוב את הקישור.",
-    "home": "חזרה אל {site}"
-  },
-  "palette": {
-    "page": {
-      "allTools": "כל הכלים"
-    },
-    "assistant": "MakerLAB AI",
-    "ask": "שאלו את MakerLAB AI: “{query}”",
-    "askEmpty": "שאלו את MakerLAB AI"
   }
 }

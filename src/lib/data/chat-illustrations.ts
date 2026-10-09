@@ -6,7 +6,7 @@ import type { Db } from "../db/types.ts";
 import { isUuid } from "./uuid.ts";
 
 /**
- * The chat illustrations ledger (`chat_illustrations`, migration `0031`;
+ * The chat illustrations ledger (`chat_illustrations`, migration `0030`;
  * gateway spec amendment 2026-10-07 "Generated illustrations in the chat").
  *
  * Both caps are counted from it over the last 24 hours: the person's

@@ -69,16 +69,16 @@ export const statement = {
   // decided super admins first, "admins too" is one line below. Counts and
   // aggregates only; never the Unanswered queue's text.
   insights: ["view", "configure", "export"],
-  // Who's on shift (on-shift spec 2026-10-07): mark yourself "On shift" until
-  // a time you pick, so students see "On shift now: Alex M." Staff only,
-  // SuperMakers and directors both. It is also who may *appear*: a row whose
-  // person no longer holds it is never shown.
-  shifts: ["set"],
   // `illustrate`: ask the assistant for a generated illustration — a sketch of
   // a plan or a concept render of a project idea (gateway spec amendment
   // 2026-10-07). Every signed-in person: it spends the lab's money, so it
   // needs someone to count it against; anonymous visitors are offered sign-in.
   chat: ["illustrate"],
+  // Who's on shift (on-shift spec 2026-10-07): mark yourself "On shift" until
+  // a time you pick, so students see "On shift now: Alex M." Staff only,
+  // SuperMakers and directors both. It is also who may *appear*: a row whose
+  // person no longer holds it is never shown.
+  shifts: ["set"],
 } as const;
 
 export const ac = createAccessControl(statement);

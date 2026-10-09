@@ -50,10 +50,11 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
  * 7. **Notifications** (email notifications spec §3.6, amendment
  *    2026-10-07) — sends stuck past 20 hours given up, outbox rows whose run
  *    never started restarted once, rows older than 180 days deleted, and the
- *    daily recurring-maintenance reminder started: a run that sleeps until
- *    08:00 lab time and emails staff what is due today and overdue, or
- *    nothing when nothing is (`src/lib/cron/notifications.ts`). A run that
- *    could not be started fails the stage.
+ *    recurring-maintenance reminder started: a run that sleeps until 08:00
+ *    lab time and emails staff the tasks that came due since the last
+ *    reminder, each once per due date, or nothing when none did
+ *    (`src/lib/cron/notifications.ts`). A run that could not be started
+ *    fails the stage.
  *
  * **Nothing here fails quietly.** Every stage reports, and any one failing
  * makes the whole invocation non-200 so it shows in Vercel's cron log as

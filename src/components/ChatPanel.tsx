@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -260,10 +260,16 @@ export function ChatPanel() {
   // A chip with a pre-run answer (starter answers) shows the question and that
   // answer at once, drawn by the same `ChatMessage` as a live one, with no
   // model call; the conversation then carries on live, the cached answer part
-  // of the history the next turn sends. Anything else is asked live.
+  // of the history the next turn sends. Anything else is asked live — and
+  // always a suggested reply (`live`): it answers this conversation, and a
+  // cached answer was made with none before it.
   const [answeringChip, setAnsweringChip] = useState(false);
-  async function handleSuggestion(text: string) {
+  async function handleSuggestion(text: string, { live = false }: { live?: boolean } = {}) {
     if (isLoading || answeringChip) return;
+    if (live) {
+      send(text);
+      return;
+    }
     // Usually the chip set's answers are in hand by the time a chip is
     // clicked; only a click before they arrive waits (briefly) for them.
     let cached = starters.answerNow(text);
@@ -292,6 +298,21 @@ export function ChatPanel() {
     ]);
     starters.markServed(text);
   }
+
+  // Suggested replies (parity spec amendment 2026-10-07): the bubbles under
+  // the latest answer send their text through `handleSuggestion`, as the
+  // starters do. Stable, so the memoised `ChatMessage` is not redrawn on
+  // every keystroke in the composer.
+  const handleSuggestionRef = useRef(handleSuggestion);
+  useEffect(() => {
+    handleSuggestionRef.current = handleSuggestion;
+  });
+  const handleReply = useCallback((text: string) => void handleSuggestionRef.current(text, { live: true }), []);
+  // Only on the latest message, only an assistant's, and only once its turn
+  // has finished: not while a turn is submitted or streaming, not after it
+  // failed or was cut off. Sending anything adds a newer message, so they go.
+  const latest = messages[messages.length - 1];
+  const repliesOn = status === "ready" && !cutOff && latest?.role === "assistant" ? latest.id : null;
 
   // Sign-in offered at the ceiling. Comes back to the page the conversation
   // started on, so the visitor lands where they were (spec §10).
@@ -412,7 +433,13 @@ export function ChatPanel() {
               ) : (
                 <>
                   {messages.map((message) => (
-                    <ChatMessage key={message.id} message={message} t={t} onInternalNavigate={close} />
+                    <ChatMessage
+                      key={message.id}
+                      message={message}
+                      t={t}
+                      onInternalNavigate={close}
+                      {...(message.id === repliesOn ? { onReply: handleReply, repliesDisabled: isLoading || answeringChip } : {})}
+                    />
                   ))}
                   {showLoader ? (
                     <Message from="assistant">

@@ -63,7 +63,7 @@ describe("archiveManuals (in process)", () => {
             providerMetadata: { gateway: { cost: "0.00001" } },
           };
         },
-        // The eval questions step (job `evalQuestions`, flex): one question from the first passage offered.
+        // The eval questions step (job `evalQuestions`, Opus): one question from the first passage offered.
         language: (req) => {
           asked.push(req.modelId);
           expect(promptText(req)).toContain("P1");
@@ -84,7 +84,7 @@ describe("archiveManuals (in process)", () => {
       .returning({ id: resources.id });
 
     const first = await (await start(archiveManuals, [[resource.id]])).returnValue;
-    expect(first).toEqual({ archived: 1, skipped: 0, failed: 0, indexed: 1, indexFailed: 0, passagesBuilt: 1, passagesFailed: 0, questionsWritten: 1, questionsFailed: 0 });
+    expect(first).toEqual({ archived: 1, skipped: 0, failed: 0, indexed: 1, indexFailed: 0, passagesBuilt: 1, passagesFailed: 0, questionsWritten: 1, questionsFailed: 0, skillsWritten: 0, skillsFailed: 0 });
 
     const docs = await db.select().from(manualDocuments).where(eq(manualDocuments.toolId, tool.id));
     expect(docs).toHaveLength(1);
@@ -102,16 +102,16 @@ describe("archiveManuals (in process)", () => {
     expect(embedded.flat()).toHaveLength(chunks.length);
 
     const second = await (await start(archiveManuals, [[resource.id]])).returnValue;
-    expect(second).toEqual({ archived: 0, skipped: 1, failed: 0, indexed: 0, indexFailed: 0, passagesBuilt: 0, passagesFailed: 0, questionsWritten: 0, questionsFailed: 0 });
+    expect(second).toEqual({ archived: 0, skipped: 1, failed: 0, indexed: 0, indexFailed: 0, passagesBuilt: 0, passagesFailed: 0, questionsWritten: 0, questionsFailed: 0, skillsWritten: 0, skillsFailed: 0 });
     expect(await db.select().from(manualDocuments).where(eq(manualDocuments.toolId, tool.id))).toHaveLength(1);
     // Idempotent: nothing embedded twice.
     expect(embedded.flat()).toHaveLength(chunks.length);
 
     // One call for the questions, on the first run only; stored with the page they came from.
-    expect(asked).toEqual(["openai/gpt-6-luna"]);
+    expect(asked).toEqual(["anthropic/claude-opus-5.5"]);
     const stored = await db.select().from(manualEvalQuestions).where(eq(manualEvalQuestions.documentId, docs[0].id));
     expect(stored).toHaveLength(1);
-    expect(stored[0]).toMatchObject({ question: "What can I cut on this laser?", toolId: tool.id, model: "openai/gpt-6-luna" });
+    expect(stored[0]).toMatchObject({ question: "What can I cut on this laser?", toolId: tool.id, model: "anthropic/claude-opus-5.5" });
     expect(stored[0].expectedPages.length).toBeGreaterThan(0);
   });
 });

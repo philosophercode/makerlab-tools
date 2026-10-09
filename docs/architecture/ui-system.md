@@ -51,19 +51,26 @@
   `ChoiceMenu` (Sort, Group by), its state in the URL through
   `gallery-filters.ts` and `useUrlSearch` (the page is one cached prerender, so
   the island reads the query string itself); grouped, it is sticky-headed
-  sections with counts. Since the student home spec (2026-10-07) the gallery
-  is **`/tools`** ("All tools") and **`/`** is the student home
-  (`home/HomeShell`): the big wordmark (`HomeWordmark`, the vector trace
-  `public/brand/makerlab-wordmark.svg`), the smart search (`home/HomeSearch`,
-  cmdk inline, tools then categories then "Ask MakerLAB AI", ranked by the
-  palette's `paletteScore` through `palette/palette-search.ts`; Enter never
-  asks by accident), and category tiles (`home/home-tools.ts`,
-  `CategoryTileCard`) in the taxonomy's order (`getCategoryOrder`). Both pages
-  use the minimal box (`search/SearchFrame`, a placeholder line that rotates
-  every 3 s, still under reduced motion and while focused); the list's is
-  `search/ListSearch` in `FilterBar`'s `searchSlot`. Links to the list go
-  through `lib/gallery-links.ts`; `next.config.ts` redirects old
-  `/?category=…` links. The tool page is one column (`DetailShell`, units as
+  sections with counts. Since the student home spec's amendment "One page: the
+  list at rest" (2026-10-07) the gallery **is the home page** (`/`,
+  `home/HomeShell`): "MakerLAB AI" at display size (`home/LandingLockup`; the
+  header's lockup, `HeaderBrand`, steps aside on `/` while it is on screen),
+  the one search box (`home/HomeSearch`: cmdk inline, the minimal box
+  `search/SearchFrame` with its rotating line), a quiet row
+  (`home/HomeControls`: Categories | All tools, and Filters), the Filters
+  panel (`home/FiltersPanel`, closed until asked for: every facet, Group by,
+  Sort, Grid / Table), then the content (`GalleryShell`, stateless:
+  `use-catalogue-state.ts` reads the URL and `catalogue-view.ts` decides what
+  shows) — the category tiles (`CategoryTileCard`) in the taxonomy's order
+  (`getCategoryOrder`) by default, a category's tools, or all tools grouped by
+  category (`?show=all`). Typing swaps the content for the ranked matches
+  (`rankToolsInPlace`, the palette's `paletteScore` via
+  `palette/palette-search.ts`); the box's own list keeps the matching
+  categories and "Ask MakerLAB AI" (Enter opens the first result, never
+  asks). Links to the list go through `lib/gallery-links.ts`; `next.config.ts`
+  redirects `/tools` to `/`; same-page links reach the list through
+  `openClientQueryPage` and the Navigation API listener in
+  `use-url-state.ts`. The tool page is one column (`DetailShell`, units as
   `tool/UnitsTable`, the maintenance history from `getToolMaintenanceHistory` —
   no names). `app/not-found.tsx` / `app/error.tsx` exist. `account.css`,
   `mcp.css`, the `.tool-detail` palette and the gallery/projects legacy rules
@@ -74,7 +81,7 @@
   gallery table has a Status facet, Columns and sorting on every column
   (`useGalleryColumns`). The ⌘K palette (`palette/CommandPalette`) is in the
   header on every page (`HeaderSearch`; its field is hidden but kept in place
-  on `/` and `/tools`, which have their own box): published tools from the root layout
+  on `/`, which has its own box): published tools from the root layout
   (`getPaletteTools`), the role from `PrimaryNav`'s identity
   (`lib/auth/identity-store.ts`), and on admin pages the server-resolved role
   and the drafts via `PaletteScope`, added to the published list. Floating menus use `FROSTED`
@@ -107,7 +114,12 @@
   list, each tool once. `ChatIllustration` (`data-illustration`, from
   `make_illustration`) draws a generated illustration from our own route only,
   with an "AI illustration" mark on the picture and the fixed caption
-  `chat.illustration.caption` under it. Under the composer, always, the
+  `chat.illustration.caption` under it. **Suggested replies** (amendment
+  2026-10-07): `SuggestedReplies` draws a `suggest_replies` call's two or
+  three replies as a wrapping row of pill bubbles (AI Elements `Suggestion`,
+  `.chat-reply-chip`, the second round exception after the composer's),
+  last in the latest assistant message and only once its turn has finished;
+  a tap sends the text through `handleSuggestion`, always live. Under the composer, always, the
 `chat.aiNote` line ("MakerLAB AI can make mistakes…"), which also describes
 the text field (identity spec amendment 2026-10-06). The floating button is not drawn on
   `/admin/*`: the section bar's **Ask MakerLAB AI** and ⌘K (`onAsk`, from

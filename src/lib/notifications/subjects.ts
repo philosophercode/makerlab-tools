@@ -1,7 +1,8 @@
 import { eq, sql } from "drizzle-orm";
-import { listDueSchedules } from "../data/maintenance-schedules.ts";
+import { rawRows } from "../db/raw.ts";
 import { maintenanceLogs, tools, units } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
+import { overdueDays } from "../maintenance/interval.ts";
 
 /**
  * What a template is rendered from, read at send time (email notifications
@@ -82,20 +83,40 @@ export interface DueTaskLine {
 
 export interface DueSubject {
   labDate: string;
+  /** Came due before `labDate` and not named until now (a missed day, or a task set up already overdue). */
   overdue: DueTaskLine[];
   dueToday: DueTaskLine[];
 }
 
-/** Active recurring tasks due on `labDate` or before it (amendment 2026-10-07). */
-export async function loadDueSubject(db: Db, labDate: string): Promise<DueSubject> {
-  const items = await listDueSchedules(labDate, { db, withinDays: 0 });
-  const lines = items.map((item) => ({
-    title: item.title,
-    toolName: item.toolName ?? "",
-    unitLabel: item.unitLabel ?? "",
-    dueOn: item.nextDueOn,
-    overdueDays: item.overdueDays,
-  }));
+/**
+ * The tasks one reminder named (`maintenance_reminder_items`, amendment "The
+ * reminder follows each task's cadence"), as they stand now: a task checked
+ * off since, paused or archived drops out, so an email sent late never asks
+ * for work already done. `labDate` is the reminder's day.
+ */
+export async function loadDueSubject(db: Db, notificationId: string, labDate: string): Promise<DueSubject> {
+  const rows = await rawRows<{ title: string; tool_name: string | null; unit_label: string | null; due_on: string | Date }>(
+    db,
+    sql`select s.title, t.name as tool_name, u.unit_label, i.due_on
+          from maintenance_reminder_items i
+          join maintenance_schedules s on s.id = i.schedule_id
+          left join tools t on t.id = s.tool_id
+          left join units u on u.id = s.unit_id
+         where i.notification_id = ${notificationId}::uuid
+           and s.status = 'active'
+           and s.next_due_on = i.due_on
+         order by i.due_on, s.title`
+  );
+  const lines = rows.map((row) => {
+    const dueOn = typeof row.due_on === "string" ? row.due_on.slice(0, 10) : row.due_on.toISOString().slice(0, 10);
+    return {
+      title: row.title,
+      toolName: row.tool_name ?? "",
+      unitLabel: row.unit_label ?? "",
+      dueOn,
+      overdueDays: overdueDays(dueOn, labDate),
+    };
+  });
   return {
     labDate,
     overdue: lines.filter((line) => line.overdueDays > 0),

@@ -11,6 +11,7 @@ import {
   oauthApplication,
   session,
   tools,
+  toolSkills,
   user,
   verification,
 } from "../db/schema/index";
@@ -65,6 +66,13 @@ describe("DEPLOYMENT_BOUND (starter answers, staff shifts, chat illustrations, d
     expect(isDeploymentBound(demoSignups)).toBe(true);
     expect(isExcludedFromBackup(demoSignups)).toBe(false);
     expect(isRetentionBound(demoSignups)).toBe(false);
+  });
+
+  it("backs up and pushes tool skills: they name no blob and no local address, so they hold on another deployment (tool skills spec §4.3)", () => {
+    expect(isDeploymentBound(toolSkills)).toBe(false);
+    expect(isExcludedFromBackup(toolSkills)).toBe(false);
+    expect(isRetentionBound(toolSkills)).toBe(false);
+    expect(isRebuiltAfterRestore(toolSkills)).toBe(false);
   });
 });
 

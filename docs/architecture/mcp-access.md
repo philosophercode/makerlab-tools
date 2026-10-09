@@ -54,7 +54,7 @@ MCP callers act as a person, with that person's role and never more
   action `runMcpTryIt` → `lib/mcp/try-it.ts`, which builds a `tools/call` `Request` with no cookie
   and no `Authorization` and hands it to `handleMcpRequest`: always anonymous, under the `mcp`
   per-IP limit, and a write or staff tool is `not_runnable` before any call.
-- **Tokens** (`/account/tokens`, profile menu → Connect an AI assistant): shown once, stored as a
+- **Tokens** (`/account/tokens`, profile menu → Connect AI assistant (MCP)): shown once, stored as a
   hash, prefix for display, **90 days for every token, no choice** (`TOKEN_LIFETIME_DAYS`,
   `lib/account/token-lifetime.ts`; a posted `expiry` is ignored — amendment 2026-09-25 "One
   lifetime"), read-only option, ≤ 20 live, audited `token.created` / `token.revoked`. The

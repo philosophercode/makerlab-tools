@@ -32,6 +32,11 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * - **A step must not import `server-only`**, directly or transitively: the
  *   bundle loads packages from `node_modules` at runtime, where that package
  *   throws outside a React server build.
+ * - **The local world's event writes take turns** (`test/workflow/serial-event-log.ts`).
+ *   `@workflow/world-local` 4.x places an event in the log before it writes
+ *   it, so two steps finishing together could land out of order, and a
+ *   replay then handed one item's step result to another (`refreshBatch`
+ *   and `researchBatch` run three items at once). That flaked CI under load.
  *
  * The same aliases and `vitest.setup.ts` as the unit project, so MSW runs with
  * `onUnhandledRequest: "error"` here too and no test reaches the network.
@@ -49,6 +54,6 @@ export default defineProject({
     globals: true,
     environment: "node",
     include: ["src/**/*.workflow.test.ts"],
-    setupFiles: ["./vitest.setup.ts"],
+    setupFiles: ["./vitest.setup.ts", "./test/workflow/serial-event-log.ts"],
   },
 });

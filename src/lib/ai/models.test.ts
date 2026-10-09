@@ -41,7 +41,7 @@ function clearOverrides() {
 beforeEach(clearOverrides);
 
 describe("MODEL_JOBS", () => {
-  it("defaults every language job to Luna — chat passed the eval gate after its prompt was tuned — and no image job touches product photos", () => {
+  it("defaults the language jobs to Luna — chat passed the eval gate after its prompt was tuned — but writing from the manuals to Opus, and no image job touches product photos", () => {
     expect(modelIdFor("chat")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchSearch")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchRead")).toBe("openai/gpt-6-luna");
@@ -51,7 +51,9 @@ describe("MODEL_JOBS", () => {
     expect(modelIdFor("nameSuggest")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("descriptionShorten")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("starterGrade")).toBe("openai/gpt-6-luna");
-    expect(modelIdFor("evalQuestions")).toBe("openai/gpt-6-luna");
+    // Eval questions and tool skills are written by Opus (amendment "Opus writes from the manuals").
+    expect(modelIdFor("evalQuestions")).toBe("anthropic/claude-opus-5.5");
+    expect(modelIdFor("skillWrite")).toBe("anthropic/claude-opus-5.5");
     // The quick report form's triage (quick report spec §3.3).
     expect(modelIdFor("reportTriage")).toBe("openai/gpt-6-luna");
     // The generative background redraw was retired (amendment "No generative redraw").
@@ -72,6 +74,7 @@ describe("MODEL_JOBS", () => {
       "MODEL_DESCRIPTION_SHORTEN",
       "MODEL_STARTER_GRADE",
       "MODEL_EVAL_QUESTIONS",
+      "MODEL_SKILL_WRITE",
       "MODEL_REPORT_TRIAGE",
       "MODEL_EMBED",
       "MODEL_OCR",
@@ -158,6 +161,9 @@ describe('service tiers (amendment "Manuals as text and flex tier for research")
     expect(serviceTierFor("reportTriage")).toBe("flex");
     expect(serviceTierFor("ocr")).toBe("flex");
     expect(serviceTierFor("chat")).toBeNull();
+    // Opus writes from the manuals, and flex is OpenAI's: no hint (amendment "Opus writes from the manuals").
+    expect(serviceTierFor("evalQuestions")).toBeNull();
+    expect(serviceTierFor("skillWrite")).toBeNull();
     // A student waits on a reranked search.
     expect(serviceTierFor("rerank")).toBeNull();
     expect(providerOptionsFor("researchSearch")).toEqual({ gateway: { serviceTier: "flex" } });
@@ -284,11 +290,11 @@ describe("the model factories", () => {
     expect(() => languageModelFor("imageClean" as never)).toThrow(ModelConfigError);
   });
 
-  it("draws chat illustrations with the cheapest flat-priced Gateway image model (amendment 2026-10-07)", () => {
-    expect(modelIdFor("illustration")).toBe("recraft/recraft-v4.1-flash");
-    expect(imageModelFor("illustration")).toMatchObject({ provider: "gateway", modelId: "recraft/recraft-v4.1-flash" });
-    vi.stubEnv("MODEL_ILLUSTRATION", "meta/muse-image-1.0");
-    expect(imageModelFor()).toMatchObject({ modelId: "meta/muse-image-1.0" });
+  it("draws chat illustrations with the cheapest zero-retention Gateway image model (amendment 2026-10-07)", () => {
+    expect(modelIdFor("illustration")).toBe("meta/muse-image-1.0");
+    expect(imageModelFor("illustration")).toMatchObject({ provider: "gateway", modelId: "meta/muse-image-1.0" });
+    vi.stubEnv("MODEL_ILLUSTRATION", "recraft/recraft-v4.1-flash");
+    expect(imageModelFor()).toMatchObject({ modelId: "recraft/recraft-v4.1-flash" });
     expect(() => imageModelFor("chat" as never)).toThrow(/not an image job/);
     expect(() => languageModelFor("illustration" as never)).toThrow(/not a language job/);
   });
@@ -296,7 +302,7 @@ describe("the model factories", () => {
   it.each([
     ["", true],
     ["   ", true],
-    ["meta/muse-image-1.0", true],
+    ["recraft/recraft-v4.1-flash", true],
     ["off", false],
     [" OFF ", false],
     ["none", false],

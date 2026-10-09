@@ -1,6 +1,7 @@
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth.ts";
 import { inListCheck } from "./checks.ts";
+import { maintenanceSchedules } from "./maintenance-schedules.ts";
 import {
   DELIVERY_REASON,
   DELIVERY_STATUS,
@@ -13,9 +14,9 @@ import {
 } from "./vocabulary.ts";
 
 /**
- * Email notifications (email notifications spec §4; migration `0030`).
+ * Email notifications (email notifications spec §4; migration `0029`).
  *
- * Three tables, and **none of them holds an email address or a rendered
+ * Four tables, and **none of them holds an email address or a rendered
  * body.** The address is read from `user` inside the send step and handed
  * straight to the provider; the body is rendered from the subject's current
  * state at send time. Removing a person cascades through all three.
@@ -28,6 +29,9 @@ import {
  *   user_id)` is unique, so a replayed fan-out inserts nothing new.
  * - `notification_preferences` is a person's choices. v1 writes it only
  *   through the one-click unsubscribe; v1.1 adds the `/account` section.
+ * - `maintenance_reminder_items` is which recurring task, on which due date,
+ *   a reminder already named (amendment "The reminder follows each task's
+ *   cadence"), so a task that stays overdue is never emailed again.
  */
 
 export const notifications = pgTable(
@@ -35,7 +39,7 @@ export const notifications = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     event: text("event").$type<NotificationEvent>().notNull(),
-    /** `maintenance_log` + the ticket id; `lab_date` + `YYYY-MM-DD` for the daily reminder. */
+    /** `maintenance_log` + the ticket id; `lab_date` + `YYYY-MM-DD` for the day's reminder of newly due tasks. */
     subjectType: text("subject_type"),
     subjectId: text("subject_id"),
     /** Set for personal events (v1.1); null for events fanned out by permission. */
@@ -99,3 +103,33 @@ export const notificationPreferences = pgTable("notification_preferences", {
   suppressedAt: timestamp("suppressed_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * One recurring task on one due date, named by one reminder (email
+ * notifications spec, amendment "The reminder follows each task's cadence").
+ *
+ * The key is the task and the due date it came due on, so a task is emailed
+ * once per due cycle: while it stays overdue its `next_due_on` does not move
+ * and the row is already there; checked off with **Done**, its next due date
+ * is a new key and is emailed when it arrives. `notification_id` is the
+ * reminder that named it, which is what the email is rendered from. It is
+ * set null when that reminder ages out of the outbox, so the row still keeps
+ * the task from being named again. The cron's retention step deletes rows
+ * for cycles that are over (the task's due date has moved past them).
+ */
+export const maintenanceReminderItems = pgTable(
+  "maintenance_reminder_items",
+  {
+    scheduleId: uuid("schedule_id")
+      .notNull()
+      .references(() => maintenanceSchedules.id, { onDelete: "cascade" }),
+    /** The task's `next_due_on` when the reminder named it, a lab date. */
+    dueOn: date("due_on", { mode: "string" }).notNull(),
+    notificationId: uuid("notification_id").references(() => notifications.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.scheduleId, t.dueOn] }),
+    index("maintenance_reminder_items_notification_idx").on(t.notificationId),
+  ]
+);

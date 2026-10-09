@@ -86,7 +86,7 @@ catalogue, which is enough to exercise most of the product:
 | From the gallery: *"I need to cut 6mm plywood"* | `search_tools`, project scoping |
 | From a tool page: *"How do I replace the filament?"* | Manual-grounded answers |
 | Ask in Spanish | Replies in the language asked |
-| **REPORT** in the nav | Troubleshoots first, then offers to file |
+| **Report a problem** in the footer | Troubleshoots first, then offers to file |
 | *"Do you have a waterjet?"* | Honest absence — it must not invent one |
 | **ADD**, signed in as an admin (Stage 3b), paste a product URL | Intake: identify, then background research into a draft |
 
@@ -277,10 +277,10 @@ chat) until the next run. The chat's `search_manual` now **reranks** its candida
 
 **Chat illustrations** (gateway spec amendment 2026-10-07) need nothing new: a signed-in
 person who says yes to "Want a sketch of this plan?" gets one picture from job
-`illustration` (`recraft/recraft-v4.1-flash`, a flat $0.007 an image), stored in the
+`illustration` (`meta/muse-image-1.0`, zero data retention, a flat $0.01 an image), stored in the
 **private** Blob store. Without a Blob store the assistant never offers one. Each person may
 have 3 a day and the whole lab $1 a day (`src/lib/illustrations/limits.ts`). Every call's
-cost is in the log as `[illustration] … answered: cost $0.0070`. `MODEL_ILLUSTRATION=off`
+cost is in the log as `[illustration] … answered: cost $0.0100`. `MODEL_ILLUSTRATION=off`
 switches illustrations off; another Gateway image model id replaces the default (it is then
 reserved at $0.05 an image until the Gateway reports its real cost).
 
@@ -672,8 +672,9 @@ all of this: [`operations.md` → Monitoring](operations.md#monitoring).
 behind one NAT'd IP, so the default of 8/hour would be exhausted minutes after the demo
 opens. Raise it, or point visitors at the **demo pass** (`/demo`, on by default; spec
 2026-10-07): each sign-up gets its own 60 messages an hour and a `DEMO_PASS_BUDGET_USD`
-(default $0.50) AI budget, and needs only `AUTH_SECRET`. Set `DEMO_PASS_CONTACT_EMAIL` for the
-spent pass's contact line, and `DEMO_PASS=off` after the event if the lab wants it closed.
+(default $0.50) AI budget, and needs only `AUTH_SECRET`. A spent pass's contact line offers
+ies22@cornell.edu unless `DEMO_PASS_CONTACT_EMAIL` names another address (`off` points to the About
+page instead). Set `DEMO_PASS=off` after the event if the lab wants it closed.
 
 ---
 

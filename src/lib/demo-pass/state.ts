@@ -48,7 +48,7 @@ export interface DemoPassView {
   exhausted: boolean;
   /** ISO timestamp. */
   expiresAt: string;
-  /** `DEMO_PASS_CONTACT_EMAIL`, or null: the chat then points to the About page. */
+  /** `DEMO_PASS_CONTACT_EMAIL` (default the owner's address), or null when off: the chat then points to the About page. */
   contactEmail: string | null;
 }
 

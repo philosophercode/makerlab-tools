@@ -39,7 +39,7 @@ import { buildIllustrationPrompt, type PromptCatalogEntry } from "./prompt";
  * 4. **A place in both caps** — `reserveIllustration`, under a lock.
  * 5. **The call** — `generateImage` on job `illustration`, one image, square,
  *    one retry, a 60-second deadline. Its cost is logged like every other
- *    job's (`[illustration] … cost $0.0070, tier not reported`).
+ *    job's (`[illustration] … cost $0.0100, tier not reported`).
  * 6. **The picture is checked** — PNG, JPEG or WebP by its own bytes, at most
  *    8 MB — and stored **private** under `chat/illustrations/`, then the row
  *    becomes `ready`. Anything failing on the way makes it `failed`, keeping

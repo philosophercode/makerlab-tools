@@ -1,3 +1,4 @@
+import { itemNameProblem } from "../intake/item-name.ts";
 import type { ColumnMap } from "./columns.ts";
 import { IMPORT_MAX_LINKS_PER_ITEM, IMPORT_MAX_QUANTITY } from "./limits.ts";
 import type { ParsedTable } from "./table.ts";
@@ -8,7 +9,8 @@ import type { ImportItem, ImportLink, LabDoc, RawImportItem, SkippedRow } from "
  * pending row can be made from (bulk intake spec §3.2 "Validation", §3.4).
  *
  * - **Every item needs a name.** A row with none — after the brand and model
- *   are considered — is skipped and reported, never invented.
+ *   are considered — is skipped and reported, never invented; so is a row
+ *   whose name is a placeholder ("Unknown", "TBD", "Item" — `intake/item-name.ts`).
  * - **URLs are checked to be http(s).** Anything else in a link column is text,
  *   and goes into the notes.
  * - **Quantity is 1–50**, and never fewer than the serials given: three
@@ -54,6 +56,8 @@ export function normalizeImportItem(raw: RawImportItem): { ok: true; item: Impor
   const model = clean(raw.model);
   const name = composeName(clean(raw.name), brand, model);
   if (!name) return { ok: false, skipped: { sourceRow, reason: "no_name" } };
+  // "Unknown", "TBD", "Item": not an item anybody can research (amendment "No empty items").
+  if (itemNameProblem(name) !== null) return { ok: false, skipped: { sourceRow, reason: "placeholder_name" } };
 
   const notes: string[] = [];
   const rawNotes = cleanMultiline(raw.notes);

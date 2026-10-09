@@ -1,4 +1,5 @@
 import { act, render, screen, userEvent, waitFor, within } from "../../test/utils/render";
+import type { PreparedPhoto } from "../lib/chat/downscale-image";
 import { http, HttpResponse } from "msw";
 import { server } from "../../test/msw/server";
 
@@ -75,14 +76,15 @@ vi.mock("../lib/auth/sign-in-client", async (importOriginal) => {
   };
 });
 
-// The copy of a photo the model sees is drawn on a canvas, which jsdom does not
-// have. Its own behaviour is covered in `lib/chat/downscale-image.test.ts`; here
-// each test decides whether the browser could encode the photo.
-const downscaleForVision = vi.hoisted(() =>
-  vi.fn<(file: Blob) => Promise<string | null>>(async () => null)
+// A picked photo is downsized on a canvas, which jsdom does not have. Its own
+// behaviour is covered in `lib/chat/downscale-image.test.ts`; here each test
+// decides what the browser made of the photo. By default it read it and
+// uploads it as picked, with no copy for the model.
+const preparePhoto = vi.hoisted(() =>
+  vi.fn<(file: File) => Promise<PreparedPhoto>>(async (file) => ({ kind: "ready", upload: file, visionDataUrl: null }))
 );
 vi.mock("../lib/chat/downscale-image", () => ({
-  downscaleForVision: (file: Blob) => downscaleForVision(file),
+  preparePhoto: (file: File) => preparePhoto(file),
 }));
 
 // Imported after the mocks above are hoisted.
@@ -93,6 +95,7 @@ import { CurateChatStarter } from "./CurateChatStarter";
 import { AskAssistantButton } from "./chat/AskAssistantButton";
 import type { IntakeTablePayload } from "../lib/intake/types";
 import { ASSISTANT_INTRO_KEY, resetAssistantIntroForTests } from "./chat/assistant-intro-store";
+import { AI_NOTE_KEY, resetAiNoteForTests } from "./chat/ai-note-store";
 
 // The panel is loaded on first open in the app (`ChatFab`'s lazy path, which
 // e2e/chat.spec.ts exercises); loading it up front here lets every test query
@@ -111,6 +114,7 @@ beforeEach(() => {
   pathnameMock.mockReturnValue("/");
   useChatReturn = baseReturn();
   lastUseChatOptions = undefined;
+  resetAiNoteForTests();
 });
 
 describe("ChatFab", () => {
@@ -809,13 +813,17 @@ describe("ChatFab — photo uploads", () => {
   it("sends the photo itself with the message, so the model can see it", async () => {
     // Intake spec §6.1: the stored upload is the record and the downscaled copy
     // is what the model looks at. Both go out on the same message.
-    downscaleForVision.mockClear();
-    downscaleForVision.mockResolvedValue("data:image/jpeg;base64,SMALL");
+    preparePhoto.mockClear();
+    preparePhoto.mockImplementationOnce(async (file) => ({
+      kind: "ready",
+      upload: file,
+      visionDataUrl: "data:image/jpeg;base64,SMALL",
+    }));
     const user = userEvent.setup();
 
     await attachPhotoAndSend(user, "what printer is this?");
 
-    expect(downscaleForVision).toHaveBeenCalledTimes(1);
+    expect(preparePhoto).toHaveBeenCalledTimes(1);
     expect(sendMessage).toHaveBeenCalledTimes(1);
     const arg = sendMessage.mock.calls[0][0] as {
       text: string;
@@ -834,8 +842,7 @@ describe("ChatFab — photo uploads", () => {
     ]);
   });
 
-  it("still sends the upload hint when the browser cannot encode the photo", async () => {
-    downscaleForVision.mockResolvedValue(null);
+  it("still sends the upload hint when no copy for the model could be made", async () => {
     const user = userEvent.setup();
 
     await attachPhotoAndSend(user, "what printer is this?");
@@ -845,6 +852,183 @@ describe("ChatFab — photo uploads", () => {
         "[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3302 name=plate.jpg]"
       ),
     });
+  });
+});
+
+/**
+ * Photos from any phone (data platform spec amendment 2026-10-08): the photo
+ * is downsized before it uploads, a HEIC the browser cannot read goes up as it
+ * is and the route's converted copy is what the model sees, and a photo that
+ * cannot be sent says why in the visitor's language.
+ */
+describe("ChatFab — photos from any phone", () => {
+  let origCreate: typeof URL.createObjectURL;
+  let origRevoke: typeof URL.revokeObjectURL;
+
+  beforeEach(() => {
+    origCreate = URL.createObjectURL;
+    origRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:preview");
+    URL.revokeObjectURL = vi.fn();
+    preparePhoto.mockClear();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = origCreate;
+    URL.revokeObjectURL = origRevoke;
+    vi.unstubAllGlobals();
+  });
+
+  function uploadAnswer(body: Record<string, unknown>, status = 200) {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  /** The form each `POST /api/uploads` sent (the panel fetches its starters too). */
+  function uploadedForms(fetchMock: ReturnType<typeof uploadAnswer>): FormData[] {
+    return fetchMock.mock.calls.filter(([url]) => url === "/api/uploads").map(([, init]) => init?.body as FormData);
+  }
+
+  async function openAndPick(user: ReturnType<typeof userEvent.setup>, file: File) {
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+    await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);
+  }
+
+  it("offers JPEG, PNG, WebP and HEIC, and leaves the camera-or-library choice to the phone", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const accept = input.accept.split(",");
+    for (const type of ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", ".heic", ".heif"]) {
+      expect(accept).toContain(type);
+    }
+    // Lists to import are still offered beside photos.
+    expect(accept).toContain(".csv");
+    expect(input.hasAttribute("capture")).toBe(false);
+    expect(input.multiple).toBe(true);
+  });
+
+  it("uploads the downsized copy, not the original", async () => {
+    const user = userEvent.setup();
+    const downsized = new File([new Uint8Array([9, 9])], "IMG_0412.jpg", { type: "image/jpeg" });
+    preparePhoto.mockResolvedValueOnce({ kind: "ready", upload: downsized, visionDataUrl: "data:image/jpeg;base64,V" });
+    const fetchMock = uploadAnswer({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3310", name: "IMG_0412.jpg" });
+
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0412.HEIC", { type: "image/heic" }));
+
+    // The name the photo was picked under is the one shown.
+    expect(await screen.findByRole("button", { name: "Remove IMG_0412.HEIC" })).toBeInTheDocument();
+    const [form] = uploadedForms(fetchMock);
+    expect(form.get("file")).toBe(downsized);
+    expect(form.get("kind")).toBe("chat");
+  });
+
+  it("uploads a HEIC this browser cannot read as it is, and sends the model the route's converted copy", async () => {
+    const user = userEvent.setup();
+    const original = new File([new Uint8Array(64)], "IMG_0413.HEIC", { type: "image/heic" });
+    preparePhoto.mockResolvedValueOnce({ kind: "original", upload: original });
+    const fetchMock = uploadAnswer({
+      attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3311",
+      name: "IMG_0413.jpg",
+      contentType: "image/jpeg",
+      visionDataUrl: "data:image/jpeg;base64,FROMTHEROUTE",
+    });
+
+    await openAndPick(user, original);
+
+    await screen.findByRole("button", { name: "Remove IMG_0413.HEIC" });
+    expect(uploadedForms(fetchMock)[0].get("file")).toBe(original);
+    // The browser cannot draw a HEIC, so the preview is the route's JPEG.
+    expect(screen.getByAltText("IMG_0413.HEIC")).toHaveAttribute("src", "data:image/jpeg;base64,FROMTHEROUTE");
+
+    await user.type(screen.getByRole("textbox", { name: "Ask MakerLAB AI" }), "what is this?");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+    const arg = sendMessage.mock.calls[0][0] as { text: string; files?: { url: string; mediaType: string }[] };
+    expect(arg.text).toContain("attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3311 name=IMG_0413.HEIC");
+    expect(arg.files).toEqual([
+      { type: "file", mediaType: "image/jpeg", filename: "IMG_0413.HEIC", url: "data:image/jpeg;base64,FROMTHEROUTE" },
+    ]);
+  });
+
+  it("takes an untyped .heic as a photo, not as an unsupported file", async () => {
+    const user = userEvent.setup();
+    uploadAnswer({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3312", name: "IMG_0414.jpg" });
+
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0414.heic", { type: "" }));
+
+    expect(await screen.findByRole("button", { name: "Remove IMG_0414.heic" })).toBeInTheDocument();
+    expect(preparePhoto).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Only image files are supported.")).not.toBeInTheDocument();
+  });
+
+  it("prepares several photos one at a time, so a phone never holds them all decoded at once", async () => {
+    const user = userEvent.setup();
+    uploadAnswer({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3313", name: "a.jpg" });
+    let releaseFirst: () => void = () => {};
+    preparePhoto.mockImplementationOnce(
+      (file) =>
+        new Promise((resolve) => {
+          releaseFirst = () => resolve({ kind: "ready", upload: file, visionDataUrl: null });
+        })
+    );
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+
+    await user.upload(document.querySelector('input[type="file"]') as HTMLInputElement, [
+      new File([new Uint8Array(8)], "a.jpg", { type: "image/jpeg" }),
+      new File([new Uint8Array(8)], "b.jpg", { type: "image/jpeg" }),
+    ]);
+
+    await waitFor(() => expect(preparePhoto).toHaveBeenCalledTimes(1));
+    expect(preparePhoto.mock.calls[0][0].name).toBe("a.jpg");
+    await act(async () => releaseFirst());
+    await waitFor(() => expect(preparePhoto).toHaveBeenCalledTimes(2));
+    expect(preparePhoto.mock.calls[1][0].name).toBe("b.jpg");
+    expect(await screen.findByRole("button", { name: "Remove b.jpg" })).toBeInTheDocument();
+  });
+
+  it("says a photo is too large before uploading anything", async () => {
+    const user = userEvent.setup();
+    preparePhoto.mockResolvedValueOnce({ kind: "tooLarge" });
+    const fetchMock = uploadAnswer({});
+
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0415.HEIC", { type: "image/heic" }));
+
+    expect(
+      await screen.findByText("This photo is too large to upload — try a smaller one, or a JPEG.")
+    ).toBeInTheDocument();
+    expect(uploadedForms(fetchMock)).toEqual([]);
+  });
+
+  it("says, in the visitor's language, that a format cannot be read", async () => {
+    const user = userEvent.setup();
+    uploadAnswer({ code: "unsupported_image", error: "Only JPEG, PNG, WebP, GIF or HEIC images are supported" }, 400);
+
+    // Named and typed as a JPEG; its bytes are not one.
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0417.jpg", { type: "image/jpeg" }));
+
+    expect(
+      await screen.findByText("This photo format isn't supported — try a JPEG or PNG.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Remove / })).not.toBeInTheDocument();
+  });
+
+  it("explains the platform's 413 as a photo too large", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("Request Entity Too Large", { status: 413 })));
+
+    await openAndPick(user, new File([new Uint8Array(64)], "IMG_0416.jpg", { type: "image/jpeg" }));
+
+    expect(
+      await screen.findByText("This photo is too large to upload — try a smaller one, or a JPEG.")
+    ).toBeInTheDocument();
   });
 });
 
@@ -1131,13 +1315,45 @@ describe("ChatFab — the sheet (UI system phase 5b)", () => {
   // Identity spec amendment 2026-10-06: always visible, quiet, and read with the field.
   const AI_NOTE = "MakerLAB AI can make mistakes. Check anything safety-related with staff.";
 
-  it("shows the 'can make mistakes' note under the composer and describes the field with it", async () => {
+  it("shows the 'can make mistakes' note above the composer and describes the field with it", async () => {
     const user = userEvent.setup();
     render(<ChatFab />);
     await user.click(screen.getByRole("button", FAB));
 
-    expect(screen.getByText(AI_NOTE)).toHaveClass("text-xs", "text-muted-foreground");
+    const note = screen.getByText(AI_NOTE).closest('[data-slot="chat-ai-note"]') as HTMLElement;
+    expect(note).toHaveClass("text-xs", "text-muted-foreground");
+    // Above the composer, not under it.
+    const form = document.querySelector('[data-slot="prompt-input"]')!;
+    expect(note.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Ask MakerLAB AI" })).toHaveAccessibleDescription(AI_NOTE);
+  });
+
+  it("closes the note with its × and remembers that in this browser", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+
+    await user.click(screen.getByRole("button", { name: "Dismiss note" }));
+
+    expect(screen.queryByText(AI_NOTE)).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask MakerLAB AI" })).not.toHaveAccessibleDescription(AI_NOTE);
+    expect(window.localStorage.getItem(AI_NOTE_KEY)).toBe("1");
+  });
+
+  it("lays the composer out on one line: attach, the text, then Send (no dictation here)", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+
+    const attach = screen.getByRole("button", { name: "Attach photos" });
+    const field = screen.getByRole("textbox", { name: "Ask MakerLAB AI" });
+    const send = screen.getByRole("button", { name: "Send" });
+    const row = send.parentElement!;
+    expect(row).toContainElement(attach);
+    expect(row).toContainElement(field);
+    expect(send).toBeDisabled();
+    await user.type(field, "hi");
+    expect(send).toBeEnabled();
   });
 
   it("keeps the note once a conversation is under way", async () => {
@@ -1499,6 +1715,71 @@ describe("MakerLAB AI's identity (identity spec 2026-09-28 §3–4)", () => {
 
     await userEvent.setup().click(chips[1]);
     expect(sendMessage).toHaveBeenCalledWith({ text: "My print is stringing — what should I check?" });
+  });
+});
+
+// ── Suggested replies (parity spec amendment 2026-10-07) ───────────
+describe("ChatFab — suggested replies", () => {
+  type ChatMessageShape = UseChatReturn["messages"][number];
+
+  /** An answer whose suggest_replies call has finished with `replies`. */
+  function answerWithReplies(id: string, text: string, replies: string[]): ChatMessageShape {
+    return {
+      id,
+      role: "assistant",
+      parts: [
+        { type: "text", text },
+        { type: "tool-suggest_replies", toolCallId: `${id}-replies`, state: "output-available", input: { replies }, output: { ok: true, replies } },
+      ],
+    } as unknown as ChatMessageShape;
+  }
+
+  async function openWith(overrides: Partial<UseChatReturn>) {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn(overrides);
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+    return user;
+  }
+
+  const replies = () => screen.queryByRole("group", { name: "Suggested replies" });
+  const laserAnswer = () => answerWithReplies("a1", "The lab has two laser cutters. What are you looking to cut?", ["Acrylic sign", "Engraved wood"]);
+
+  it("shows the latest answer's replies as a named row, and sends exactly the tapped text", async () => {
+    const user = await openWith({ messages: [userMsg("u1", "Laser cut"), laserAnswer()] });
+
+    const group = replies();
+    expect(group).toBeInTheDocument();
+    expect(within(group as HTMLElement).getAllByRole("button").map((b) => b.textContent)).toEqual(["Acrylic sign", "Engraved wood"]);
+
+    await user.click(screen.getByRole("button", { name: "Engraved wood" }));
+    expect(sendMessage).toHaveBeenCalledExactlyOnceWith({ text: "Engraved wood" });
+  });
+
+  it("shows none on an older answer", async () => {
+    await openWith({
+      messages: [userMsg("u1", "Laser cut"), laserAnswer(), userMsg("u2", "Acrylic sign"), assistantMsg("a2", "Use the Trotec Speedy 400.")],
+    });
+    expect(screen.getByText("Use the Trotec Speedy 400.")).toBeInTheDocument();
+    expect(replies()).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Engraved wood" })).not.toBeInTheDocument();
+  });
+
+  it("shows none while the answer is still streaming", async () => {
+    await openWith({ status: "streaming", messages: [userMsg("u1", "Laser cut"), laserAnswer()] });
+    expect(screen.getByText(/two laser cutters/)).toBeInTheDocument();
+    expect(replies()).not.toBeInTheDocument();
+  });
+
+  it("hides them as soon as the student sends something", async () => {
+    // The student's message is now the latest, and the turn is submitted.
+    await openWith({ status: "submitted", messages: [userMsg("u1", "Laser cut"), laserAnswer(), userMsg("u2", "Actually, plywood")] });
+    expect(replies()).not.toBeInTheDocument();
+  });
+
+  it("shows none after a failed turn", async () => {
+    await openWith({ status: "error", error: new Error("boom"), messages: [userMsg("u1", "Laser cut"), laserAnswer()] });
+    expect(replies()).not.toBeInTheDocument();
   });
 });
 

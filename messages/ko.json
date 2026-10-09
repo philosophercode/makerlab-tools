@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "신고",
-    "reportAria": "문제 신고",
-    "reportSeed": "문제를 신고하고 싶어요.",
     "tools": "도구",
     "projects": "프로젝트",
     "about": "소개",
@@ -19,7 +16,10 @@
     "signIn": "로그인",
     "signInAria": "{institution} 계정으로 로그인",
     "signOut": "로그아웃",
-    "signedInAria": "{name}(으)로 로그인됨"
+    "signedInAria": "{name}(으)로 로그인됨",
+    "admin": "관리",
+    "account": "계정",
+    "connectAssistant": "AI 어시스턴트 연결 (MCP)"
   },
   "catalogRefresh": {
     "action": "카탈로그 새로 고침",
@@ -34,9 +34,6 @@
     "onShiftNow": "지금 근무 중: {names}"
   },
   "gallery": {
-    "title": "도구",
-    "allTitle": "모든 도구",
-    "searchAria": "재고 검색",
     "category": "카테고리:",
     "training": "교육:",
     "materials": "재료:",
@@ -55,21 +52,20 @@
     "trainingAdvanced": "고급",
     "home": {
       "searchSection": "랩 검색",
-      "seeAll": "도구 {count}개 모두 보기",
       "toolCount": "도구 {count}개",
-      "unitsDown": "{count}대 사용 중지",
-      "empty": "아직 카탈로그에 도구가 없습니다."
+      "unitsDown": "{count}대 사용 중지"
     },
     "search": {
       "landmark": "도구 검색 및 MakerLAB AI에 질문",
       "label": "도구를 검색하거나 MakerLAB AI에 질문하세요",
-      "tools": "도구",
       "categories": "카테고리",
       "categoryCount": "도구 {count}개",
       "assistant": "MakerLAB AI",
       "ask": "MakerLAB AI에 질문: “{query}”",
       "askNote": "질문을 담아 채팅을 엽니다. MakerLAB AI는 실수할 수 있습니다.",
+      "clear": "검색어 지우기",
       "noMatch": "“{query}”와 일치하는 도구나 카테고리가 없습니다.",
+      "enterOpens": "Enter 키로 {name} 열기",
       "lines": {
         "search": "도구 {count}개 검색",
         "build": "무엇을 만들 건가요?",
@@ -78,7 +74,15 @@
         "x1Start": "X1-Carbon에서 3D 프린트를 시작하는 방법 묻기",
         "trotecAcrylic": "Trotec 레이저로 아크릴을 자를 수 있나요?"
       }
-    }
+    },
+    "results": {
+      "heading": "“{query}” 검색 결과"
+    },
+    "browse": {
+      "label": "보기",
+      "all": "모든 도구"
+    },
+    "backToCategories": "모든 카테고리"
   },
   "detail": {
     "breadcrumbTools": "도구",
@@ -183,6 +187,7 @@
     "composerPlaceholder": "MakerLAB AI에 물어보세요...",
     "composerAria": "MakerLAB AI에 물어보기",
     "aiNote": "MakerLAB AI는 실수할 수 있습니다. 안전과 관련된 내용은 직원에게 확인하세요.",
+    "aiNoteDismiss": "안내 닫기",
     "sendAria": "보내기",
     "attachAria": "사진 첨부",
     "attachTitle": "사진 첨부",
@@ -191,6 +196,8 @@
     "onlyImages": "이미지 파일만 지원됩니다.",
     "uploadFailed": "사진 업로드 실패",
     "uploadsUnavailable": "사진 업로드를 현재 사용할 수 없습니다. 사진 없이도 메시지를 보낼 수 있습니다.",
+    "photoUnsupported": "지원되지 않는 사진 형식입니다. JPEG 또는 PNG로 시도해 보세요.",
+    "photoTooLarge": "사진이 너무 커서 업로드할 수 없습니다. 더 작은 사진이나 JPEG로 시도해 보세요.",
     "toolRunningAria": "도구 실행 중",
     "typingAria": "MakerLAB AI가 입력 중입니다",
     "readingManualsAria": "매뉴얼 읽는 중",
@@ -202,25 +209,26 @@
     "rateLimitSignIn": "로그인하지 않은 방문자의 메시지 한도에 도달했습니다. {institution} 계정으로 로그인하면 대화를 계속할 수 있습니다. 카탈로그 둘러보기는 어느 쪽이든 계속 열려 있습니다.",
     "rateLimitSignInCta": "로그인",
     "rateLimited": "시간당 메시지 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.",
-    "demoPassLeft": "데모 패스 · {amount} 남음",
-    "demoPassUsedUp": "데모 패스 · 모두 사용함",
-    "demoPassSpent": "이 데모 패스의 AI 사용량을 모두 사용했습니다. MakerLAB AI를 체험해 주셔서 감사합니다! 다른 방문자처럼 시간당 몇 가지 질문은 계속할 수 있습니다.",
-    "demoPassLimited": "이 데모 패스의 AI 사용량과 이번 시간의 방문자 한도를 모두 사용했습니다. MakerLAB AI를 체험해 주셔서 감사합니다! 잠시 후 다시 시도해 주세요.",
-    "demoPassContactLead": "이야기 나눠 보시겠어요?",
-    "demoPassContactTeam": "MakerLAB 팀에 연락하기",
     "showingTool": "▣ 도구 사진을 가져오는 중…",
     "toolCard": {
       "label": "이 답변의 도구",
       "open": "열기"
     },
     "drawingIllustration": "✎ 일러스트를 그리는 중…",
+    "suggestedReplies": "추천 답장",
     "illustration": {
       "badge": "AI 일러스트",
       "caption": "AI가 생성한 일러스트이며 저희 장비의 사진이 아닙니다. 정확한 단계는 매뉴얼과 스태프에게 확인하세요.",
       "altPlan": "AI가 생성한 계획 인포그래픽",
       "altConcept": "AI가 생성한 프로젝트 아이디어 콘셉트 렌더",
       "unavailable": "이 일러스트는 더 이상 볼 수 없습니다."
-    }
+    },
+    "demoPassLeft": "데모 패스 · {amount} 남음",
+    "demoPassUsedUp": "데모 패스 · 모두 사용함",
+    "demoPassSpent": "이 데모 패스의 AI 사용량을 모두 사용했습니다. MakerLAB AI를 체험해 주셔서 감사합니다! 다른 방문자처럼 시간당 몇 가지 질문은 계속할 수 있습니다.",
+    "demoPassLimited": "이 데모 패스의 AI 사용량과 이번 시간의 방문자 한도를 모두 사용했습니다. MakerLAB AI를 체험해 주셔서 감사합니다! 잠시 후 다시 시도해 주세요.",
+    "demoPassContactLead": "이야기 나눠 보시겠어요?",
+    "demoPassContactTeam": "MakerLAB 팀에 연락하기"
   },
   "qr": {
     "arrivalLabel": "이 장비에서 스캔함",
@@ -340,6 +348,42 @@
     "label": "데모 데이터",
     "body": "이 카탈로그는 내장된 샘플 데이터이며 {institution}의 실제 재고가 아닙니다. Notion이 구성되지 않았습니다."
   },
+  "footer": {
+    "report": "문제 신고",
+    "reportSeed": "문제를 신고하고 싶어요."
+  },
+  "unsubscribe": {
+    "loading": "불러오는 중…",
+    "eyebrow": "이메일",
+    "confirmTitle": "이 이메일을 끌까요?",
+    "confirm": {
+      "ticketFiled": "누군가 기계 문제를 신고할 때마다 받던 이메일이 더 이상 오지 않습니다.",
+      "maintenanceDue": "기한이 된 정기 유지보수를 알려 주는 아침 알림이 더 이상 오지 않습니다."
+    },
+    "confirmScope": "이 이메일만 중지됩니다. 계정의 다른 설정은 바뀌지 않습니다.",
+    "turnOff": "끄기",
+    "keep": "계속 받기",
+    "failed": "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    "doneTitle": "껐습니다",
+    "done": {
+      "ticketFiled": "누군가 기계 문제를 신고해도 이메일을 받지 않습니다.",
+      "maintenanceDue": "아침 유지보수 알림을 받지 않습니다."
+    },
+    "doneUndo": "티켓과 작업은 앱에 계속 표시됩니다. 이 이메일을 다시 받으려면 랩 책임자에게 요청하세요.",
+    "invalidTitle": "이 링크는 작동하지 않습니다",
+    "invalidBody": "링크가 불완전하거나 오래되었을 수 있습니다. 아무것도 바뀌지 않았습니다. 원하지 않는 이메일이 계속 오면 랩 직원에게 알려 주세요.",
+    "rateLimitedTitle": "시도가 너무 많습니다",
+    "rateLimitedBody": "이 연결에서 요청이 너무 많이 왔습니다. 한 시간 기다린 뒤 링크를 다시 여세요.",
+    "home": "{site}(으)로 돌아가기"
+  },
+  "palette": {
+    "assistant": "MakerLAB AI",
+    "ask": "MakerLAB AI에 질문: “{query}”",
+    "askEmpty": "MakerLAB AI에 질문"
+  },
+  "kiosk": {
+    "onShiftLabel": "지금 근무 중"
+  },
   "demoPass": {
     "eyebrow": "데모 패스",
     "title": "전체 데모 체험하기",
@@ -396,40 +440,5 @@
       "text": "방문 중이신가요? 무료 데모 패스로 연구실 어시스턴트와 대화하고 문제를 신고해 보세요. {institution} 계정은 필요 없습니다.",
       "cta": "가입하고 전체 데모 체험하기"
     }
-  },
-  "kiosk": {
-    "onShiftLabel": "지금 근무 중"
-  },
-  "unsubscribe": {
-    "loading": "불러오는 중…",
-    "eyebrow": "이메일",
-    "confirmTitle": "이 이메일을 끌까요?",
-    "confirm": {
-      "ticketFiled": "누군가 기계 문제를 신고할 때마다 받던 이메일이 더 이상 오지 않습니다.",
-      "maintenanceDue": "기한이 된 정기 유지보수를 알려 주는 아침 알림이 더 이상 오지 않습니다."
-    },
-    "confirmScope": "이 이메일만 중지됩니다. 계정의 다른 설정은 바뀌지 않습니다.",
-    "turnOff": "끄기",
-    "keep": "계속 받기",
-    "failed": "저장하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-    "doneTitle": "껐습니다",
-    "done": {
-      "ticketFiled": "누군가 기계 문제를 신고해도 이메일을 받지 않습니다.",
-      "maintenanceDue": "아침 유지보수 알림을 받지 않습니다."
-    },
-    "doneUndo": "티켓과 작업은 앱에 계속 표시됩니다. 이 이메일을 다시 받으려면 랩 책임자에게 요청하세요.",
-    "invalidTitle": "이 링크는 작동하지 않습니다",
-    "invalidBody": "링크가 불완전하거나 오래되었을 수 있습니다. 아무것도 바뀌지 않았습니다. 원하지 않는 이메일이 계속 오면 랩 직원에게 알려 주세요.",
-    "rateLimitedTitle": "시도가 너무 많습니다",
-    "rateLimitedBody": "이 연결에서 요청이 너무 많이 왔습니다. 한 시간 기다린 뒤 링크를 다시 여세요.",
-    "home": "{site}(으)로 돌아가기"
-  },
-  "palette": {
-    "page": {
-      "allTools": "모든 도구"
-    },
-    "assistant": "MakerLAB AI",
-    "ask": "MakerLAB AI에 질문: “{query}”",
-    "askEmpty": "MakerLAB AI에 질문"
   }
 }

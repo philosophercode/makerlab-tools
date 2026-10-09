@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Folder, Info, LayoutGrid, MessageSquare, PackagePlus, Plug, RefreshCw, Wrench } from "lucide-react";
 import { useChatLauncher } from "../ChatLauncherContext";
+import { openClientQueryPage } from "../use-url-state";
 import { REVALIDATE_ENDPOINT } from "../RefreshCatalogButton";
 import { can } from "../../lib/auth/permissions";
 import { canAddEquipment } from "../../lib/capabilities/access";
@@ -32,8 +33,8 @@ import { ALL_TOOLS_PATH, categoryHref } from "../../lib/gallery-links";
  * cmdk and the dialog), then kept mounted.
  */
 const PAGES = [
-  { key: "tools", href: "/", icon: Wrench },
-  { key: "allTools", href: ALL_TOOLS_PATH, icon: LayoutGrid },
+  // The tool list is the home page (student home spec, amendment "One page: the list at rest").
+  { key: "tools", href: ALL_TOOLS_PATH, icon: Wrench },
   { key: "projects", href: "/projects", icon: Folder },
   { key: "about", href: "/about", icon: Info },
   { key: "mcp", href: "/mcp", icon: Plug },
@@ -74,6 +75,12 @@ export function CommandPaletteDialog({
   function go(href: string) {
     setOpenAndReset(false);
     router.push(href);
+  }
+
+  /** A link to the tool list (a category): on the home page itself, the list reads it in place. */
+  function goToList(href: string) {
+    setOpenAndReset(false);
+    openClientQueryPage(href, (target) => router.push(target));
   }
 
   async function refreshCatalog() {
@@ -122,7 +129,7 @@ export function CommandPaletteDialog({
                   key={category.name}
                   value={`category:${category.name}`}
                   keywords={categoryKeywords(category)}
-                  onSelect={() => go(categoryHref(category.name))}
+                  onSelect={() => goToList(categoryHref(category.name))}
                 >
                   <LayoutGrid aria-hidden="true" />
                   <span>{category.name}</span>

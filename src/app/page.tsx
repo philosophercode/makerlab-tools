@@ -2,14 +2,16 @@ import { Suspense } from "react";
 import { DemoSignupCallout } from "../components/demo/DemoSignupCallout";
 import { HomeFallback } from "../components/home/HomeFallback";
 import { HomeShell } from "../components/home/HomeShell";
-import { toHomeTool } from "../components/home/home-tools";
 import { OnShiftNow } from "../components/on-shift/OnShiftNow";
+import { toGalleryTool } from "../components/catalog-types";
 import { getCatalogTools, getCategoryOrder } from "../lib/catalog";
 
 /**
- * The student home (student home spec 2026-10-07): the big wordmark, the
- * smart search and the categories. The full list with its filters is
- * `/tools`.
+ * The home page is the tool list (student home spec 2026-10-07, amendment
+ * "One page: the list at rest"): "MakerLAB AI", the search, and every tool
+ * grouped by category in the lab's order, with the list's filters; typing
+ * swaps the groups for the matches. `/tools` redirects here
+ * (`next.config.ts`).
  */
 export default function HomePage() {
   return (
@@ -21,12 +23,12 @@ export default function HomePage() {
 
 async function HomeData() {
   const [tools, categoryOrder] = await Promise.all([getCatalogTools(), getCategoryOrder()]);
-  // Only what the search and the tiles read travels to the browser (`toHomeTool`).
+  // Only what the list reads travels to the browser (`toGalleryTool`).
   // Who is on shift is its own dynamic hole (on-shift spec 2026-10-07), so
-  // the home itself stays cached.
+  // the page itself stays cached.
   return (
     <HomeShell
-      tools={tools.map(toHomeTool)}
+      tools={tools.map(toGalleryTool)}
       categoryOrder={categoryOrder}
       onShift={
         <Suspense fallback={null}>

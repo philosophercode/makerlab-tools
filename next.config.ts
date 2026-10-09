@@ -6,7 +6,7 @@ import {
   devSignInBuildVerdict,
 } from "./src/lib/auth/dev-sign-in-build-check";
 import { blobImagePatterns } from "./src/lib/images/remote-patterns";
-import { ALL_TOOLS_PATH, GALLERY_QUERY_KEYS } from "./src/lib/gallery-links";
+import { ALL_TOOLS_PATH, FORMER_LIST_PATH } from "./src/lib/gallery-links";
 
 // Development-only sign-in (auth spec amendment 2026-09-24) must never be
 // configured on a deployment. The route refuses outside `next dev` regardless;
@@ -90,7 +90,12 @@ const nextConfig: NextConfig = {
   // or a request without `DATABASE_URL` dies on "Extension bundle not found".
   // Kept external, it loads from node_modules and the demo database works in a
   // built app exactly as it does under `next dev` (spec §3.2).
-  serverExternalPackages: ["@electric-sql/pglite", "@electric-sql/pglite-pgvector"],
+  // `heic-decode` and its `libheif-js` (HEIC photos converted by
+  // `POST /api/uploads`, data platform spec amendment 2026-10-08) are an
+  // Emscripten bundle — ~2 MB with the WebAssembly inlined, written for
+  // `require`. Kept external, it is loaded from node_modules as written, only
+  // on the first HEIC, and traced into the functions that import it.
+  serverExternalPackages: ["@electric-sql/pglite", "@electric-sql/pglite-pgvector", "heic-decode", "libheif-js"],
   images: {
     localPatterns: [
       {
@@ -137,16 +142,13 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
-      // The full tool list moved from the home page to `/tools` (student home
-      // spec 2026-10-07 §5). An old link to `/` that carries a list filter
-      // (`/?category=Laser`, a shared search) lands on the list, query and all.
-      // `/?ask=1` and `/?src=kiosk` are not list filters and stay on the home page.
-      ...GALLERY_QUERY_KEYS.map((key) => ({
-        source: "/",
-        has: [{ type: "query" as const, key }],
-        destination: ALL_TOOLS_PATH,
-        permanent: false,
-      })),
+      // The tool list is the home page again (student home spec 2026-10-07,
+      // amendment "One page: the list at rest"). `/tools` — and every
+      // `/tools?category=…` link made while the list lived there — lands on
+      // `/`; Next forwards the query string unchanged, so the filter survives.
+      // Tool pages (`/tools/<slug>`) do not match. Temporary (307), like the
+      // move it undoes, so no browser caches it for good.
+      { source: FORMER_LIST_PATH, destination: ALL_TOOLS_PATH, permanent: false },
       // Admin sections spec 2026-10-07: every admin page kept its address, so no
       // old link breaks. These are the names the design review and the new
       // sections use, sent to the page that holds them. Temporary (307), so a

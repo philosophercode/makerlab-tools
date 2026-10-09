@@ -378,7 +378,6 @@ only when "On shift now" lists them; without that section, name nobody ("ask a S
 still never invents a name, a schedule or who is on shift. So the line can now read "Alex M. is on
 shift, ask them to show you." Starter answers never carry the section. Tested in
 `chat-adapter.test.ts`, `on-shift-prompt.test.ts` and `app/api/chat/route.test.ts`.
-
 ## Amendment — MakerLAB AI everywhere (2026-10-07)
 
 The owner's decisions on the design review (`docs/MakerLab_design/review-2026-10-06/decisions.md`):
@@ -407,6 +406,122 @@ MakerLAB AI do?".
   the prompts keep that name until it is removed or changed.
 - **Home title.** §2's "Tools" stays as the heading of the home page's
   categories (student home spec 2026-10-07); the full list is "All tools".
+  (Both retired the same day: amendment "The landing lockup".)
 - **Tested** in `site-config.test.ts`, `chat-adapter.test.ts`,
   `ChatFab.test.tsx`, `about/page.test.tsx`, the value report tests and the
   E2E chat, kiosk and actions specs.
+
+## Amendment — The header reads MakerLAB AI (2026-10-07)
+
+Seeing the ISAM poster, the owner asked for the header to match it: "use the
+most recent logo … remove MakerLAB Tools and just write MakerLAB AI in the
+upper left corner, the logo + AI".
+
+- **The lockup** (`GlobalChrome`, `.brand-lockup`) is one line: the lettering
+  cropped from the official Cornell Tech MakerLAB lockup
+  (`public/brand/makerlab-wordmark-official.svg`, `siteConfig.wordmark`,
+  still a mask in the text colour), then "AI" in the accent (`.brand-ai`),
+  its caps as tall as the wordmark and on the same baseline. The striped
+  wordmark PNG is no longer the default.
+- **No site name or tagline** beside it. The link is named "MakerLAB AI"
+  (`aria-label`). `siteConfig.name` ("MakerLAB Tools") is unchanged
+  everywhere else: page titles, the footer, emails, the MCP server.
+- **Bar heights:** the compact bars lose the name row (104 px under 1024,
+  98 px under 560); the short landscape bar keeps its 48 px.
+- **Tested** in `GlobalChrome.test.tsx`, `site-config.test.ts` and
+  `e2e/header-stability.spec.ts`.
+
+## Amendment — The composer on one line (2026-10-07)
+
+The owner asked for the chat's composer to look like a typical chat app's:
+smaller, on one line.
+
+- **One line** (`ChatComposer`): a round + (attach), the text, and on the
+  right the microphone until there is something to send, then the orange
+  Send. While dictation runs the microphone stays, so it can be stopped.
+  Attachments still show above the line.
+- **Round controls:** the three buttons are circles, the one exception to
+  square corners (`[data-slot="prompt-input"] .composer-round` in
+  `globals.css`). The suggested replies became the second (amendment below).
+- **The "can make mistakes" note** moves above the composer, as a small box
+  closed with its × (`chat.aiNoteDismiss`, 12 locales). The dismissal is
+  remembered in this browser (`ai-note-store.ts`, `localStorage`, try/catch);
+  while shown, the note still describes the text field.
+- **Tested** in `ChatFab.test.tsx`.
+
+## Amendment — Suggested replies (2026-10-07)
+
+The owner asked for "text suggestions to click in bubbles" under answers
+like "What material or project are you looking to cut?", then: "Be sparing
+with the suggested answers only when there's 2-3 choices easy to respond."
+
+- **The look:** two or three short replies as a wrapping row of pill bubbles
+  under the latest answer, after its cards and Sources; a tap sends the
+  bubble's text as the student's next message. The bubbles are the second
+  exception to square corners, scoped to the chat sheet
+  (`#makerlab-chat-sheet .chat-reply-chip` in `globals.css`), in the theme's
+  tokens for light and dark.
+- **The tool, the prompt rules, when the bubbles show and the counts** are
+  the assistant–GUI parity spec's amendment of the same date
+  ("Suggested replies").
+- **Tested** in `SuggestedReplies.test.tsx` and `ChatFab.test.tsx`.
+
+## Amendment — ADMIN in the bar (2026-10-07)
+
+The owner asked: remove REPORT from the top bar ("it's a weird thing to put up
+there"), give admins ADMIN there instead of in the profile menu, and tidy the
+menu.
+
+- **The bar** (`PrimaryNav`): TOOLS · MAP · PROJECTS · ABOUT, then **ADMIN**
+  (`AdminLink`, `/admin`) for anyone who can reach `/admin` — the same
+  `canReachAdmin` the menu used — then the profile control or SIGN IN. ADMIN
+  is a link like the others: muted, underlined in the accent ink on any
+  `/admin` page, behind MENU on the short bar. Hiding it is presentation;
+  `/admin` checks again on the server. The bar's only accent is now the
+  current page's underline.
+- **REPORT is gone from the bar.** Reporting stays one press away: **Report a
+  problem** on every tool page (the quick report form) and on a unit's QR
+  arrival notice, and a new **Report a problem** in the site footer
+  (`FooterReportButton`), which does what the header's button did — opens the
+  assistant with "I'd like to report a problem." The kiosk has no report
+  control of its own; its QR code opens the assistant, which files reports.
+  `nav.report*` moved to `footer.report` and `footer.reportSeed` (12 locales).
+- **The profile menu**: Add equipment (for `tools.add`), **Account**
+  (`/account`, was "Your account"), **Connect AI assistant (MCP)**
+  (`/account/tokens`, was "Connect an AI assistant") and **Sign out**, drawn
+  in a new `--secondary-ink` token: Cornell crimson on paper (6.2:1), the
+  demo-data banner's lighter red in dark mode (6.1:1), checked in
+  `tokens.test.ts`. Admin left the menu. `nav.admin`, `nav.account` and
+  `nav.connectAssistant` are translated in all 12 locales.
+- **The fit** (DESIGN.md §8.12) is checked signed in as a SuperMaker (the
+  least role that sees ADMIN) in every language at 1024, 1280 and 1440 and
+  on the short bar, as well as signed out (`e2e/header-stability.spec.ts`).
+- **Tested** in `PrimaryNav.test.tsx`, `ProfileMenu.test.tsx`,
+  `AdminLink.test.tsx`, `GlobalChrome.test.tsx`, `SiteFooter.test.tsx`,
+  `tokens.test.ts`, and the `auth`, `admin-users` and `header-stability` E2E
+  specs.
+
+## Amendment — The landing lockup (2026-10-07)
+
+The owner asked for "MakerLAB AI" above the search box on the home page, and
+for the logo to go from that page's header (student home spec, amendment "One
+page: the list at rest").
+
+- **On `/`**, "MakerLAB AI" stands above the search at display size
+  (`home/LandingLockup`, the page's `h1`): the same lockup as the header's —
+  the official lettering as a mask in the text colour (`.brand-wordmark`,
+  `siteConfig.wordmark`), then "AI" in the accent (`.brand-ai`) on the same
+  baseline — drawn by the same rules, with only `--wordmark-height` changed
+  (`.landing-lockup`, `clamp(40px, 7vw, 84px)`), centred. Its name is the
+  text "MakerLAB AI" (visually hidden); the drawing is `aria-hidden`.
+- **The header's lockup** (`HeaderBrand`, in `GlobalChrome`) is transparent on
+  `/` while the landing lockup is on screen (`data-concealed`), so the logo
+  shows once. It keeps its box — the header does not move between pages — and
+  stays a link named "MakerLAB AI" that a keyboard reaches and that shows when
+  focused. It fades back once the landing lockup has scrolled away under the
+  bar. On every other page it is as before.
+- **§2's home title "Tools"** is retired: the home page's heading is the
+  lockup, and the category tiles and groups below it are headed by category.
+- **Tested** in `HeaderBrand.test.tsx`, `home/HomeShell.test.tsx`,
+  `GlobalChrome.test.tsx`, `e2e/gallery.spec.ts` and
+  `e2e/header-stability.spec.ts`.

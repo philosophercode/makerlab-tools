@@ -96,7 +96,7 @@ No architecture change: the pass is a cookie the chat route reads beside the ses
   (cookie → pass state), `turn-cost` (what a turn cost). The data access is
   `src/lib/data/demo-signups.ts`. A turn's side costs (the manual search) are logged
   on its `TurnState` by `src/lib/chat/turn-spend.ts`, like `turn-log.ts`.
-- **Data:** migration `0032_demo_pass` (written as `0028`, renumbered when stacked) — the `demo_signups` table,
+- **Data:** migration `0034_demo_pass` (written as `0028`, renumbered when stacked, then rebuilt on `main`) — the `demo_signups` table,
   `maintenance_logs.demo`, and `demo` in `usage_events_audience_check`. The Notion
   mirror does not carry sign-ups and skips demo tickets.
 
@@ -250,8 +250,8 @@ count.
   One column on a phone.
 - **Chat:** under the sheet's title, `Demo pass · $0.42 left` (or `Demo pass · used
   up`). When spent: a notice — thanks, "you can keep asking at the visitor limit",
-  and the contact line (`DEMO_PASS_CONTACT_EMAIL` as a mailto, else the About page's
-  contacts).
+  and the contact line (a mailto: `DEMO_PASS_CONTACT_EMAIL`, default ies22@cornell.edu;
+  with `off`, the About page's contacts).
 - **Admin:** the sign-ups table (phone: one row per sign-up), the CSV button, the
   People header link, and the maintenance queue's Demo badge and filter.
 - **Strings:** the public ones (`demoPass.*`, the callout, the About section, the
@@ -306,7 +306,7 @@ count.
 
 One PR for the demo deadline, built in this order:
 
-1. Migration `0032_demo_pass` (written as `0028`), schema, `data/demo-signups.ts`, vocabulary.
+1. Migration `0034_demo_pass` (written as `0028`), schema, `data/demo-signups.ts`, vocabulary.
 2. Sign-up: `lib/demo-pass/*`, `POST`/`GET /api/demo-pass`, `/demo`, the front-page
    and About buttons.
 3. Chat: the pass in the route, the tier, the ledger, the indicator and notice.
@@ -356,9 +356,9 @@ source, usage, backup policy, `data:push` plan, About, `MaintenanceQueue` and
 2. **Renewal.** An expired pass is not renewed by signing up again. Should a super
    admin be able to extend one, or should a new sign-up after expiry get a fresh
    budget? *Owner, after the demo.*
-3. **Contact address.** `DEMO_PASS_CONTACT_EMAIL` is unset by default, so the contact
-   line points to the About page's lab contacts. Which address should visitors see?
-   *Owner, before Sunday.*
+3. **Contact address.** *Decided 2026-10-09:* ies22@cornell.edu
+   (`DEFAULT_DEMO_PASS_CONTACT_EMAIL`). `DEMO_PASS_CONTACT_EMAIL` overrides it, and `off`
+   points the contact line to the About page's lab contacts.
 4. **The kill switch.** `DEMO_PASS=off` after the conference, or keep the pass as a
    standing way for visitors to try the assistant? *Owner.*
 5. **Updating a sign-up.** Should signing up again update a visitor's details (for
@@ -368,6 +368,5 @@ source, usage, backup policy, `data:push` plan, About, `MaintenanceQueue` and
    beside the session (`resolveDemoPass`, `identityWithDemoPass`) and files a pass
    holder's report with `demo: true`, as `report_issue` does
    (`app/api/report/route.test.ts`). A demo ticket queues no `ticket.filed` email.
-7. **Migration number.** Renumbered to `0032` when stacked after the manual eval
-   questions (`0028`), on shift (`0029`), email notifications (`0030`) and chat
-   illustrations (`0031`).
+7. **Migration number.** `0034`: renumbered to `0032` when stacked, then to `0034` when
+   rebuilt on `main` (2026-10-09) after found photo (`0032`) and on shift (`0033`).

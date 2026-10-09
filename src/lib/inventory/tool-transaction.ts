@@ -44,8 +44,11 @@ export interface ToolWriteContext {
 
 /** A refusal on its way out of a transaction that must not commit. */
 class Refusal extends Error {
-  constructor(readonly error: InventoryWriteError) {
+  readonly error: InventoryWriteError;
+
+  constructor(error: InventoryWriteError) {
     super(`inventory write refused: ${error}`);
+    this.error = error;
     this.name = "Refusal";
   }
 }

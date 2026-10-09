@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { MenuIcon, XIcon } from "lucide-react";
-import { useChatLauncher } from "./ChatLauncherContext";
+import { ADMIN_HREF, AdminLink } from "./AdminLink";
 import { ProfileMenu } from "./ProfileMenu";
 import { FROSTED } from "./system/frosted";
 import { useNavMenu } from "./use-nav-menu";
@@ -32,7 +32,6 @@ export const SIGN_IN_NOTICE_MS = 6000;
 export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDurationMs?: number } = {}) {
   const pathname = usePathname() || "/";
   const t = useTranslations("nav");
-  const { open } = useChatLauncher();
   const { isOpen: menuOpen, toggle: toggleMenu, close: closeMenu, toggleRef, panelRef } = useNavMenu();
   const linksId = useId();
 
@@ -116,22 +115,26 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
             {t(link.key)}
           </Link>
         ))}
-        <button
-          type="button"
-          className="primary-nav-report"
-          onClick={() => {
-            // The chat sheet takes focus when it opens, so the button does not.
-            closeMenu(false);
-            open(t("reportSeed"));
-          }}
-          aria-label={t("reportAria")}
-        >
-          {t("report")}
-        </button>
+        {/* ADMIN, for the people who can reach `/admin` — where REPORT used to
+            be (Isaac, 2026-10-07). Reporting lives on the tool page, the QR
+            arrival notice, the footer and the chat. `AdminLink` renders
+            nothing for anyone else, and nothing until the identity answers. */}
+        {signedIn && identity ? (
+          <AdminLink
+            role={identity.role}
+            className={
+              pathname === ADMIN_HREF || pathname.startsWith(`${ADMIN_HREF}/`)
+                ? "primary-nav-admin is-active"
+                : "primary-nav-admin"
+            }
+            onClick={() => closeMenu(false)}
+          />
+        ) : null}
       </div>
-      {/* Everything a signed-in person can do beyond browsing — Admin, Add
-          equipment, Sign out — lives in their profile menu, not the bar
-          (Isaac, 2026-09-23). Refresh moved to `/admin`.
+      {/* Everything else a signed-in person can do beyond browsing — Add
+          equipment, their account, connecting an assistant, Sign out — lives
+          in their profile menu, not the bar (Isaac, 2026-09-23; ADMIN moved
+          back to the bar on 2026-10-07). Refresh moved to `/admin`.
           The control shows the Google photo beside the first name. It used to
           be name only, with no avatar image, per the technical-schematic system
           (spec §6); Isaac chose a square avatar on 2026-09-23, and it keeps the
@@ -142,7 +145,7 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
         <>
           <button
             type="button"
-            className="primary-nav-report primary-nav-auth"
+            className="primary-nav-button primary-nav-auth"
             onClick={handleSignIn}
             disabled={busy}
             aria-label={t("signInAria", { institution: siteConfig.institution })}
@@ -155,7 +158,7 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
               not a Link: it is a full navigation that sets a cookie. */}
           {identity?.devSignIn ? (
             <a
-              className="primary-nav-report primary-nav-dev-sign-in"
+              className="primary-nav-button primary-nav-dev-sign-in"
               href={`${DEV_SIGN_IN_ENDPOINT}?next=${encodeURIComponent(pathname)}`}
               aria-label={t("devSignIn")}
             >

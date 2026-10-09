@@ -17,7 +17,7 @@ offers — generated from the server's own tool definitions and grouped by who m
 use them — and a **Try it** form that runs the public, read-only tools right
 there, as an anonymous caller, so you can see what an assistant would get back.
 Personal access tokens and connected apps are managed on **profile menu →
-Connect an AI assistant** (`/account/tokens`).
+Connect AI assistant (MCP)** (`/account/tokens`).
 
 ## Just browsing? No account needed
 
@@ -41,7 +41,7 @@ https://<your-deployment>/api/mcp/signed-in
 The client sends you to MakerLab to sign in with Google, then to a consent page
 ("*Claude* wants to access MakerLab Tools as you") where you can also choose
 **read-only**. The connection then appears under **Connected apps** on
-**profile menu → Connect an AI assistant** (`/account/tokens`), where you can
+**profile menu → Connect AI assistant (MCP)** (`/account/tokens`), where you can
 disconnect it.
 
 Either way the assistant gets exactly your role's permissions and never more.
@@ -51,7 +51,7 @@ Either way the assistant gets exactly your role's permissions and never more.
 A **personal access token** is the fallback for a client or script that can't
 sign in with OAuth: Claude Desktop's `claude_desktop_config.json` through the
 `mcp-remote` bridge, a CI job, your own script, or an older client. Get one from
-**profile menu → Connect an AI assistant → New token**. Name it after the device
+**profile menu → Connect AI assistant (MCP) → New token**. Name it after the device
 and tick **Read-only** if the assistant only needs to look things up. **Every
 token expires 90 days after you make it (one semester)** — there is no choice
 of expiry, and no token that never expires; the page shows the date before you
@@ -248,6 +248,7 @@ and marks the ones your account can use.
 | `get_unit_details` | ✓ (serial's last four only) | ✓ (serial's last four only) | ✓ (whole serial) | "Is Prusa #2 working?" |
 | `get_maintenance_history` | ✓ (no names) | ✓ (no names) | ✓ (reporter names) | "Has the Trotec been repaired lately?" |
 | `search_manual` (one named machine; several only to compare) | ✓ (public manuals) | ✓ (public manuals) | ✓ (staff SOPs too) | "How do I replace the Form 4 resin tank?" |
+| `get_tool_skill` (the lab's cited operating guide for one machine, AI-written from its sources) | ✓ | ✓ | ✓ (drafts too) | "Walk me through a first cut on the Trotec" |
 | `report_issue` | — | ✓ | ✓ | "Report that Prusa #1's nozzle is clogged" |
 | `report_correction` | — | ✓ | ✓ | "The Trotec's bed size on its page is wrong" |
 | `list_my_reports` | — | ✓ | ✓ | "What happened to the tickets I filed?" |

@@ -26,6 +26,7 @@ import { resetAuthForTests } from "@/lib/auth/config";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { attachments } from "@/lib/db/schema/index";
 import { signInAsNew } from "../../../../test/utils/session";
+import { markerHeic } from "../../../../test/fixtures/photos/heic";
 import { POST } from "./route";
 
 /**
@@ -317,6 +318,72 @@ describe("POST /api/uploads — the happy path", () => {
   it("records the uploader when there is one", async () => {
     await POST(uploadRequest(imageFile(), { kind: "project" }));
     expect((await rows())[0].uploadedBy).toBe(student.user.id);
+  });
+});
+
+/**
+ * Photos from any phone (data platform spec amendment 2026-10-08): a HEIC the
+ * browser could not read arrives as it was taken and is stored as a JPEG. A
+ * real HEVC-coded file through the real decoder; only Blob is stubbed.
+ */
+describe("POST /api/uploads — a HEIC photo is converted to JPEG", () => {
+  function heic(name = "marker.HEIC", type = "image/heic") {
+    return new File([markerHeic() as Uint8Array<ArrayBuffer>], name, { type });
+  }
+
+  it("stores a chat photo as a JPEG and answers with the model's copy", async () => {
+    const res = await POST(uploadRequest(heic(), { kind: "chat", cookie: null }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    const stored = blob.putUpload.mock.calls[0][1] as File;
+    expect(stored.type).toBe("image/jpeg");
+    expect(stored.name).toBe("marker.jpg");
+    const bytes = new Uint8Array(await stored.arrayBuffer());
+    expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xff, 0xd8, 0xff]);
+
+    expect(body).toMatchObject({ contentType: "image/jpeg", name: "marker.jpg", size: stored.size });
+    expect(body.visionDataUrl).toMatch(/^data:image\/jpeg;base64,/);
+    expect((await rows())[0]).toMatchObject({
+      contentType: "image/jpeg",
+      originalFilename: "marker.jpg",
+      sizeBytes: stored.size,
+      access: "private",
+    });
+  });
+
+  it("converts a maintenance photo too, with no model copy to send back", async () => {
+    const res = await POST(uploadRequest(heic(), { kind: "maintenance", cookie: null }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.contentType).toBe("image/jpeg");
+    expect(body).not.toHaveProperty("visionDataUrl");
+  });
+
+  it("takes an untyped .heic, as Chrome on Windows sends it", async () => {
+    const res = await POST(uploadRequest(heic("IMG_0412.heic", ""), { kind: "chat" }));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).name).toBe("IMG_0412.jpg");
+  });
+
+  it("refuses a HEIC it cannot read, and stores nothing", async () => {
+    const corrupt = new File([markerHeic().slice(0, 300) as Uint8Array<ArrayBuffer>], "broken.heic", { type: "image/heic" });
+
+    const res = await POST(uploadRequest(corrupt, { kind: "chat" }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("unsupported_image");
+    expect(blob.putUpload).not.toHaveBeenCalled();
+    expect(await rows()).toHaveLength(0);
+  });
+
+  it("names a file over the size limit with a code the client translates", async () => {
+    const res = await POST(uploadRequest(imageFile(19 * 1024 * 1024), { kind: "chat" }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe("file_too_large");
   });
 });
 

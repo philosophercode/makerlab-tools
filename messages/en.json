@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "REPORT",
-    "reportAria": "Report a problem",
-    "reportSeed": "I'd like to report a problem.",
     "tools": "TOOLS",
     "projects": "PROJECTS",
     "map": "MAP",
@@ -28,8 +25,8 @@
     "admin": "ADMIN",
     "addEquipment": "ADD EQUIPMENT",
     "accountMenuLabel": "Account menu",
-    "connectAssistant": "CONNECT AN AI ASSISTANT",
-    "yourAccount": "YOUR ACCOUNT"
+    "connectAssistant": "CONNECT AI ASSISTANT (MCP)",
+    "account": "ACCOUNT"
   },
   "catalogRefresh": {
     "action": "Refresh catalog",
@@ -44,9 +41,6 @@
     "onShiftNow": "On shift now: {names}"
   },
   "gallery": {
-    "title": "Tools",
-    "allTitle": "All tools",
-    "searchAria": "Search inventory",
     "filterLabel": "Filter the tools",
     "category": "Category",
     "materials": "Material",
@@ -59,10 +53,6 @@
     "emptyFiltered": "No tools match {filters}.",
     "clearFilters": "Clear filters",
     "loading": "Loading the inventory…",
-    "facts": {
-      "tools": "{count, plural, one {# tool} other {# tools}}",
-      "available": "{count} available now"
-    },
     "sort": {
       "label": "Sort",
       "name": "Name A–Z",
@@ -76,8 +66,8 @@
     "group": {
       "label": "Group by",
       "none": "None",
-      "category": "Category",
-      "categoryGroup": "Category group",
+      "category": "Subcategory",
+      "categoryGroup": "Category",
       "location": "Location"
     },
     "sectionCount": "{count, plural, one {# tool} other {# tools}}",
@@ -107,23 +97,25 @@
       "consumable": "Consumable",
       "fixture": "Fixture"
     },
+    "results": {
+      "heading": "Results for “{query}”"
+    },
     "home": {
       "searchSection": "Search the lab",
-      "seeAll": "{count, plural, one {See the # tool} other {See all # tools}}",
       "toolCount": "{count, plural, one {# tool} other {# tools}}",
-      "unitsDown": "{count, plural, one {# unit out of service} other {# units out of service}}",
-      "empty": "No tools in the catalog yet."
+      "unitsDown": "{count, plural, one {# unit out of service} other {# units out of service}}"
     },
     "search": {
       "landmark": "Search tools and ask MakerLAB AI",
       "label": "Search tools, or ask MakerLAB AI a question",
-      "tools": "Tools",
       "categories": "Categories",
       "categoryCount": "{count, plural, one {# tool} other {# tools}}",
       "assistant": "MakerLAB AI",
       "ask": "Ask MakerLAB AI: “{query}”",
       "askNote": "Opens the chat with your question. MakerLAB AI can make mistakes.",
+      "clear": "Clear the search",
       "noMatch": "No tool or category matches “{query}”.",
+      "enterOpens": "Enter opens {name}",
       "lines": {
         "search": "{count, plural, one {Search # tool} other {Search # tools}}",
         "build": "What will you build?",
@@ -132,7 +124,12 @@
         "x1Start": "Ask how to start a 3D print on the X1-Carbon",
         "trotecAcrylic": "Can the Trotec laser cut acrylic?"
       }
-    }
+    },
+    "browse": {
+      "label": "Browse",
+      "all": "All tools"
+    },
+    "backToCategories": "All categories"
   },
   "detail": {
     "breadcrumbTools": "Tools",
@@ -277,8 +274,9 @@
     "createBody": "I have an idea. How could I make it with the machines here?",
     "assistantLimits": "It answers from the catalog and each tool's manuals, says so when it doesn't know, and sends you to MakerLAB staff for safety questions, access and training sign-offs.",
     "whyBody": "It was built so that anyone can find the right machine and learn how to use it safely before they walk over, in their own language.",
-    "creditsBody": "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run.",
-    "feedbackBody": "If you spot a mistake, use \"Report a correction\" on the tool's page — corrections go to the staff queue and are fixed in the app. For a broken machine, use Report in the header.",
+    "thanksBody": "Thanks to Miguel Ramirez Peraza, who interned with the MakerLAB in 2025 and 2026, for building the first inventory search that sparked the idea.",
+    "creditsBody": "Built by Isaac Steinberg (Software Engineer and Architect, Johnson Cornell Tech MBA '26) with Claude-assisted development for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run.",
+    "feedbackBody": "If you spot a mistake, use \"Report a correction\" on the tool's page — corrections go to the staff queue and are fixed in the app. For a broken machine, use Report a problem on its page, or at the foot of any page.",
     "browseTools": "Browse tools",
     "mcpHeading": "Connect an AI assistant",
     "mcpBody": "The catalog is also available to AI assistants such as Claude, ChatGPT and Codex over MCP, at this site's /api/mcp address. Browsing needs no account. To let an assistant file reports as you, with your role's permissions and nothing more, sign in with Google from the assistant; a personal access token is there for clients that can't.",
@@ -314,6 +312,7 @@
     "composerPlaceholder": "Ask MakerLAB AI...",
     "composerAria": "Ask MakerLAB AI",
     "aiNote": "MakerLAB AI can make mistakes. Check anything safety-related with staff.",
+    "aiNoteDismiss": "Dismiss note",
     "sendAria": "Send",
     "attachAria": "Attach photos",
     "attachTitle": "Attach photos",
@@ -322,6 +321,8 @@
     "onlyImages": "Only image files are supported.",
     "uploadFailed": "Photo upload failed",
     "uploadsUnavailable": "Photo uploads are unavailable right now. You can still send your message without a photo.",
+    "photoUnsupported": "This photo format isn't supported — try a JPEG or PNG.",
+    "photoTooLarge": "This photo is too large to upload — try a smaller one, or a JPEG.",
     "toolRunningAria": "Tool running",
     "typingAria": "MakerLAB AI is typing",
     "readingManualsAria": "Reading manuals",
@@ -374,25 +375,27 @@
       "downloadPng": "Download PNG",
       "downloadSvg": "Download SVG"
     },
-    "demoPassLeft": "Demo pass · {amount} left",
-    "demoPassUsedUp": "Demo pass · used up",
-    "demoPassSpent": "You've used this demo pass's AI allowance. Thank you for trying MakerLAB AI! You can keep asking a few questions an hour, like any visitor.",
-    "demoPassLimited": "You've used this demo pass's AI allowance and this hour's visitor limit. Thank you for trying MakerLAB AI! Please try again in a little while.",
-    "demoPassContactLead": "Want to talk about it?",
-    "demoPassContactTeam": "Contact the MakerLAB team",
     "showingTool": "▣ Getting the tool's photo…",
     "toolCard": {
       "label": "Tools in this answer",
       "open": "Open"
     },
     "drawingIllustration": "✎ Drawing an illustration…",
+    "suggestedReplies": "Suggested replies",
     "illustration": {
       "badge": "AI illustration",
       "caption": "AI-generated illustration, not a photo of our equipment. Check the manual and staff for exact steps.",
       "altPlan": "AI-generated infographic of the plan",
       "altConcept": "AI-generated concept render of the project idea",
       "unavailable": "This illustration is no longer available."
-    }
+    },
+    "readingToolSkill": "📘 Reading the machine's guide…",
+    "demoPassLeft": "Demo pass · {amount} left",
+    "demoPassUsedUp": "Demo pass · used up",
+    "demoPassSpent": "You've used this demo pass's AI allowance. Thank you for trying MakerLAB AI! You can keep asking a few questions an hour, like any visitor.",
+    "demoPassLimited": "You've used this demo pass's AI allowance and this hour's visitor limit. Thank you for trying MakerLAB AI! Please try again in a little while.",
+    "demoPassContactLead": "Want to talk about it?",
+    "demoPassContactTeam": "Contact the MakerLAB team"
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -505,6 +508,11 @@
       "photoNotShown": "Photo not shown: {filename}",
       "photoNotShownUnnamed": "Photo not shown",
       "morePhotos": "+{count}",
+      "foundPhotoSearching": "Finding a photo…",
+      "foundPhotoTag": "Found online",
+      "foundPhotoAlt": "{name} — photo found online, not confirmed",
+      "foundPhotoTitle": "Found online at {host} — not confirmed until the item is approved",
+      "foundPhotoTitleNoHost": "Found online — not confirmed until the item is approved",
       "edit": "Edit",
       "editAria": "Edit {name}",
       "save": "Save",
@@ -540,6 +548,7 @@
         "not_found": "One of these items no longer exists — it may have been removed.",
         "not_editable": "This item has moved on — it may be researching, approved or discarded.",
         "invalid_field": "That can’t be saved. Check the name isn’t empty and try again.",
+        "placeholder_name": "That name doesn’t say what the item is — give its make and model, or a short description such as “Cordless drill”.",
         "rate_limited": "Too many changes at once. Wait a moment and try again.",
         "too_many_items": "Select at most {max} items for one research run.",
         "daily_limit": "That would pass today’s research limit. You can research {remaining} more today.",
@@ -973,7 +982,10 @@
         },
         "fieldAccessoryOf": "Accessory of",
         "accessoryOfHint": "The tool this one attaches to or upgrades. Leave empty when it serves many tools (a battery for a whole platform).",
-        "parentUnlisted": "(a tool no longer offered)"
+        "parentUnlisted": "(a tool no longer offered)",
+        "sectionSkill": "Tool skill",
+        "skillLede": "The cited operating guide AI assistants read for this machine, in the chat and over MCP.",
+        "skillOpen": "Open the tool skill"
       },
       "edit": "Edit",
       "refreshOpen": "Refresh open",
@@ -1021,6 +1033,7 @@
       "conflict": "Somebody else changed this while you had it open, so nothing was saved. Your edits are still here — reload to see their version first.",
       "not_found": "That no longer exists. Somebody may have removed it while this was open.",
       "invalid_field": "One of these values is not one this field accepts. Check it and try again.",
+      "placeholder_name": "That name doesn’t say what the item is — give its make and model, or a short description such as “Cordless drill”.",
       "duplicate_serial": "This tool already has a unit with that serial number.",
       "duplicate_name": "Another tool already has that display name. Add what tells them apart — the capacity, size, power or generation, e.g. “Ryobi ONE+ 4Ah Battery”.",
       "unit_has_history": "This unit has maintenance history, so it cannot be deleted. Retire it instead.",
@@ -1047,6 +1060,8 @@
       "not_empty": "Tools are still in this category. Merge it into another so they have somewhere to go.",
       "retired_target": "That category is retired. Choose a live one, or restore it first.",
       "invalid_decision": "That decision does not apply here: an audit flag can be merged or dismissed, and a merge needs a category.",
+      "nothing_to_write": "There is nothing to write a skill from yet: this machine has no searchable public manual, no research and no lab notes. Add one, then try again.",
+      "skill_daily_limit": "The lab has written today's limit of tool skills. More can be written over the next 24 hours.",
       "invalid_shift_time": "Pick a time of day, like 18:00.",
       "shift_time_passed": "That time has already passed today. Pick a later time."
     },
@@ -1352,6 +1367,7 @@
         "not_found": "That item no longer exists. Somebody may have discarded it.",
         "not_editable": "This item has moved on — it may already be researching, approved or discarded. Reload to see where it is.",
         "invalid_field": "One of this item's values is not accepted. Check the name and try again.",
+        "placeholder_name": "That name doesn’t say what the item is — give its make and model, or a short description such as “Cordless drill”.",
         "rate_limited": "Too many research requests at once. Wait a minute and try again.",
         "too_many_items": "That is more items than one request may research. Send 25 or fewer.",
         "daily_limit": "You have reached today's research limit. It frees up over the next 24 hours.",
@@ -1907,6 +1923,7 @@
         "not_found": "Not found — it may have been removed.",
         "not_editable": "That can no longer be changed.",
         "invalid_field": "That value was not accepted.",
+        "placeholder_name": "That name doesn’t say what the item is — give its make and model, or a short description such as “Cordless drill”.",
         "daily_limit": "That would pass today's research allowance ({remaining} left).",
         "start_failed": "It could not start. Try again.",
         "not_signed_in": "Sign in to continue.",
@@ -2097,8 +2114,8 @@
       "tasksOverdue": "{count, plural, one {# task overdue} other {# tasks overdue}}",
       "tasksDueToday": "{count, plural, one {# task due today} other {# tasks due today}}",
       "tasksPaused": "{count, plural, one {# paused} other {# paused}}",
-      "demoTickets": "{count, plural, one {# demo ticket} other {# demo tickets}}",
-      "tasksSoon": "{count, plural, one {# task due this week} other {# tasks due this week}}"
+      "tasksSoon": "{count, plural, one {# task due this week} other {# tasks due this week}}",
+      "demoTickets": "{count, plural, one {# demo ticket} other {# demo tickets}}"
     },
     "addEquipment": {
       "title": "Add equipment",
@@ -2664,55 +2681,6 @@
         "needDate": "Choose a due date."
       }
     },
-    "demoSignups": {
-      "link": "Demo sign-ups ({count})",
-      "title": "Demo sign-ups",
-      "lede": "Visitors who signed up for a demo pass. Only super admins see this page. Email only the people who said you may contact them, and delete sign-ups after 12 months.",
-      "factSignups": "{count, plural, one {# sign-up} other {# sign-ups}}",
-      "factConsented": "{count} may be contacted",
-      "factSpent": "{amount} spent",
-      "download": "Download CSV",
-      "tableLabel": "Demo sign-ups",
-      "empty": "Nobody has signed up for a demo pass yet. The form is at /demo.",
-      "columnSignedUp": "Signed up",
-      "columnName": "Visitor",
-      "columnInstitution": "Institution",
-      "columnRole": "Role",
-      "columnMakerspace": "Makerspace",
-      "columnUseCase": "Would use it for",
-      "columnConsent": "May contact",
-      "columnPass": "Pass",
-      "columnSpent": "Spent",
-      "turns": "{count, plural, one {# turn} other {# turns}}",
-      "yes": "Yes",
-      "no": "No",
-      "passActive": "Until {date}",
-      "passEnded": "Ended",
-      "spentOf": "{spent} of {budget}",
-      "mayContact": "may contact",
-      "role": {
-        "student": "Student",
-        "staff_technician": "Staff or technician",
-        "faculty": "Faculty",
-        "lab_manager": "Lab director or manager",
-        "other": "Other"
-      }
-    },
-    "onShift": {
-      "title": "On shift",
-      "lede": "Let students know who to ask. While you're on shift, the home page, tool pages and the lab screen show “On shift now” with your first name and last initial, and MakerLAB AI can suggest asking you. It ends by itself at the time you pick.",
-      "everyone": "What students see now: “On shift now: {names}”",
-      "nobody": "Nobody is on shift right now, so students see no on-shift line.",
-      "off": "You're not on shift.",
-      "onUntil": "You're on shift until {time}.",
-      "shownAs": "Students see you as: {name}",
-      "noName": "Students can't see you yet: your account's name is your email address. Add your name on <link>Your account</link>.",
-      "untilLabel": "Until (today, lab time)",
-      "start": "Go on shift",
-      "change": "Change end time",
-      "end": "End shift now",
-      "unreadable": "Your shift could not be read just now. Reload the page to try again."
-    },
     "overview": {
       "title": "Overview",
       "lede": "What needs you now, the checks due on this shift, and what is waiting for a decision.",
@@ -2794,13 +2762,119 @@
       "budgetLede": "Research costs money, so each person can research {daily} items a day. While someone loads an inventory, a director can give them more for a few days.",
       "budgetDirectorsOnly": "Directors (super admins) grant extra research items. Ask one if you are loading a large inventory.",
       "budgetUnreadable": "The research budget could not be read. Try again in a moment.",
-      "budgetNobody": "Nobody who may add equipment is on the roster yet."
+      "budgetNobody": "Nobody who may add equipment is on the roster yet.",
+      "skillsTitle": "Skill writer",
+      "skillsBody": "Writes each tool's skill: a cited operating guide that AI assistants read in the chat and over MCP. With this on, a skill is written once a researched tool is approved and its manuals are indexed, and refreshed when a manual is added. Staff can also write one from a tool's skill page.",
+      "skillsLimits": "Up to {daily} skills a day for the lab, at about ${low} to ${high} a skill.",
+      "skillsSetting": "Write a tool skill after research",
+      "skillsOn": "On: a skill is written after research.",
+      "skillsOff": "Off: no skill is written after research.",
+      "skillsTurnOn": "Turn on",
+      "skillsTurnOff": "Turn off",
+      "skillsSaved": "Saved",
+      "skillsDirectorsOnly": "Directors (super admins) turn this on or off.",
+      "skillsUnreadable": "The setting could not be read. Try again in a moment."
     },
     "mcp": {
       "title": "MCP",
       "lede": "AI assistants connected to MakerLAB over MCP, such as Claude, ChatGPT or Codex. A change one of them asks for waits here until you confirm it.",
       "guide": "How to connect",
       "tokens": "Your access tokens"
+    },
+    "skills": {
+      "title": "Tool skill",
+      "lede": "The operating guide AI assistants read for this machine, in the chat and over MCP. AI-written from the lab's sources; every fact cites one.",
+      "factsVersion": "Version {version}",
+      "factsWritten": "Written {date}",
+      "factsCost": "${cost}",
+      "factsUpToDate": "Up to date",
+      "factsOutOfDate": "Out of date",
+      "factsNone": "No skill yet",
+      "trigger": {
+        "research": "After research",
+        "manual": "From Write skill",
+        "backfill": "From the backfill"
+      },
+      "write": "Write skill",
+      "rewrite": "Rewrite skill",
+      "started": "Started",
+      "writing": "Writing. The skill appears here in a minute or two.",
+      "outOfDate": "Out of date: something it was written from has changed since. Rewrite it to catch up.",
+      "lastFailed": "The last attempt failed on {date}: {reason}",
+      "empty": "No skill yet. Write one to give AI assistants a cited guide for this machine.",
+      "nothingToWrite": "Nothing to write from yet: this machine has no searchable public manual, no research and no lab notes.",
+      "notFound": "That tool is not in the inventory, or it was archived.",
+      "unreadable": "The skill could not be read. Try again in a moment.",
+      "skillHeading": "The skill",
+      "sourcesHeading": "Sources",
+      "sourcesLede": "What the skill cites. Manuals by page; links are the maker's.",
+      "sourceKind": {
+        "catalog": "Lab record",
+        "lab_note": "Lab note",
+        "manual": "Manual",
+        "research": "Research",
+        "link": "Linked document"
+      },
+      "removedHeading": "Removed by the checks ({count})",
+      "removedLede": "Lines the model wrote that the checks took out before the skill was stored.",
+      "removedReason": {
+        "uncited_number": "A number with no source",
+        "uncited_claim": "A claim with no source",
+        "weakens_safety": "Weakened a safety rule"
+      },
+      "openTool": "Open the tool's page",
+      "backToInventory": "Back to inventory",
+      "afterResearchOn": "Skills are written after research for this lab.",
+      "afterResearchOff": "Skills are not written after research for this lab; a director can turn that on in Settings › AI agents."
+    },
+    "onShift": {
+      "title": "On shift",
+      "lede": "Let students know who to ask. While you're on shift, the home page, tool pages and the lab screen show “On shift now” with your first name and last initial, and MakerLAB AI can suggest asking you. It ends by itself at the time you pick.",
+      "everyone": "What students see now: “On shift now: {names}”",
+      "nobody": "Nobody is on shift right now, so students see no on-shift line.",
+      "off": "You're not on shift.",
+      "onUntil": "You're on shift until {time}.",
+      "shownAs": "Students see you as: {name}",
+      "noName": "Students can't see you yet: your account's name is your email address. Add your name on <link>Your account</link>.",
+      "untilLabel": "Until (today, lab time)",
+      "start": "Go on shift",
+      "change": "Change end time",
+      "end": "End shift now",
+      "unreadable": "Your shift could not be read just now. Reload the page to try again."
+    },
+    "demoSignups": {
+      "link": "Demo sign-ups ({count})",
+      "title": "Demo sign-ups",
+      "lede": "Visitors who signed up for a demo pass. Only super admins see this page. Email only the people who said you may contact them, and delete sign-ups after 12 months.",
+      "factSignups": "{count, plural, one {# sign-up} other {# sign-ups}}",
+      "factConsented": "{count} may be contacted",
+      "factSpent": "{amount} spent",
+      "download": "Download CSV",
+      "tableLabel": "Demo sign-ups",
+      "empty": "Nobody has signed up for a demo pass yet. The form is at /demo.",
+      "columnSignedUp": "Signed up",
+      "columnName": "Visitor",
+      "columnInstitution": "Institution",
+      "columnRole": "Role",
+      "columnMakerspace": "Makerspace",
+      "columnUseCase": "Would use it for",
+      "columnConsent": "May contact",
+      "columnPass": "Pass",
+      "columnSpent": "Spent",
+      "turns": "{count, plural, one {# turn} other {# turns}}",
+      "yes": "Yes",
+      "no": "No",
+      "passActive": "Until {date}",
+      "passEnded": "Ended",
+      "spentOf": "{spent} of {budget}",
+      "mayContact": "may contact",
+      "role": {
+        "student": "Student",
+        "staff_technician": "Staff or technician",
+        "faculty": "Faculty",
+        "lab_manager": "Lab director or manager",
+        "other": "Other"
+      }
     }
   },
   "account": {
@@ -3082,7 +3156,6 @@
     "pages": "Pages",
     "page": {
       "tools": "Tools",
-      "allTools": "All tools",
       "projects": "Projects",
       "about": "About",
       "mcp": "Connect an AI assistant (MCP)"
@@ -3410,7 +3483,6 @@
     "title": "Lab status",
     "clockLabel": "Time now",
     "hoursLabel": "Hours",
-    "onShiftLabel": "On shift now",
     "machinesHeading": "Machines",
     "allRunning": "All machines running",
     "unitsInService": "{count, plural, one {# machine in service} other {# machines in service}}",
@@ -3437,7 +3509,8 @@
     "offlineBar": "Offline — showing {time}",
     "demo": "Demo data",
     "unavailableTitle": "Lab status is unavailable right now",
-    "unavailableBody": "The assistant still works: scan the code to ask it."
+    "unavailableBody": "The assistant still works: scan the code to ask it.",
+    "onShiftLabel": "On shift now"
   },
   "map": {
     "crumb": "Map",
@@ -3645,7 +3718,7 @@
       "safety": "For safety, access and training sign-offs it sends you to MakerLAB staff. It isn't a substitute for a checkout."
     },
     "creditsHeading": "Who made it",
-    "credits": "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) for the MakerLAB, run by Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director).",
+    "credits": "Built by Isaac Steinberg (Software Engineer and Architect, Johnson Cornell Tech MBA '26) with Claude-assisted development for the MakerLAB, run by Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director).",
     "aboutLink": "About the MakerLAB",
     "closingHeading": "Try it on a real machine",
     "closingLede": "Open the X1-Carbon's page and ask the assistant anything about it.",
@@ -3677,7 +3750,7 @@
         },
         "report": {
           "title": "Report a problem",
-          "body": "Tell the assistant what's wrong, or press Report in the header. It suggests the obvious checks first, then files a ticket for the right machine. Sign in so staff know who reported it.",
+          "body": "Tell the assistant what's wrong, or press Report a problem at the foot of any page. It suggests the obvious checks first, then files a ticket for the right machine. Sign in so staff know who reported it.",
           "alt": "The assistant files a maintenance ticket for the Trotec Speedy 400."
         },
         "intake": {
@@ -3720,6 +3793,8 @@
     "quickStart": "Quick start",
     "about": "About",
     "mcp": "Connect an AI",
+    "report": "Report a problem",
+    "reportSeed": "I'd like to report a problem.",
     "official": "The MakerLAB at Cornell Tech"
   },
   "assistantPage": {
@@ -3847,7 +3922,9 @@
       "get_tool_qr_code": "Show a tool's QR code, ready to download",
       "show_tool": "Show the catalogue photo, status and page of the tool it is talking about",
       "make_illustration": "Draw a labelled AI sketch of a plan or of your project idea, when you ask for one",
-      "list_maintenance_due": "Read the recurring maintenance tasks that are due"
+      "suggest_replies": "Offer two or three short replies to tap when it asks you to choose",
+      "list_maintenance_due": "Read the recurring maintenance tasks that are due",
+      "get_tool_skill": "Read a tool's operating guide: cited steps, settings, troubleshooting and safety"
     },
     "actions": {
       "people_set_role": "Move someone between User and Admin",
@@ -3902,6 +3979,8 @@
       "schedules_update": "Change a recurring maintenance task",
       "schedules_set_status": "Pause, resume or archive a recurring task",
       "schedules_complete": "Check off a recurring task as done",
+      "skills_write": "Write or rewrite a tool's operating guide",
+      "skills_set_after_research": "Turn on writing a tool's guide after research",
       "shifts_set": "Mark yourself on shift"
     },
     "pageOnly": {
@@ -3915,6 +3994,8 @@
       "schedules_update": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
       "schedules_set_status": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
       "schedules_complete": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
+      "skills_write": "The guide is what the assistant itself reads on a tool's page, so it never writes its own; staff do, on the tool's skill page.",
+      "skills_set_after_research": "It spends the lab's money with nobody pressing a button; directors set it on Settings › AI agents.",
       "shifts_set": "Being shown to students is a person's own choice, so staff mark it themselves on the admin overview or their account page."
     },
     "never": {
@@ -3949,6 +4030,30 @@
       "category_people": "Block, ban or grant allowances under any other name",
       "category_peopleWhy": "The words themselves are refused, so a new tool can't slip through."
     }
+  },
+  "unsubscribe": {
+    "loading": "Loading…",
+    "eyebrow": "Email",
+    "confirmTitle": "Turn off these emails?",
+    "confirm": {
+      "ticketFiled": "You will stop getting an email each time someone reports a problem with a machine.",
+      "maintenanceDue": "You will stop getting the morning reminder of recurring maintenance that is due."
+    },
+    "confirmScope": "Only this email stops. Nothing else about your account changes.",
+    "turnOff": "Turn off",
+    "keep": "Keep getting them",
+    "failed": "That didn't save. Try again in a moment.",
+    "doneTitle": "Turned off",
+    "done": {
+      "ticketFiled": "You won't get an email when someone reports a problem with a machine.",
+      "maintenanceDue": "You won't get the morning maintenance reminder."
+    },
+    "doneUndo": "Tickets and tasks still show in the app. To get these emails again, ask a lab director.",
+    "invalidTitle": "This link doesn't work",
+    "invalidBody": "It may be incomplete or out of date. Nothing was changed. If you keep getting emails you don't want, ask the lab's staff.",
+    "rateLimitedTitle": "Too many tries",
+    "rateLimitedBody": "Too many requests came from this connection. Wait an hour, then open the link again.",
+    "home": "Back to {site}"
   },
   "demoPass": {
     "eyebrow": "Demo pass",
@@ -4006,29 +4111,5 @@
       "text": "Visiting? Get a free demo pass to chat with the lab's assistant and report a problem. No {institution} account needed.",
       "cta": "Sign up to try the full demo"
     }
-  },
-  "unsubscribe": {
-    "loading": "Loading…",
-    "eyebrow": "Email",
-    "confirmTitle": "Turn off these emails?",
-    "confirm": {
-      "ticketFiled": "You will stop getting an email each time someone reports a problem with a machine.",
-      "maintenanceDue": "You will stop getting the morning reminder of recurring maintenance that is due."
-    },
-    "confirmScope": "Only this email stops. Nothing else about your account changes.",
-    "turnOff": "Turn off",
-    "keep": "Keep getting them",
-    "failed": "That didn't save. Try again in a moment.",
-    "doneTitle": "Turned off",
-    "done": {
-      "ticketFiled": "You won't get an email when someone reports a problem with a machine.",
-      "maintenanceDue": "You won't get the morning maintenance reminder."
-    },
-    "doneUndo": "Tickets and tasks still show in the app. To get these emails again, ask a lab director.",
-    "invalidTitle": "This link doesn't work",
-    "invalidBody": "It may be incomplete or out of date. Nothing was changed. If you keep getting emails you don't want, ask the lab's staff.",
-    "rateLimitedTitle": "Too many tries",
-    "rateLimitedBody": "Too many requests came from this connection. Wait an hour, then open the link again.",
-    "home": "Back to {site}"
   }
 }

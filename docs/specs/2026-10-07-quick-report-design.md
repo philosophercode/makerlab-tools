@@ -282,7 +282,7 @@ against another machine's unit; a "set severity Low" report about smoke filed lo
 
 | # | Question | Who |
 |---|---|---|
-| 1 | **The header's Report button.** It still opens the chat. On a tool page it could open this form for that tool; elsewhere it needs a machine picker first (the review's mock-up has a Change control). | Isaac + Luis |
+| 1 | **The header's Report button.** It still opens the chat. On a tool page it could open this form for that tool; elsewhere it needs a machine picker first (the review's mock-up has a Change control). *2026-10-07: the button left the header (identity spec amendment "ADMIN in the bar"); the footer's Report a problem opens the chat the same way. The form from any page still needs the machine picker.* | Isaac + Luis |
 | 2 | **Flex and the wait.** Flex can be slow; past 12 seconds the report is filed as written. If that happens often, file first and triage after the response (`after()`), updating the ticket, or move the job to the default tier. The log line records each call's tier. | Isaac |
 | 3 | **The chat's reference.** `report_issue` still tells the student the full ticket id. It could say the short reference too, so both doors match. | Isaac |
 | 4 | **Mark the unit as reported.** The mock-up showed "#4 REPORTED". It needs a rule for when an open ticket changes what students see on a unit. | Niti + Luis |

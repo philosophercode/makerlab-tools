@@ -16,9 +16,11 @@ import {
  * - {@link deliverNotification}: one outbox row, delivered. Started after the
  *   ticket's transaction commits (`requestNotificationDelivery`) and by the
  *   cron backstop for a row whose run never started.
- * - {@link maintenanceReminder}: the daily recurring-maintenance reminder.
- *   Started by the daily cron at 07:17 UTC; sleeps until 08:00 lab time,
- *   queues the day's row (unless nothing is due) and delivers it the same way.
+ * - {@link maintenanceReminder}: the recurring-maintenance reminder. Started
+ *   by the daily cron at 07:17 UTC; sleeps until 08:00 lab time, queues the
+ *   day's row naming the tasks newly due (unless none are) and delivers it
+ *   the same way. A task is named once per due date, never again while it
+ *   stays overdue.
  *
  * **Deterministic for replay.** The body is replayed from the run's event log
  * after every step, so it reads no clock and draws no random number (the
@@ -43,9 +45,9 @@ export type ReminderSummary =
   | { labDate: string; queued: true; delivery: DeliverySummary };
 
 /**
- * Wait for 08:00 lab time, then remind staff of the recurring tasks due today
- * and overdue. `hour` is the lab-clock hour to send at; only the in-process
- * test passes another one, so it need not wait.
+ * Wait for 08:00 lab time, then remind staff of the recurring tasks that
+ * came due since the last reminder. `hour` is the lab-clock hour to send at;
+ * only the in-process test passes another one, so it need not wait.
  */
 export async function maintenanceReminder(hour: number = REMINDER_HOUR): Promise<ReminderSummary> {
   "use workflow";

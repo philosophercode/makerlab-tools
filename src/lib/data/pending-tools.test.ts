@@ -10,6 +10,7 @@ import {
   completeResearch,
   countResearchRequestedSince,
   createPendingBatch,
+  PlaceholderItemNameError,
   deleteDiscardedPendingTools,
   discardPendingTool,
   expireIdentifiedPendingTools,
@@ -130,6 +131,17 @@ describe("createPendingBatch", () => {
     expect(items.every((item) => item.createdBy === OWNER && item.createdByName === "Niti Parikh")).toBe(true);
     expect(items[0]).toMatchObject({ brand: "Prusa", categoryHint: "3D Printing", serialNumber: null });
     expect(items[1]).toMatchObject({ locationHint: "Laser room", brand: null });
+  });
+
+  it("refuses a placeholder or empty name and writes no row (amendment \"No empty items\")", async () => {
+    const before = await db.select({ id: pendingTools.id }).from(pendingTools);
+    await expect(
+      createPendingBatch({ createdBy: OWNER, items: [{ name: "Glowforge Pro" }, { name: "Equipment not specified" }] }, { db })
+    ).rejects.toMatchObject({ name: "PlaceholderItemNameError", names: ["Equipment not specified"] });
+    await expect(createPendingBatch({ createdBy: OWNER, items: [{ name: "   " }] }, { db })).rejects.toBeInstanceOf(
+      PlaceholderItemNameError
+    );
+    expect(await db.select({ id: pendingTools.id }).from(pendingTools)).toHaveLength(before.length);
   });
 
   it("claims only unowned uploads and says how many stuck", async () => {
@@ -290,7 +302,7 @@ describe("updatePendingTool", () => {
   });
 
   it("says not_found for a missing row and invalid_field for a bad value", async () => {
-    expect(await updatePendingTool(crypto.randomUUID(), { name: "x" }, { db })).toEqual({
+    expect(await updatePendingTool(crypto.randomUUID(), { name: "Lathe X" }, { db })).toEqual({
       ok: false,
       reason: "not_found",
     });
@@ -303,6 +315,14 @@ describe("updatePendingTool", () => {
     expect(
       await updatePendingTool(id, { duplicateResolution: "merge" as never }, { db })
     ).toEqual({ ok: false, reason: "invalid_field" });
+  });
+
+  it("refuses a rename to a placeholder as placeholder_name, keeping the name (amendment \"No empty items\")", async () => {
+    const id = await oneItem();
+    for (const name of ["Unknown", "Equipment not specified", "N/A", "item 2"]) {
+      expect(await updatePendingTool(id, { name }, { db })).toEqual({ ok: false, reason: "placeholder_name" });
+    }
+    expect((await getPendingTool(id, { db }))?.name).toBe("Prusa MK4S");
   });
 
   it("re-runs the duplicate check on a rename and clears a decision about the old match", async () => {
@@ -385,16 +405,16 @@ describe("discardPendingTool", () => {
 
 describe("the research lifecycle", () => {
   it("queues only researchable rows, and a second call moves nothing", async () => {
-    const identified = await oneItem("A");
-    const researched = await oneItem("B");
+    const identified = await oneItem("Lathe A");
+    const researched = await oneItem("Lathe B");
     await setStatus(researched, { status: "researched" });
-    const approved = await oneItem("C");
+    const approved = await oneItem("Lathe C");
     await setStatus(approved, { status: "approved" });
-    const held = await oneItem("D");
+    const held = await oneItem("Lathe D");
     await setStatus(held, { status: "queued", workflowRunId: "run-1" });
-    const addUnit = await oneItem("E");
+    const addUnit = await oneItem("Lathe E");
     await setStatus(addUnit, { duplicateResolution: "add_unit" });
-    const discardChoice = await oneItem("F");
+    const discardChoice = await oneItem("Lathe F");
     await setStatus(discardChoice, { duplicateResolution: "discard" });
 
     const ids = [identified, researched, approved, held, addUnit, discardChoice, "not-a-uuid"];
@@ -448,7 +468,7 @@ describe("the research lifecycle", () => {
       .returning({ id: tools.id });
     const unit = await oneItem("Form 4");
     await setStatus(unit, { duplicateResolution: "add_unit" });
-    const noTool = await oneItem("Other");
+    const noTool = await oneItem("Other Lathe");
     await setStatus(noTool, { duplicateResolution: "add_unit" });
     const plain = await oneItem("Plain");
 
@@ -462,9 +482,9 @@ describe("the research lifecycle", () => {
 
   it("counts a person's research requests since a time, add-unit items free", async () => {
     const since = new Date(Date.now() - 24 * 60 * 60_000);
-    const a = await oneItem("A");
-    const b = await oneItem("B");
-    const c = await oneItem("C");
+    const a = await oneItem("Lathe A");
+    const b = await oneItem("Lathe B");
+    const c = await oneItem("Lathe C");
     await queueForResearch([a, b], { requestedBy: OWNER }, { db });
     await queueForResearch([c], { requestedBy: OTHER }, { db });
     const [old] = await db
@@ -472,7 +492,7 @@ describe("the research lifecycle", () => {
       .values({ requestId: crypto.randomUUID(), userId: OWNER, requestedAt: new Date(Date.now() - 48 * 60 * 60_000) })
       .returning({ id: researchRequests.id });
     expect(old).toBeDefined();
-    const unit = await oneItem("Unit");
+    const unit = await oneItem("Unit Lathe");
     await setStatus(unit, { duplicateResolution: "add_unit" });
     await markReadyAsUnit([unit], { requestedBy: OWNER }, { db });
 
@@ -483,8 +503,8 @@ describe("the research lifecycle", () => {
 
   it("counts every press: researching the same items again costs again, and nobody else's count goes down", async () => {
     const since = new Date(Date.now() - 24 * 60 * 60_000);
-    const a = await oneItem("A");
-    const b = await oneItem("B");
+    const a = await oneItem("Lathe A");
+    const b = await oneItem("Lathe B");
     await queueForResearch([a, b], { requestedBy: OWNER }, { db });
     await setStatus(a, { status: "researched" });
     await setStatus(b, { status: "failed" });
@@ -500,14 +520,14 @@ describe("the research lifecycle", () => {
 
   it("queues within the allowance or refuses with what is left, moving nothing", async () => {
     const since = new Date(Date.now() - 24 * 60 * 60_000);
-    const first = [await oneItem("A"), await oneItem("B"), await oneItem("C")];
+    const first = [await oneItem("Lathe A"), await oneItem("Lathe B"), await oneItem("Lathe C")];
     const requestId = crypto.randomUUID();
     expect(
       await queueForResearchWithinAllowance(first, { requestedBy: OWNER, requestId, limit: 4, since }, { db })
     ).toEqual({ ok: true, queued: first });
     expect((await getPendingTool(first[0], { db }))?.researchRequestId).toBe(requestId);
 
-    const more = [await oneItem("D"), await oneItem("E")];
+    const more = [await oneItem("Lathe D"), await oneItem("Lathe E")];
     expect(
       await queueForResearchWithinAllowance(
         more,
@@ -577,14 +597,14 @@ describe("the research lifecycle", () => {
   });
 
   it("fails a queued or researching item with a capped reason", async () => {
-    const queued = await oneItem("Q");
+    const queued = await oneItem("Lathe Q");
     await queueForResearch([queued], { requestedBy: OWNER }, { db });
     expect(await failResearch(queued, "x".repeat(5000), { db })).toBe(true);
     const failed = await getPendingTool(queued, { db });
     expect(failed?.status).toBe("failed");
     expect(failed?.researchError).toHaveLength(2000);
 
-    const identified = await oneItem("I");
+    const identified = await oneItem("Lathe I");
     expect(await failResearch(identified, "nope", { db })).toBe(false);
   });
 });
@@ -623,10 +643,10 @@ describe("deleteDiscardedPendingTools", () => {
   it("deletes discarded items older than the cutoff and releases anything they still hold", async () => {
     const cutoff = new Date("2026-09-01T00:00:00Z");
     const photo = await upload();
-    const old = await oneItem("Old", { attachmentIds: [photo] });
+    const old = await oneItem("Old Lathe", { attachmentIds: [photo] });
     const recent = await oneItem("Recent");
     const open = await oneItem("Open");
-    const later = await oneItem("Later");
+    const later = await oneItem("Later Lathe");
     await db
       .update(pendingTools)
       .set({ status: "discarded" })
@@ -779,7 +799,7 @@ describe("listIntakeQueueSummaries — the intake list's slim read (performance 
     await setStatus(broken, { status: "researched", research: sql`'{"confidence":{"level":"odd"}}'::jsonb` as never });
     const failed = await oneItem("Failed One");
     await setStatus(failed, { status: "failed", researchError: "timeout" });
-    await oneItem("Just Identified");
+    await oneItem("Just Identified Lathe");
     const settled = await oneItem("Approved Earlier");
     await setStatus(settled, { status: "discarded" });
 

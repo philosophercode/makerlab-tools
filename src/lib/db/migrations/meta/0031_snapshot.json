@@ -1,6 +1,6 @@
 {
-  "id": "8c88dc11-5cfb-4868-82f5-d1889428221b",
-  "prevId": "8db18948-24f2-4899-826c-36df090ce080",
+  "id": "8e08587b-2115-4895-9d73-779f057bc8ae",
+  "prevId": "8c88dc11-5cfb-4868-82f5-d1889428221b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -6529,47 +6529,90 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.staff_shifts": {
-      "name": "staff_shifts",
+    "public.maintenance_reminder_items": {
+      "name": "maintenance_reminder_items",
       "schema": "",
       "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "ends_at": {
-          "name": "ends_at",
-          "type": "timestamp with time zone",
+        "schedule_id": {
+          "name": "schedule_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "started_at": {
-          "name": "started_at",
+        "due_on": {
+          "name": "due_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notification_id": {
+          "name": "notification_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "maintenance_reminder_items_notification_idx": {
+          "name": "maintenance_reminder_items_notification_idx",
+          "columns": [
+            {
+              "expression": "notification_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "staff_shifts_user_id_user_id_fk": {
-          "name": "staff_shifts_user_id_user_id_fk",
-          "tableFrom": "staff_shifts",
-          "tableTo": "user",
+        "maintenance_reminder_items_schedule_id_maintenance_schedules_id_fk": {
+          "name": "maintenance_reminder_items_schedule_id_maintenance_schedules_id_fk",
+          "tableFrom": "maintenance_reminder_items",
+          "tableTo": "maintenance_schedules",
           "columnsFrom": [
-            "user_id"
+            "schedule_id"
           ],
           "columnsTo": [
             "id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "maintenance_reminder_items_notification_id_notifications_id_fk": {
+          "name": "maintenance_reminder_items_notification_id_notifications_id_fk",
+          "tableFrom": "maintenance_reminder_items",
+          "tableTo": "notifications",
+          "columnsFrom": [
+            "notification_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "maintenance_reminder_items_schedule_id_due_on_pk": {
+          "name": "maintenance_reminder_items_schedule_id_due_on_pk",
+          "columns": [
+            "schedule_id",
+            "due_on"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -7067,6 +7110,178 @@
         "chat_illustrations_status_check": {
           "name": "chat_illustrations_status_check",
           "value": "\"status\" in ('pending', 'ready', 'failed')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tool_skills": {
+      "name": "tool_skills",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tool_id": {
+          "name": "tool_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "sections": {
+          "name": "sections",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "sources": {
+          "name": "sources",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "input_hash": {
+          "name": "input_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "model": {
+          "name": "model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cost_usd": {
+          "name": "cost_usd",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "trigger": {
+          "name": "trigger",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "tool_skills_current_idx": {
+          "name": "tool_skills_current_idx",
+          "columns": [
+            {
+              "expression": "tool_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "tool_skills_created_idx": {
+          "name": "tool_skills_created_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "tool_skills_tool_id_tools_id_fk": {
+          "name": "tool_skills_tool_id_tools_id_fk",
+          "tableFrom": "tool_skills",
+          "tableTo": "tools",
+          "columnsFrom": [
+            "tool_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tool_skills_tool_version_key": {
+          "name": "tool_skills_tool_version_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tool_id",
+            "version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "tool_skills_status_check": {
+          "name": "tool_skills_status_check",
+          "value": "\"status\" in ('ready', 'failed')"
+        },
+        "tool_skills_trigger_check": {
+          "name": "tool_skills_trigger_check",
+          "value": "\"trigger\" in ('research', 'manual', 'backfill')"
         }
       },
       "isRLSEnabled": false

@@ -148,6 +148,12 @@ export const RETENTION_BOUND: ReadonlySet<string> = new Set([getTableName(usageE
  * copies, so a push from a laptop would wipe the hosted sign-ups and replace
  * them with whatever test sign-ups the local database holds. Visitors' details
  * never travel between databases; the nightly backup keeps them.
+ * Deliberately **not** `tool_skills` (tool skills spec 2026-10-07 §4.3),
+ * though it too is AI-written and cached: a skill names its manual sources by
+ * document id and page (ids survive `data:push`) and its links by the
+ * manufacturer's URL, never a stored file's address, and its input hash covers
+ * the same rows on both sides. A skill written on a local copy is valid on the
+ * hosted one, so it travels, like `manual_eval_questions`.
  */
 export const DEPLOYMENT_BOUND: ReadonlySet<string> = new Set([
   getTableName(starterAnswers),

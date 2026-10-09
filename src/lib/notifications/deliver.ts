@@ -86,7 +86,7 @@ async function skipNotification(db: Db, id: string, reason: NotificationSkipReas
 async function subjectStillCurrent(db: Db, row: OutboxRow): Promise<boolean> {
   if (!row.subjectId) return false;
   if (row.event === "ticket.filed") return ticketStillOpen(await loadTicketSubject(db, row.subjectId));
-  return !dueSubjectIsEmpty(await loadDueSubject(db, row.subjectId));
+  return !dueSubjectIsEmpty(await loadDueSubject(db, row.id, row.subjectId));
 }
 
 /**
@@ -243,7 +243,7 @@ async function render(db: Db, row: OutboxRow, origin: string, unsubscribeUrl: st
       filedAt: labTimeOfDay(ticket.createdAt),
     });
   }
-  const due = await loadDueSubject(db, row.subjectId);
+  const due = await loadDueSubject(db, row.id, row.subjectId);
   if (dueSubjectIsEmpty(due)) return null;
   return renderMaintenanceDue({
     due,

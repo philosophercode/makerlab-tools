@@ -130,12 +130,29 @@ export const MODEL_JOBS = {
   // few questions a student could ask, each answered on one page of a newly
   // indexed manual, kept as evals. Passages in, JSON out, no tools. Runs in
   // the archive workflow and `npm run manuals:eval-questions`; nobody waits.
+  // Opus (gateway spec amendment "Opus writes from the manuals"): the evals
+  // grade the chat against these questions, so they are worth the stronger
+  // writer; a manual costs cents. No tier hint — flex is OpenAI's.
   evalQuestions: {
     kind: "language",
     env: "MODEL_EVAL_QUESTIONS",
-    default: "openai/gpt-6-luna",
-    serviceTier: "flex",
+    default: "anthropic/claude-opus-5.5",
+    serviceTier: "default",
     tierEnv: "MODEL_EVAL_QUESTIONS_TIER",
+  },
+  // Tool skills (tool skills spec 2026-10-07): one tool's cited operating
+  // guide, written from its catalogue record, research, lab notes and manual
+  // passages (fenced). JSON out, no tools; code checks it (the numbers guard)
+  // and renders the markdown. Research-type work in a workflow or a script;
+  // nobody waits. Opus, as `evalQuestions` (amendment "Opus writes from the
+  // manuals"): chat loads the skill on the tool's page, so it is read often
+  // and written once. No tier hint — flex is OpenAI's.
+  skillWrite: {
+    kind: "language",
+    env: "MODEL_SKILL_WRITE",
+    default: "anthropic/claude-opus-5.5",
+    serviceTier: "default",
+    tierEnv: "MODEL_SKILL_WRITE_TIER",
   },
   // The quick report form (quick report spec §3.3): one small call per
   // report that guesses a title, a category, a severity and the unit from the
@@ -182,10 +199,12 @@ export const MODEL_JOBS = {
   // illustrations in the chat"): an infographic of a plan the assistant wrote,
   // or a concept render of a student's project idea — offered, labelled, and
   // never a picture of the lab's equipment. An image job: `imageModelFor`,
-  // never `languageModelFor`. The default is the cheapest capable Gateway image
-  // model with a flat price ($0.007 an image on 2026-10-07). A person waits,
-  // so no tier hint. `MODEL_ILLUSTRATION=off` switches illustrations off
-  // (`illustrationsEnabled`).
+  // never `languageModelFor`. The default is the cheapest flat-priced Gateway
+  // image model listed with zero data retention and no training on prompts
+  // ($0.01 an image on 2026-10-07; the owner chose it over the $0.007 model
+  // with neither guarantee, because a student's project idea goes in as
+  // words). A person waits, so no tier hint. `MODEL_ILLUSTRATION=off`
+  // switches illustrations off (`illustrationsEnabled`).
   //
   // Not a product-photo job: the `imageClean` redraw (gpt-image-1-mini) was
   // retired on 2026-09-23 because it altered product labels, and background
@@ -194,7 +213,7 @@ export const MODEL_JOBS = {
   illustration: {
     kind: "image",
     env: "MODEL_ILLUSTRATION",
-    default: "recraft/recraft-v4.1-flash",
+    default: "meta/muse-image-1.0",
     serviceTier: "default",
     tierEnv: "MODEL_ILLUSTRATION_TIER",
   },

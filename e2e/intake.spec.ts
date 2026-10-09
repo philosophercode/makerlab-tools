@@ -107,6 +107,18 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   for (const item of [domino, sawstop, shapeoko]) {
     await expect(card.getByRole("checkbox", { name: `Select ${item.identifiedAs}` })).toBeChecked();
   }
+
+  // Named without a photo (data platform spec amendment "A photo for a name"):
+  // one is looked up in the background — the stub's product shot, ranked and
+  // cut out — and lands on the card, marked found online. The Domino came with
+  // a photo, so it gets none.
+  const found = card.getByRole("img", { name: `${sawstop.identifiedAs} — photo found online, not confirmed` }).first();
+  await expect(found).toBeVisible({ timeout: 30_000 });
+  await expect(found).toHaveAttribute("src", /^\/api\/pending-tools\/[0-9a-f-]{36}\/found-photo$/);
+  await expect
+    .poll(() => found.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), { timeout: 15_000 })
+    .toBeGreaterThan(0);
+  await expect(card.getByRole("img", { name: `${domino.identifiedAs} — photo found online, not confirmed` })).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Add to research (3)" })).toBeEnabled();
 
   // Deselect one: it stays `identified` and waits on the Intake page.
@@ -205,9 +217,11 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   // The tool is in the gallery — approval invalidated the cached catalogue —
   // and its card shows the photo's background-removed copy, public in this
   // server's local Blob store: not research's copy, not the photo as taken,
-  // not the placeholder.
-  await page.goto("/");
-  const heading = page.getByRole("heading", { name: domino.name, level: 2 });
+  // not the placeholder. The cards are the full list's, at /tools; the home
+  // shows categories (student home spec 2026-10-07).
+  // The list is the home page's All tools view, its cards under category headings (student home spec, amendment "One page: the list at rest").
+  await page.goto("/?show=all");
+  const heading = page.getByRole("heading", { name: domino.name, level: 3 });
   await expect(heading).toBeVisible({ timeout: 15_000 });
   const cover = page.locator('a[data-slot="tool-card"]').filter({ has: heading }).locator("img");
   // The PNG itself until approval's thumbnails land (written after it

@@ -43,6 +43,8 @@ export const OUTSIDE_CONTENT_TOOLS: readonly string[] = [
   "list_category_proposals",
   // The record a curation turn works on: research read from the web.
   "get_record",
+  // A tool skill: AI-written from manuals and web research (tool skills spec 2026-10-07 §5.5).
+  "get_tool_skill",
 ];
 
 /** One turn's taint. Created by the route; mutated only by the helpers here. */

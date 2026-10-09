@@ -125,7 +125,9 @@ evalQuestionsStep.maxRetries = MANUAL_STEP_MAX_RETRIES;
  * `indexFailed` those that could not be; `passagesBuilt` / `passagesFailed`
  * the documents whose search passages were (not) built on this run;
  * `questionsWritten` / `questionsFailed` the documents whose eval questions
- * were written or copied (or could not be) after that.
+ * were written or copied (or could not be) after that; `skillsWritten` /
+ * `skillsFailed` the tools whose skills the run's tail wrote (or could not)
+ * when the lab writes skills after research (tool skills spec 2026-10-07).
  */
 export interface ManualArchiveCounts {
   archived: number;
@@ -137,6 +139,8 @@ export interface ManualArchiveCounts {
   passagesFailed: number;
   questionsWritten: number;
   questionsFailed: number;
+  skillsWritten: number;
+  skillsFailed: number;
 }
 
 /** The run is done: one line of counts. */
@@ -146,6 +150,7 @@ export async function finishManualArchive(counts: ManualArchiveCounts): Promise<
     `[manuals] archive run finished: archived=${counts.archived} skipped=${counts.skipped} failed=${counts.failed}` +
       ` indexed=${counts.indexed} index_failed=${counts.indexFailed}` +
       ` passages_built=${counts.passagesBuilt} passages_failed=${counts.passagesFailed}` +
-      ` questions_written=${counts.questionsWritten} questions_failed=${counts.questionsFailed}`
+      ` questions_written=${counts.questionsWritten} questions_failed=${counts.questionsFailed}` +
+      ` skills_written=${counts.skillsWritten} skills_failed=${counts.skillsFailed}`
   );
 }

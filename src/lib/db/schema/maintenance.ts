@@ -16,7 +16,7 @@ import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS, MAINTENANCE_TYPE } from "./vo
  * - Dates are `date`, computed in `LAB_TIMEZONE` by the write path, never from
  *   the server clock.
  * - `demo` marks a ticket a demo-pass visitor filed (demo pass spec 2026-10-07
- *   §5.4, migration `0032`): it stays in the queue, badged and filterable, and
+ *   §5.4, migration `0034`): it stays in the queue, badged and filterable, and
  *   is left out of the lab's counts, public history, the assistant's unit
  *   history and the Notion mirror.
  */

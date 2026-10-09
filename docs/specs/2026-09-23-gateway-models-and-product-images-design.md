@@ -2469,7 +2469,7 @@ have shown a machine that does not exist. An illustration is a different thing:
    plan also buttons, a machine's screen, dials, knobs, menus and settings). The prompt's own rules
    say: generic shapes, no controls, no labels or signs, no logos or readable text.
 2. **It can never reach the catalogue.** It is not an `attachments` row: its own table
-   (`chat_illustrations`, migration `0031`) and private blobs under `chat/illustrations/`, served
+   (`chat_illustrations`, migration `0030`) and private blobs under `chat/illustrations/`, served
    only to the person who asked for it. Nothing that claims, promotes or publishes an attachment —
    approval, a ticket, a project, the tool editor — can pick one up. It is never shown on a tool
    page, in the gallery or over MCP.
@@ -2488,7 +2488,7 @@ student's own project idea.
 
 | Job | Kind | Env | Default | Tier |
 |---|---|---|---|---|
-| `illustration` | image | `MODEL_ILLUSTRATION` | `recraft/recraft-v4.1-flash` | none (a person waits) |
+| `illustration` | image | `MODEL_ILLUSTRATION` | `meta/muse-image-1.0` | none (a person waits) |
 
 `imageModelFor("illustration")` builds it; `languageModelFor` refuses it. `MODEL_ILLUSTRATION=off`
 (or `none`, any case) switches illustrations off: `illustrationsEnabled()` is false and the chat
@@ -2502,13 +2502,16 @@ no cost, 2026-10-07), the image models with a flat per-image price, cheapest fir
 `recraft/recraft-v4.1-flash` $0.007, `meta/muse-image-1.0` $0.01, `spacexai/grok-imagine-image`
 $0.02, `recraft/recraft-v2` $0.022, `bfl/flux-3-image` $0.024 at 1024×1024. Models listed with no
 price were not considered, and the token-priced `openai/gpt-image-1-mini` was not chosen: its cost
-per image moves with quality, and it is the model whose redraw corrupted labels. **Not
+per image moves with quality, and it is the model whose redraw corrupted labels. The first build
+used the cheapest, `recraft/recraft-v4.1-flash`; the owner then chose `meta/muse-image-1.0`, the
+cheapest listed with zero data retention and no training on prompts (open question 1, answered
+2026-10-07), for $0.003 more an image. **Not
 live-verified:** no paid image call was made for this change. The first real call's log line
 confirms the price.
 
 **The call.** `generateImage`, one image, `size: "1024x1024"`, one retry, a 60-second deadline, no
 provider options. The cost is read from `providerMetadata.gateway.cost` and logged like every other
-job's (`[illustration] plan answered: cost $0.0070, tier not reported`, `describeGatewayCall`);
+job's (`[illustration] plan answered: cost $0.0100, tier not reported`, `describeGatewayCall`);
 failures log their kind and status only (`classifyModelError`), never the prompt. The returned bytes
 must be a PNG, JPEG or WebP by their own header (`inspectImage`) and at most 8 MB, or nothing is
 stored.
@@ -2517,11 +2520,11 @@ stored.
 - **one per reply** — counted in the tool and withdrawn by the route's `prepareStep`
   (`CHAT_TOOL_CAPS.make_illustration = 1`);
 - **3 per person** in any rolling 24 hours (pending or made; a failed one gives its place back);
-- **$1 lab-wide** in any rolling 24 hours — about 140 pictures at the default price, at most about
+- **$1 lab-wide** in any rolling 24 hours — about 100 pictures at the default price, at most about
   $30 a month. Every row's `cost_usd` counts, a failed call's too when the Gateway reported one.
 
 A place is reserved before the call, under a transaction-scoped advisory lock, at the estimated
-cost: the default model's $0.007, or $0.05 for any `MODEL_ILLUSTRATION` override, whose price the
+cost: the default model's $0.01, or $0.05 for any `MODEL_ILLUSTRATION` override, whose price the
 code does not know (so an unknown model can only end the day early, never late). The reported cost
 replaces the estimate once the call answers. **Not the research allowance:** that ledger counts
 research presses on pending items, per person only; illustrations need a lab-wide money ceiling, so
@@ -2532,7 +2535,7 @@ signed-in person, so every picture is counted against somebody. An anonymous vis
 capability's locked note, which tells the assistant to say a sketch needs signing in (the Sign in
 button). Gated by `capabilitiesForIdentity`, never inside `run()`.
 
-**§4 data model.** `chat_illustrations` (migration `0031`, written as `0028` and renumbered when stacked after the eval questions, on-shift and email migrations): `id`, `user_id` (cascade), `kind`
+**§4 data model.** `chat_illustrations` (migration `0030`, written as `0028` and renumbered when stacked after the eval questions and email migrations): `id`, `user_id` (cascade), `kind`
 (`plan` | `concept`), `status` (`pending` | `ready` | `failed`), `model`, `cost_usd`,
 `blob_pathname`, `content_type`, `width`, `height`, `created_at`, `finished_at`. No words of the
 conversation are stored. `GET /api/chat/illustrations/[id]` serves a `ready` row's blob to its owner
@@ -2563,11 +2566,12 @@ reply, the part, the refusals); `api/chat/illustrations/[id]/route.test.ts`; the
 nothing drawn for an image URL that is not our route).
 
 **Open questions.**
-1. **Data retention.** The Gateway lists `recraft/recraft-v4.1-flash` with no zero-data-retention
-   and no no-training guarantee. The prompt carries no names (the lab's machines generic; emails,
-   links and phone numbers out), but a student's project idea goes in as words.
-   `meta/muse-image-1.0` ($0.01) is the cheapest listed with both guarantees; switching is
-   `MODEL_ILLUSTRATION=meta/muse-image-1.0` (reserved at $0.05 until the code learns its price).
+1. **Data retention. Answered 2026-10-07:** the default is `meta/muse-image-1.0` ($0.01), the
+   cheapest the Gateway lists with zero data retention and no training on prompts. The first
+   build's `recraft/recraft-v4.1-flash` ($0.007) has neither guarantee, and although the prompt
+   carries no names (the lab's machines generic; emails, links and phone numbers out), a
+   student's project idea goes in as words. `MODEL_ILLUSTRATION=recraft/recraft-v4.1-flash`
+   would go back to it (reserved at $0.05 until the code learns its price).
 2. **No sweep yet.** Nothing deletes old illustration blobs. The chat keeps no history beyond the
    page session, so nothing refers to a picture after a day; a daily-cron stage deleting rows and
    blobs older than 7 days would keep the store and the ledger small.
@@ -2578,3 +2582,145 @@ nothing drawn for an image URL that is not our route).
 
 **Status.** Built on `v5/chat-images`, not live-verified (no paid image or chat calls). Awaiting the
 owner's review.
+
+### 2026-10-07 — The tool skill writer's job (§3.1)
+
+Tool skills (`2026-10-07-tool-skills-design.md`) add one language job to `MODEL_JOBS`:
+**`skillWrite`**, Luna by default (`MODEL_SKILL_WRITE`), service tier **flex**
+(`MODEL_SKILL_WRITE_TIER`), on the same family as `researchRead` and `evalQuestions`. One
+`generateText` call per tool, no tools: the catalogue record and lab notes as written, the research
+summary and manual passages fenced with `fenceUntrusted`, and a JSON answer read item by item against
+zod, then checked by code (the numbers guard, cites required in the safety sections, weakening
+language removed). 180-second timeout, two SDK retries; the workflow step retries a transient failure
+twice more, a minute apart. Nobody waits on it. Each call logs its tokens, cost and tier
+(`describeGatewayCall`), never the prompt or the skill; the cost is stored on the skill's row
+(`tool_skills.cost_usd`). Tests pass a stub model to the writer, or stub the Gateway's wire in the
+workflow tier.
+
+### 2026-10-07 — Thin margins and white bezels: the cutout keeps less white (§3.5, §10)
+
+**Asked by Isaac.** The tool "iPad 6th generation" (`ipad-6th-generation-mr7f2ll-a`) shows a
+little white around its photo after the background cleanup. Find why, fix the cutout, and give a
+way to re-run it for that one tool.
+
+**Why it happened.** The cover is a store photo (640×892) of a space-grey iPad that fills the
+frame: a white margin of about 8 px at the sides and 3 px at the top and bottom, and white
+corners outside the rounded corners. Two rules each kept it uncut, so the picked image was stored
+**as it was** (`cleanPickedImage` stores the original when no copy is made), white corners and
+all — the cutout never ran on it, rather than running and leaving a remnant:
+
+1. **The classifier called it `busy`.** The border band is 4 px at the classifier's 512 px and
+   6 px at the cutout's working size; the iPad's metal rim sits 3 px from the top edge, inside the
+   band, so only 62% (512 px) / 71% (full size) of the band matched the backdrop — under 85%.
+2. **The cut would have been refused as `little_background`**: it removes 2.9% of the frame,
+   under the 15% minimum, which assumed a product with less backdrop than that had none worth
+   removing.
+
+The harder case named with it — **a white bezel against a white backdrop** — has a third
+weakness: the fill took any pixel within 40 of the backdrop outright, so a white bezel held only
+by a faint outline (30-odd levels below the backdrop once JPEG softens it) was walked through and
+eaten, leaving the screen floating.
+
+**What changed** (all deterministic, never a redraw; `images/background.ts`, `images/clean.ts`):
+
+- **The classifier reads the outermost ring when the band fails.** `plain` when at least 90%
+  (`PLAIN_RING_SHARE`) of the 1 px outermost ring is one light colour and at least 30%
+  (`PLAIN_BAND_FLOOR`) of the band still matches it: a product crowding the band, not a picture
+  filling it. A busy picture with a 1 px light keyline stays `busy` (its band is mostly the
+  picture). A 2–3 px keyline round a busy picture can now read `plain`; its cut then removes only
+  the keyline (under the margin minimum below for 1–2 px) — the known cost, rare in product shots.
+- **A margin is a backdrop too.** A cut under 15% is kept when it removed at least 1%
+  (`MIN_MARGIN_SHARE`) and no removed pixel lies further than 8% of the short edge from the frame
+  (`MARGIN_MAX_DEPTH`, `Cutout.marginDepth`). A small cut that reaches deep (a slot between two
+  parts) is still `little_background`.
+- **The fill is edge-aware.** Outright only within 24 of the backdrop (`FILL_CORE_TOLERANCE`, was
+  40); between 24 and 72 only as a gradient step of at most 10 from the pixel it came from, as
+  before. A faint outline, and a base or panel a shade off the backdrop, stop it — the unguided
+  cut now keeps the 240-on-254 base the product box used to be needed for. Seeds at the frame
+  keep the tolerance of 40.
+- **Fringe goes** (`takeFringe`). Up to two rings of near-backdrop pixels touching the cut —
+  within 40 of the backdrop and at least 6 (`FRINGE_MARGIN`) closer to it than a product pixel
+  beside them, i.e. a blend toward a darker edge (anti-aliasing, a JPEG halo) — join the backdrop.
+  An outline darker than what it encloses, and a flat white bezel, are never a blend and stay. So
+  the light halo the old 40 took is still taken, without the bezel.
+- **The feather softens only halos.** A ring pixel is lowered by its likeness to the backdrop only
+  when it is a blend; an outline or a white bezel keeps the plain ramp (160, then 224) instead of
+  going nearly transparent.
+- **Holes stay.** A white region enclosed by the product is still never removed — a white screen
+  or panel looks exactly like an enclosed gap.
+
+**Evidence.** The real cover (the local database's copy of the production blob, the same bytes):
+before — classified `busy`, stored uncut, 15,376 opaque near-white pixels within 12 px of the
+edge; after — classified `plain`, cut (2.9% removed, a margin cut), **0** near-white pixels left
+near the edge, the rim and the screen the original's own pixels. The synthetic fixtures in
+`test/fixtures/cutout/` (made by `test/images/tablet.ts`, JPEG at 85) each have a
+`-before-after.png` beside them, the old cutout's result left and this one's right on a dark
+backdrop: `spaceGreyThinMargin` and `whiteBezelThinMargin` (old: `busy`, not cut, white corners;
+new: cut, corners gone, the white bezel kept by its silver rim), and `whiteBezelFaintOutline`
+(old: the bezel eaten, the screen floating; new: the bezel kept, the 48 px margin gone).
+
+**Re-running the cutout on a stored cover.** `npm run images:recut -- --tool <slug or id>`
+(`scripts/recut-tool-cover.ts`, logic in `src/lib/images/recut-cover.ts`): reads the tool's cover
+(its first public image) back from the store, gives it the approval's cleaning
+(`cleanPickedImage`, classified on the spot), and describes the result — a dry run, with `--out
+<file>` to write the cut locally. With `--apply` the cleaned PNG is stored public under
+`uploads/tool/`, recorded as a `research_image_cleaned` attachment at the old cover's position
+(the old cover's `source_url` kept), the old cover is released for the daily orphan sweep in the
+same transaction, and thumbnails are rendered. Target and Blob as `thumbnails:backfill`
+(`DATABASE_URL`, else `PGLITE_DATA_DIR`; `blobMode()`). For production, after the deploy, with the
+env file of `docs/deploy.md` Part 2 step 6:
+
+```bash
+node --env-file=.env.hosted --experimental-strip-types scripts/recut-tool-cover.ts --tool ipad-6th-generation-mr7f2ll-a --out ipad-cut.png
+node --env-file=.env.hosted --experimental-strip-types scripts/recut-tool-cover.ts --tool ipad-6th-generation-mr7f2ll-a --apply
+```
+
+then `POST /api/admin/revalidate` (or wait for the catalogue cache).
+
+**Tests.** `background.test.ts` (a product within 2 px of the frame is plain; a busy picture with
+a 1 px keyline stays busy); `clean.test.ts` (the three fixtures: corners transparent, no
+near-white remnant outside the outline, the white bezel opaque; a faint outline stops the fill
+without JPEG; a thin frame round a frame-filling product is cut; a small deep cut is
+`little_background`; `takeFringe` takes blends two rings deep and keeps an outline and a flat
+bezel; `validateCutout`'s margin rule); `clean-copy.test.ts` (the unguided cut keeps the
+240-on-254 base; a crop the product nearly fills has its hairline cut; a crop whose cut fails is
+kept alone with the reason); `scripts/recut-tool-cover.test.ts` (dry run writes nothing; apply
+replaces the cover in place and releases the old one; an uncuttable cover is left alone; no tool,
+no cover, unreadable).
+
+**Status.** Built on the intake-and-images branch, 2026-10-07. The thresholds are tuned on the
+real iPad and synthetic tablets; watch the first research runs' `cleanNote`s.
+
+### 2026-10-07 — The image finder also runs at identification (pointer)
+
+An item the chat records from its name alone now gets **one** candidate product photo before
+research, found by this stage's own pieces — one Exa search (`searchProductPictures`, now in
+`research/image-stage.ts`, shared with Find a different image), `rankAndClean` (probe, the
+`imageRank` subject verdict, the deterministic cutout of rank 1) — charged a quarter item each
+against the research allowance. Research keeps that photo's cleaned copy (`releaseCleanedImages`
+takes a `keep`); approval releases it. See the data platform spec's amendment "A photo for a
+name" (migration `0032`).
+
+### 2026-10-08 — Opus writes from the manuals (§3.1)
+
+**What changed.** The two jobs that write text *from* the manuals for later use —
+**`evalQuestions`** (the eval questions) and **`skillWrite`** (each tool's operating guide) — default
+to **`anthropic/claude-opus-5.5`** instead of Luna, with **no service-tier hint** (flex is OpenAI's;
+`MODEL_<JOB>_TIER` still sets one). `MODEL_EVAL_QUESTIONS` / `MODEL_SKILL_WRITE` switch either back
+without a deploy. Chat, research and every other job stay on Luna.
+
+**Why.** Both are written once and read many times: the eval questions are the yardstick the chat
+is graded against, and a skill is loaded into every chat on its tool's page. The owner asked for
+the stronger writer here (2026-10-08). At Opus's list price ($4 / $20 per million tokens) a manual's
+questions cost about a cent and a skill a few cents; the whole catalogue is a few dollars, once.
+Anthropic's half-price batch API is not reachable through the Gateway, and at this size it is not
+worth a second path.
+
+**Resuming.** Both backfills (`manuals:eval-questions`, `tools:skills`) store each item as it
+finishes and skip what is up to date, so after a failure or an interrupted run the same command
+picks up where it stopped, and says so in its summary. A skill's input hash already includes its
+model. Eval questions now do too: a document is up to date only when the same text was asked by
+the same model (`manual_eval_questions.model`), and questions are copied between documents only
+from the same model — so the switch rewrites the Luna questions once, and a rerun resumes rather
+than starting over (`--force` is no longer needed for a model change). The dry runs price their
+estimate at the job's model (`src/lib/ai/list-prices.ts`), not at Luna.
