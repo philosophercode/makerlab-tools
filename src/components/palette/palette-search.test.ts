@@ -1,4 +1,4 @@
-import { categoryEntries, categoryKeywords, rankByPaletteScore, toolKeywords } from "./palette-search";
+import { categoryEntries, categoryKeywords, rankByPaletteScore, rankToolsInPlace, toolDetailKeywords, toolKeywords } from "./palette-search";
 
 /**
  * What the ⌘K palette and the home page's smart search share (student home
@@ -58,5 +58,44 @@ describe("rankByPaletteScore", () => {
     expect(rankByPaletteScore(TOOLS, "", toolKeywords, 5)).toEqual([]);
     expect(rankByPaletteScore(TOOLS, "   ", toolKeywords, 5)).toEqual([]);
     expect(rankByPaletteScore(TOOLS, "frm", toolKeywords, 5)).toEqual([]);
+  });
+});
+
+describe("rankToolsInPlace (the home page's results, amendment \"One page: the list at rest\")", () => {
+  const LIST = [
+    { slug: "bandsaw", name: "Bandsaw", category: "Woodworking", categorySub: "Cutting", materials: ["Plywood"], tags: [], location: "Wood Shop" },
+    { slug: "trotec-speedy-400", name: "Laser cutter", officialName: "Trotec Speedy 400", category: "Laser", categorySub: "CO2", materials: ["Acrylic", "Plywood"], tags: ["Cutting"] },
+    { slug: "cutting-mat", name: "Cutting mat", category: "Woodworking", categorySub: "Benches", materials: [], tags: [] },
+  ];
+  const slugs = (list: readonly { slug: string }[]) => list.map((tool) => tool.slug);
+
+  it("puts tools whose name matches first, then those matching only on their details", () => {
+    // "cut": two names say it ("Cutting mat" as a prefix, "Laser cutter" inside); the Bandsaw only by its subcategory.
+    expect(slugs(rankToolsInPlace(LIST, "cut"))).toEqual(["cutting-mat", "trotec-speedy-400", "bandsaw"]);
+  });
+
+  it("finds by material, room and official name, with every word required", () => {
+    expect(slugs(rankToolsInPlace(LIST, "acrylic"))).toEqual(["trotec-speedy-400"]);
+    expect(slugs(rankToolsInPlace(LIST, "wood shop"))).toEqual(["bandsaw"]);
+    expect(slugs(rankToolsInPlace(LIST, "speedy"))).toEqual(["trotec-speedy-400"]);
+    // A query may mix a name and a detail.
+    expect(slugs(rankToolsInPlace(LIST, "laser plywood"))).toEqual(["trotec-speedy-400"]);
+    expect(rankToolsInPlace(LIST, "plywood glue")).toEqual([]);
+  });
+
+  it("returns every match (no limit), nothing for a blank query, and is not fuzzy", () => {
+    expect(rankToolsInPlace(LIST, "plywood")).toHaveLength(2);
+    expect(rankToolsInPlace(LIST, "  ")).toEqual([]);
+    expect(rankToolsInPlace(LIST, "lsr")).toEqual([]);
+  });
+
+  it("breaks an equal score with the caller's order before the catalogue's", () => {
+    const byReverseSlug = (a: { slug: string }, b: { slug: string }) => b.slug.localeCompare(a.slug);
+    expect(slugs(rankToolsInPlace(LIST, "plywood", byReverseSlug))).toEqual(["trotec-speedy-400", "bandsaw"]);
+  });
+
+  it("never reads a description: with every word required, a paragraph would match any question", () => {
+    const tool = { slug: "x", name: "X", description: "a long paragraph" };
+    expect(toolDetailKeywords(tool)).not.toContain("a long paragraph");
   });
 });

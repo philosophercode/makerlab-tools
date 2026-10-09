@@ -29,7 +29,14 @@ export function intakeItemPath(id: string): string {
  * and `not_editable` are also what a discard or a rename answers — the item is
  * gone, or has moved on to researching, approved or discarded.
  */
-export type IntakeWriteError = IntakeApprovalError | ImageRetryError;
+export type IntakeWriteError = IntakeApprovalError | ImageRetryError | NameError;
+
+/**
+ * A rename the name rule refused: the name says nothing about which item it is
+ * ("Unknown", "Equipment not specified" — data platform spec amendment "No
+ * empty items").
+ */
+export type NameError = "placeholder_name";
 
 /**
  * What **Find a different image** can answer besides the shared codes: a run

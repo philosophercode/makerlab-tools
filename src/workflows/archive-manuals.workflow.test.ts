@@ -63,7 +63,7 @@ describe("archiveManuals (in process)", () => {
             providerMetadata: { gateway: { cost: "0.00001" } },
           };
         },
-        // The eval questions step (job `evalQuestions`, flex): one question from the first passage offered.
+        // The eval questions step (job `evalQuestions`, Opus): one question from the first passage offered.
         language: (req) => {
           asked.push(req.modelId);
           expect(promptText(req)).toContain("P1");
@@ -108,10 +108,10 @@ describe("archiveManuals (in process)", () => {
     expect(embedded.flat()).toHaveLength(chunks.length);
 
     // One call for the questions, on the first run only; stored with the page they came from.
-    expect(asked).toEqual(["openai/gpt-6-luna"]);
+    expect(asked).toEqual(["anthropic/claude-opus-5.5"]);
     const stored = await db.select().from(manualEvalQuestions).where(eq(manualEvalQuestions.documentId, docs[0].id));
     expect(stored).toHaveLength(1);
-    expect(stored[0]).toMatchObject({ question: "What can I cut on this laser?", toolId: tool.id, model: "openai/gpt-6-luna" });
+    expect(stored[0]).toMatchObject({ question: "What can I cut on this laser?", toolId: tool.id, model: "anthropic/claude-opus-5.5" });
     expect(stored[0].expectedPages.length).toBeGreaterThan(0);
   });
 });

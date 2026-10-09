@@ -37,23 +37,22 @@ test.describe("Sign-in", () => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: "Tools", exact: true })
+      page.getByRole("heading", { name: "MakerLAB AI", level: 1 })
     ).toBeVisible();
 
-    // The home shows the categories (student home spec 2026-10-07): a tile
-    // opens the full list filtered to it, and the card there opens the tool.
+    // The home rests on the category tiles (student home spec 2026-10-07,
+    // amendment "One page: the list at rest", revised): a tile opens its
+    // tools on the same page, and a card opens the tool.
     await page
-      .getByRole("link")
-      .filter({
-        has: page.getByRole("heading", { name: "3D Printing", level: 2 }),
-      })
+      .getByRole("list", { name: "Categories" })
+      .getByRole("link", { name: /3D Printing/ })
       .click();
-    await expect(page).toHaveURL(/\/tools\?category=3D\+Printing$/);
+    await expect(page).toHaveURL(/\/\?category=3D\+Printing$/);
 
     await page
       .getByRole("link")
       .filter({
-        has: page.getByRole("heading", { name: "Form 4", level: 2 }),
+        has: page.getByRole("heading", { name: "Form 4", level: 3 }),
       })
       .click();
 

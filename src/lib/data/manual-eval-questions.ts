@@ -38,6 +38,8 @@ export interface DocumentForQuestions {
   passages: DocumentPassageRow[];
   /** The digest its stored questions were written at; null when it has none. */
   questionsHash: string | null;
+  /** The model that wrote them; null when it has none. */
+  questionsModel: string | null;
   questionCount: number;
 }
 
@@ -50,11 +52,13 @@ export async function loadDocumentForQuestions(db: Db, documentId: string): Prom
     tool_name: string | null;
     title: string;
     questions_hash: string | null;
+    questions_model: string | null;
     question_count: number | string;
   }>(
     db,
     sql`select d.id, d.tool_id, t.name as tool_name, d.title,
                (select min(q.source_hash) from manual_eval_questions q where q.document_id = d.id) as questions_hash,
+               (select min(q.model) from manual_eval_questions q where q.document_id = d.id) as questions_model,
                (select count(*) from manual_eval_questions q where q.document_id = d.id) as question_count
           from manual_documents d
           left join tools t on t.id = d.tool_id
@@ -92,6 +96,7 @@ export async function loadDocumentForQuestions(db: Db, documentId: string): Prom
       content: row.content,
     })),
     questionsHash: doc.questions_hash,
+    questionsModel: doc.questions_model,
     questionCount: Number(doc.question_count),
   };
 }
@@ -138,19 +143,20 @@ export async function replaceDocumentQuestions(
 /**
  * The same text stored on another document (one PDF on two machines): copy
  * that document's questions to this one, with this document's machine, and
- * return how many. Zero when no other document has questions at `sourceHash`.
+ * return how many. Zero when no other document has questions at `sourceHash`
+ * written by `model` (questions by another model are rewritten, not copied).
  * Never twice for the same text: this costs no model call. With `dryRun`,
  * count what would be copied and write nothing.
  */
 export async function copyQuestionsForSameText(
   db: Db,
   documentId: string,
-  input: { toolId: string | null; sourceHash: string; dryRun?: boolean }
+  input: { toolId: string | null; sourceHash: string; model: string; dryRun?: boolean }
 ): Promise<number> {
   const [source] = await rawRows<{ document_id: string }>(
     db,
     sql`select document_id from manual_eval_questions
-         where source_hash = ${input.sourceHash} and document_id <> ${documentId}
+         where source_hash = ${input.sourceHash} and model = ${input.model} and document_id <> ${documentId}
          order by created_at asc limit 1`
   );
   if (!source) return 0;

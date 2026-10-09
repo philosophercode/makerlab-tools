@@ -27,6 +27,9 @@
  *   the person's "I've checked this" and a note first (§5.4 step 12).
  * - `duplicate_name` — another tool already has that display name, compared
  *   case- and punctuation-insensitively (display names amendment 2026-09-25).
+ * - `placeholder_name` — a pending item's name says nothing about which item
+ *   it is ("Equipment not specified", "Unknown"; `intake/item-name.ts`, data
+ *   platform spec amendment "No empty items").
  *
  * Relative imports with `.ts` extensions, no `@/` alias and no `"server-only"`,
  * like every other module under `src/lib/data/`.
@@ -40,6 +43,7 @@ export const WRITE_REFUSALS = [
   "not_editable",
   "low_confidence",
   "duplicate_name",
+  "placeholder_name",
 ] as const;
 
 export type WriteRefusal = (typeof WRITE_REFUSALS)[number];

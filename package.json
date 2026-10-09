@@ -32,6 +32,7 @@
     "projects:seed": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/seed-projects.ts",
     "thumbnails:bundled": "node --experimental-strip-types scripts/generate-tool-thumbnails.ts",
     "thumbnails:backfill": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/backfill-thumbnails.ts",
+    "images:recut": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/recut-tool-cover.ts",
     "taxonomy:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/taxonomy-migrate.ts",
     "taxonomy:audit": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/taxonomy-audit.ts",
     "inventory:cleanup": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/inventory-cleanup.ts",

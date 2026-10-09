@@ -2596,3 +2596,131 @@ twice more, a minute apart. Nobody waits on it. Each call logs its tokens, cost 
 (`describeGatewayCall`), never the prompt or the skill; the cost is stored on the skill's row
 (`tool_skills.cost_usd`). Tests pass a stub model to the writer, or stub the Gateway's wire in the
 workflow tier.
+
+### 2026-10-07 — Thin margins and white bezels: the cutout keeps less white (§3.5, §10)
+
+**Asked by Isaac.** The tool "iPad 6th generation" (`ipad-6th-generation-mr7f2ll-a`) shows a
+little white around its photo after the background cleanup. Find why, fix the cutout, and give a
+way to re-run it for that one tool.
+
+**Why it happened.** The cover is a store photo (640×892) of a space-grey iPad that fills the
+frame: a white margin of about 8 px at the sides and 3 px at the top and bottom, and white
+corners outside the rounded corners. Two rules each kept it uncut, so the picked image was stored
+**as it was** (`cleanPickedImage` stores the original when no copy is made), white corners and
+all — the cutout never ran on it, rather than running and leaving a remnant:
+
+1. **The classifier called it `busy`.** The border band is 4 px at the classifier's 512 px and
+   6 px at the cutout's working size; the iPad's metal rim sits 3 px from the top edge, inside the
+   band, so only 62% (512 px) / 71% (full size) of the band matched the backdrop — under 85%.
+2. **The cut would have been refused as `little_background`**: it removes 2.9% of the frame,
+   under the 15% minimum, which assumed a product with less backdrop than that had none worth
+   removing.
+
+The harder case named with it — **a white bezel against a white backdrop** — has a third
+weakness: the fill took any pixel within 40 of the backdrop outright, so a white bezel held only
+by a faint outline (30-odd levels below the backdrop once JPEG softens it) was walked through and
+eaten, leaving the screen floating.
+
+**What changed** (all deterministic, never a redraw; `images/background.ts`, `images/clean.ts`):
+
+- **The classifier reads the outermost ring when the band fails.** `plain` when at least 90%
+  (`PLAIN_RING_SHARE`) of the 1 px outermost ring is one light colour and at least 30%
+  (`PLAIN_BAND_FLOOR`) of the band still matches it: a product crowding the band, not a picture
+  filling it. A busy picture with a 1 px light keyline stays `busy` (its band is mostly the
+  picture). A 2–3 px keyline round a busy picture can now read `plain`; its cut then removes only
+  the keyline (under the margin minimum below for 1–2 px) — the known cost, rare in product shots.
+- **A margin is a backdrop too.** A cut under 15% is kept when it removed at least 1%
+  (`MIN_MARGIN_SHARE`) and no removed pixel lies further than 8% of the short edge from the frame
+  (`MARGIN_MAX_DEPTH`, `Cutout.marginDepth`). A small cut that reaches deep (a slot between two
+  parts) is still `little_background`.
+- **The fill is edge-aware.** Outright only within 24 of the backdrop (`FILL_CORE_TOLERANCE`, was
+  40); between 24 and 72 only as a gradient step of at most 10 from the pixel it came from, as
+  before. A faint outline, and a base or panel a shade off the backdrop, stop it — the unguided
+  cut now keeps the 240-on-254 base the product box used to be needed for. Seeds at the frame
+  keep the tolerance of 40.
+- **Fringe goes** (`takeFringe`). Up to two rings of near-backdrop pixels touching the cut —
+  within 40 of the backdrop and at least 6 (`FRINGE_MARGIN`) closer to it than a product pixel
+  beside them, i.e. a blend toward a darker edge (anti-aliasing, a JPEG halo) — join the backdrop.
+  An outline darker than what it encloses, and a flat white bezel, are never a blend and stay. So
+  the light halo the old 40 took is still taken, without the bezel.
+- **The feather softens only halos.** A ring pixel is lowered by its likeness to the backdrop only
+  when it is a blend; an outline or a white bezel keeps the plain ramp (160, then 224) instead of
+  going nearly transparent.
+- **Holes stay.** A white region enclosed by the product is still never removed — a white screen
+  or panel looks exactly like an enclosed gap.
+
+**Evidence.** The real cover (the local database's copy of the production blob, the same bytes):
+before — classified `busy`, stored uncut, 15,376 opaque near-white pixels within 12 px of the
+edge; after — classified `plain`, cut (2.9% removed, a margin cut), **0** near-white pixels left
+near the edge, the rim and the screen the original's own pixels. The synthetic fixtures in
+`test/fixtures/cutout/` (made by `test/images/tablet.ts`, JPEG at 85) each have a
+`-before-after.png` beside them, the old cutout's result left and this one's right on a dark
+backdrop: `spaceGreyThinMargin` and `whiteBezelThinMargin` (old: `busy`, not cut, white corners;
+new: cut, corners gone, the white bezel kept by its silver rim), and `whiteBezelFaintOutline`
+(old: the bezel eaten, the screen floating; new: the bezel kept, the 48 px margin gone).
+
+**Re-running the cutout on a stored cover.** `npm run images:recut -- --tool <slug or id>`
+(`scripts/recut-tool-cover.ts`, logic in `src/lib/images/recut-cover.ts`): reads the tool's cover
+(its first public image) back from the store, gives it the approval's cleaning
+(`cleanPickedImage`, classified on the spot), and describes the result — a dry run, with `--out
+<file>` to write the cut locally. With `--apply` the cleaned PNG is stored public under
+`uploads/tool/`, recorded as a `research_image_cleaned` attachment at the old cover's position
+(the old cover's `source_url` kept), the old cover is released for the daily orphan sweep in the
+same transaction, and thumbnails are rendered. Target and Blob as `thumbnails:backfill`
+(`DATABASE_URL`, else `PGLITE_DATA_DIR`; `blobMode()`). For production, after the deploy, with the
+env file of `docs/deploy.md` Part 2 step 6:
+
+```bash
+node --env-file=.env.hosted --experimental-strip-types scripts/recut-tool-cover.ts --tool ipad-6th-generation-mr7f2ll-a --out ipad-cut.png
+node --env-file=.env.hosted --experimental-strip-types scripts/recut-tool-cover.ts --tool ipad-6th-generation-mr7f2ll-a --apply
+```
+
+then `POST /api/admin/revalidate` (or wait for the catalogue cache).
+
+**Tests.** `background.test.ts` (a product within 2 px of the frame is plain; a busy picture with
+a 1 px keyline stays busy); `clean.test.ts` (the three fixtures: corners transparent, no
+near-white remnant outside the outline, the white bezel opaque; a faint outline stops the fill
+without JPEG; a thin frame round a frame-filling product is cut; a small deep cut is
+`little_background`; `takeFringe` takes blends two rings deep and keeps an outline and a flat
+bezel; `validateCutout`'s margin rule); `clean-copy.test.ts` (the unguided cut keeps the
+240-on-254 base; a crop the product nearly fills has its hairline cut; a crop whose cut fails is
+kept alone with the reason); `scripts/recut-tool-cover.test.ts` (dry run writes nothing; apply
+replaces the cover in place and releases the old one; an uncuttable cover is left alone; no tool,
+no cover, unreadable).
+
+**Status.** Built on the intake-and-images branch, 2026-10-07. The thresholds are tuned on the
+real iPad and synthetic tablets; watch the first research runs' `cleanNote`s.
+
+### 2026-10-07 — The image finder also runs at identification (pointer)
+
+An item the chat records from its name alone now gets **one** candidate product photo before
+research, found by this stage's own pieces — one Exa search (`searchProductPictures`, now in
+`research/image-stage.ts`, shared with Find a different image), `rankAndClean` (probe, the
+`imageRank` subject verdict, the deterministic cutout of rank 1) — charged a quarter item each
+against the research allowance. Research keeps that photo's cleaned copy (`releaseCleanedImages`
+takes a `keep`); approval releases it. See the data platform spec's amendment "A photo for a
+name" (migration `0032`).
+
+### 2026-10-08 — Opus writes from the manuals (§3.1)
+
+**What changed.** The two jobs that write text *from* the manuals for later use —
+**`evalQuestions`** (the eval questions) and **`skillWrite`** (each tool's operating guide) — default
+to **`anthropic/claude-opus-5.5`** instead of Luna, with **no service-tier hint** (flex is OpenAI's;
+`MODEL_<JOB>_TIER` still sets one). `MODEL_EVAL_QUESTIONS` / `MODEL_SKILL_WRITE` switch either back
+without a deploy. Chat, research and every other job stay on Luna.
+
+**Why.** Both are written once and read many times: the eval questions are the yardstick the chat
+is graded against, and a skill is loaded into every chat on its tool's page. The owner asked for
+the stronger writer here (2026-10-08). At Opus's list price ($4 / $20 per million tokens) a manual's
+questions cost about a cent and a skill a few cents; the whole catalogue is a few dollars, once.
+Anthropic's half-price batch API is not reachable through the Gateway, and at this size it is not
+worth a second path.
+
+**Resuming.** Both backfills (`manuals:eval-questions`, `tools:skills`) store each item as it
+finishes and skip what is up to date, so after a failure or an interrupted run the same command
+picks up where it stopped, and says so in its summary. A skill's input hash already includes its
+model. Eval questions now do too: a document is up to date only when the same text was asked by
+the same model (`manual_eval_questions.model`), and questions are copied between documents only
+from the same model — so the switch rewrites the Luna questions once, and a rerun resumes rather
+than starting over (`--force` is no longer needed for a model change). The dry runs price their
+estimate at the job's model (`src/lib/ai/list-prices.ts`), not at Luna.

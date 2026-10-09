@@ -10,9 +10,9 @@
  * - **A dry run by default.** It lists every tool that is not archived, says
  *   what each would get (a new version, from how many manual passages, with
  *   research and lab notes or not) or why it is skipped (up to date, nothing
- *   to write from), and prints the estimated cost at Luna's list price. It
- *   calls no model and writes nothing. `--apply` calls job `skillWrite` (Luna
- *   on flex) once per tool that needs one and stores the skill
+ *   to write from), and prints the estimated cost at the job's model's list
+ *   price. It calls no model and writes nothing. `--apply` calls job
+ *   `skillWrite` (Opus) once per tool that needs one and stores the skill
  *   (`trigger: "backfill"`); each line and the summary print the
  *   Gateway-reported cost. The lab's daily cap does not stop the backfill
  *   (you ran it, with a dry run and `--limit`), but its rows count toward it.
@@ -21,7 +21,11 @@
  *   local database is single-process).
  * - **Which tools:** every tool not archived, by name; `--tool` takes one
  *   slug; `--limit` the first N. A tool whose current skill was written from
- *   the same inputs is skipped; `--force` writes every one again.
+ *   the same inputs (the model among them) is skipped; `--force` writes every
+ *   one again.
+ * - **Resumable.** Each skill is stored as it finishes and the rest are
+ *   skipped as up to date, so after a failure or an interrupted run, the same
+ *   command picks up where it stopped.
  *
  * Output: one line per tool (slug, what happened, tokens, cost), then totals.
  */
@@ -31,7 +35,8 @@ import type { SkillTarget } from "../src/lib/data/tool-skills.ts";
 import { PgliteLockedError } from "../src/lib/db/pglite-lock.ts";
 import type { Db } from "../src/lib/db/types.ts";
 import type { ToolSkillOutcome } from "../src/lib/skills/write.ts";
-import { estimateUsd } from "./manual-eval-questions.ts";
+import { estimateUsd } from "../src/lib/ai/list-prices.ts";
+import { priced } from "./manual-eval-questions.ts";
 
 // ── Arguments ───────────────────────────────────────────────────────
 
@@ -88,8 +93,10 @@ export interface ToolSkillsBackfillReport {
   outputTokens: number;
   /** Gateway-reported dollars (`--apply`); null when none was reported. */
   cost: number | null;
-  /** The dry run's estimate at Luna's list price. */
-  estimatedUsd: number;
+  /** The model the estimate is priced at: the job's. */
+  model: string;
+  /** The dry run's estimate at `model`'s list price; null when it has none. */
+  estimatedUsd: number | null;
   ms: number;
 }
 
@@ -106,6 +113,7 @@ export interface RunToolSkillsBackfillInput {
 /** One tool at a time, each reported as it finishes. A failure is counted and the run goes on. */
 export async function runToolSkillsBackfill(input: RunToolSkillsBackfillInput): Promise<ToolSkillsBackfillReport> {
   const { writeToolSkill } = await import("../src/lib/skills/write.ts");
+  const { modelIdFor } = await import("../src/lib/ai/models.ts");
   const log = input.log ?? (() => {});
   const started = Date.now();
   const report: ToolSkillsBackfillReport = {
@@ -119,7 +127,8 @@ export async function runToolSkillsBackfill(input: RunToolSkillsBackfillInput): 
     inputTokens: 0,
     outputTokens: 0,
     cost: null,
-    estimatedUsd: 0,
+    model: modelIdFor("skillWrite"),
+    estimatedUsd: null,
     ms: 0,
   };
   for (const [n, tool] of input.tools.entries()) {
@@ -155,7 +164,7 @@ export async function runToolSkillsBackfill(input: RunToolSkillsBackfillInput): 
         break;
     }
   }
-  report.estimatedUsd = estimateUsd(report.inputTokens, report.outputTokens);
+  report.estimatedUsd = estimateUsd(report.model, report.inputTokens, report.outputTokens);
   report.ms = Date.now() - started;
   return report;
 }
@@ -191,14 +200,15 @@ export function summarise(report: ToolSkillsBackfillReport, apply: boolean): str
   if (!apply) {
     return (
       `Dry run: ${report.planned} tool(s) would get a skill (${rest}). ` +
-      `About ${report.inputTokens} input and ${report.outputTokens} output tokens: ~$${report.estimatedUsd.toFixed(4)} at Luna's list price ` +
-      `(flex is cheaper). Run again with --apply to write them.`
+      `About ${report.inputTokens} input and ${report.outputTokens} output tokens: ${priced(report)}. ` +
+      `Run again with --apply to write them.`
     );
   }
   return (
     `Wrote ${report.written} skill(s) (${rest}). ` +
     `${report.inputTokens}/${report.outputTokens} tokens, ` +
-    `${report.cost === null ? "cost not reported" : `Gateway cost $${report.cost.toFixed(4)}`} in ${(report.ms / 1000).toFixed(1)}s.`
+    `${report.cost === null ? "cost not reported" : `Gateway cost $${report.cost.toFixed(4)}`} in ${(report.ms / 1000).toFixed(1)}s.` +
+    (report.failed ? ` Run the same command again to retry the ${report.failed} that failed; the rest are skipped.` : "")
   );
 }
 
@@ -228,10 +238,7 @@ async function main(): Promise<void> {
     return;
   }
   console.log(`Target: ${describeImportTarget(target)}${options.apply ? "" : " — dry run, no model call, nothing is written"}`);
-  console.log(`Skills: job skillWrite (${model}, flex)${options.force ? ", every tool again (--force)" : ""}`);
-  if (!options.apply && model !== "openai/gpt-6-luna") {
-    console.log("Note: MODEL_SKILL_WRITE names another model; the estimate below uses Luna's list price.");
-  }
+  console.log(`Skills: job skillWrite (${model})${options.force ? ", every tool again (--force)" : ""}`);
 
   let opened;
   try {

@@ -4,95 +4,102 @@ import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Command as CommandPrimitive } from "cmdk";
-import { LayoutGrid, MessageSquare } from "lucide-react";
+import { CornerDownLeft, LayoutGrid, MessageSquare } from "lucide-react";
 import { Command, CommandGroup, CommandItem, CommandList, CommandShortcut } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { useChatLauncher } from "../ChatLauncherContext";
-import { TOOL_STATUS_KEY } from "../ToolCard";
-import { ToolImage } from "../ToolImage";
-import type { HomeTool } from "./home-tools";
-import {
-  categoryEntries,
-  categoryKeywords,
-  rankByPaletteScore,
-  toolKeywords,
-  type CategoryEntry,
-} from "../palette/palette-search";
+import { categoryKeywords, rankByPaletteScore, type CategoryEntry } from "../palette/palette-search";
 import { SEARCH_INPUT_CLASS, SearchFrame, useSearchLines } from "../search/SearchFrame";
-import { categoryHref } from "../../lib/gallery-links";
 
-/** At most this many tools, then categories, under the box: the rest is one click away on the full list. */
-export const HOME_SEARCH_TOOL_LIMIT = 6;
+/** At most this many categories under the box. */
 export const HOME_SEARCH_CATEGORY_LIMIT = 3;
 
 /** cmdk's value for the "Ask MakerLAB AI" row. */
 export const ASK_VALUE = "ask";
 
+export interface HomeSearchProps {
+  /** The text, which lives in the URL (`?q=`): the list below shows its matches. */
+  value: string;
+  onChange: (value: string) => void;
+  /** The categories, for the rows that match the text. */
+  categories: readonly CategoryEntry[];
+  /** The first tool the list shows for the text: what Enter opens. */
+  firstResult: { name: string; slug: string } | null;
+  /** A category row was chosen: the list filtered to it. */
+  onCategory: (name: string) => void;
+  /** For the placeholder's "Search 77 tools". */
+  toolCount: number;
+}
+
 /**
- * The home page's smart search (student home spec 2026-10-07 §6): one box
- * for finding a machine and for asking MakerLAB AI.
+ * The home page's search (student home spec 2026-10-07 §6, amendment "One
+ * page: the list at rest"): one box for finding a machine and for asking
+ * MakerLAB AI.
  *
- * Typing lists matching **tools** first, then **categories** (each opens the
- * full list filtered to it), then, last, **Ask MakerLAB AI: “…”**, which opens
- * the chat with the text as the first message. Matching is the ⌘K palette's
- * (`palette-search.ts`, `paletteScore`): every word must appear, no fuzzy
- * guesses. It is the palette's search drawn inline, not a second one.
+ * **The matching tools are the page.** What is typed goes to the URL, and the
+ * list under the box swaps its groups for the matching tools, ranked by the
+ * ⌘K palette's matcher, as you type; emptying the box brings the groups back.
+ * So the list under the box keeps only what the page cannot show: the
+ * **categories** the text matches (each filters the list to itself) and,
+ * last, **Ask MakerLAB AI: “…”**, which opens the chat with the text as the
+ * first message.
  *
- * **Enter opens the first match, and never asks by accident.** The first
- * tool or category is selected as you type; the Ask row is selected only by
- * moving to it (arrow keys or the pointer). When nothing matches, nothing is
- * selected and Enter does nothing, so a question reaches the model only when
- * somebody chose to send it.
+ * **Enter opens the first result, and never asks by accident.** Nothing in
+ * the list is selected until somebody moves to it (arrow keys or the
+ * pointer). Enter with nothing selected opens the first tool the page shows,
+ * else the first matching category, else does nothing — so a question reaches
+ * the model only when somebody chose the Ask row.
  */
-export function HomeSearch({ tools, toolCount }: { tools: readonly HomeTool[]; toolCount: number }) {
+export function HomeSearch({ value, onChange, categories, firstResult, onCategory, toolCount }: HomeSearchProps) {
   const t = useTranslations("gallery.search");
-  const tStatus = useTranslations("gallery.status");
   const router = useRouter();
   const { open: openChat } = useChatLauncher();
   const lines = useSearchLines(toolCount);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
   const [listOpen, setListOpen] = useState(false);
-  // The row somebody moved to, for the query they moved on. A new query
-  // starts again from its first match.
+  // The row somebody moved to, for the text they moved on. New text starts
+  // again with nothing selected.
   const [moved, setMoved] = useState<{ query: string; value: string } | null>(null);
   // Only a person moves the selection: arrow keys, Home/End or the pointer.
-  // cmdk also selects rows on its own as they mount, which must never land on Ask.
+  // cmdk also selects rows on its own as they mount, which must never stick.
   const choosing = useRef(false);
   // cmdk selects a row by itself when the text changes (its first row) and
-  // keeps that choice internally. When that row is Ask and nobody chose it,
-  // the value handed back changes ("nothing" with a new number), which makes
-  // cmdk drop its own choice and show none.
+  // keeps that choice internally. When nobody chose it, the value handed back
+  // changes ("nothing" with a new number), which makes cmdk drop its own
+  // choice and show none.
   const [resync, setResync] = useState(0);
 
-  const trimmed = query.trim();
-  const categories = useMemo(() => categoryEntries(tools), [tools]);
-  const toolMatches = useMemo(() => rankByPaletteScore(tools, trimmed, toolKeywords, HOME_SEARCH_TOOL_LIMIT), [tools, trimmed]);
+  const trimmed = value.trim();
   const categoryMatches = useMemo(
     () => rankByPaletteScore(categories, trimmed, categoryKeywords, HOME_SEARCH_CATEGORY_LIMIT),
     [categories, trimmed]
   );
-
-  const firstMatch = toolMatches[0] ? toolValue(toolMatches[0]) : categoryMatches[0] ? categoryValue(categoryMatches[0]) : "";
-  const selected = moved && moved.query === trimmed ? moved.value : firstMatch;
+  const selected = moved && moved.query === trimmed ? moved.value : "";
   const showList = listOpen && trimmed !== "";
 
-  function reset() {
-    setQuery("");
+  function close() {
     setMoved(null);
     setListOpen(false);
   }
 
-  function go(href: string) {
-    reset();
-    router.push(href);
+  function openTool(slug: string) {
+    // The text stays in the URL: Back returns to these results.
+    close();
+    router.push(`/tools/${slug}`);
+  }
+
+  function chooseCategory(name: string) {
+    close();
+    onCategory(name);
   }
 
   function ask() {
     if (!trimmed) return;
     const question = trimmed;
-    reset();
+    close();
+    onChange("");
     openChat(question);
   }
 
@@ -102,16 +109,23 @@ export function HomeSearch({ tools, toolCount }: { tools: readonly HomeTool[]; t
     }
     if (event.key === "Escape") {
       if (showList) setListOpen(false);
-      else if (query) setQuery("");
+      else if (value) onChange("");
       return;
     }
-    if (event.key === "Enter" && !selected) {
-      // Nothing matches and nothing was chosen: stay put (cmdk would do nothing either).
+    // An input method's Enter confirms the composed text (Japanese, Chinese, Korean): never a choice.
+    if (event.key === "Enter" && (event.nativeEvent.isComposing || event.keyCode === 229)) return;
+    if (event.key === "Enter" && !(showList && selected)) {
+      // Nothing chosen in the list: the first result, else the first category, else nothing.
       event.preventDefault();
+      if (!trimmed) return;
+      if (firstResult) openTool(firstResult.slug);
+      else if (categoryMatches[0]) chooseCategory(categoryMatches[0].name);
       return;
     }
     if (!showList && (event.key === "ArrowDown" || event.key === "ArrowUp") && trimmed) setListOpen(true);
   }
+
+  const enterTarget = firstResult?.name ?? categoryMatches[0]?.name ?? null;
 
   return (
     <div role="search" aria-label={t("landmark")} className="w-full" data-slot="home-search">
@@ -120,19 +134,32 @@ export function HomeSearch({ tools, toolCount }: { tools: readonly HomeTool[]; t
         shouldFilter={false}
         loop
         value={selected || `${NOTHING_SELECTED}${resync}`}
-        onValueChange={(value) => {
-          if (choosing.current) setMoved({ query: trimmed, value });
-          else if (value !== selected) setResync((count) => count + 1);
+        onValueChange={(next) => {
+          if (choosing.current) setMoved({ query: trimmed, value: next });
+          else if (next !== selected) setResync((count) => count + 1);
         }}
         onKeyDown={onKeyDown}
         className="relative overflow-visible bg-transparent"
       >
-        <SearchFrame lines={lines} empty={query === ""} focused={focused}>
+        <SearchFrame
+          lines={lines}
+          empty={value === ""}
+          focused={focused}
+          clear={{
+            label: t("clear"),
+            onClear: () => {
+              close();
+              onChange("");
+              inputRef.current?.focus();
+            },
+          }}
+        >
           <CommandPrimitive.Input
-            value={query}
-            onValueChange={(value) => {
+            ref={inputRef}
+            value={value}
+            onValueChange={(next) => {
               choosing.current = false;
-              setQuery(value);
+              onChange(next);
               setListOpen(true);
             }}
             onFocus={() => {
@@ -145,7 +172,7 @@ export function HomeSearch({ tools, toolCount }: { tools: readonly HomeTool[]; t
             }}
             aria-describedby={undefined}
             data-slot="home-search-input"
-            className={SEARCH_INPUT_CLASS}
+            className={cn(SEARCH_INPUT_CLASS, "pe-14")}
           />
         </SearchFrame>
 
@@ -158,40 +185,30 @@ export function HomeSearch({ tools, toolCount }: { tools: readonly HomeTool[]; t
             choosing.current = true;
           }}
           className={cn(
-            "absolute inset-x-0 top-full z-30 mt-1 max-h-[min(70vh,520px)] border border-border bg-popover p-1 text-start shadow-lg",
+            "absolute inset-x-0 top-full z-30 mt-1 max-h-[min(60vh,420px)] border border-border bg-popover p-1 text-start shadow-lg",
             !showList && "hidden"
           )}
         >
-          {toolMatches.length > 0 ? (
-            <CommandGroup heading={t("tools")}>
-              {toolMatches.map((tool) => (
-                <CommandItem key={tool.id} value={toolValue(tool)} onSelect={() => go(`/tools/${tool.slug}`)} className="gap-3 py-2">
-                  <ToolImage
-                    src={tool.imageSrc}
-                    thumbnails={tool.thumbnails}
-                    name={tool.name}
-                    sizes="40px"
-                    className="size-10 shrink-0 bg-muted p-1"
-                  />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm text-foreground">{tool.name}</span>
-                    {tool.officialName && tool.officialName !== tool.name ? (
-                      <span className="truncate text-xs text-muted-foreground">{tool.officialName}</span>
-                    ) : null}
-                  </span>
-                  <CommandShortcut className="hidden sm:inline">{tStatus(TOOL_STATUS_KEY[tool.status])}</CommandShortcut>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ) : null}
+          {enterTarget ? (
+            <p className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground" data-slot="home-search-enter">
+              <kbd aria-hidden="true" className="inline-flex items-center border border-border px-1 py-0.5 font-mono text-micro">
+                <CornerDownLeft className="size-3" />
+              </kbd>
+              <span className="truncate">{t("enterOpens", { name: enterTarget })}</span>
+            </p>
+          ) : (
+            <p className="px-3 py-2 text-sm text-muted-foreground" data-slot="home-search-none">
+              {t("noMatch", { query: trimmed })}
+            </p>
+          )}
 
           {categoryMatches.length > 0 ? (
-            <CommandGroup heading={t("categories")}>
+            <CommandGroup heading={t("categories")} className="border-t border-border">
               {categoryMatches.map((category) => (
                 <CommandItem
                   key={category.name}
                   value={categoryValue(category)}
-                  onSelect={() => go(categoryHref(category.name))}
+                  onSelect={() => chooseCategory(category.name)}
                   className="gap-3 py-2"
                 >
                   <LayoutGrid aria-hidden="true" className="ms-3 me-3" />
@@ -200,12 +217,6 @@ export function HomeSearch({ tools, toolCount }: { tools: readonly HomeTool[]; t
                 </CommandItem>
               ))}
             </CommandGroup>
-          ) : null}
-
-          {toolMatches.length === 0 && categoryMatches.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-muted-foreground" data-slot="home-search-none">
-              {t("noMatch", { query: trimmed })}
-            </p>
           ) : null}
 
           <CommandGroup heading={t("assistant")} className="border-t border-border">
@@ -229,10 +240,6 @@ export function HomeSearch({ tools, toolCount }: { tools: readonly HomeTool[]; t
 const NOTHING_SELECTED = "none:";
 
 const NAVIGATION_KEYS = new Set(["ArrowDown", "ArrowUp", "Home", "End"]);
-
-function toolValue(tool: HomeTool): string {
-  return `tool:${tool.id}`;
-}
 
 function categoryValue(category: CategoryEntry): string {
   return `category:${category.name}`;

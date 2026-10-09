@@ -1610,6 +1610,21 @@ the home page's smart search (`palette/palette-search.ts`), lists "All tools"
 as a page, links categories to `/tools?category=…`, and hides its header field
 on `/` and `/tools`, where the page has its own box.
 
+### 2026-10-07 — The gallery is the home page again
+
+Later the same day the student home spec's amendment "One page: the list at
+rest" ([2026-10-07](2026-10-07-student-home-design.md)) folds `/tools` back
+into `/`: the gallery described here is the home page, under "MakerLAB AI" and
+the search box: the category tiles by default, or all tools (`?show=all`)
+**grouped by category in the lab's order** (`group: null`; `?group=none` is
+one list). The FilterBar is not on the home page: its facets, Group by, Sort
+and Grid / Table are in a Filters panel (`home/FiltersPanel`) closed until
+the Filters button opens it. Typing shows the matching tools in place of the
+view, ranked by the palette's `paletteScore` (`rankToolsInPlace`) instead of
+match-sorter. `/tools` redirects to `/` with its query; the palette drops
+"All tools" and hides its header field on `/` only. `ListSearch` and the
+facts line are gone.
+
 ### 2026-10-07 — Admin sections (supersedes the admin IA of §8.1 and phase 4)
 
 The admin's bar of jobs and thirteen surfaces (§8.1, phase 4 as built, the admin

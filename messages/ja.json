@@ -33,9 +33,6 @@
     "toolsInInventory": "在庫ツール {count} 件"
   },
   "gallery": {
-    "title": "ツール",
-    "allTitle": "すべてのツール",
-    "searchAria": "在庫を検索",
     "category": "カテゴリ：",
     "training": "トレーニング：",
     "materials": "素材：",
@@ -54,21 +51,20 @@
     "trainingAdvanced": "上級",
     "home": {
       "searchSection": "ラボを検索",
-      "seeAll": "すべてのツールを見る（{count}件）",
       "toolCount": "{count}件のツール",
-      "unitsDown": "{count}台が使用停止中",
-      "empty": "カタログにはまだツールがありません。"
+      "unitsDown": "{count}台が使用停止中"
     },
     "search": {
       "landmark": "ツールを検索して MakerLAB AI に質問",
       "label": "ツールを検索、または MakerLAB AI に質問",
-      "tools": "ツール",
       "categories": "カテゴリ",
       "categoryCount": "{count}件のツール",
       "assistant": "MakerLAB AI",
       "ask": "MakerLAB AI に質問：「{query}」",
       "askNote": "質問を入れてチャットを開きます。MakerLAB AI は間違えることがあります。",
+      "clear": "検索をクリア",
       "noMatch": "「{query}」に一致するツールやカテゴリはありません。",
+      "enterOpens": "Enter で「{name}」を開きます",
       "lines": {
         "search": "{count}件のツールを検索",
         "build": "何をつくりますか？",
@@ -77,7 +73,15 @@
         "x1Start": "X1-Carbon で3Dプリントを始める方法を聞く",
         "trotecAcrylic": "Trotec のレーザーでアクリルは切れますか？"
       }
-    }
+    },
+    "results": {
+      "heading": "「{query}」の検索結果"
+    },
+    "browse": {
+      "label": "表示",
+      "all": "すべてのツール"
+    },
+    "backToCategories": "すべてのカテゴリ"
   },
   "detail": {
     "breadcrumbTools": "ツール",
@@ -363,9 +367,6 @@
     "home": "{site}に戻る"
   },
   "palette": {
-    "page": {
-      "allTools": "すべてのツール"
-    },
     "assistant": "MakerLAB AI",
     "ask": "MakerLAB AI に質問：「{query}」",
     "askEmpty": "MakerLAB AI に質問"

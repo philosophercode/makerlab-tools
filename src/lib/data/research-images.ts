@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { attachments } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { claimAttachments, createAttachment } from "./attachments.ts";
@@ -31,8 +31,13 @@ const PENDING = "pending_tool" as const;
  * Let go of every cleaned copy the item holds, and report how many. The rows
  * lose their owner and the nightly orphan sweep deletes their bytes — so a
  * retried or repeated research never leaves a second copy on the item.
+ *
+ * `keep` names a copy that is not research's to let go: the cleaned copy of
+ * the photo looked up when the item was identified from its name (amendment
+ * "A photo for a name"), shown "Found online" until approval, which releases
+ * it with every other copy nobody chose.
  */
-export async function releaseCleanedImages(db: Db, pendingId: string): Promise<number> {
+export async function releaseCleanedImages(db: Db, pendingId: string, keep: string | null = null): Promise<number> {
   if (!isUuid(pendingId)) return 0;
   const rows = await db
     .update(attachments)
@@ -41,7 +46,8 @@ export async function releaseCleanedImages(db: Db, pendingId: string): Promise<n
       and(
         eq(attachments.ownerType, PENDING),
         eq(attachments.ownerId, pendingId),
-        eq(attachments.origin, "research_image_cleaned")
+        eq(attachments.origin, "research_image_cleaned"),
+        keep && isUuid(keep) ? ne(attachments.id, keep) : undefined
       )
     )
     .returning({ id: attachments.id });

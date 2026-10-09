@@ -115,10 +115,11 @@ export async function completeWithoutImages(
   focus: ResearchFocusField[] | null = null
 ): Promise<ItemStepResult> {
   "use step";
-  if (!(await stillResearching(id, requestId))) return { outcome: "skipped" };
+  const item = await stillResearching(id, requestId);
+  if (!item) return { outcome: "skipped" };
   const db = await getDb();
-  await releaseCleanedImages(db, id);
-  return write(db, id, requestId, { ...result, images: null, imageError: imageErrorText(reason) }, focus);
+  await releaseCleanedImages(db, id, foundCopy(item));
+  return write(db, id, requestId, { ...result, images: null, imageError: imageErrorText(reason) }, focus, foundCopy(item));
 }
 completeWithoutImages.maxRetries = RESEARCH_STEP_MAX_RETRIES;
 
@@ -133,11 +134,11 @@ async function findImagesFor(
   if (!item) return { outcome: "skipped" };
 
   const db = await getDb();
-  await releaseCleanedImages(db, id);
+  await releaseCleanedImages(db, id, foundCopy(item));
 
   const outcome = await runStage(db, id, { name: result.canonicalName.trim() || item.name, brand: item.brand }, hints);
 
-  return write(db, id, requestId, { ...result, images: outcome.images, imageError: outcome.imageError }, focus);
+  return write(db, id, requestId, { ...result, images: outcome.images, imageError: outcome.imageError }, focus, foundCopy(item));
 }
 
 async function runStage(
@@ -164,14 +165,23 @@ async function write(
   id: string,
   requestId: string,
   next: ResearchResult,
-  focus: ResearchFocusField[] | null = null
+  focus: ResearchFocusField[] | null = null,
+  keep: string | null = null
 ): Promise<ItemStepResult> {
   const stored = await completeResearch(id, next, focus ? { requestId, focus } : { requestId });
   if (!stored) {
-    await releaseCleanedImages(db, id);
+    await releaseCleanedImages(db, id, keep);
     return { outcome: "skipped" };
   }
   return { outcome: "researched", confidence: next.confidence.level };
+}
+
+/**
+ * The cleaned copy of the photo looked up at identification (amendment "A
+ * photo for a name"): not research's to release — approval does that.
+ */
+function foundCopy(item: PendingTool): string | null {
+  return item.foundPhoto?.cleaned?.attachmentId ?? null;
 }
 
 /** The row, while it is still `researching` under this run's request id. */

@@ -10,6 +10,7 @@ import { discardPendingTool, listPendingTools, updatePendingTool, type PendingTo
 import { researchLimitFor } from "../data/research-allowances";
 import { isUuid } from "../data/uuid";
 import { canActOnImport, IMPORT_PERMISSION } from "../import/access";
+import { isPlaceholderItemName } from "../intake/item-name";
 import { suggestLedgerRows } from "../import/allowance";
 import { IMPORT_FIELDS } from "../import/columns";
 import { IMPORT_MAX_ITEMS, IMPORT_MAX_QUANTITY, SUGGEST_MAX_ITEMS } from "../import/limits";
@@ -178,6 +179,8 @@ export const IMPORTS_EDIT_ROW = defineAction<
       if (args.quantity !== undefined) patch.quantity = args.quantity;
       if (args.duplicate_resolution !== undefined) patch.duplicateResolution = args.duplicate_resolution;
       if (Object.keys(patch).length === 0) return { ok: false, error: "nothing_to_change" };
+      // A placeholder is refused before any card is drawn (amendment "No empty items").
+      if (patch.name !== undefined && isPlaceholderItemName(patch.name)) return { ok: false, error: "placeholder_name" };
       return { ok: true, inputs: [{ importId: args.import_id, id: args.row_id, patch }] };
     }
   ),

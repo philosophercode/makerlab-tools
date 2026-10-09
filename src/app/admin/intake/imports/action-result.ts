@@ -14,6 +14,7 @@ export type ImportActionError =
   | AdminGateError
   | ColumnMapProblem
   | "invalid_field"
+  | "placeholder_name"
   | "not_found"
   | "not_editable"
   | "too_many_items"

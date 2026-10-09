@@ -40,9 +40,6 @@
     "toolsInInventory": "{count} TOOLS IN INVENTORY"
   },
   "gallery": {
-    "title": "Tools",
-    "allTitle": "All tools",
-    "searchAria": "Search inventory",
     "filterLabel": "Filter the tools",
     "category": "Category",
     "materials": "Material",
@@ -55,10 +52,6 @@
     "emptyFiltered": "No tools match {filters}.",
     "clearFilters": "Clear filters",
     "loading": "Loading the inventory…",
-    "facts": {
-      "tools": "{count, plural, one {# tool} other {# tools}}",
-      "available": "{count} available now"
-    },
     "sort": {
       "label": "Sort",
       "name": "Name A–Z",
@@ -72,8 +65,8 @@
     "group": {
       "label": "Group by",
       "none": "None",
-      "category": "Category",
-      "categoryGroup": "Category group",
+      "category": "Subcategory",
+      "categoryGroup": "Category",
       "location": "Location"
     },
     "sectionCount": "{count, plural, one {# tool} other {# tools}}",
@@ -103,23 +96,25 @@
       "consumable": "Consumable",
       "fixture": "Fixture"
     },
+    "results": {
+      "heading": "Results for “{query}”"
+    },
     "home": {
       "searchSection": "Search the lab",
-      "seeAll": "{count, plural, one {See the # tool} other {See all # tools}}",
       "toolCount": "{count, plural, one {# tool} other {# tools}}",
-      "unitsDown": "{count, plural, one {# unit out of service} other {# units out of service}}",
-      "empty": "No tools in the catalog yet."
+      "unitsDown": "{count, plural, one {# unit out of service} other {# units out of service}}"
     },
     "search": {
       "landmark": "Search tools and ask MakerLAB AI",
       "label": "Search tools, or ask MakerLAB AI a question",
-      "tools": "Tools",
       "categories": "Categories",
       "categoryCount": "{count, plural, one {# tool} other {# tools}}",
       "assistant": "MakerLAB AI",
       "ask": "Ask MakerLAB AI: “{query}”",
       "askNote": "Opens the chat with your question. MakerLAB AI can make mistakes.",
+      "clear": "Clear the search",
       "noMatch": "No tool or category matches “{query}”.",
+      "enterOpens": "Enter opens {name}",
       "lines": {
         "search": "{count, plural, one {Search # tool} other {Search # tools}}",
         "build": "What will you build?",
@@ -128,7 +123,12 @@
         "x1Start": "Ask how to start a 3D print on the X1-Carbon",
         "trotecAcrylic": "Can the Trotec laser cut acrylic?"
       }
-    }
+    },
+    "browse": {
+      "label": "Browse",
+      "all": "All tools"
+    },
+    "backToCategories": "All categories"
   },
   "detail": {
     "breadcrumbTools": "Tools",
@@ -273,7 +273,8 @@
     "createBody": "I have an idea. How could I make it with the machines here?",
     "assistantLimits": "It answers from the catalog and each tool's manuals, says so when it doesn't know, and sends you to MakerLAB staff for safety questions, access and training sign-offs.",
     "whyBody": "It was built so that anyone can find the right machine and learn how to use it safely before they walk over, in their own language.",
-    "creditsBody": "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run.",
+    "thanksBody": "Thanks to Miguel Ramirez Peraza, who interned with the MakerLAB in 2025 and 2026, for building the first inventory search that sparked the idea.",
+    "creditsBody": "Built by Isaac Steinberg (Software Engineer and Architect, Johnson Cornell Tech MBA '26) with Claude-assisted development for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run.",
     "feedbackBody": "If you spot a mistake, use \"Report a correction\" on the tool's page — corrections go to the staff queue and are fixed in the app. For a broken machine, use Report a problem on its page, or at the foot of any page.",
     "browseTools": "Browse tools",
     "mcpHeading": "Connect an AI assistant",
@@ -497,6 +498,11 @@
       "photoNotShown": "Photo not shown: {filename}",
       "photoNotShownUnnamed": "Photo not shown",
       "morePhotos": "+{count}",
+      "foundPhotoSearching": "Finding a photo…",
+      "foundPhotoTag": "Found online",
+      "foundPhotoAlt": "{name} — photo found online, not confirmed",
+      "foundPhotoTitle": "Found online at {host} — not confirmed until the item is approved",
+      "foundPhotoTitleNoHost": "Found online — not confirmed until the item is approved",
       "edit": "Edit",
       "editAria": "Edit {name}",
       "save": "Save",
@@ -532,6 +538,7 @@
         "not_found": "One of these items no longer exists — it may have been removed.",
         "not_editable": "This item has moved on — it may be researching, approved or discarded.",
         "invalid_field": "That can’t be saved. Check the name isn’t empty and try again.",
+        "placeholder_name": "That name doesn’t say what the item is — give its make and model, or a short description such as “Cordless drill”.",
         "rate_limited": "Too many changes at once. Wait a moment and try again.",
         "too_many_items": "Select at most {max} items for one research run.",
         "daily_limit": "That would pass today’s research limit. You can research {remaining} more today.",
@@ -1016,6 +1023,7 @@
       "conflict": "Somebody else changed this while you had it open, so nothing was saved. Your edits are still here — reload to see their version first.",
       "not_found": "That no longer exists. Somebody may have removed it while this was open.",
       "invalid_field": "One of these values is not one this field accepts. Check it and try again.",
+      "placeholder_name": "That name doesn’t say what the item is — give its make and model, or a short description such as “Cordless drill”.",
       "duplicate_serial": "This tool already has a unit with that serial number.",
       "duplicate_name": "Another tool already has that display name. Add what tells them apart — the capacity, size, power or generation, e.g. “Ryobi ONE+ 4Ah Battery”.",
       "unit_has_history": "This unit has maintenance history, so it cannot be deleted. Retire it instead.",
@@ -1340,6 +1348,7 @@
         "not_found": "That item no longer exists. Somebody may have discarded it.",
         "not_editable": "This item has moved on — it may already be researching, approved or discarded. Reload to see where it is.",
         "invalid_field": "One of this item's values is not accepted. Check the name and try again.",
+        "placeholder_name": "That name doesn’t say what the item is — give its make and model, or a short description such as “Cordless drill”.",
         "rate_limited": "Too many research requests at once. Wait a minute and try again.",
         "too_many_items": "That is more items than one request may research. Send 25 or fewer.",
         "daily_limit": "You have reached today's research limit. It frees up over the next 24 hours.",
@@ -1895,6 +1904,7 @@
         "not_found": "Not found — it may have been removed.",
         "not_editable": "That can no longer be changed.",
         "invalid_field": "That value was not accepted.",
+        "placeholder_name": "That name doesn’t say what the item is — give its make and model, or a short description such as “Cordless drill”.",
         "daily_limit": "That would pass today's research allowance ({remaining} left).",
         "start_failed": "It could not start. Try again.",
         "not_signed_in": "Sign in to continue.",
@@ -3076,7 +3086,6 @@
     "pages": "Pages",
     "page": {
       "tools": "Tools",
-      "allTools": "All tools",
       "projects": "Projects",
       "about": "About",
       "mcp": "Connect an AI assistant (MCP)"
@@ -3638,7 +3647,7 @@
       "safety": "For safety, access and training sign-offs it sends you to MakerLAB staff. It isn't a substitute for a checkout."
     },
     "creditsHeading": "Who made it",
-    "credits": "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) for the MakerLAB, run by Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director).",
+    "credits": "Built by Isaac Steinberg (Software Engineer and Architect, Johnson Cornell Tech MBA '26) with Claude-assisted development for the MakerLAB, run by Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director).",
     "aboutLink": "About the MakerLAB",
     "closingHeading": "Try it on a real machine",
     "closingLede": "Open the X1-Carbon's page and ask the assistant anything about it.",

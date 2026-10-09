@@ -7,6 +7,7 @@ import { pendingTools, toolRefreshes, tools } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { labNoteLines } from "../lab-notes/lines.ts";
 import { readLabNotesSetting } from "../lab-notes/setting.ts";
+import { looksEnglish } from "../manuals/language.ts";
 import { searchManuals, type ManualPassage } from "../manuals/search.ts";
 import { parseResearchResult, type ResearchResult } from "../research/result.ts";
 import type { SkillSource } from "./format.ts";
@@ -278,6 +279,8 @@ async function loadPassages(db: Db, toolId: string, search: Search): Promise<Ski
     }
     for (const passage of passages) {
       if (passage.toolId && passage.toolId !== toolId) continue;
+      // A multilingual manual's other sections: the skill cites the English pages.
+      if (!looksEnglish(passage.content)) continue;
       const seen = used.get(passage.documentId) ?? new Set<number>();
       if (passage.ordinals.some((ordinal) => seen.has(ordinal))) continue;
       const content = passage.content.trim().slice(0, PASSAGE_MAX_CHARS);

@@ -151,12 +151,4 @@ Every feature starts with a spec that merges **before** the implementation
 ## License
 
 This repository has no license file, so no open-source license applies and default
-copyright holds. Ask the owners below before reusing any part of it.
-
-## Who owns it
-
-The **Cornell Tech MakerLAB**:
-
-- **Niti Parikh** — Director
-- **Luis Rodrigo Navarro** — Assistant Director
-- **Isaac Steinberg** — Tech Lead
+copyright holds. Ask the owners before reusing any part of it.
