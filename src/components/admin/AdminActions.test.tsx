@@ -1,11 +1,11 @@
 import { AdminActions } from "./AdminActions";
 import { useChatLauncher } from "../ChatLauncherContext";
-import { render, screen, userEvent } from "../../../test/utils/render";
+import { render, screen, userEvent, within } from "../../../test/utils/render";
 
 /**
- * The `/admin` action row: Add equipment (`tools.add`) and Refresh catalog
- * (`tools.edit`), moved from the header on 2026-09-23. RefreshCatalogButton's
- * own behaviour is in RefreshCatalogButton.test.tsx.
+ * The overview's **Quick actions** (admin sections spec 2026-10-07): Print QR
+ * labels first, Log finished work, Add equipment and All tools, each for the
+ * role its page allows. Refresh catalog moved to Settings › General.
  */
 
 function ChatProbe() {
@@ -17,15 +17,19 @@ function ChatProbe() {
   );
 }
 
-// en.json: nav.addEquipment = "ADD EQUIPMENT", catalogRefresh.action = "Refresh catalog",
-// admin.actionsLabel = "Admin actions".
+// en.json: nav.addEquipment = "ADD EQUIPMENT", admin.actionsLabel = "Admin actions".
 describe("AdminActions", () => {
-  it.each(["admin", "super_admin"] as const)("offers %s both actions", (role) => {
+  it.each(["admin", "super_admin"] as const)("offers %s every quick action, Print QR labels first", (role) => {
     render(<AdminActions role={role} />);
 
     const row = screen.getByRole("group", { name: "Admin actions" });
-    expect(row).toContainElement(screen.getByRole("button", { name: "ADD EQUIPMENT" }));
-    expect(row).toContainElement(screen.getByRole("button", { name: "Refresh catalog" }));
+    const links = within(row).getAllByRole("link");
+    expect(links[0]).toHaveAttribute("href", "/admin/inventory/qr");
+    expect(links[0]).toHaveTextContent("Print QR labels");
+    expect(within(row).getByRole("link", { name: "Log finished work" })).toHaveAttribute("href", "/admin/maintenance#log-completed");
+    expect(within(row).getByRole("link", { name: "All tools" })).toHaveAttribute("href", "/admin/inventory");
+    expect(within(row).getByRole("button", { name: "ADD EQUIPMENT" })).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Refresh catalog" })).not.toBeInTheDocument();
   });
 
   it.each(["user", "anonymous"] as const)("renders nothing for %s", (role) => {
@@ -44,20 +48,6 @@ describe("AdminActions", () => {
 
     await user.click(screen.getByRole("button", { name: "ADD EQUIPMENT" }));
 
-    expect(screen.getByTestId("chat-probe")).toHaveTextContent(
-      "open|I'd like to add new equipment to the inventory."
-    );
-  });
-
-  it("shows the refresh confirmation in the row", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as unknown as Response);
-    render(<AdminActions role="admin" />);
-
-    await user.click(screen.getByRole("button", { name: "Refresh catalog" }));
-
-    expect(
-      screen.getByRole("group", { name: "Admin actions" })
-    ).toContainElement(await screen.findByText("Catalog refreshed"));
+    expect(screen.getByTestId("chat-probe")).toHaveTextContent("open|I'd like to add new equipment to the inventory.");
   });
 });

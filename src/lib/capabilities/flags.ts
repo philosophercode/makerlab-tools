@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
 import { createFeedback, type NewFeedback } from "../data/feedback";
+import { describeDbError } from "../db/describe-error";
 import type { FlaggedField } from "../types";
 import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
 
@@ -225,7 +226,7 @@ export async function submitCorrection(
     const { id } = await createFeedback(buildFeedbackRow(report, tool, identity));
     return { ok: true, id };
   } catch (err) {
-    console.error("Flag submission failed", err);
+    console.error("Flag submission failed", describeDbError(err));
     return { ok: false, code: "write_failed" };
   }
 }

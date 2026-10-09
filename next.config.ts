@@ -5,6 +5,8 @@ import {
   DEV_SIGN_IN_BUILD_MESSAGE,
   devSignInBuildVerdict,
 } from "./src/lib/auth/dev-sign-in-build-check";
+import { blobImagePatterns } from "./src/lib/images/remote-patterns";
+import { ALL_TOOLS_PATH, FORMER_LIST_PATH } from "./src/lib/gallery-links";
 
 // Development-only sign-in (auth spec amendment 2026-09-24) must never be
 // configured on a deployment. The route refuses outside `next dev` regardless;
@@ -13,6 +15,14 @@ const devSignInVerdict = devSignInBuildVerdict(process.env);
 if (devSignInVerdict === "fail") throw new Error(DEV_SIGN_IN_BUILD_MESSAGE);
 if (devSignInVerdict === "warn") {
   console.warn(`[dev-sign-in] ${DEV_SIGN_IN_BUILD_MESSAGE} (Inert in this production build.)`);
+}
+
+// A deployment build with no Blob store id has no remote image host at all, so
+// every Blob photo would fail to optimize. Say so in the build log.
+if (process.env.VERCEL && blobImagePatterns(process.env).length === 0) {
+  console.warn(
+    "[images] No Blob store id at build time (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN): next/image will refuse Blob photos."
+  );
 }
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -90,37 +100,17 @@ const nextConfig: NextConfig = {
         // Photos for the demo seed's sample project (src/lib/db/demo-seed.ts).
         pathname: "/sample-projects/**",
       },
-      {
-        pathname: "/makerlab-logo-transparent.png",
-      },
-      {
-        pathname: "/makerlab-logo-blackonly.png",
-      },
+      // The lab's logos are not drawn with next/image: the official logo is
+      // an SVG mask (`BrandLogo`) and the header's wordmark a PNG mask.
     ],
+    // The lab's own public Blob store only (src/lib/images/remote-patterns.ts):
+    // the optimizer is unauthenticated and billed per source, so a wildcard
+    // over every Vercel Blob store or S3 bucket let anyone use it as a free
+    // image proxy. The Notion, S3, Unsplash and Airtable hosts went with it:
+    // the import copies bytes to Blob, and Notion's and Airtable's file URLs
+    // are signed and expire.
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.public.blob.vercel-storage.com",
-      },
-      {
-        protocol: "https",
-        hostname: "prod-files-secure.s3.us-west-2.amazonaws.com",
-      },
-      {
-        protocol: "https",
-        hostname: "s3.us-west-2.amazonaws.com",
-      },
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-      },
-      {
-        protocol: "https",
-        hostname: "v5.airtableusercontent.com",
-      },
-      // The Notion/S3/Airtable patterns above can go once every image has been
-      // re-imported to Vercel Blob; until then, rows imported before the switch
-      // may still reference them.
+      ...blobImagePatterns(process.env),
       ...devBlobPatterns,
     ],
     // The local Blob store's files are served by this same dev server, and the
@@ -143,6 +133,30 @@ const nextConfig: NextConfig = {
         source: "/tool-images/thumbs/:file*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
+    ];
+  },
+  async redirects() {
+    return [
+      // The tool list is the home page again (student home spec 2026-10-07,
+      // amendment "One page: the list at rest"). `/tools` — and every
+      // `/tools?category=…` link made while the list lived there — lands on
+      // `/`; Next forwards the query string unchanged, so the filter survives.
+      // Tool pages (`/tools/<slug>`) do not match. Temporary (307), like the
+      // move it undoes, so no browser caches it for good.
+      { source: FORMER_LIST_PATH, destination: ALL_TOOLS_PATH, permanent: false },
+      // Admin sections spec 2026-10-07: every admin page kept its address, so no
+      // old link breaks. These are the names the design review and the new
+      // sections use, sent to the page that holds them. Temporary (307), so a
+      // later move of the page itself is not stuck in browsers' caches.
+      // `/admin/people` is a page, not a redirect here: where it goes depends on
+      // who is asking (`app/admin/people/page.tsx`).
+      { source: "/admin/overview", destination: "/admin", permanent: false },
+      { source: "/admin/today", destination: "/admin", permanent: false },
+      { source: "/admin/mcp", destination: "/admin/proposals", permanent: false },
+      { source: "/admin/settings/mcp", destination: "/admin/proposals", permanent: false },
+      { source: "/admin/settings/notion", destination: "/admin/mirror", permanent: false },
+      { source: "/admin/inventory/add", destination: "/admin/intake", permanent: false },
+      { source: "/admin/checklist", destination: "/admin/maintenance/checklist", permanent: false },
     ];
   },
 };

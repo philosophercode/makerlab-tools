@@ -3,59 +3,67 @@ import { surfacesFor } from "../../lib/admin/surfaces";
 import { AdminNav } from "./AdminNav";
 
 /**
- * The admin section bar (UI system spec §8.1): it links only what it is
- * handed (the layout hands it `surfacesFor(identity)`), groups by job with
- * each group a named list, marks the one page you are on — the most specific
- * match — and carries no waiting counts (owner decision 2026-09-25).
+ * The admin section bar (UI system spec §8.1; admin sections spec
+ * 2026-10-07): six sections, each linked to the first surface in it the
+ * viewer may open, only sections the viewer has something in, the section of
+ * the page you are on marked, and no waiting counts (owner decision
+ * 2026-09-25).
  */
 
 const pathname = vi.hoisted(() => ({ value: "/admin" }));
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.value }));
 
-const itemsFor = (role: "admin" | "super_admin") => surfacesFor({ role }).map(({ key, href, group }) => ({ key, href, group }));
+const itemsFor = (role: "admin" | "super_admin") => surfacesFor({ role }).map(({ key, href, section }) => ({ key, href, section }));
 
 beforeEach(() => {
   pathname.value = "/admin";
 });
 
-it("links exactly a SuperMaker's surfaces, grouped by job, and not People", () => {
-  render(<AdminNav items={itemsFor("admin")} />);
-  const nav = screen.getByRole("navigation", { name: "Admin sections" });
-  expect(within(nav).getByRole("link", { name: "Inventory" })).toHaveAttribute("href", "/admin/inventory");
-  expect(within(nav).queryByRole("link", { name: "People" })).not.toBeInTheDocument();
-  const queues = within(nav).getByRole("list", { name: "Queues" });
-  expect(within(queues).getAllByRole("link").map((link) => link.textContent)).toEqual([
-    "Maintenance",
-    "Corrections",
-    "Projects",
-    "Assistant proposals",
-  ]);
-  // People was the settings group's other member; the mirror keeps it alive.
-  expect(within(nav).getByRole("list", { name: "People & settings" })).toBeInTheDocument();
-});
+const linkNames = () =>
+  within(screen.getByRole("navigation", { name: "Admin sections" }))
+    .getAllByRole("link")
+    .map((link) => link.textContent);
 
-it("offers a super admin People", () => {
+it("shows a director the six sections, in order", () => {
   render(<AdminNav items={itemsFor("super_admin")} />);
+  expect(linkNames()).toEqual(["Overview", "Maintenance", "Inventory", "People", "Insights", "Settings"]);
   expect(screen.getByRole("link", { name: "People" })).toHaveAttribute("href", "/admin/users");
+  expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/admin/settings");
 });
 
-it("leaves out a group the viewer has nothing in", () => {
-  render(<AdminNav items={itemsFor("admin").filter((item) => item.group !== "queues")} />);
-  expect(screen.queryByRole("list", { name: "Queues" })).not.toBeInTheDocument();
+it("opens a SuperMaker's People on Student projects, not the roster", () => {
+  render(<AdminNav items={itemsFor("admin")} />);
+  expect(linkNames()).toEqual(["Overview", "Maintenance", "Inventory", "People", "Insights", "Settings"]);
+  expect(screen.getByRole("link", { name: "People" })).toHaveAttribute("href", "/admin/projects");
 });
 
-it("marks Intake on the import page: importing a list is part of Intake, not a surface (2026-09-25)", () => {
-  pathname.value = "/admin/intake/imports/new";
+it("leaves out a section the viewer has nothing in", () => {
+  render(<AdminNav items={itemsFor("admin").filter((item) => item.section !== "people")} />);
+  expect(screen.queryByRole("link", { name: "People" })).not.toBeInTheDocument();
+});
+
+it("marks Inventory on QR labels, an Inventory tab", () => {
+  pathname.value = "/admin/inventory/qr";
   render(<AdminNav items={itemsFor("super_admin")} />);
-  expect(screen.queryByRole("link", { name: "Import a list" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Intake" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "Inventory" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
 });
 
-it("marks the surface on one of its items' pages", () => {
-  pathname.value = "/admin/refresh/abc";
+it("marks Inventory on the import page: importing a list is part of Add equipment", () => {
+  pathname.value = "/admin/intake/imports/new";
   render(<AdminNav items={itemsFor("super_admin")} />);
-  expect(screen.getByRole("link", { name: "Refresh research" })).toHaveAttribute("aria-current", "page");
+  expect(screen.queryByRole("link", { name: "Import a list" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Inventory" })).toHaveAttribute("aria-current", "page");
+});
+
+it("marks Settings on the MCP page and on AI agents", () => {
+  pathname.value = "/admin/proposals";
+  const { unmount } = render(<AdminNav items={itemsFor("super_admin")} />);
+  expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+  unmount();
+  pathname.value = "/admin/settings/ai-agents";
+  render(<AdminNav items={itemsFor("admin")} />);
+  expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
 });
 
 it("marks Overview on the admin home", () => {

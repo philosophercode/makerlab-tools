@@ -10,9 +10,10 @@ import { archiveManuals } from "../../workflows/archive-manuals.ts";
  * True when the run was started. Starting is not archiving: what each
  * resource came to is in the run's result and its log line.
  */
-export async function startManualArchive(resourceIds: readonly string[]): Promise<boolean> {
+export async function startManualArchive(resourceIds: readonly string[], afterResearch: readonly string[] = []): Promise<boolean> {
   try {
-    await start(archiveManuals, [[...resourceIds]]);
+    // The second argument only when there is one, so a run without skills is started exactly as before.
+    await (afterResearch.length > 0 ? start(archiveManuals, [[...resourceIds], [...afterResearch]]) : start(archiveManuals, [[...resourceIds]]));
     return true;
   } catch (error) {
     const name = error instanceof Error ? error.name : "unknown error";

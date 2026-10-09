@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { MaintenanceQueueEntry } from "../../lib/data/maintenance";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../../lib/db/schema/vocabulary";
 import type { UpdateTicketAction } from "../../app/admin/maintenance/action-result";
+import { ticketRef } from "../../lib/maintenance/ticket-ref";
 import { QueueList } from "../system/queue/QueueList";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { ReviewCard } from "../system/review/ReviewCard";
@@ -60,7 +61,8 @@ export function MaintenanceQueue({ tickets, staff, action }: MaintenanceQueuePro
       isOpen={(ticket) => OPEN_STATUSES.has(ticket.status)}
       selectable={{ kind: "maintenance_log", name: (ticket) => ticket.title }}
       searchText={(ticket) =>
-        [ticket.title, ticket.toolName, ticket.unitLabel, ticket.description, ticket.reportedByName, ticket.assignedToName].join(" ")
+        // The short reference a student was given (quick report spec §5) finds its ticket.
+        [`#${ticketRef(ticket.id)}`, ticket.title, ticket.toolName, ticket.unitLabel, ticket.description, ticket.reportedByName, ticket.assignedToName].join(" ")
       }
       facets={[
         {
@@ -108,53 +110,62 @@ function TicketCard({
   const urgent = open && (ticket.priority === "high" || ticket.priority === "critical");
 
   return (
-    <ReviewCard
-      label={ticket.title}
-      headingLevel={3}
-      tone={!open ? "settled" : urgent ? "safety" : "default"}
-      marks={
-        <>
-          <StatusGlyph tone={TICKET_STATUS_TONE[ticket.status] ?? "idle"} label={t(`status.${ticket.status}`)} />
-          {ticket.priority ? (
-            <StatusGlyph tone={PRIORITY_TONE[ticket.priority] ?? "idle"} label={t(`priority.${ticket.priority}`)} />
+    // `#ticket-<id>` is where a "new ticket" email's link lands (email
+    // notifications spec §5.1): the browser scrolls to it and `:target`
+    // outlines it, with no script.
+    <div id={`ticket-${ticket.id}`} className="scroll-mt-24 target:outline-2 target:outline-offset-4 target:outline-primary">
+      <ReviewCard
+        label={ticket.title}
+        headingLevel={3}
+        tone={!open ? "settled" : urgent ? "safety" : "default"}
+        marks={
+          <>
+            <StatusGlyph tone={TICKET_STATUS_TONE[ticket.status] ?? "idle"} label={t(`status.${ticket.status}`)} />
+            {ticket.priority ? (
+              <StatusGlyph tone={PRIORITY_TONE[ticket.priority] ?? "idle"} label={t(`priority.${ticket.priority}`)} />
+            ) : null}
+          </>
+        }
+        meta={
+          <>
+            {/* The machine, and how to get to it: a unit lives on its tool's
+                page, which is also where the editor opens (§5.3(b)). */}
+            {ticket.toolSlug ? (
+              <Link className="text-primary-ink hover:underline" href={`/tools/${ticket.toolSlug}`}>
+                {ticket.toolName}
+              </Link>
+            ) : (
+              <span>{ticket.toolName || t("noTool")}</span>
+            )}
+            {ticket.unitLabel ? <span>{ticket.unitLabel}</span> : null}
+            {ticket.type ? <span>{t(`type.${ticket.type}`)}</span> : null}
+            {/* The short reference the reporter was shown (quick report spec §5). Data, not a string. */}
+            <span className="font-mono tabular-nums" data-slot="ticket-ref">
+              #{ticketRef(ticket.id)}
+            </span>
+            {/* ISO, locale-neutral, identical on the server and the client. */}
+            <span className="tabular-nums">{t("reportedOn", { date: ticket.dateReported || isoDay(ticket.createdAt) })}</span>
+            {ticket.dateResolved ? <span className="tabular-nums">{t("resolvedOn", { date: ticket.dateResolved })}</span> : null}
+          </>
+        }
+      >
+        <p className="m-0 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+          <span>{reporter ? t("reportedBy", { name: reporter }) : t("reportedAnonymously")}</span>
+          {/* The one thing an admin does with a ticket they do not understand is
+              ask the person who filed it (§8 — this page and nowhere else). */}
+          {ticket.reportedByEmail ? (
+            <a className="font-mono text-primary-ink hover:underline" href={`mailto:${ticket.reportedByEmail}`}>
+              {ticket.reportedByEmail}
+            </a>
           ) : null}
-        </>
-      }
-      meta={
-        <>
-          {/* The machine, and how to get to it: a unit lives on its tool's
-              page, which is also where the editor opens (§5.3(b)). */}
-          {ticket.toolSlug ? (
-            <Link className="text-primary-ink hover:underline" href={`/tools/${ticket.toolSlug}`}>
-              {ticket.toolName}
-            </Link>
-          ) : (
-            <span>{ticket.toolName || t("noTool")}</span>
-          )}
-          {ticket.unitLabel ? <span>{ticket.unitLabel}</span> : null}
-          {ticket.type ? <span>{t(`type.${ticket.type}`)}</span> : null}
-          {/* ISO, locale-neutral, identical on the server and the client. */}
-          <span className="tabular-nums">{t("reportedOn", { date: ticket.dateReported || isoDay(ticket.createdAt) })}</span>
-          {ticket.dateResolved ? <span className="tabular-nums">{t("resolvedOn", { date: ticket.dateResolved })}</span> : null}
-        </>
-      }
-    >
-      <p className="m-0 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-        <span>{reporter ? t("reportedBy", { name: reporter }) : t("reportedAnonymously")}</span>
-        {/* The one thing an admin does with a ticket they do not understand is
-            ask the person who filed it (§8 — this page and nowhere else). */}
-        {ticket.reportedByEmail ? (
-          <a className="font-mono text-primary-ink hover:underline" href={`mailto:${ticket.reportedByEmail}`}>
-            {ticket.reportedByEmail}
-          </a>
-        ) : null}
-      </p>
+        </p>
 
-      {/* Somebody typed this into a textarea; their line breaks are part of what they said. */}
-      {ticket.description ? <p className="m-0 max-w-[78ch] text-sm leading-relaxed whitespace-pre-wrap">{ticket.description}</p> : null}
+        {/* Somebody typed this into a textarea; their line breaks are part of what they said. */}
+        {ticket.description ? <p className="m-0 max-w-[78ch] text-sm leading-relaxed whitespace-pre-wrap">{ticket.description}</p> : null}
 
-      <TicketControls ticket={ticket} staff={staff} action={action} />
-    </ReviewCard>
+        <TicketControls ticket={ticket} staff={staff} action={action} />
+      </ReviewCard>
+    </div>
   );
 }
 

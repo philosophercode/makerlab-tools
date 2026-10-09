@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { createPgliteDb } from "../db/pglite";
 import { attachments, maintenanceLogs, tools, units } from "../db/schema/index";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_TYPE } from "../db/schema/vocabulary";
@@ -394,6 +394,38 @@ describe("createMaintenanceLog", () => {
     expect(created.photosAttached).toBe(1);
     const [row] = await db.select().from(attachments).where(eq(attachments.id, photo.id));
     expect(row).toMatchObject({ ownerType: "maintenance_log", ownerId: created.id, position: 0 });
+  });
+
+  it("claims only the reporter's own uploads, and only anonymous uploads for an anonymous report", async () => {
+    await insertUserRow(db, { id: "reporter-1", email: "reporter@cornell.edu" });
+    await insertUserRow(db, { id: "victim-1", email: "victim@cornell.edu" });
+    const photo = async (uploadedBy: string | null) => {
+      const [row] = await db
+        .insert(attachments)
+        .values({ blobPathname: `uploads/${crypto.randomUUID()}.png`, access: "private", contentType: "image/png", uploadedBy })
+        .returning({ id: attachments.id });
+      return row.id;
+    };
+    const mine = await photo("reporter-1");
+    const theirs = await photo("victim-1");
+    const anonymous = await photo(null);
+
+    const signedIn = await createMaintenanceLog(
+      { title: "Signed in", reportedByUserId: "reporter-1", photoAttachmentIds: [theirs, anonymous, mine] },
+      { db }
+    );
+    expect(signedIn.photosAttached).toBe(1);
+
+    const anon = await createMaintenanceLog(
+      { title: "Anonymous", photoAttachmentIds: [theirs, anonymous] },
+      { db }
+    );
+    expect(anon.photosAttached).toBe(1);
+
+    const owners = Object.fromEntries(
+      (await db.select().from(attachments).where(inArray(attachments.id, [mine, theirs, anonymous]))).map((row) => [row.id, row.ownerId])
+    );
+    expect(owners).toEqual({ [mine]: signedIn.id, [theirs]: null, [anonymous]: anon.id });
   });
 
   it("reports zero photos attached when none of the ids matched", async () => {

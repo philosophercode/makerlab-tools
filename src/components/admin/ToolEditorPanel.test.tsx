@@ -112,6 +112,11 @@ describe("opening the panel", () => {
     expect(screen.getByRole("complementary")).toHaveAccessibleName("Editing Form 4");
   });
 
+  it("links to the tool's skill page (tool skills spec 2026-10-07 §6)", async () => {
+    await openPanel(stubActions());
+    expect(screen.getByRole("link", { name: "Open the tool skill" })).toHaveAttribute("href", "/admin/inventory/form-4/skill");
+  });
+
   it("says why it cannot open, rather than showing an empty form", async () => {
     const actions = stubActions({
       load: vi.fn(async () => ({ ok: false as const, error: "not_permitted" as const })),
@@ -146,7 +151,7 @@ describe("opening the panel", () => {
     const actions = stubActions();
     await openPanel(actions);
 
-    await userEvent.type(screen.getByLabelText("Notes"), "Tank replaced");
+    await userEvent.type(screen.getByLabelText("Lab notes"), "Tank replaced");
     await userEvent.click(screen.getByRole("button", { name: "Save details" }));
 
     await waitFor(() => expect(actions.save).toHaveBeenCalled());

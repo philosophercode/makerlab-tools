@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { MAINTENANCE_PATH, type MaintenanceWriteError } from "../../app/admin/maintenance/action-result";
+import { CHECKLIST_PATH } from "../../app/admin/maintenance/schedule-result";
 import { findActiveToolByRef, findUnitOfTool } from "../data/action-subjects";
 import { COMPLETED_MAINTENANCE_TYPES, logCompletedMaintenance, type CompletedMaintenanceType } from "../data/maintenance";
 import { isOneOf } from "../db/schema/vocabulary";
@@ -139,5 +140,6 @@ export const TICKETS_LOG_COMPLETED = defineAction<LogCompletedInput, { logId: st
     await requestMirrorPush();
     return undefined;
   },
-  revalidate: [MAINTENANCE_PATH],
+  // The overview and the Shift checklist show open tickets too (admin sections spec 2026-10-07).
+  revalidate: [MAINTENANCE_PATH, CHECKLIST_PATH, "/admin"],
 });

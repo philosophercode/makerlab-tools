@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createProjectSubmission } from "../../../lib/data/projects";
+import { describeDbError } from "../../../lib/db/describe-error";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
@@ -222,7 +223,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (err) {
-    console.error("Project submission failed", err);
+    console.error("Project submission failed", describeDbError(err));
     return Response.json(
       { error: "Submission failed. Please try again." },
       { status: 502 }

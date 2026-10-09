@@ -108,7 +108,7 @@ describe("queueRefreshesWithinAllowance", () => {
   });
 
   it("shares intake's daily allowance and refuses a press that would pass it, queueing nothing", async () => {
-    const { items } = await createPendingBatch({ createdBy: ADMIN, items: [{ name: "A" }, { name: "B" }] }, { db });
+    const { items } = await createPendingBatch({ createdBy: ADMIN, items: [{ name: "Lathe A" }, { name: "Lathe B" }] }, { db });
     await queueForResearchWithinAllowance(
       items.map((item) => item.id),
       { requestedBy: ADMIN, requestId: crypto.randomUUID(), limit: 100, since: new Date(Date.now() - DAY_MS) },

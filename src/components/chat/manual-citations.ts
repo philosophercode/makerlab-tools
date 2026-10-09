@@ -1,4 +1,5 @@
-import { CITE_HREF_PREFIX, isCitationLikeHref, withoutFragment } from "../../lib/manuals/citation-ref";
+import { CITE_HREF_PREFIX, isCitationLikeHref, linkPosition, withoutFragment } from "../../lib/manuals/citation-ref";
+import { answerToolIds, isOtherMachine, searchScopeOf, type ManualSearchScope } from "../../lib/manuals/citation-scope";
 import {
   attachedManualHasPage as hasPage,
   escapeRegExp,
@@ -32,6 +33,16 @@ export { linkAttachedPageMentions, type AttachedManualLink };
  * "(<title>, p. N)") is a citation opening the **stored** address at that
  * page, when the PDF has it (amendment 2026-09-28b "Attached manuals cite
  * pages too"); the model supplies the page number and nothing else.
+ *
+ * **Never another machine's document as this machine's** (amendment
+ * 2026-10-06 "An answer cites only its machine's documents"). Each search
+ * records the machines it was scoped to, and each passage its machine
+ * (`lib/manuals/citation-scope.ts`). A cited passage from a machine the
+ * answer is not about is **relabelled**, not dropped: its mark, card and
+ * Sources entry carry that machine's name ({@link machineCitation}). Dropping
+ * it would leave the sentence standing with no source, reading as if it were
+ * about this machine; the label tells the student whose document it is. In
+ * an answer that compares machines, every citation carries its machine.
  */
 
 export interface ManualPassageRef {
@@ -45,6 +56,13 @@ export interface ManualPassageRef {
   section: string;
   /** The passage's words, unfenced and shortened, or empty. */
   excerpt: string;
+  /**
+   * The passage's machine, set when the citation must show it: the passage is
+   * another machine's document, or the answer compares machines.
+   */
+  machine?: string;
+  /** The passage is from another machine's document than the answer is about. */
+  otherMachine?: boolean;
 }
 
 interface SearchManualOutput {
@@ -55,26 +73,47 @@ interface SearchManualOutput {
 const EXCERPT_MAX = 280;
 
 /**
+ * Which machines this message's searches were scoped to: the allowed set
+ * (`citation-scope.ts`), whether the answer compares machines, and whether
+ * every search said (an output from before scopes were recorded did not, and
+ * then nothing is relabelled).
+ */
+function messageScope(outputs: readonly SearchManualOutput[]): { known: boolean; allowed: ReadonlySet<string> | null; comparing: boolean } {
+  const scopes = outputs.map(searchScopeOf);
+  if (scopes.some((scope) => scope === null)) return { known: false, allowed: null, comparing: false };
+  const allowed = answerToolIds(null, scopes as ManualSearchScope[]);
+  return { known: true, allowed, comparing: allowed === null || allowed.size > 1 };
+}
+
+/**
  * Every passage with a URL that this message's finished `search_manual` calls
  * returned, keyed by its URL **and** by `#cite-<ref>` (both keys, one object).
  */
 export function manualPassages(parts: readonly { type: string }[]): Map<string, ManualPassageRef> {
   const byKey = new Map<string, ManualPassageRef>();
-  for (const part of parts) {
-    if (part.type !== "tool-search_manual") continue;
-    const { state, output } = part as { state?: string; output?: SearchManualOutput };
-    if (state !== "output-available" || !output || output.status !== "ok" || !Array.isArray(output.passages)) continue;
+  const outputs = parts
+    .filter((part) => part.type === "tool-search_manual")
+    .map((part) => part as { state?: string; output?: SearchManualOutput })
+    .filter(({ state, output }) => state === "output-available" && output?.status === "ok" && Array.isArray(output.passages))
+    .map(({ output }) => output as SearchManualOutput);
+  const scope = messageScope(outputs);
+  for (const output of outputs) {
     for (const raw of output.passages as Array<Record<string, unknown>>) {
       const url = typeof raw?.url === "string" ? raw.url.trim() : "";
       const citation = typeof raw?.citation === "string" ? raw.citation.trim() : "";
       const ref = typeof raw?.ref === "string" ? raw.ref.trim().toLowerCase() : "";
       if (!url || !citation) continue;
+      const machine = typeof raw.tool === "string" ? raw.tool.trim() : "";
+      const toolId = typeof raw.toolId === "string" ? raw.toolId : raw.toolId === null ? null : undefined;
+      const otherMachine = scope.known && toolId !== undefined && isOtherMachine(toolId, scope.allowed);
       const passage: ManualPassageRef = byKey.get(url) ?? {
         ref,
         citation,
         url,
         section: typeof raw.section === "string" ? raw.section : "",
         excerpt: typeof raw.text === "string" ? passageExcerpt(raw.text) : "",
+        ...(otherMachine || (scope.comparing && machine) ? { machine: machine || "another machine" } : {}),
+        ...(otherMachine ? { otherMachine: true } : {}),
       };
       if (!byKey.has(url)) byKey.set(url, passage);
       if (ref && !byKey.has(`${CITE_HREF_PREFIX}${ref}`)) byKey.set(`${CITE_HREF_PREFIX}${ref}`, passage);
@@ -197,7 +236,7 @@ export function citedPassages(text: string, passages: ReadonlyMap<string, Manual
   if (passages.size === 0) return [];
   const found = new Map<ManualPassageRef, number>();
   for (const [key, passage] of passages) {
-    const at = text.toLowerCase().indexOf(`](${key.toLowerCase()})`);
+    const at = linkPosition(text, key);
     if (at < 0) continue;
     const seen = found.get(passage);
     if (seen === undefined || at < seen) found.set(passage, at);
@@ -209,6 +248,21 @@ export function citedPassages(text: string, passages: ReadonlyMap<string, Manual
 export function pageMark(citation: string): string {
   const match = citation.match(/\bpp?\. [^,()]+?(?=\s*(?:\(|$))/);
   return match ? match[0].trim() : citation;
+}
+
+/**
+ * A passage's citation as the chat shows it: "Prusa i3 MK3S+: Original Prusa
+ * Handbook, p. 25" when it must name its machine (another machine's
+ * document, or an answer comparing machines), else the citation alone.
+ */
+export function machineCitation(passage: Pick<ManualPassageRef, "citation" | "machine">): string {
+  return passage.machine ? `${passage.machine}: ${passage.citation}` : passage.citation;
+}
+
+/** The inline mark: "p. 25", or "Prusa i3 MK3S+ · p. 25" when the citation names its machine. */
+export function citationMark(passage: Pick<ManualPassageRef, "citation" | "machine">): string {
+  const page = pageMark(passage.citation);
+  return passage.machine ? `${passage.machine} · ${page}` : page;
 }
 
 /**

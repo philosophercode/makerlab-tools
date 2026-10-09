@@ -67,6 +67,11 @@ Playwright boots its own dev server (see E2E notes below), so no separate
   hook. Workflow tests use the same fake through MSW, since `vi.mock` does not
   reach step code. PGlite's session time zone is the machine's, so compare
   `timestamptz` text in SQL (`$1::timestamptz = …`), never as strings.
+- **Resend** (staff email) is never reached. A test that sends stubs
+  `RESEND_API_KEY` and `EMAIL_FROM` and installs `useResendFake(server)` from
+  `test/msw/resend.ts`: it records every request, answers from a script of
+  statuses (`fake.script(503)`), and treats a repeated `Idempotency-Key` as
+  the same email (`fake.delivered()`). Workflow tests use it too.
 - **`vi.mock("next/cache", …)`** — `catalog.ts` uses `cacheTag`/`cacheLife` and
   `admin/revalidate/route.ts` uses `revalidateTag`; these only work inside a Next
   build. Mock them with the `nextCacheMock()` factory from
@@ -226,5 +231,20 @@ full verified snippet and both seams are in
 ## Coverage
 
 `npm run test:coverage` produces a `v8` coverage report (`text` to stdout +
-`html`). There is **no enforced threshold** and **no CI workflow** — by design.
-Coverage is a diagnostic for developers, not a gate.
+`html`). There is **no enforced threshold** — by design. Coverage is a
+diagnostic for developers, not a gate.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every PR and every push to `main`: one job
+for `npm run lint`, `npm run typecheck` and `npm run spec:coverage -- --ci`,
+and `npx vitest run` (both projects) split four ways with `--shard`, and the E2E
+suite (`npm run test:e2e`) as its own job, `e2e (playwright)`, which is not a
+required check yet. After every production deployment,
+`.github/workflows/deploy-smoke.yml` runs `scripts/smoke-production.sh` against
+the live site (`npm run smoke:production` by hand; `docs/deploy.md` §7).
+
+Actions are pinned to full commit SHAs (with the version in a comment) and
+checkout runs with `persist-credentials: false`; `.github/dependabot.yml` opens
+the monthly bump PRs. `test/ci-hardening.test.ts` fails if a step goes back to a
+tag or drops the setting.

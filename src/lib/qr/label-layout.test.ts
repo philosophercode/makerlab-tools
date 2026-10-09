@@ -142,6 +142,69 @@ describe("layoutLabel — physical dimensions", () => {
   });
 });
 
+describe("a unit's label (amendment 2026-10-06)", () => {
+  const unitId = "194e4406-253b-4488-a886-5598ee56112c";
+  const unitContent = labelContentFor(
+    { slug: "prusa-i3-mk3s", name: "Prusa i3 MK3S+", room: "Studio 101", zone: "3D Printing Hub", unit: { id: unitId, name: "Prusa MK3S+ #4" } },
+    "https://makerlab-ai.vercel.app"
+  );
+
+  it("encodes the unit's address and says which unit under the name", () => {
+    expect(unitContent.url).toBe("https://makerlab-ai.vercel.app/tools/prusa-i3-mk3s?src=qr&unit=194e4406");
+    expect(unitContent.shortUrl).toBe("makerlab-ai.vercel.app/tools/prusa-i3-mk3s");
+    expect(unitContent.unit).toBe("Prusa MK3S+ #4");
+    const layout = layoutLabel(style(), unitContent);
+    expect(layout.lines.map((line) => line.kind)).toEqual(["name", "unit", "extra", "url"]);
+    const unitLine = layout.lines.find((line) => line.kind === "unit")!;
+    expect(unitLine.text).toBe("Prusa MK3S+ #4");
+    expect(unitLine.bold).toBe(true);
+    expect(unitLine.y).toBeGreaterThan(layout.lines[0].y);
+  });
+
+  it("keeps a 2-inch unit label's code above the 25 mm floor, the same size however long the name", () => {
+    const layout = layoutLabel(style(), unitContent);
+    expect(layout.qr.size).toBeGreaterThanOrEqual(MIN_QR_MM);
+    expect(layout.qrSmall).toBe(false);
+    expect(layout.level).toBe("H");
+    const longName = labelContentFor(
+      { slug: "prusa-i3-mk3s", name: "Original Prusa i3 MK3S+ Enclosure Bundle With Extras", unit: { id: unitId, name: "Enclosure #2 with a very long unit name indeed" } },
+      "https://makerlab-ai.vercel.app"
+    );
+    const long = layoutLabel(style(), longName);
+    expect(long.qr.size).toBeCloseTo(layout.qr.size, 9);
+    for (const line of long.lines) {
+      expect(estimateTextWidth(line.text, line.sizePt, line.bold) / (72 / 25.4)).toBeLessThanOrEqual(50.8);
+    }
+    expect(long.lines.filter((line) => line.kind === "name")).toHaveLength(1);
+  });
+
+  it("never drops the unit line, even on a 1-inch label that sheds everything else", () => {
+    const layout = layoutLabel(style({ widthMm: 25.4, heightMm: 25.4, showLocation: true }), unitContent);
+    expect(layout.dropped).not.toContain("unit");
+    expect(layout.lines.some((line) => line.kind === "unit")).toBe(true);
+    for (const line of layout.lines) expect(line.y).toBeLessThan(25.4);
+  });
+
+  it("keeps the unit line beside the code on a wide label", () => {
+    const layout = layoutLabel(style({ widthMm: 76.2, heightMm: 25.4 }), unitContent);
+    expect(layout.orientation).toBe("side");
+    expect(layout.lines.map((line) => line.kind)).toContain("unit");
+  });
+
+  it("does not print a unit named exactly like its tool twice, and follows the name switch", () => {
+    const sameName = labelContentFor({ slug: "trotec-speedy-400", name: "Trotec Speedy 400", unit: { id: unitId, name: "trotec speedy 400" } }, "https://x.test");
+    expect(sameName.unit).toBe("");
+    expect(sameName.url).toBe("https://x.test/tools/trotec-speedy-400?src=qr&unit=194e4406");
+    expect(layoutLabel(style(), sameName).lines.map((line) => line.kind)).toEqual(["name", "extra", "url"]);
+    expect(layoutLabel(style({ showName: false }), unitContent).lines.map((line) => line.kind)).toEqual(["extra", "url"]);
+  });
+
+  it("leaves a tool's label exactly as it was", () => {
+    expect(content).not.toHaveProperty("unit");
+    expect(content.url).toBe("https://makerlab-ai.vercel.app/tools/trotec-speedy-400?src=qr");
+  });
+});
+
 describe("wrapText / ellipsize", () => {
   it("wraps to the width and ends a text that does not fit in an ellipsis", () => {
     const lines = wrapText("PRUSA ORIGINAL MK4S INPUT SHAPER EDITION WITH ENCLOSURE", 60, 8, true, 2, estimateTextWidth);

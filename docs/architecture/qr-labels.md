@@ -29,6 +29,13 @@ no new permission, no model call.
   through a hidden frame, SVG/PNG of one label. Printing writes nothing — no
   server action, no audit, nothing for the parity guard. The style lives in
   `localStorage` (try/catch), read after hydration (`useHydrated`).
+- **The brand image** on a label is the lab's official logo as a PNG
+  (`siteConfig.logoPng`, `public/brand/cornell-tech-makerlab-logo.png`;
+  `pdf-lib` embeds PNG, not SVG), passed to the studio as `brandHref` and to
+  the PDF as `brandPng`. It is drawn at the height the wordmark had
+  (`typeScale`) and the logo's own proportions (`BRAND_ASPECT`). When it
+  cannot be read, or is not a PNG, the lab's name is written in its box
+  (QR codes spec §14, amendment 2026-10-06).
 - **`GET /api/qr/[slug]`** is public, published-only (draft, archived and
   unknown are one 404), limited per hashed IP (`ROUTE_TIERS.qr`, no cookie),
   CDN-cached. The tool page's `ToolQrButton` (beside `FlagButton`, which takes
@@ -46,8 +53,25 @@ no new permission, no model call.
   message's photos" section of server-resolved hints — a published tool's
   slug and name, "not published", or "an external site". **A decoded payload
   never reaches the prompt**: it is text off a sticker anybody could print.
+- **Unit labels** (amendment 2026-10-06, spec §13). A unit's code is the
+  tool's with `&unit=<token>` (`unitQrTargetUrl`; the token is the unit
+  uuid's first eight hex characters, `unitQrToken`). The token is resolved
+  only among that tool's own units (`unitForToken`, after `parseUnitToken`
+  validates it); no match, or two, names no unit. The studio's **Tools /
+  Units** switch lists every non-retired unit of every published tool (the
+  page hands each row its units from `listToolUnitOptions`); a unit's label
+  puts the tool's name on one line and the unit's under it, in the room a
+  second name line takes, so the 2″ code stays above 25 mm.
+  `QrArrivalNotice` names the unit and offers **Report a problem with this
+  unit**, which opens the quick report form with that unit preselected
+  (`components/tool/report/ReportProblemButton`, quick report spec
+  2026-10-07; QR spec amendment §15). A tool's label opens the same form with
+  the unit to choose. `findUnit` resolves a unit id exactly
+  and prefers the focused tool's units for a shared label, and the photo hint
+  names the unit and its id for a unit code. `/api/qr/[slug]`, the tool
+  page's dialog and `get_tool_qr_code` stay tool-only.
 - **Size defaults.** The 1″ preset, and a custom size whose code would fall
-  under 25 mm, start with the wordmark and the extra line off
+  under 25 mm, start with the logo and the extra line off
   (`withSizeDefaults`, applied only when the size changes; `showExtra` keeps
   the words while the line is off).
 - **Tests:** `lib/qr/*.test.ts`, `app/api/qr/[slug]/route.test.ts`,

@@ -18,7 +18,8 @@ import { signIn } from "./utils/session";
  *
  * Before the fix every one of 15 walks stuck on some hop (the URL never
  * changed); after it, none of 15. The walk crosses every section a director
- * can open, the Intake tabs and Import a list, and comes back the other way.
+ * can open (admin sections spec 2026-10-07), most of their tabs, Add
+ * equipment's own tabs and Import a list, and comes back the other way.
  */
 
 /** A few seconds, far less than the "never" this guards against. */
@@ -27,7 +28,10 @@ const HOP_TIMEOUT = 5_000;
 type Where = (page: Page) => Locator;
 const bar: Where = (page) => page.getByRole("navigation", { name: "Admin sections" });
 const section = (name: string): Where => (page) => bar(page).getByRole("link", { name, exact: true });
-const tab = (name: string): Where => (page) => page.getByRole("navigation", { name: "Intake" }).getByRole("link", { name, exact: true });
+/** A tab under a page's header: the section's surfaces (admin sections spec 2026-10-07). */
+const sectionTab = (sectionName: string, name: string): Where => (page) =>
+  page.getByRole("navigation", { name: `${sectionName} pages` }).getByRole("link", { name, exact: true });
+const tab = (name: string): Where => (page) => page.getByRole("navigation", { name: "Add equipment" }).getByRole("link", { name, exact: true });
 const importAList: Where = (page) => page.getByRole("link", { name: "Import a list", exact: true }).first();
 
 interface Hop {
@@ -40,32 +44,46 @@ interface Hop {
   current?: Where;
 }
 
+/** A section in the bar: its first surface opens, and the section is marked. */
 const to = (name: string, path: RegExp, heading = name): Hop => ({ label: name, click: section(name), path, heading, current: section(name) });
+/** A tab of `sectionName`: it opens, and the tab is marked. */
+const tabTo = (sectionName: string, name: string, path: RegExp, heading = name): Hop => ({
+  label: `${sectionName} › ${name}`,
+  click: sectionTab(sectionName, name),
+  path,
+  heading,
+  current: sectionTab(sectionName, name),
+});
 
 const WALK: readonly Hop[] = [
   to("Inventory", /\/admin\/inventory$/),
   to("Maintenance", /\/admin\/maintenance$/),
-  to("Corrections", /\/admin\/corrections$/),
-  to("Notion mirror", /\/admin\/mirror$/),
-  to("Intake", /\/admin\/intake$/),
-  { label: "Intake › Imports", click: tab("Imports"), path: /\/admin\/intake\/imports$/, heading: "Intake", current: tab("Imports") },
-  { label: "Import a list", click: importAList, path: /\/admin\/intake\/imports\/new$/, heading: "Intake", current: section("Intake") },
-  { label: "Intake › Queue", click: tab("Queue"), path: /\/admin\/intake$/, heading: "Intake", current: tab("Queue") },
-  to("Refresh research", /\/admin\/refresh$/),
-  to("Manuals", /\/admin\/research$/),
+  tabTo("Maintenance", "Shift checklist", /\/admin\/maintenance\/checklist$/),
+  tabTo("Maintenance", "Recurring tasks", /\/admin\/maintenance\/schedules$/),
+  to("Inventory", /\/admin\/inventory$/),
+  tabTo("Inventory", "Page corrections", /\/admin\/corrections$/),
+  tabTo("Inventory", "Add equipment", /\/admin\/intake$/),
+  { label: "Add equipment › Imports", click: tab("Imports"), path: /\/admin\/intake\/imports$/, heading: "Add equipment", current: tab("Imports") },
+  { label: "Import a list", click: importAList, path: /\/admin\/intake\/imports\/new$/, heading: "Add equipment", current: section("Inventory") },
+  { label: "Add equipment › Queue", click: tab("Queue"), path: /\/admin\/intake$/, heading: "Add equipment", current: tab("Queue") },
+  tabTo("Inventory", "QR labels", /\/admin\/inventory\/qr$/),
+  tabTo("Inventory", "Check for updates", /\/admin\/refresh$/),
+  tabTo("Inventory", "Manuals", /\/admin\/research$/),
   to("Insights", /\/admin\/insights$/),
   to("People", /\/admin\/users$/),
-  to("Projects", /\/admin\/projects$/),
+  tabTo("People", "Student projects", /\/admin\/projects$/),
+  to("Settings", /\/admin\/settings$/),
+  tabTo("Settings", "Notion mirror", /\/admin\/mirror$/),
+  tabTo("Settings", "MCP", /\/admin\/proposals$/),
+  tabTo("Settings", "AI agents", /\/admin\/settings\/ai-agents$/),
   to("Overview", /\/admin$/),
   // …and back the other way, so each page is also left for a different neighbour.
-  to("Projects", /\/admin\/projects$/),
-  to("People", /\/admin\/users$/),
-  to("Notion mirror", /\/admin\/mirror$/),
-  to("Refresh research", /\/admin\/refresh$/),
-  to("Intake", /\/admin\/intake$/),
-  to("Corrections", /\/admin\/corrections$/),
-  to("Maintenance", /\/admin\/maintenance$/),
+  to("Settings", /\/admin\/settings$/),
+  to("People", /\/admin\/users$/, "People"),
   to("Inventory", /\/admin\/inventory$/),
+  tabTo("Inventory", "Check for updates", /\/admin\/refresh$/),
+  tabTo("Inventory", "Add equipment", /\/admin\/intake$/),
+  to("Maintenance", /\/admin\/maintenance$/),
   to("Overview", /\/admin$/),
 ];
 

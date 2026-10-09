@@ -58,6 +58,21 @@ export type MaintenancePriority = (typeof MAINTENANCE_PRIORITY)[number];
 export const MAINTENANCE_STATUS = ["open", "in_progress", "resolved", "closed"] as const;
 export type MaintenanceStatus = (typeof MAINTENANCE_STATUS)[number];
 
+/**
+ * How often a recurring maintenance task comes round (recurring maintenance
+ * spec §4; migration `0027`). The usage spec may add `use_hours` later.
+ */
+export const SCHEDULE_INTERVAL_UNIT = ["day", "week", "month"] as const;
+export type ScheduleIntervalUnit = (typeof SCHEDULE_INTERVAL_UNIT)[number];
+
+/**
+ * A recurring task's state. `active` shows in the due list; `paused` keeps the
+ * task but takes it out of the list; `archived` is a task the lab stopped
+ * doing. Phase 4's manual suggestions would add `suggested`.
+ */
+export const SCHEDULE_STATUS = ["active", "paused", "archived"] as const;
+export type ScheduleStatus = (typeof SCHEDULE_STATUS)[number];
+
 export const FEEDBACK_STATUS = ["new", "reviewed", "fixed", "dismissed"] as const;
 export type FeedbackStatus = (typeof FEEDBACK_STATUS)[number];
 
@@ -347,3 +362,87 @@ export type CategoryProposalSource = (typeof CATEGORY_PROPOSAL_SOURCE)[number];
  */
 export const CATEGORY_PROPOSAL_STATUS = ["pending", "accepted", "rejected", "merged"] as const;
 export type CategoryProposalStatus = (typeof CATEGORY_PROPOSAL_STATUS)[number];
+
+/**
+ * Email notifications (email notifications spec §4; migration `0029`).
+ *
+ * The events the app emails about. `ticket.filed` is v1: a ticket filed from
+ * the chat (the Report button and a unit's QR label open it) or an MCP
+ * client. `maintenance.due` is the recurring-maintenance reminder, sent when
+ * tasks come due, once per task and due date (amendment 2026-10-07, revised
+ * by "The reminder follows each task's cadence"). v1.1's events (`ticket.resolved`,
+ * `correction.filed`, `intake.ready`, `staff.digest`) join this list when
+ * they are built.
+ */
+export const NOTIFICATION_EVENTS = ["ticket.filed", "maintenance.due"] as const;
+export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
+
+/** Where an outbox row is (§4.1): waiting for its run, recipients written, finished, or not sent at all. */
+export const NOTIFICATION_STATUS = ["queued", "fanned_out", "done", "skipped"] as const;
+export type NotificationStatus = (typeof NOTIFICATION_STATUS)[number];
+
+/**
+ * Where the write that caused a notification came from, for the template's
+ * "via a connected app" line. `system` is the cron's own reminder.
+ */
+export const NOTIFICATION_SURFACE = ["chat", "mcp", "gui", "system"] as const;
+export type NotificationSurface = (typeof NOTIFICATION_SURFACE)[number];
+
+/** Why an outbox row was not sent to anybody (§5.3): over the hourly cap, or its subject was handled first. */
+export const NOTIFICATION_SKIP_REASON = ["capped", "subject_gone"] as const;
+export type NotificationSkipReason = (typeof NOTIFICATION_SKIP_REASON)[number];
+
+/** One recipient's send (§4.2). */
+export const DELIVERY_STATUS = ["pending", "sending", "sent", "skipped", "failed"] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUS)[number];
+
+/**
+ * Why a delivery was skipped or failed — our own codes, never the provider's
+ * words, which can echo an address (§3.3 step 5).
+ */
+export const DELIVERY_REASON = [
+  // skipped
+  "pref_off",
+  "no_permission",
+  "subject_gone",
+  "preview_blocked",
+  // failed
+  "not_configured",
+  "invalid_recipient",
+  "rejected",
+  "stuck",
+  "provider_error",
+] as const;
+export type DeliveryReason = (typeof DELIVERY_REASON)[number];
+
+/** How a person takes an event (§4.3): now, in a digest (v1.1), or not at all. */
+export const NOTIFICATION_DELIVERIES = ["immediate", "digest", "off"] as const;
+export type NotificationDelivery = (typeof NOTIFICATION_DELIVERIES)[number];
+
+/**
+ * What a chat illustration shows (gateway spec amendment 2026-10-07
+ * "Generated illustrations in the chat", migration `0030`): an infographic of
+ * a plan the assistant wrote, or a concept render of a student's project idea.
+ * Never one of the lab's machines.
+ */
+export const ILLUSTRATION_KIND = ["plan", "concept"] as const;
+export type IllustrationKind = (typeof ILLUSTRATION_KIND)[number];
+
+/** `pending` while the model draws, `ready` once stored, `failed` when no image came of it. */
+export const ILLUSTRATION_STATUS = ["pending", "ready", "failed"] as const;
+export type IllustrationStatus = (typeof ILLUSTRATION_STATUS)[number];
+
+/**
+ * A tool skill's row (tool skills spec 2026-10-07, migration `0031`): `ready`
+ * is a written, checked skill; `failed` records an attempt that did not give
+ * one, with its reason. A tool's current skill is its latest `ready` row.
+ */
+export const TOOL_SKILL_STATUS = ["ready", "failed"] as const;
+export type ToolSkillStatus = (typeof TOOL_SKILL_STATUS)[number];
+
+/**
+ * What wrote a tool skill: the pass after research (intake approval, or a
+ * manual indexed), staff's Write skill, or `npm run tools:skills`.
+ */
+export const TOOL_SKILL_TRIGGER = ["research", "manual", "backfill"] as const;
+export type ToolSkillTrigger = (typeof TOOL_SKILL_TRIGGER)[number];

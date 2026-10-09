@@ -8,6 +8,7 @@ import type { ParentToolOption } from "../../lib/data/tool-relations";
 import { TOOL_ITEM_KIND, type ToolItemKind } from "../../lib/db/schema/vocabulary";
 import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../../lib/starter-questions";
 import { DISPLAY_NAME_MAX, isNameTaken, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
+import { LAB_NOTES_PATH } from "../../app/admin/inventory/lab-notes/action-result";
 
 /**
  * The tool's own fields, in the editor panel (spec §5.3(3)).
@@ -70,6 +71,7 @@ interface Draft {
   trainingRequired: boolean;
   useRestrictions: string;
   emergencyStop: string;
+  /** The tool's lab notes (`tools.notes`), one per line. */
   notes: string;
   /** Refresh research's floor check; clearing it here is how it is settled (spec §4.1). */
   floorCheck: string;
@@ -211,6 +213,26 @@ export function ToolFieldsForm({
           onChange={(event) => set("description", event.target.value)}
         />
         {theirValue("description")}
+      </div>
+
+      {/* Lab notes (identity spec amendment "Lab notes"): the lab's own rules
+          for this tool, shown above the description on its page and given to
+          the assistant first. Beside the description because they are read
+          before it. */}
+      <div className="admin-field">
+        <label htmlFor="tool-notes">{t("fieldLabNotes")}</label>
+        <textarea
+          id="tool-notes"
+          value={draft.notes}
+          rows={4}
+          placeholder={t("labNotesPlaceholder")}
+          aria-describedby="tool-notes-hint"
+          onChange={(event) => set("notes", event.target.value)}
+        />
+        <p className="admin-field-hint" id="tool-notes-hint">
+          {t.rich("labNotesHint", { link: (chunks) => <a href={LAB_NOTES_PATH}>{chunks}</a> })}
+        </p>
+        {theirValue("notes")}
       </div>
 
       <div className="admin-field">
@@ -364,17 +386,6 @@ export function ToolFieldsForm({
           {theirValue("floorCheck")}
         </div>
       ) : null}
-
-      <div className="admin-field">
-        <label htmlFor="tool-notes">{t("fieldNotes")}</label>
-        <textarea
-          id="tool-notes"
-          value={draft.notes}
-          rows={3}
-          onChange={(event) => set("notes", event.target.value)}
-        />
-        {theirValue("notes")}
-      </div>
 
       <div className="admin-editor-actions">
         <button type="submit" className="admin-button is-primary" disabled={pending}>

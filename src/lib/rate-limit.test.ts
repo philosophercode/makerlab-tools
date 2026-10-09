@@ -146,8 +146,9 @@ describe("rateLimitAsync — Upstash path (MSW /pipeline)", () => {
     expect(r).toEqual({ allowed: true, remaining: 0 });
   });
 
-  it("fails open (allowed=true) when the pipeline responds non-ok", async () => {
+  it("falls back to the in-memory limit, not open, when the pipeline responds non-ok (security fix 2026-10-05)", async () => {
     stubUpstashEnv();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     server.use(
       http.post(/\/pipeline$/, () =>
         HttpResponse.json({ error: "boom" }, { status: 500 })
@@ -155,8 +156,23 @@ describe("rateLimitAsync — Upstash path (MSW /pipeline)", () => {
     );
     const { rateLimitAsync } = await freshModule();
 
-    const r = await rateLimitAsync("upstash-failopen", { limit: 5, windowMs: 1_000 });
-    expect(r).toEqual({ allowed: true, remaining: 4 });
+    const opts = { limit: 2, windowMs: 60_000 };
+    expect(await rateLimitAsync("upstash-down", opts)).toEqual({ allowed: true, remaining: 1 });
+    expect(await rateLimitAsync("upstash-down", opts)).toEqual({ allowed: true, remaining: 0 });
+    expect((await rateLimitAsync("upstash-down", opts)).allowed).toBe(false);
+    warn.mockRestore();
+  });
+
+  it("falls back to the in-memory limit when Upstash is unreachable", async () => {
+    stubUpstashEnv();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    server.use(http.post(/\/pipeline$/, () => HttpResponse.error()));
+    const { rateLimitAsync } = await freshModule();
+
+    const opts = { limit: 1, windowMs: 60_000 };
+    expect((await rateLimitAsync("upstash-unreachable", opts)).allowed).toBe(true);
+    expect((await rateLimitAsync("upstash-unreachable", opts)).allowed).toBe(false);
+    warn.mockRestore();
   });
 });
 

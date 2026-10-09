@@ -36,7 +36,7 @@ test.describe("who may open each queue", () => {
     }
   });
 
-  test("the admin home shows exactly what this account's permissions open", async ({
+  test("the overview shows exactly what this account's permissions open", async ({
     page,
     context,
     baseURL,
@@ -44,20 +44,17 @@ test.describe("who may open each queue", () => {
     await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
     await page.goto("/admin");
 
-    // Scoped to the home's Queues tiles and the section bar: the header's
-    // navigation has a Projects link of its own, and it means the public gallery.
-    const queues = page.getByRole("region", { name: "Queues" });
-    await expect(queues.getByRole("link", { name: "Maintenance", exact: true })).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(queues.getByRole("link", { name: "Corrections", exact: true })).toBeVisible();
-    await expect(queues.getByRole("link", { name: "Projects", exact: true })).toBeVisible();
-    // Each tile says what is waiting behind it: the demo seed's open ticket.
-    await expect(queues.getByRole("link", { name: "Maintenance", exact: true })).toContainText("open tickets");
+    // The overview (admin sections spec 2026-10-07): Need to know and the
+    // Shift checklist first, quick actions and waiting work beside them.
+    await expect(page.getByRole("region", { name: "Need to know" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Shift checklist", level: 3 })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Waiting for a decision" })).toBeVisible();
+    // Need to know links the queue with its open count: the demo seed's open ticket.
+    await expect(page.getByRole("region", { name: "Need to know" }).getByRole("link", { name: /Maintenance · \d+ open/ })).toBeVisible();
     // A SuperMaker does not hold `users.manage`, so the roster is not offered —
-    // not as a tile, and not in the section bar.
+    // not on the overview, and not in the section bar.
     const bar = page.getByRole("navigation", { name: "Admin sections" });
-    await expect(page.getByRole("link", { name: "People", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Roster", exact: true })).toHaveCount(0);
     await expect(bar.getByRole("link", { name: "Maintenance", exact: true })).toBeVisible();
     // Every lede on this page is shared with the page it names, so none of them
     // takes an argument — a next-intl placeholder rendered without one renders

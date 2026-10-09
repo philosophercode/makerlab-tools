@@ -1,7 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
-import { ADMIN_USERS_PATH } from "../../app/admin/users/action-result";
+import { AI_AGENTS_PATH } from "../../app/admin/users/allowance-result";
 import { record } from "../admin/audit-warning";
 import { can } from "../auth/permissions";
 import { grantResearchAllowance } from "../data/research-allowances";
@@ -85,5 +85,5 @@ export const PEOPLE_GRANT_ALLOWANCE = defineAction<
     );
     return recorded ? undefined : "audit_unavailable";
   },
-  revalidate: [ADMIN_USERS_PATH],
+  revalidate: [AI_AGENTS_PATH],
 });

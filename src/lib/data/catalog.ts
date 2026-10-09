@@ -17,6 +17,7 @@ import { BUNDLED_TOOL_THUMBNAILS } from "./bundled-tool-thumbnails.ts";
 import { isImageThumbnails, type ImageThumbnails } from "../images/thumbnail-urls.ts";
 import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
 import { isUuid } from "./uuid.ts";
+import { maskSerial } from "../serial-mask.ts";
 import type { MakerLabTool, MakerLabUnit, ToolStatus } from "../../components/catalog-types.ts";
 import { TOOL_ITEM_KIND, type ToolItemKind } from "../db/schema/vocabulary.ts";
 
@@ -131,6 +132,19 @@ export interface CatalogQueryOptions {
    * holding `tools.edit`, and mark each one (MCP access spec §3.2).
    */
   includeArchived?: boolean;
+  /**
+   * Give each unit its full `serial`. Off by default, so the cached public
+   * catalogue carries only each unit's masked last four (`serialMasked`),
+   * never a whole serial number. Only a caller who checked
+   * `catalog.view_serials` asks (data platform spec amendment 2026-10-06).
+   */
+  includeSerials?: boolean;
+}
+
+/** How a unit row becomes a view: with its full serial, or only the masked last four. */
+export interface UnitViewOptions {
+  /** Set `serial` (and no `serialMasked`). Only for a viewer holding `catalog.view_serials`. */
+  includeSerial?: boolean;
 }
 
 /** Published, still a draft, or archived — the same rule `inventory.ts` uses. */
@@ -156,7 +170,7 @@ export async function listCatalogTools(
   options: CatalogQueryOptions = {}
 ): Promise<MakerLabTool[]> {
   const db = await resolveDb(options);
-  return loadTools(db, and(...visibility(options)));
+  return loadTools(db, and(...visibility(options)), unitView(options));
 }
 
 /** One tool by slug, or null. Published only unless `includeDrafts` is passed. */
@@ -165,7 +179,7 @@ export async function findToolBySlug(
   options: CatalogQueryOptions = {}
 ): Promise<MakerLabTool | null> {
   const db = await resolveDb(options);
-  const [tool] = await loadTools(db, and(eq(tools.slug, slug), ...visibility(options)));
+  const [tool] = await loadTools(db, and(eq(tools.slug, slug), ...visibility(options)), unitView(options));
   return tool ?? null;
 }
 
@@ -183,7 +197,7 @@ export async function findToolByIdOrSlug(
   const match = isUuid(idOrSlug)
     ? or(eq(tools.slug, idOrSlug), eq(tools.id, idOrSlug))
     : eq(tools.slug, idOrSlug);
-  const [tool] = await loadTools(db, and(match, ...visibility(options)));
+  const [tool] = await loadTools(db, and(match, ...visibility(options)), unitView(options));
   return tool ?? null;
 }
 
@@ -226,6 +240,47 @@ async function resolveDb(options: CatalogQueryOptions): Promise<Db> {
   return options.db ?? (await getDb());
 }
 
+/** Full serials only when the caller asks for them. */
+function unitView(options: CatalogQueryOptions): UnitViewOptions {
+  return { includeSerial: Boolean(options.includeSerials) };
+}
+
+/**
+ * Each unit's serial as staff see it, keyed by unit id: the serial number,
+ * else the asset tag, else "Unlisted". One statement; unknown ids are left
+ * out. The caller checks `catalog.view_serials` first. This read is how a
+ * staff surface adds serials to the public catalogue's units (data platform
+ * spec amendment 2026-10-06).
+ */
+export async function listUnitSerials(
+  unitIds: readonly string[],
+  options: Pick<CatalogQueryOptions, "db"> = {}
+): Promise<Map<string, string>> {
+  const ids = [...new Set(unitIds)].filter(isUuid);
+  if (ids.length === 0) return new Map();
+  const db = await resolveDb(options);
+  const rows = await db
+    .select({ id: units.id, serialNumber: units.serialNumber, assetTag: units.assetTag })
+    .from(units)
+    .where(inArray(units.id, ids));
+  return new Map(rows.map((row) => [row.id, unitSerialLabel(row)]));
+}
+
+/** A unit's serial for display: the serial number, else the asset tag, else "Unlisted". */
+export function unitSerialLabel(unit: Pick<UnitRow, "serialNumber" | "assetTag">): string {
+  return unit.serialNumber || unit.assetTag || "Unlisted";
+}
+
+/**
+ * What a student or visitor sees of that serial: `•••• 9831`, the last four
+ * characters of the serial number, else of the asset tag. Undefined when the
+ * unit has neither ("Unlisted" is not a serial) or it is four characters or
+ * fewer (`maskSerial`; data platform spec amendment 2026-10-06).
+ */
+export function unitSerialMasked(unit: Pick<UnitRow, "serialNumber" | "assetTag">): string | undefined {
+  return maskSerial(unit.serialNumber || unit.assetTag);
+}
+
 /** Archived tools are never shown; drafts only when the caller asks. */
 function visibility(options: CatalogQueryOptions): SQL[] {
   const clauses: SQL[] = [];
@@ -239,7 +294,7 @@ function visibility(options: CatalogQueryOptions): SQL[] {
  * tools themselves, their units, their resources, and the attachments owned by
  * either — so the cost of a catalogue page does not grow with the tool count.
  */
-async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]> {
+async function loadTools(db: Db, where: SQL | undefined, unitOptions: UnitViewOptions = {}): Promise<MakerLabTool[]> {
   const toolRows: ToolRow[] = await db
     .select({
       id: tools.id,
@@ -332,7 +387,7 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
   const resourcesByTool = groupByTool(resourceRows);
 
   return toolRows.map((tool) =>
-    toMakerLabTool(tool, unitsByTool.get(tool.id) ?? [], resourcesByTool.get(tool.id) ?? [], files)
+    toMakerLabTool(tool, unitsByTool.get(tool.id) ?? [], resourcesByTool.get(tool.id) ?? [], files, unitOptions)
   );
 }
 
@@ -415,9 +470,10 @@ export function toMakerLabTool(
   tool: ToolRow,
   unitRows: UnitRow[],
   resourceRows: ResourceRow[] = [],
-  files: AttachmentIndex = new Map()
+  files: AttachmentIndex = new Map(),
+  unitOptions: UnitViewOptions = {}
 ): MakerLabTool {
-  const mappedUnits = unitRows.map((unit) => toMakerLabUnit(unit, tool));
+  const mappedUnits = unitRows.map((unit) => toMakerLabUnit(unit, tool, unitOptions));
   const status = deriveStatus(tool, mappedUnits);
 
   return {
@@ -576,14 +632,24 @@ function archivedCopy(owned: AttachmentRow[], resourceId: string, url: string): 
   return owned.find((file) => file.sourceKey === key && file.access === "public" && Boolean(file.publicUrl));
 }
 
+/**
+ * A unit row as the catalogue shows it. **No full `serial` unless asked**
+ * (data platform spec amendment 2026-10-06): everyone else gets only the
+ * masked last four, `serialMasked`. Either field is absent, not empty, when
+ * there is nothing to show, so nothing downstream can render or repeat what
+ * it was never given.
+ */
 export function toMakerLabUnit(
   unit: UnitRow,
-  tool: Pick<ToolRow, "name" | "room" | "zone">
+  tool: Pick<ToolRow, "name" | "room" | "zone">,
+  options: UnitViewOptions = {}
 ): MakerLabUnit {
+  const masked = options.includeSerial ? undefined : unitSerialMasked(unit);
   return {
     id: unit.id,
     name: unit.unitLabel || `${tool.name} // Unit`,
-    serial: unit.serialNumber || unit.assetTag || "Unlisted",
+    ...(options.includeSerial ? { serial: unitSerialLabel(unit) } : {}),
+    ...(masked !== undefined ? { serialMasked: masked } : {}),
     status: toToolStatus(unit.status, false),
     condition: toCondition(unit.condition, unit.status),
     location: tool.zone || tool.room || "Unknown",

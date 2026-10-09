@@ -38,6 +38,7 @@ export const LIVE_STATE_TOOLS: readonly string[] = [
   "get_tool_units",
   "get_maintenance_history",
   "list_open_tickets",
+  "list_maintenance_due",
   "list_my_reports",
 ];
 

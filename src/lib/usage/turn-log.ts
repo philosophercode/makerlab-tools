@@ -1,3 +1,5 @@
+import { citationRef } from "../manuals/citation-ref.ts";
+
 /**
  * What a chat turn looked at, for Usage Insight (usage insight spec §5.1):
  * the manual passages `search_manual` returned — with the document id and page
@@ -13,6 +15,12 @@ export interface PassageUsage {
   documentId: string;
   toolId: string | null;
   page: number;
+  /**
+   * What the answer links it by — `#cite-<ref>`, the form the chat prompt asks
+   * for (manual text spec amendment 2026-09-28) — built exactly as
+   * `search_manual` built the one it returned.
+   */
+  ref: string;
 }
 
 interface TurnUsage {
@@ -20,6 +28,8 @@ interface TurnUsage {
   passages: Map<string, PassageUsage>;
   /** Tools a `search_manual` call was scoped to. */
   scopedToolIds: Set<string>;
+  /** A `search_manual` call compared every machine in the lab (`all_machines`). */
+  wideSearch: boolean;
 }
 
 const turns = new WeakMap<object, TurnUsage>();
@@ -27,7 +37,7 @@ const turns = new WeakMap<object, TurnUsage>();
 function usageOf(turn: object): TurnUsage {
   let usage = turns.get(turn);
   if (!usage) {
-    usage = { passages: new Map(), scopedToolIds: new Set() };
+    usage = { passages: new Map(), scopedToolIds: new Set(), wideSearch: false };
     turns.set(turn, usage);
   }
   return usage;
@@ -42,7 +52,12 @@ export function logManualPassages(
   const usage = usageOf(turn);
   for (const passage of passages) {
     if (!passage.pdfUrl || usage.passages.has(passage.pdfUrl)) continue;
-    usage.passages.set(passage.pdfUrl, { documentId: passage.documentId, toolId: passage.toolId, page: passage.pageStart });
+    usage.passages.set(passage.pdfUrl, {
+      documentId: passage.documentId,
+      toolId: passage.toolId,
+      page: passage.pageStart,
+      ref: citationRef(passage.documentId, passage.pageStart),
+    });
   }
 }
 
@@ -52,7 +67,21 @@ export function logScopedTool(turn: object | undefined, toolId: string | null | 
   usageOf(turn).scopedToolIds.add(toolId);
 }
 
-export function turnUsage(turn: object | undefined): { passages: ReadonlyMap<string, PassageUsage>; scopedToolIds: string[] } {
+/** Record that a manual search compared every machine in the lab. */
+export function logWideSearch(turn: object | undefined): void {
+  if (!turn) return;
+  usageOf(turn).wideSearch = true;
+}
+
+export function turnUsage(turn: object | undefined): {
+  passages: ReadonlyMap<string, PassageUsage>;
+  scopedToolIds: string[];
+  wideSearch: boolean;
+} {
   const usage = turn ? turns.get(turn) : undefined;
-  return { passages: usage?.passages ?? new Map(), scopedToolIds: [...(usage?.scopedToolIds ?? [])] };
+  return {
+    passages: usage?.passages ?? new Map(),
+    scopedToolIds: [...(usage?.scopedToolIds ?? [])],
+    wideSearch: usage?.wideSearch ?? false,
+  };
 }

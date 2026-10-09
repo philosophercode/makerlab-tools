@@ -89,6 +89,11 @@
   --status-warn: #8a5300;
   --status-bad: #b31b1b;
   --status-idle: var(--on-surface-muted);
+  /* Crimson as INK — words drawn in the heritage colour, like the profile
+     menu's Sign out (identity spec amendment "ADMIN in the bar"). On paper it
+     is --secondary itself (6.2:1); on the dark background crimson is 2.8:1,
+     so dark mode takes the lighter red the demo-data banner uses (6.1:1). */
+  --secondary-ink: var(--secondary);
   /* A floating panel over a moving page (the profile menu, the ⌘K dialog):
      the card colour, mostly opaque, blurred behind (DESIGN.md §3 "Frosted
      surface"; public polish). 88% keeps every text pair at AA whatever
@@ -103,6 +108,7 @@
     --status-ok: #5cc98a;
     --status-warn: #e0a23a;
     --status-bad: #f0645a;
+    --secondary-ink: var(--status-bad);
   }
 }
 
@@ -112,6 +118,7 @@
   --status-ok: #5cc98a;
   --status-warn: #e0a23a;
   --status-bad: #f0645a;
+  --secondary-ink: var(--status-bad);
 }
 
 @theme inline {

@@ -22,6 +22,7 @@ const APP_PERMISSIONS = [
   "projects.submit",
   "projects.moderate",
   "catalog.view_drafts",
+  "catalog.view_serials",
   "catalog.export",
   "tools.add",
   "tools.approve",
@@ -31,6 +32,12 @@ const APP_PERMISSIONS = [
   "feedback.manage",
   "mirror.manage",
   "users.manage",
+  "insights.view",
+  "insights.configure",
+  "insights.export",
+  // Asking the assistant for an illustration (gateway spec amendment 2026-10-07):
+  // every signed-in person, never an anonymous visitor.
+  "chat.illustrate",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -40,11 +47,14 @@ const APP_PERMISSIONS = [
  */
 const EXPECTED: Record<Role, readonly Permission[]> = {
   anonymous: [],
-  user: ["projects.submit"],
+  user: ["projects.submit", "chat.illustrate"],
   admin: [
     "projects.submit",
     "projects.moderate",
     "catalog.view_drafts",
+    // Whole unit serials are staff-only (amendment 2026-10-06); students hold
+    // nothing new and see only each serial's masked last four.
+    "catalog.view_serials",
     "tools.add",
     "tools.approve",
     "tools.edit",
@@ -52,6 +62,9 @@ const EXPECTED: Record<Role, readonly Permission[]> = {
     "maintenance.manage",
     "feedback.manage",
     "mirror.manage",
+    "insights.view",
+    "insights.configure",
+    "chat.illustrate",
   ],
   super_admin: APP_PERMISSIONS,
 };

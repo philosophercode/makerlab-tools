@@ -75,6 +75,14 @@ const manualStage = vi.hoisted(() => ({ startManualArchive: vi.fn() }));
 
 vi.mock("../../../../lib/manuals/start", () => ({ startManualArchive: manualStage.startManualArchive }));
 
+/** The notification stage: starting its workflows is mocked at `start.ts` too. */
+const notificationStage = vi.hoisted(() => ({ startNotificationDelivery: vi.fn(), startMaintenanceReminder: vi.fn() }));
+
+vi.mock("../../../../lib/notifications/start", () => ({
+  startNotificationDelivery: notificationStage.startNotificationDelivery,
+  startMaintenanceReminder: notificationStage.startMaintenanceReminder,
+}));
+
 import { eq, sql } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import { server } from "../../../../../test/msw/server";
@@ -103,6 +111,10 @@ beforeEach(async () => {
   mirrorStage.throwOnce = null;
   mirrorStage.startMirrorPush.mockReset().mockResolvedValue({ ok: true, runId: "run-1" });
   manualStage.startManualArchive.mockReset().mockResolvedValue(true);
+  notificationStage.startNotificationDelivery.mockReset().mockResolvedValue(true);
+  notificationStage.startMaintenanceReminder.mockReset().mockResolvedValue(true);
+  vi.stubEnv("RESEND_API_KEY", "");
+  vi.stubEnv("EMAIL_FROM", "");
   blob.configured.value = true;
   blob.put.mockReset().mockResolvedValue({ pathname: "written" });
   blob.list.mockReset().mockResolvedValue([]);
@@ -497,6 +509,42 @@ describe("GET /api/cron/daily — the manual archive stage", () => {
     expect(body.stage).toBe("manuals");
     expect(body.manuals).toEqual({ due: 1, queued: 0, failed: 1 });
     expect(body.mirror).toBeDefined();
+  });
+});
+
+describe("GET /api/cron/daily — notifications (email notifications spec §3.6, amendment 2026-10-07)", () => {
+  it("runs last and, offline, starts nothing: the demo has no recurring task due", async () => {
+    const body = await (await GET(authorized())).json();
+
+    expect(body.ok).toBe(true);
+    expect(body.notifications).toMatchObject({ stuck: 0, restarted: 0, deleted: 0, reminder: "nothing_due", failed: 0 });
+    expect(notificationStage.startMaintenanceReminder).not.toHaveBeenCalled();
+  });
+
+  it("starts the daily maintenance reminder when email is configured", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    vi.stubEnv("EMAIL_FROM", "notify@notify.lab.example");
+
+    const body = await (await GET(authorized())).json();
+
+    expect(body.ok).toBe(true);
+    expect(body.notifications.reminder).toBe("started");
+    expect(notificationStage.startMaintenanceReminder).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 500 with stage 'notifications' when the reminder could not be started", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
+    vi.stubEnv("EMAIL_FROM", "notify@notify.lab.example");
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    notificationStage.startMaintenanceReminder.mockResolvedValue(false);
+
+    const res = await GET(authorized());
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.stage).toBe("notifications");
+    expect(body.notifications).toMatchObject({ reminder: "failed", failed: 1 });
+    expect(body.manuals).toBeDefined();
   });
 });
 

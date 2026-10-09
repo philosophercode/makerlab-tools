@@ -16,6 +16,7 @@ import type { Db } from "../db/types";
 import { parseResearchResult } from "../research/result";
 import { IMAGE_NOT_ATTACHED, prepareApprovalImage, type PreparedApprovalImage } from "./approval-image";
 import { requestManualArchive } from "../manuals/trigger";
+import { requestToolSkills, skillsAfterResearchSafe } from "../skills/trigger";
 import { requestMirrorPush } from "../mirror/trigger";
 import { invalidateCatalog } from "../revalidate";
 import { scheduleThumbnails } from "../images/schedule-thumbnails";
@@ -48,6 +49,9 @@ import { scheduleThumbnails } from "../images/schedule-thumbnails";
  *    approval created, so each manual PDF is copied into Blob before the
  *    manufacturer moves it. Also a workflow, also never throws: a run that
  *    could not be started is logged and left to the nightly backfill.
+ * 5. **The tool skill**, when the lab writes skills after research (tool
+ *    skills spec 2026-10-07): handed to the archive run, which writes it after
+ *    the manuals are indexed, or started directly when no run started.
  *
  * **A lost audit event is a warning on a success, never a failure.** The tool
  * exists by the time the event is written; answering `{ ok: false }` would tell
@@ -200,7 +204,15 @@ export async function approveAndRecord(
   // get their thumbnails once this has answered.
   scheduleThumbnails({ owner: { ownerType: "tool", ownerId: approved.toolId } });
   await requestMirrorPush({ db: options.db });
-  await requestManualArchive(approved.resourceIds);
+  // The pass after research (tool skills spec 2026-10-07 §5.4), when the lab
+  // has it on: the archive run writes the new tool's skill at its end, after
+  // the manuals are indexed; with nothing to archive (or no run started) the
+  // skill run starts here. Neither can throw or fail the approval.
+  const skills = await skillsAfterResearchSafe(options.db);
+  const archiving = skills
+    ? await requestManualArchive(approved.resourceIds, { afterResearch: [approved.toolId] })
+    : await requestManualArchive(approved.resourceIds);
+  if (skills && !archiving) await requestToolSkills([approved.toolId], "research");
 
   const audited = warn(undefined, pendingRecorded && publishRecorded);
   const imageMissing = imageKind !== "none" && !imageAttached;

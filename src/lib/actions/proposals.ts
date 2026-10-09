@@ -18,6 +18,7 @@ import { checkRateLimit } from "../rate-limit";
 import { assistantMayPropose, type ActionContext, type ActionPreview } from "./define";
 import { performAction } from "./perform";
 import { actionById, type AnyActionDefinition } from "./registry";
+import { RevisionChain } from "./revision-chain";
 import { driftedFields, type DriftedField } from "./staleness";
 import { typedMatches } from "./typed-confirm";
 
@@ -187,6 +188,11 @@ export const CONFIRM_BUDGET_MS = 20_000;
  * proposed; each answers for itself, so one refusal in a batch leaves the
  * rest confirmed, and a request that runs out of time leaves the rows it has
  * not reached open (answered `open`) rather than claimed and stranded.
+ *
+ * Several rows for **one tool** in one request confirm in order: a row that
+ * stored the revision an earlier row of this request started from runs with
+ * the revision that row's write left, and nothing else (`revision-chain.ts`,
+ * amendment 2026-10-07). Someone else's edit in between is still `conflict`.
  */
 export async function decideActionProposals(
   request: DecideRequest,
@@ -229,6 +235,7 @@ export async function decideActionProposals(
   const now = options.now ?? Date.now;
   const deadline = now() + (options.budgetMs ?? CONFIRM_BUDGET_MS);
   const outcomes = new Map<string, ProposalOutcome>();
+  const chain = new RevisionChain();
   for (const row of [...own].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
     if (now() > deadline) {
       outcomes.set(row.id, { id: row.id, status: "open" });
@@ -238,25 +245,38 @@ export async function decideActionProposals(
     // row being run, never the rest of the card.
     const [claimed] = await claimActionProposals([row.id], userId);
     if (!claimed) continue; // decided meanwhile (another tab); explained below
-    outcomes.set(row.id, await confirmOne(claimed, identity));
+    const run = chain.inputFor(claimed.actionId, claimed.input);
+    const { outcome, revision } = await confirmOne({ ...claimed, input: run.input }, identity, run.chained);
+    chain.record(claimed.actionId, run.input, outcome.status === "confirmed" ? { confirmed: true, revision } : { confirmed: false });
+    outcomes.set(row.id, outcome);
   }
   const unclaimed = await explainUnclaimed(ids.filter((id) => !outcomes.has(id)), userId);
   return ids.map((id) => outcomes.get(id) ?? unclaimed.get(id)!);
 }
 
-async function confirmOne(row: ActionProposalRecord, identity: Identity): Promise<ProposalOutcome> {
+/**
+ * Run one claimed row and settle it. `row.input` is the stored input, or the
+ * stored input with its revision moved on by this request's own earlier
+ * writes (`chained`, then recorded on the row's result for the trail).
+ * Answers the tool's new revision when the write reported one, for the chain.
+ */
+async function confirmOne(
+  row: ActionProposalRecord,
+  identity: Identity,
+  chained = false
+): Promise<{ outcome: ProposalOutcome; revision?: string }> {
   const decidedBy = identity.userId as string;
   const def = actionById(row.actionId);
   if (!def) {
     await settleActionProposal(row.id, { status: "failed", result: { error: "failed" }, decidedBy });
-    return { id: row.id, status: "failed", error: "failed" };
+    return { outcome: { id: row.id, status: "failed", error: "failed" } };
   }
   // A proposal stored before its action left the assistant (owner decision
   // 2026-09-27), or written by anything but proposeAction, commits nothing:
   // every row here came from the assistant, chat or MCP.
   if (!assistantMayPropose(def)) {
     await settleActionProposal(row.id, { status: "failed", result: { error: "not_offered" }, decidedBy });
-    return { id: row.id, status: "failed", error: "not_offered" };
+    return { outcome: { id: row.id, status: "failed", error: "not_offered" } };
   }
   // The card's "before" can be an hour old: re-read it after the gate, and
   // refuse if a field the card shows has changed since (§3.3 step 4).
@@ -278,18 +298,23 @@ async function confirmOne(row: ActionProposalRecord, identity: Identity): Promis
     result = { ok: false as const, error: "failed" };
   }
   const link = typeof row.preview.link === "string" ? row.preview.link : undefined;
+  const trail = chained ? { chained: true } : {};
   if (result.ok) {
     const warning = "warning" in result ? result.warning : undefined;
-    await settleActionProposal(row.id, { status: "confirmed", result: warning ? { warning } : {}, decidedBy });
-    return { id: row.id, status: "confirmed", ...(warning ? { warning } : {}), ...(link ? { link } : {}) };
+    const revision = (result as { revision?: unknown }).revision;
+    await settleActionProposal(row.id, { status: "confirmed", result: { ...(warning ? { warning } : {}), ...trail }, decidedBy });
+    return {
+      outcome: { id: row.id, status: "confirmed", ...(warning ? { warning } : {}), ...(link ? { link } : {}) },
+      ...(typeof revision === "string" ? { revision } : {}),
+    };
   }
   if (result.error === "conflict") {
     const detail = drifted.length > 0 ? { drifted } : {};
-    await settleActionProposal(row.id, { status: "conflict", result: { error: "conflict", ...detail }, decidedBy });
-    return { id: row.id, status: "conflict", error: "conflict", ...detail };
+    await settleActionProposal(row.id, { status: "conflict", result: { error: "conflict", ...detail, ...trail }, decidedBy });
+    return { outcome: { id: row.id, status: "conflict", error: "conflict", ...detail } };
   }
-  await settleActionProposal(row.id, { status: "failed", result: { error: result.error }, decidedBy });
-  return { id: row.id, status: "failed", error: result.error };
+  await settleActionProposal(row.id, { status: "failed", result: { error: result.error, ...trail }, decidedBy });
+  return { outcome: { id: row.id, status: "failed", error: result.error } };
 }
 
 /**

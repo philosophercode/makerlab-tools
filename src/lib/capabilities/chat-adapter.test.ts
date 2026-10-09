@@ -105,8 +105,66 @@ describe("citing sources", () => {
   it("has a third format for a resource with no link: its bold title", () => {
     const prompt = promptFor(trotec);
 
-    expect(prompt).toContain("Three formats:");
+    expect(prompt).toContain("Four formats:");
     expect(prompt).toContain('3. A resource with "no link on file": its exact title in bold, `**Trotec Speedy 400 SOP**`, with no link.');
+  });
+
+  it("has a fourth format for a lab note: bold Lab note, no link (identity spec amendment \"Lab notes\")", () => {
+    const citing = promptFor(trotec).slice(promptFor(trotec).indexOf("## Citing sources")).split("\n## ")[0];
+
+    expect(citing).toContain("4. A lab note: `**Lab note:**` in bold before it, with no link");
+  });
+});
+
+describe("lab notes (identity spec amendment \"Lab notes\", 2026-10-06)", () => {
+  const cutter = withLinks({ ...trotec, notes: "- Always put a cutting mat underneath so you don't scratch the table.\n\nReturn the blade to the drawer." }, []);
+  const plain = { ...trotec, notes: null };
+
+  it("puts the rules in the stable part, right after Where you are, even with no notes anywhere", () => {
+    const prompt = buildSystemPrompt([], { tools: mockTools, locale: "en" });
+    const rules = prompt.indexOf("## Lab notes");
+
+    expect(rules).toBeGreaterThan(prompt.indexOf("## Where you are"));
+    expect(rules).toBeLessThan(prompt.indexOf(CONVERSATION_HEADING));
+    expect(prompt).toContain("**They win.**");
+    expect(prompt).toContain("follow the lab note and say it is how this lab does it");
+    expect(prompt).toContain("Never attribute a lab note to a manual or a web page");
+    expect(prompt).toContain("**Never invent one.**");
+    expect(prompt).not.toContain("### Lab-wide notes");
+  });
+
+  it("does not seed a real-sounding rule the model could repeat for a tool that has none", () => {
+    const prompt = buildSystemPrompt([], { tools: [], locale: "en" });
+    const rules = prompt.slice(prompt.indexOf("## Lab notes")).split("\n## ")[0];
+
+    expect(rules).not.toMatch(/cutting mat/i);
+    expect(rules).toContain("**Lab note:** <what the note says>");
+  });
+
+  it("lists the lab-wide notes in the stable part, one bullet each, the same on every page and locale", () => {
+    const labNotes = ["Clean your station before you leave.", "Ask a SuperMaker before using a machine for the first time."];
+    const gallery = buildSystemPrompt([], { tools: mockTools, locale: "en", labNotes });
+    const onTool = buildSystemPrompt([], { tools: mockTools, focusedTool: cutter, locale: "fr", labNotes });
+    const stable = gallery.slice(0, gallery.indexOf(CONVERSATION_HEADING));
+
+    expect(stable).toContain("### Lab-wide notes\n\n- Clean your station before you leave.\n- Ask a SuperMaker before using a machine for the first time.");
+    expect(onTool.slice(0, onTool.indexOf(CONVERSATION_HEADING))).toBe(stable);
+  });
+
+  it("gives the focused tool's lab notes first in its description, one per line, list markers dropped", () => {
+    const prompt = buildSystemPrompt([], { tools: mockTools, focusedTool: cutter, locale: "en" });
+    const tail = prompt.slice(prompt.indexOf(CONVERSATION_HEADING));
+    const notes = tail.indexOf("- Lab notes (from the lab's staff; give these first and cite each as **Lab note:**):");
+
+    expect(notes).toBeGreaterThan(tail.indexOf(`**${cutter.name}**`));
+    expect(notes).toBeLessThan(tail.indexOf("- Category:"));
+    expect(tail).toContain("  - Always put a cutting mat underneath so you don't scratch the table.\n  - Return the blade to the drawer.");
+  });
+
+  it("says nothing about lab notes in the description of a tool that has none", () => {
+    const tail = buildSystemPrompt([], { tools: mockTools, focusedTool: plain, locale: "en" }).split(CONVERSATION_HEADING)[1];
+
+    expect(tail).not.toContain("- Lab notes");
   });
 });
 
@@ -185,7 +243,7 @@ describe("where you are (identity spec 2026-09-28 §5)", () => {
     const prompt = promptFor(null);
 
     expect(prompt).toContain("## Where you are");
-    expect(prompt).toContain("MakerLAB Assistant");
+    expect(prompt).toContain("MakerLAB AI");
     expect(prompt).toContain("**MakerLAB Tools**");
     expect(prompt).toContain("**first floor of the Tata Innovation Center**");
     expect(prompt).toContain("Roosevelt Island");
@@ -216,5 +274,86 @@ describe("where you are (identity spec 2026-09-28 §5)", () => {
     expect(where).toBeGreaterThan(0);
     expect(where).toBeLessThan(general.indexOf(CONVERSATION_HEADING));
     expect(onTool.slice(0, onTool.indexOf(CONVERSATION_HEADING))).toBe(general.slice(0, general.indexOf(CONVERSATION_HEADING)));
+  });
+});
+
+describe("the lab first, then its people (identity spec amendment 2026-10-06)", () => {
+  it("leads with the lab's own knowledge, then the manual, and says when they differ", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("## The lab first, then its people");
+    expect(prompt).toContain("a companion to the MakerLAB community, not a replacement for its people");
+    expect(prompt).toContain("the tool's lab notes, its SOP and safety documents");
+    expect(prompt).toContain("searched and cited as usual");
+    expect(prompt).toContain("follow the lab's rule and say they differ");
+  });
+
+  it("points students to people for first use, safety and technique, and invents nobody", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("For first use, safety and hands-on technique");
+    expect(prompt).toContain('"ask a SuperMaker to show you the first time"');
+    expect(prompt).toContain("Never invent a name, a schedule or who is on shift.");
+  });
+
+  it("never weakens citations or the honest 'I don't know'", () => {
+    expect(promptFor(null)).toContain("It never replaces the steps, a citation, or saying you don't know.");
+  });
+
+  it("sits in the static prefix, right after 'Where you are'", () => {
+    const general = promptFor(null);
+    const onTool = buildSystemPrompt([], { tools: mockTools, focusedTool: trotec, locale: "fr" });
+    const where = general.indexOf("## Where you are");
+    const companion = general.indexOf("## The lab first, then its people");
+
+    expect(companion).toBeGreaterThan(where);
+    expect(companion).toBeLessThan(general.indexOf(CONVERSATION_HEADING));
+    expect(onTool.slice(0, onTool.indexOf(CONVERSATION_HEADING))).toBe(general.slice(0, general.indexOf(CONVERSATION_HEADING)));
+  });
+
+  it("comes before the lab notes rules and leaves citing a lab note to them", () => {
+    const prompt = promptFor(trotec);
+
+    expect(prompt.indexOf("## The lab first, then its people")).toBeLessThan(prompt.indexOf("## Lab notes"));
+    expect(prompt).toContain('cite a lab note as the "Lab notes" section says');
+  });
+
+  it("adds no notes line of its own: the focused tool's lab notes come once, from the lab notes block", () => {
+    const prompt = promptFor(trotec);
+    const tail = prompt.slice(prompt.indexOf(CONVERSATION_HEADING));
+
+    expect(tail).toContain("  - Run exhaust for 60 seconds after cuts before opening the lid.");
+    expect(tail.split("Run exhaust for 60 seconds").length - 1).toBe(1);
+    expect(tail).not.toContain("- Lab notes: ");
+  });
+});
+
+describe("one rule for silent documents (manual text spec amendment 2026-10-06)", () => {
+  it("is written once, in the static prefix, after the companion rules and before the lab notes", () => {
+    const prompt = promptFor(trotec);
+    const silence = prompt.indexOf("## When the documents are silent");
+
+    expect(prompt.split("## When the documents are silent").length - 1).toBe(1);
+    expect(silence).toBeGreaterThan(prompt.indexOf("## The lab first, then its people"));
+    expect(silence).toBeLessThan(prompt.indexOf("## Lab notes"));
+    expect(silence).toBeLessThan(prompt.indexOf(CONVERSATION_HEADING));
+  });
+
+  it("says the machine's documents do not cover it, never borrows another machine's, labels general guidance and sends safety to staff", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("**Say so plainly, for that machine.**");
+    expect(prompt).toContain("**Never use another machine's document instead**");
+    expect(prompt).toContain('"General guidance, not from the <machine>\'s documents:"');
+    expect(prompt).toContain("Never give settings, temperatures, power, speeds or other figures as general guidance.");
+    expect(prompt).toContain("send the student to MakerLAB staff or a SuperMaker");
+  });
+
+  it("is what the intro and 'Where you are' point to, instead of rules of their own", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).not.toContain("grounded only in the catalog and the lab context");
+    expect(prompt).toContain('when a machine\'s documents do not answer, follow "When the documents are silent"');
+    expect(prompt).toContain('For a question about a machine that its own documents do not answer, follow "When the documents are silent".');
   });
 });

@@ -7,7 +7,7 @@ import { canAddEquipment } from "../../lib/capabilities/access";
 import type { Role } from "../../lib/auth/roles";
 
 /**
- * **Add inventory** on `/admin/inventory` (amendment 2026-09-25 "Admin
+ * **Add equipment** (was "Add inventory") on `/admin/inventory` (amendment 2026-09-25 "Admin
  * polish"): the header's primary action, and the same flow as the home's and
  * the profile menu's **Add equipment** — the assistant opens with the intake
  * seed, identifies what is being added, and research and approval follow on

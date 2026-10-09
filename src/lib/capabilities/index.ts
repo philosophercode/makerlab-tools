@@ -2,7 +2,11 @@ import { catalog } from "./catalog";
 import { units } from "./units";
 import { web } from "./web";
 import { manuals } from "./manuals";
+import { skills } from "./skills";
 import { qr } from "./qr";
+import { toolCards } from "./tool-cards";
+import { illustrations } from "./illustrations";
+import { suggestedReplies } from "./suggest-replies";
 import { maintenance } from "./maintenance";
 import { intake } from "./intake";
 import { flags } from "./flags";
@@ -11,6 +15,7 @@ import { staff } from "./staff";
 import { adminReads } from "./admin-reads";
 import { catalogReads } from "./catalog-reads";
 import { actions } from "./actions";
+import { insights } from "./insights";
 import type { Capability } from "./types";
 
 /**
@@ -31,8 +36,24 @@ import type { Capability } from "./types";
  *  - `manuals`     — `search_manual`: hybrid search over processed manual
  *                    passages, with page citations (manual text spec §3.6);
  *                    on MCP too, public manuals only.
+ *  - `skills`      — `get_tool_skill`: one machine's tool skill, the lab's
+ *                    cited operating guide (tool skills spec 2026-10-07); a
+ *                    read for everybody, on MCP too. On a tool page the chat
+ *                    has that tool's skill in its prompt already.
  *  - `qr`          — `get_tool_qr_code`: a published tool's QR code as a chat
  *                    card with download links (read, chat only, everyone).
+ *  - `tool-cards`  — `show_tool`: the catalogue photo, status and page link of
+ *                    the tool an answer is about, as small chat cards (read,
+ *                    chat only, everyone).
+ *  - `illustrations` — `make_illustration`: one labelled AI illustration of a
+ *                    plan or a project idea, never of the lab's equipment
+ *                    (chat only, signed-in people: `chat.illustrate`; the
+ *                    route leaves it out when `MODEL_ILLUSTRATION=off` or
+ *                    there is no Blob store).
+ *  - `suggested-replies` — `suggest_replies`: two or three short replies the
+ *                    student can tap under an answer that asks them to pick
+ *                    between a few easy options; display only (read, chat
+ *                    only, everyone).
  *  - `maintenance` — file maintenance tickets (write).
  *  - `intake`      — `identify_tools` records equipment as pending rows (chat
  *                    only; research and approval happen off the chat), and
@@ -52,6 +73,10 @@ import type { Capability } from "./types";
  *                    §3.4), and an MCP twin for each `mcp: "propose"` action
  *                    whose proposal waits in `/admin/proposals` (phase 7).
  *                    Each only proposes; the person's click commits.
+ *  - `insights`    — `get_usage_summary` and the MCP twin of
+ *                    `get_value_report`: anonymous usage counts, MCP only,
+ *                    super admins only (`insights.export`; usage insight spec
+ *                    amendment 2026-09-30).
  *
  * Not every tool reaches both surfaces: `chatOnly` tools are never registered
  * over MCP, and `mcpOnly` tools are never handed to the chat model.
@@ -64,7 +89,11 @@ export const CAPABILITIES: Capability[] = [
   units,
   web,
   manuals,
+  skills,
   qr,
+  toolCards,
+  illustrations,
+  suggestedReplies,
   maintenance,
   intake,
   flags,
@@ -73,10 +102,11 @@ export const CAPABILITIES: Capability[] = [
   adminReads,
   catalogReads,
   actions,
+  insights,
 ];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, qr, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions };
+export { catalog, units, web, manuals, skills, qr, toolCards, illustrations, suggestedReplies, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

@@ -4,9 +4,11 @@ import {
   attachedManuals,
   attachedPagePassage,
   linkAttachedPageMentions,
+  citationMark,
   citationPhrase,
   citedPassages,
   classifyLink,
+  machineCitation,
   manualPassages,
   pageMark,
   passageExcerpt,
@@ -44,6 +46,49 @@ describe("manualPassages", () => {
 
   it("reads only search_manual, never another tool's links", () => {
     expect(manualPassages([{ type: "tool-read_page", state: "output-available", output: { status: "ok", passages: [P42] } } as never]).size).toBe(0);
+  });
+});
+
+describe("another machine's document (amendment 2026-10-06: relabelled, never shown as this machine's)", () => {
+  const scoped = (toolIds: string[], comparing: string, passages: unknown[]) => ({
+    type: "tool-search_manual",
+    state: "output-available",
+    output: { status: "ok", scope: "x", machines: [], toolIds, comparing, passages },
+  });
+  const form4 = { ...P42, toolId: "form" };
+  const prusa = { ...P44, url: "https://blob.example/prusa.pdf#page=25", ref: "9a9a9a9a-25", citation: "Prusa Handbook, p. 25", tool: "Prusa i3 MK3S+", toolId: "prusa" };
+
+  it("draws a passage of the searched machine as before, with no machine name", () => {
+    const passage = manualPassages([scoped(["form"], "none", [form4])]).get(URL_42)!;
+    expect(passage.machine).toBeUndefined();
+    expect(passage.otherMachine).toBeUndefined();
+    expect(machineCitation(passage)).toBe("Form 4 Manual, p. 42");
+    expect(citationMark(passage)).toBe("p. 42");
+  });
+
+  it("names the machine of a passage the searches were not scoped to, and marks it", () => {
+    const passage = manualPassages([scoped(["form"], "none", [form4, prusa])]).get("#cite-9a9a9a9a-25")!;
+    expect(passage).toMatchObject({ machine: "Prusa i3 MK3S+", otherMachine: true });
+    expect(machineCitation(passage)).toBe("Prusa i3 MK3S+: Prusa Handbook, p. 25");
+    expect(citationMark(passage)).toBe("Prusa i3 MK3S+ · p. 25");
+    // Still a citation (relabelled, not dropped), opening the tool's own URL.
+    expect(classifyLink("#cite-9a9a9a9a-25", manualPassages([scoped(["form"], "none", [form4, prusa])]))).toMatchObject({
+      kind: "citation",
+      passage: { url: prusa.url },
+    });
+  });
+
+  it("names every passage's machine in an answer comparing machines, without calling any of them another machine's", () => {
+    const byKey = manualPassages([scoped([], "all", [form4, prusa])]);
+    expect(byKey.get(URL_42)).toMatchObject({ machine: "Form 4" });
+    expect(byKey.get(URL_42)?.otherMachine).toBeUndefined();
+    expect(byKey.get(prusa.url)).toMatchObject({ machine: "Prusa i3 MK3S+" });
+    expect(manualPassages([scoped(["form", "prusa"], "tools", [form4, prusa])]).get(URL_42)).toMatchObject({ machine: "Form 4" });
+  });
+
+  it("relabels nothing in a message from before searches recorded their scope", () => {
+    const passage = manualPassages([searchPart([form4, prusa])]).get(prusa.url)!;
+    expect(passage.machine).toBeUndefined();
   });
 });
 

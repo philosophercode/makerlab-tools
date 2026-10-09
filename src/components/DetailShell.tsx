@@ -7,6 +7,7 @@ import type { ManualContents } from "../lib/data/manual-documents";
 import type { ToolMaintenanceEntry } from "../lib/data/maintenance";
 import { officialNameShown } from "../lib/tool-names";
 import { isoDay } from "../lib/iso-day";
+import { allToolsHref, categoryHref } from "../lib/gallery-links";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,8 @@ import { Markdown } from "./system/Markdown";
 import { StatusGlyph, type StatusTone } from "./system/StatusGlyph";
 import { TOOL_STATUS_KEY, TOOL_STATUS_TONE } from "./ToolCard";
 import { ToolImage } from "./ToolImage";
+import { LabNotes } from "./tool/LabNotes";
+import { ToolReportActions } from "./tool/report/ToolReportActions";
 import { UnitsTable } from "./tool/UnitsTable";
 import type { ToolRelations } from "./tool/relations";
 
@@ -36,10 +39,22 @@ interface DetailShellProps {
    */
   heroMap?: React.ReactNode;
   /**
+   * The units table, when the page builds it per viewer (`tool/UnitsForViewer`
+   * in its own Suspense boundary: whole serials for staff only, the masked last
+   * four for everyone else). Absent, the table is drawn from `tool.units` as
+   * they are.
+   */
+  unitsTable?: React.ReactNode;
+  /**
    * Accessory links (taxonomy v2 facet): the tool this one is an accessory of,
    * and the published accessories of this one. Empty is absent.
    */
   relations?: ToolRelations;
+  /**
+   * Report a problem and Ask MakerLAB AI in the hero (quick report spec §6).
+   * Off for a draft: the report files only against a published tool.
+   */
+  reportActions?: boolean;
 }
 
 function resourceLabel(link: MakerLabTool["links"][number], fallback: string): string {
@@ -68,8 +83,10 @@ function maintenanceTone(status: string): StatusTone {
  *
  * - **Hero**: a small image plate (and, signed in, the mini-map — beside it
  *   on a phone, under it from `sm`) beside the name, official name, a status
- *   line on one line (status, training, PPE, units available), the
- *   description and the Safety doc / SOP buttons.
+ *   line on one line (status, training, PPE, units available), the lab's
+ *   own **Lab notes** when there are any (above the description: the lab's
+ *   word before the manufacturer's), the description and the Safety doc /
+ *   SOP buttons.
  * - **Two columns on desktop** (one on a phone): Safety & access — the one
  *   tinted block, compact rows — then Details as a dense `<dl>` on the left;
  *   Documents & resources (with each manual's Contents) and the machines on the
@@ -79,7 +96,7 @@ function maintenanceTone(status: string): StatusTone {
  *   box, no empty maintenance history. Safety is the exception: it always
  *   says what to do, falling back to the lab's standing guidance.
  */
-export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, relations }: DetailShellProps) {
+export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, unitsTable, relations, reportActions = true }: DetailShellProps) {
   const t = useTranslations("detail");
   const tStatus = useTranslations("gallery.status");
   const tUi = useTranslations("ui");
@@ -96,7 +113,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
     [
       t("category"),
       <span key="category">
-        <Link data-slot="category-link" href={`/?category=${encodeURIComponent(tool.category)}`} className="text-primary-ink hover:underline">
+        <Link data-slot="category-link" href={categoryHref(tool.category)} className="text-primary-ink hover:underline">
           {tool.category}
         </Link>
         {tool.categorySub && tool.categorySub !== tool.category ? ` › ${tool.categorySub}` : ""}
@@ -116,7 +133,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
     [
       t("location"),
       <span key="location">
-        <Link data-slot="location-link" href={`/?location=${encodeURIComponent(tool.location)}`} className="text-primary-ink hover:underline">
+        <Link data-slot="location-link" href={allToolsHref({ location: tool.location })} className="text-primary-ink hover:underline">
           {tool.location}
         </Link>
         {tool.zone ? ` › ${tool.zone}` : ""}
@@ -126,7 +143,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
     ...(tool.trainingLabel ? ([[t("trainingRow"), tool.trainingLabel]] as Row[]) : []),
     ...(tool.mapId ? ([[t("mapId"), <code key="map" className="font-mono text-xs">{tool.mapId}</code>]] as Row[]) : []),
     ...(tool.tags.length > 0 ? ([[t("tags"), tool.tags.join(", ")]] as Row[]) : []),
-    ...(tool.notes ? ([[t("notes"), tool.notes]] as Row[]) : []),
+    // The tool's notes are its Lab notes, in the hero (identity spec amendment "Lab notes"), not a row here.
   ];
 
   const safety: Row[] = [
@@ -211,6 +228,17 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
               <span className="text-muted-foreground tabular-nums">{t("unitsAvailable", { available, count: tool.units.length })}</span>
             ) : null}
           </p>
+          {/* Report a problem, front and centre, with Ask MakerLAB AI beside
+              it (quick report spec §6). */}
+          {reportActions ? (
+            <ToolReportActions
+              toolSlug={tool.slug}
+              toolName={tool.name}
+              units={tool.units.map((unit) => ({ id: unit.id, name: unit.name, status: unit.status }))}
+            />
+          ) : null}
+          {/* The lab's own rules and tips, before the generic description (identity spec amendment "Lab notes"). */}
+          <LabNotes notes={tool.notes} />
           {/* Descriptions are Markdown (older ones may carry a spec list); no raw HTML, as for projects. */}
           <Markdown className="max-w-[72ch] text-[15px]">{tool.description}</Markdown>
           {safetyLink || sopLink ? (
@@ -306,7 +334,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
           {tool.units.length > 0 ? (
             <section aria-labelledby="tool-units" className="min-w-0">
               <SectionHeading id="tool-units">{t("physicalMachines")}</SectionHeading>
-              <UnitsTable units={tool.units} />
+              {unitsTable ?? <UnitsTable units={tool.units} />}
             </section>
           ) : null}
         </div>

@@ -32,7 +32,13 @@ const manuals = vi.hoisted(() => ({ startManualArchive: vi.fn() }));
 
 vi.mock("../manuals/start", () => ({ startManualArchive: manuals.startManualArchive }));
 
+// The skill run, mocked at its `start()` module like the archive above.
+const skillRuns = vi.hoisted(() => ({ startToolSkills: vi.fn() }));
+
+vi.mock("../skills/start", () => ({ startToolSkills: skillRuns.startToolSkills }));
+
 import { revalidateTag } from "next/cache";
+import { setLabSetting, TOOL_SKILLS_SETTING } from "../data/lab-settings";
 import { eq } from "drizzle-orm";
 import { seedUser } from "../../../test/utils/session";
 import {
@@ -46,7 +52,7 @@ import {
   type ApprovalFields,
 } from "../data/pending-tools";
 import { getDb, resetDbForTests } from "../db/client";
-import { auditEvents, resources, tools, units } from "../db/schema/index";
+import { auditEvents, labSettings, resources, tools, units } from "../db/schema/index";
 import type { Db } from "../db/types";
 import type { ResearchResult } from "../research/result";
 import { CATALOG_TAG } from "../revalidate";
@@ -448,5 +454,51 @@ describe("the manual archive", () => {
     expect((await approveAndRecord({ userId: approver }, { id: bare, publish: true, fields: fields() })).ok).toBe(true);
 
     expect(manuals.startManualArchive).not.toHaveBeenCalled();
+  });
+});
+
+describe("the tool skill (tool skills spec 2026-10-07 §5.4)", () => {
+  beforeEach(async () => {
+    skillRuns.startToolSkills.mockReset().mockResolvedValue(true);
+    await db.delete(labSettings).where(eq(labSettings.key, TOOL_SKILLS_SETTING));
+  });
+
+  it("asks for no skill while the lab has the setting off (the default)", async () => {
+    const withManual = await researchedItem();
+    expect((await approveAndRecord({ userId: approver }, { id: withManual, publish: true, fields: fields() })).ok).toBe(true);
+    const bare = await researchedItem(research({ resources: [] }));
+    expect((await approveAndRecord({ userId: approver }, { id: bare, publish: true, fields: fields({ name: "Bambu Lab P1S two" }) })).ok).toBe(true);
+
+    expect(manuals.startManualArchive.mock.calls.every((call) => call.length === 1)).toBe(true);
+    expect(skillRuns.startToolSkills).not.toHaveBeenCalled();
+  });
+
+  it("with the setting on, hands the new tool to the archive run, which writes its skill after the manuals", async () => {
+    await setLabSetting(TOOL_SKILLS_SETTING, { afterResearch: true }, approver);
+    const id = await researchedItem();
+    const result = await approveAndRecord({ userId: approver }, { id, publish: true, fields: fields() });
+    if (!result.ok) throw new Error("approval refused");
+
+    const created = await db.select({ id: resources.id }).from(resources).where(eq(resources.toolId, result.toolId));
+    expect(manuals.startManualArchive).toHaveBeenCalledWith([created[0].id], [result.toolId]);
+    expect(skillRuns.startToolSkills).not.toHaveBeenCalled();
+  });
+
+  it("with the setting on and nothing to archive, starts the skill run itself", async () => {
+    await setLabSetting(TOOL_SKILLS_SETTING, { afterResearch: true }, approver);
+    const id = await researchedItem(research({ resources: [] }));
+    const result = await approveAndRecord({ userId: approver }, { id, publish: true, fields: fields() });
+    if (!result.ok) throw new Error("approval refused");
+
+    expect(manuals.startManualArchive).not.toHaveBeenCalled();
+    expect(skillRuns.startToolSkills).toHaveBeenCalledWith([result.toolId], "research", false);
+  });
+
+  it("still approves when the skill run cannot be started", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await setLabSetting(TOOL_SKILLS_SETTING, { afterResearch: true }, approver);
+    skillRuns.startToolSkills.mockRejectedValue(new Error("workflow runtime unavailable"));
+    const id = await researchedItem(research({ resources: [] }));
+    expect(await approveAndRecord({ userId: approver }, { id, publish: true, fields: fields() })).toMatchObject({ ok: true });
   });
 });

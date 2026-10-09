@@ -734,3 +734,50 @@ seeded ticket as the signed-in person.
 harness gained `context.as` (`student` / `staff`, the demo accounts, composed through
 `capabilitiesForIdentity`), `history` (earlier turns), an eval-only open Form 4 ticket
 (`evals/ticket-fixture.ts`) and `EVAL_CASES` to run one file.
+
+### 2026-09-30 — Usage counts for super admins
+
+**Why.** The owner decided (2026-09-30) that super admins may pull the lab's anonymous usage data
+over MCP; admins maybe later. The detail is the usage insight spec's amendment of the same date.
+
+**What changes here.** Two reads join the MCP tool set, **`get_usage_summary`** (the Insights
+page's Usage tab for 7/30/90 days) and **`get_value_report`** (an MCP twin of the chat tool), both
+`mcpOnly` and gated by their `requiredPermission`, **`insights.export`**, which only `super_admin`
+holds. §3.2 is unchanged in shape: `mcpToolAllowed` asks `can()`, so a tool held by one role needs a
+permission held by one role, never a role check in MCP code. They are reads, so a read-only token or
+grant gets them. Counts only: no question text, nothing about a person. The `/mcp` page has three
+groups (Anyone, Signed-in, Staff); a super-admin-only tool is listed under Staff, marked for super
+admins only, and its description says "Super admins only."
+
+### 2026-10-05 — Security fixes: exact `prompt=consent`, batches, the consent page's redirect host
+
+**Why.** A security review (area auth-authz) found three gaps on the MCP surface.
+
+**What changes here.**
+
+- **Consent is forced exactly** (§3.4, `forceConsent` in `src/app/api/auth/[...all]/route.ts`).
+  The 2026-09-24 amendment records that the `mcp` plugin shows its consent page only for
+  `prompt=consent`; it tests `query.prompt === "consent"` literally. The route used to accept
+  any `prompt` that *contained* the token `consent` and appended it otherwise, so `prompt=none`
+  became `none consent`, and `login consent`, `CONSENT` or a repeated parameter all reached the
+  plugin, which then issued a code to the client's redirect URI with no consent page — one
+  click from a signed-in person gave a self-registered client a full-role grant. Now any
+  authorization whose `prompt` parameters are not exactly one `consent` is redirected with
+  every `prompt` removed and `prompt=consent` set.
+- **A JSON-RPC batch is charged per message** (§5.2, `src/lib/mcp/handler.ts`). One request
+  spent one unit of `mcp` / `mcpSignedIn` however many calls its batch carried. Each message
+  past the first now spends one more unit of the same allowance, and a batch of more than
+  `MAX_BATCH` (10) messages is refused with 413 and JSON-RPC `-32600` before any of it runs.
+- **The consent page names the client and the redirect host from the pending row**
+  (`/oauth/consent`, `pendingConsentFor` in `src/lib/account/oauth-consent.ts`). The client id
+  is no longer read from the query string; the page reads the pending authorization the
+  `consent_code` names (it must be the signed-in person's and still waiting) and adds one
+  line: "If you allow it, access goes to **host**", since a client's name is whatever it
+  registered as. `/oauth/sign-in` is unchanged.
+
+**Covered by** `src/lib/auth/mcp-oauth.test.ts` (`none`, `CONSENT`, `login consent`,
+`none consent`, ` consent` and a repeated `prompt` all come back as a single `prompt=consent`
+with no code; the pending row's client and host, only for its owner) and
+`src/app/api/mcp/route.test.ts` (a batch of ten spends ten units; eleven is refused).
+
+**Status.** Built on `security/auth-authz`.

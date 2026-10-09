@@ -44,7 +44,11 @@ export const statement = {
   // `export`: the tools CSV on /admin/inventory (all tools or the selected
   // ones, every state). Directors only — the whole catalogue leaving the app in
   // one file is a super admin's call; "admins too" is one line below.
-  catalog: ["view_drafts", "export"],
+  // `view_serials`: units' whole serial numbers (or asset tags) on the tool
+  // page, in the assistant's answers and over MCP. Staff only (owner meeting,
+  // 2026-10-06). Everyone else gets units by name and only the last four
+  // characters, masked ("•••• 9831"). See `lib/unit-serials.ts`.
+  catalog: ["view_drafts", "view_serials", "export"],
   tools: ["add", "approve", "edit", "publish"],
   maintenance: ["manage"],
   feedback: ["manage"],
@@ -59,7 +63,17 @@ export const statement = {
   // `configure` sets the value report's assumptions (minutes per question,
   // hourly cost, staffed hours, terms) — its own grant so "directors only" is
   // one line; admins and super admins both today.
-  insights: ["view", "configure"],
+  // `export`: the same anonymous counts leaving the app through an MCP client
+  // (`get_usage_summary`, and `get_value_report` over MCP — usage insight spec
+  // amendment 2026-09-30). Directors only, like `catalog.export`: the owner
+  // decided super admins first, "admins too" is one line below. Counts and
+  // aggregates only; never the Unanswered queue's text.
+  insights: ["view", "configure", "export"],
+  // `illustrate`: ask the assistant for a generated illustration — a sketch of
+  // a plan or a concept render of a project idea (gateway spec amendment
+  // 2026-10-07). Every signed-in person: it spends the lab's money, so it
+  // needs someone to count it against; anonymous visitors are offered sign-in.
+  chat: ["illustrate"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -82,7 +96,8 @@ const ACCOUNT_MANAGEMENT = {
  * The grants, least- to most-privileged.
  *
  * - `user` — a student, or anyone signed in with an allowed address. Submitting
- *   a project is the whole of it; browsing and chatting never needed an account.
+ *   a project and asking the assistant for an illustration are the whole of
+ *   it; browsing and chatting never needed an account.
  * - `admin` — a SuperMaker. Runs the catalogue and the lab's day-to-day
  *   records, but cannot change who is who.
  * - `super_admin` — a director. Everything, including roles and removing people.
@@ -90,10 +105,12 @@ const ACCOUNT_MANAGEMENT = {
 export const roles = {
   user: ac.newRole({
     projects: ["submit"],
+    chat: ["illustrate"],
   }),
   admin: ac.newRole({
     projects: ["submit", "moderate"],
-    catalog: ["view_drafts"],
+    chat: ["illustrate"],
+    catalog: ["view_drafts", "view_serials"],
     tools: ["add", "approve", "edit", "publish"],
     maintenance: ["manage"],
     feedback: ["manage"],
@@ -103,12 +120,13 @@ export const roles = {
   }),
   super_admin: ac.newRole({
     projects: ["submit", "moderate"],
-    catalog: ["view_drafts", "export"],
+    chat: ["illustrate"],
+    catalog: ["view_drafts", "view_serials", "export"],
     tools: ["add", "approve", "edit", "publish"],
     maintenance: ["manage"],
     feedback: ["manage"],
     mirror: ["manage"],
-    insights: ["view", "configure"],
+    insights: ["view", "configure", "export"],
     users: ["manage"],
     taxonomy: ["manage"],
     user: [...ACCOUNT_MANAGEMENT.user],

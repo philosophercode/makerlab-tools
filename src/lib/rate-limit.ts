@@ -51,6 +51,14 @@ export function rateLimit(
   if (useUpstash) {
     throw new Error("rateLimitAsync must be used when Upstash Redis is configured");
   }
+  return memoryRateLimit(key, { limit, windowMs });
+}
+
+/** The in-memory counter itself: the default store, and Upstash's fallback. */
+function memoryRateLimit(
+  key: string,
+  { limit, windowMs }: { limit: number; windowMs: number }
+): { allowed: boolean; remaining: number } {
   cleanup();
 
   const now = Date.now();
@@ -82,25 +90,33 @@ export async function rateLimitAsync(
     ["EXPIRE", redisKey, ttlSec, "NX"],
   ]);
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${UPSTASH_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body,
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    // Fail open to avoid downtime on transient Redis issues.
-    return { allowed: true, remaining: limit - 1 };
+  // When Upstash cannot answer — an outage, an exhausted quota (which a flood
+  // can cause), a network error or a malformed reply — the limit falls back to
+  // this process's own counter rather than turning off (security fix
+  // 2026-10-05). Per-process is weaker than shared, but it is still a limit,
+  // and nobody is refused because Redis had a bad minute.
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body,
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const parsed = (await res.json()) as Array<{ result?: number }>;
+      const count = Number(parsed?.[0]?.result);
+      if (Number.isFinite(count) && count > 0) {
+        return { allowed: count <= limit, remaining: Math.max(0, limit - count) };
+      }
+    }
+    console.warn(`[rate-limit] Upstash answered ${res.status}; using the in-memory limit`);
+  } catch {
+    console.warn("[rate-limit] Upstash unreachable; using the in-memory limit");
   }
-
-  const parsed = (await res.json()) as Array<{ result?: number }>;
-  const count = Number(parsed?.[0]?.result || 0);
-  const allowed = count <= limit;
-  return { allowed, remaining: Math.max(0, limit - count) };
+  return memoryRateLimit(key, { limit, windowMs });
 }
 
 /** Extract client IP from request headers (works on Vercel) */
@@ -191,6 +207,14 @@ export const ROUTE_TIERS = {
   mcp: { limit: 30, windowMs: 60_000 },
   mcpSignedIn: { limit: 60, windowMs: 60_000 },
   mcpWrite: { limit: 10, windowMs: 60_000 },
+  // Maintenance tickets filed by a caller nobody is signed in as, per hashed
+  // IP (security fix 2026-10-05): anonymous reporting stays open, bounded.
+  anonTickets: { limit: 5, windowMs: HOUR_MS },
+  // The quick report form (`POST /api/report`, quick report spec §8), per
+  // person or hashed IP: the anonymous chat's eight an hour, for everybody.
+  // An anonymous report also spends one of `anonTickets`, shared with the
+  // chat's `report_issue`, so the two doors together file at most five.
+  quickReport: { limit: 8, windowMs: HOUR_MS },
   // Creating and revoking tokens and connected apps on /account/tokens, and
   // answering the OAuth consent page, per person.
   account: { limit: 30, windowMs: 60_000 },
@@ -225,6 +249,13 @@ export const ROUTE_TIERS = {
   // Starter answers: the chat reads a page's cached chip answers when it
   // opens, and says when a chip served one. A handful a page view.
   starters: { limit: 60, windowMs: 60_000 },
+  // The email unsubscribe page and its one-click POST (email notifications
+  // spec §5.3), per hashed IP, checked before the token is verified or
+  // anything is read. One unsubscribe is a page view and a press.
+  notificationsUnsubscribe: { limit: 20, windowMs: HOUR_MS },
+  // A chat illustration's image (`/api/chat/illustrations/[id]`), per person:
+  // a chat shows a handful; what makes one is capped in `illustrations/limits.ts`.
+  illustrations: { limit: 60, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;

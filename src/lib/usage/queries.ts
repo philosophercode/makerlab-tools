@@ -2,6 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { rawRows } from "../db/raw.ts";
 import type { Db } from "../db/types.ts";
+import { labTimezone } from "../lab-time.ts";
 import { QUESTION_KINDS, type GapKind, type QuestionKind } from "../db/schema/vocabulary.ts";
 
 /**
@@ -24,6 +25,20 @@ import { QUESTION_KINDS, type GapKind, type QuestionKind } from "../db/schema/vo
 export const INSIGHT_PERIODS = [7, 30, 90] as const;
 export type InsightPeriod = (typeof INSIGHT_PERIODS)[number];
 
+/**
+ * The time zone the Insights reads use: `LAB_TIMEZONE`, or UTC when `Intl`
+ * does not recognise it. Shared by the page and MCP's `get_usage_summary`, so
+ * both put an event in the same lab day and hour.
+ */
+export function insightsTimeZone(timeZone: string = labTimezone()): string {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone });
+    return timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
 export interface InsightsQuery {
   days: InsightPeriod;
   includeStaff: boolean;
@@ -40,6 +55,12 @@ export interface InsightTotals {
   kioskScans: number;
   gaps: number;
   citations: number;
+  /**
+   * Citations of another machine's document than the one the answer was about
+   * (`manual_cited` with `source = 'cross_tool'`; manual text spec amendment
+   * 2026-10-06). Counted in `citations` too.
+   */
+  crossToolCitations: number;
 }
 
 export interface ToolInsight {
@@ -167,7 +188,8 @@ export async function loadInsights(query: InsightsQuery, options: { db?: Db } = 
                  coalesce(sum(count) filter (where kind = 'kiosk_view' and source = 'screen'), 0) as kiosk_screens,
                  coalesce(sum(count) filter (where kind = 'kiosk_view' and source = 'qr'), 0) as kiosk_scans,
                  coalesce(sum(count) filter (where kind = 'gap'), 0) as gaps,
-                 coalesce(sum(count) filter (where kind = 'manual_cited'), 0) as citations
+                 coalesce(sum(count) filter (where kind = 'manual_cited'), 0) as citations,
+                 coalesce(sum(count) filter (where kind = 'manual_cited' and source = 'cross_tool'), 0) as cross_tool_citations
             from ${src} e`
     ),
     rawRows<Record<string, Num>>(
@@ -284,6 +306,7 @@ export async function loadInsights(query: InsightsQuery, options: { db?: Db } = 
       kioskScans: n(totals.kiosk_scans),
       gaps: n(totals.gaps),
       citations: n(totals.citations),
+      crossToolCitations: n(totals.cross_tool_citations),
     },
     tools: toolRows
       .map((row) => ({

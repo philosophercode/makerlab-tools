@@ -37,3 +37,9 @@ export const MCP_PROPOSING_TOOLS = [
   "recategorize_tool",
 ];
 
+/**
+ * Usage insight over MCP (usage insight spec amendment 2026-09-30): the
+ * `insights` capability's reads, last in the registry, on `insights.export` —
+ * a super admin's alone, read-only connections included.
+ */
+export const SUPER_ADMIN_ONLY_TOOLS = ["get_usage_summary", "get_value_report"];

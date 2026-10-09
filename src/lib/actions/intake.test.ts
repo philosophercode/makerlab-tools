@@ -269,6 +269,17 @@ describe("edit_pending_items never discards", () => {
   });
 });
 
+describe("a placeholder name is never proposed (amendment \"No empty items\")", () => {
+  it("refuses rename_pending_item and edit_pending_items to a placeholder before any card", async () => {
+    const a = await identifiedItem("Zyx Printer Two");
+    const renamed = await propose("pending.save_identity", { pending_id: a, name: "Equipment not specified" });
+    expect(renamed).toMatchObject({ ok: false, error: "placeholder_name" });
+    const edited = await propose("pending.edit", { pending_ids: [a], name: "Unknown" });
+    expect(edited).toMatchObject({ ok: false, error: "placeholder_name" });
+    expect((await getPendingTool(a))?.name).toBe("Zyx Printer Two");
+  });
+});
+
 describe("research from a card spends exactly as the button does", () => {
   it("starts research at the click, and the allowance is checked at the click", async () => {
     const a = await identifiedItem("Qrz Cutter 9");

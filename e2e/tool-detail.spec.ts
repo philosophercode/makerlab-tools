@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
 
+import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
+import { signIn } from "./utils/session";
+
 // Demo seed: Form 4 (slug "form-4") has one unit "Form 4 // A" (serial
 // ML-F4-001), two resource links (Form 4 SOP / Resin handling safety), and a
 // `notionPageId` of 1f2e3d4c-5b6a-4789-8abc-def012345678 (src/lib/db/demo-seed.ts)
@@ -21,12 +24,18 @@ test.describe("Tool detail", () => {
       page.getByText(/production-grade resin printer/i)
     ).toBeVisible();
 
-    // Physical machines (units) table: unit name + serial. Scoped to the
+    // Physical machines (units) table: the unit by name. Scoped to the
     // table: the DataTable also renders a phone list with the same rows
     // (hidden at this width), so a page-wide getByText matches twice.
+    // A visitor sees the serial's last four only, masked: the whole serial
+    // is staff only (data platform spec amendment 2026-10-06), and not in
+    // the page at all.
     const units = page.getByRole("table", { name: "Physical Machines" });
     await expect(units.getByText("Form 4 // A")).toBeVisible();
-    await expect(units.getByText("ML-F4-001")).toBeVisible();
+    await expect(units.getByRole("columnheader", { name: "Serial" })).toBeVisible();
+    await expect(units.getByText("•••• -001")).toBeVisible();
+    await expect(units.getByText("Serial ending -001")).toHaveCount(1);
+    expect(await page.content()).not.toContain("ML-F4-001");
 
     // Resources / documents: link labels from the seed.
     await expect(page.getByText("Form 4 SOP")).toBeVisible();
@@ -36,12 +45,14 @@ test.describe("Tool detail", () => {
   test("clicking a gallery card navigates to the detail page", async ({
     page,
   }) => {
-    await page.goto("/");
+    // The cards are the home page's All tools view, grouped by category
+    // (student home spec 2026-10-07, amendment "One page: the list at rest").
+    await page.goto("/?show=all");
 
     await page
       .getByRole("link")
       .filter({
-        has: page.getByRole("heading", { name: "Trotec Speedy 400", level: 2 }),
+        has: page.getByRole("heading", { name: "Trotec Speedy 400", level: 3 }),
       })
       .click();
 
@@ -49,8 +60,37 @@ test.describe("Tool detail", () => {
     await expect(
       page.getByRole("heading", { name: "Trotec Speedy 400", level: 1 })
     ).toBeVisible();
-    // Trotec unit serial.
-    await expect(page.getByText("ML-LSR-400").first()).toBeVisible();
+    // The Trotec's unit, by name, and its serial's masked last four; the
+    // whole serial is for staff only. Scoped to the table: the demo seed
+    // reuses the same string as the location's Map ID, which the
+    // specifications show to everyone.
+    const units = page.getByRole("table", { name: "Physical Machines" });
+    await expect(units.getByText("Trotec Speedy 400")).toBeVisible();
+    await expect(units.getByText("•••• -400")).toBeVisible();
+    await expect(units.getByText("ML-LSR-400")).toHaveCount(0);
+  });
+
+  // Data platform spec amendment 2026-10-06: whole serials for staff; a
+  // student sees the last four, masked.
+  test("a student sees each serial's last four, masked; a SuperMaker sees each whole serial", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, DEMO_ACCOUNTS.user, baseURL);
+    await page.goto("/tools/form-4");
+    const units = page.getByRole("table", { name: "Physical Machines" });
+    await expect(units.getByText("Form 4 // A")).toBeVisible();
+    await expect(units.getByRole("columnheader", { name: "Serial" })).toBeVisible();
+    await expect(units.getByText("•••• -001")).toBeVisible();
+    expect(await page.content()).not.toContain("ML-F4-001");
+
+    await context.clearCookies();
+    await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+    await page.goto("/tools/form-4");
+    await expect(units.getByRole("columnheader", { name: "Serial" })).toBeVisible();
+    await expect(units.getByText("ML-F4-001")).toBeVisible();
+    await expect(units.getByText("•••• -001")).toHaveCount(0);
   });
 
   test("a legacy Notion-id link redirects permanently to the slug, preserving ?src=qr", async ({
