@@ -30,14 +30,15 @@ class FakeCanvas {
   /** Whether `getContext` answers at all. */
   static noContext = false;
 
+  width: number;
+  height: number;
   background: string | null = null;
   drawn: [number, number] | null = null;
   encoded: Encoded[] = [];
 
-  constructor(
-    public width: number,
-    public height: number
-  ) {
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
     FakeCanvas.instances.push(this);
   }
 
