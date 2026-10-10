@@ -525,3 +525,27 @@ page: the list at rest").
 - **Tested** in `HeaderBrand.test.tsx`, `home/HomeShell.test.tsx`,
   `GlobalChrome.test.tsx`, `e2e/gallery.spec.ts` and
   `e2e/header-stability.spec.ts`.
+
+## Amendment — "AI" in Inter (2026-10-10)
+
+The owner, on a phone: "the A looks like it's kind of cut off at the top" in the
+orange "AI". It was, twice over: Space Grotesk's bold A has a flat apex, and
+below 1024px the lockup's `overflow: hidden` cut the top 2px off both letters —
+the 0.8 line box set the caps 0.06 em above the wordmark's box.
+
+- **"AI" is Inter Bold** (`.brand-ai`, `--font-body`, already loaded on every
+  page), in the accent as before. Its A comes to a point. Font size the
+  wordmark's height over Inter's 0.73 em caps; line height 0.728 em (its ascent
+  less its descent), so the line box is the wordmark's box: the baseline on its
+  bottom edge, level with the wordmark's, and the caps' tops on its top edge.
+  The header and the landing lockup share the rule.
+- **The compact bar clips the lockup sideways only** (`overflow-x: clip`), so no
+  cap is ever cut.
+- **"AI" is about 0.12 wordmark heights wider** than it was (4–6px in the
+  header). The one-row bar still fits in every language at 1024, 1280 and
+  1440. The landing lockup's 40px floor gives way below ~340px, where it would
+  otherwise run off the screen.
+- **Bar heights:** below `sm` the bar is the phone bar, one 56px row (DESIGN.md
+  §8.12, amendment "The phone bar"); the 98px compact bar under 560px is gone.
+- **Tested** in `e2e/header-stability.spec.ts` (the wordmark's size and the
+  bars' fit) and `GlobalChrome.test.tsx`.

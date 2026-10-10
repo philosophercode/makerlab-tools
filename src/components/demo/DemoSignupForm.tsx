@@ -2,14 +2,13 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { DEMO_SIGNUP_ROLES } from "../../lib/db/schema/vocabulary";
-import { formatUsd } from "../../lib/demo-pass/format";
 import { DEMO_SIGNUP_LIMITS, parseDemoSignup, type DemoSignupField, type DemoSignupFieldError } from "../../lib/demo-pass/signup";
 import { Field, errorId, hintId } from "../system/Field";
 import { Prose } from "../system/PublicPage";
@@ -17,9 +16,11 @@ import { DemoSignupThanks } from "./DemoSignupThanks";
 import { submitDemoSignup, type DemoSignupOutcome, type DemoSignupPayload } from "./submit-demo-signup";
 
 /**
- * The demo pass sign-up form on `/demo` (demo pass spec 2026-10-07 §5.1, §6):
+ * The demo sign-up form on `/demo` (demo pass spec 2026-10-07 §5.1, §6):
  * name, email and institution, three optional questions, and an unticked
- * consent box. Checked here with the route's own rules (`parseDemoSignup`) so
+ * consent box. It reads as a way to bring MakerLAB AI to your makerspace or
+ * learn more, not as a pass or a credit (amendment "Sign up to learn more",
+ * 2026-10-10); the pass still comes with it. Checked here with the route's own rules (`parseDemoSignup`) so
  * a mistake is said before a round trip, and again by the route, which is the
  * control. Each refused field says why beside itself and is announced; a
  * summary at the bottom says what to do next.
@@ -43,15 +44,12 @@ const EMPTY: DemoSignupPayload = {
 };
 
 export interface DemoSignupFormProps {
-  /** `DEMO_PASS_BUDGET_USD`, for the facts line. */
-  budgetUsd: number;
-  /** How many days a pass lasts. */
+  /** How many days a pass lasts, for the facts line. */
   days: number;
 }
 
-export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
+export function DemoSignupForm({ days }: DemoSignupFormProps) {
   const t = useTranslations("demoPass");
-  const locale = useLocale();
   const [values, setValues] = useState<DemoSignupPayload>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [problem, setProblem] = useState<Problem>(null);
@@ -117,7 +115,7 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
   return (
     <form ref={formRef} noValidate className="flex w-full max-w-[560px] min-w-0 flex-col gap-5 pt-6" onSubmit={handleSubmit} aria-describedby="demo-facts">
       <p id="demo-facts" className="m-0 text-sm text-muted-foreground">
-        {t("passFacts", { days, budget: formatUsd(budgetUsd, locale) })}
+        {t("passFacts", { days })}
       </p>
 
       <Field id="demo-name" label={t("nameLabel")} marks={required} error={errorText("name")}>

@@ -21,7 +21,14 @@ export function GlobalChrome({ stats, paletteTools = [] }: GlobalChromeProps) {
       <header className="top-nav">
         {/* "MakerLAB AI"; on `/` it steps aside for the page's big lockup. */}
         <HeaderBrand />
-        <PrimaryNav />
+        <PrimaryNav
+          menuPreferences={
+            <>
+              <LanguageSelector variant="row" />
+              <ThemeToggle variant="row" />
+            </>
+          }
+        />
         <div className="nav-actions" aria-label={t("nav.utilityControlsLabel")}>
           <HeaderSearch tools={paletteTools} />
           <LanguageSelector />

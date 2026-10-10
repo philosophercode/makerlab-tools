@@ -19,6 +19,19 @@ test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } });
 
 const ROUTES = ["/", "/projects", "/about", "/tools/form-4", "/admin", "/admin/maintenance", "/admin/research"];
 
+/**
+ * The header is drawn and its identity has answered: the profile control
+ * (signed in) or Sign in (not) exists. Attached rather than visible — on the
+ * phone bar both sit in MENU and the bar's own copy is not drawn (DESIGN.md
+ * §8.12, "The phone bar") — so the header itself must be visible too: in a
+ * language other than the prerendered one the page draws nothing for a moment
+ * after it loads, and every box measures 0.
+ */
+async function identityResolved(page: Page, signedIn: boolean) {
+  await expect(page.locator(signedIn ? ".primary-nav-profile" : ".primary-nav-auth")).toBeAttached({ timeout: 15_000 });
+  await expect(page.locator("header.top-nav")).toBeVisible();
+}
+
 async function headerBoxes(page: Page): Promise<string> {
   return page.evaluate(() => {
     const header = document.querySelector("header.top-nav");
@@ -35,7 +48,7 @@ async function headerBoxes(page: Page): Promise<string> {
 }
 
 // 1024 and 1280 are the two ends of the tighter one-row bar (lg to xl,
-// DESIGN.md §8.12); 390 is the compact bar, 1440 the full one, 844 × 390 the
+// DESIGN.md §8.12); 390 is the phone bar, 1440 the full one, 844 × 390 the
 // short bar (a phone on its side).
 for (const [width, height] of [
   [1440, 900],
@@ -52,7 +65,7 @@ for (const [width, height] of [
     for (const route of ROUTES) {
       await page.goto(route);
       // The profile control resolves after mount; measure once it has.
-      await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
+      await identityResolved(page, true);
       await page.waitForLoadState("networkidle");
       seen.push([route, await headerBoxes(page)]);
     }
@@ -100,18 +113,20 @@ const FIT_SIZES = [
   ["one-row", 1280, 800],
   ["one-row", 1440, 800],
   ["short", 844, 390],
+  ["phone", 390, 844],
+  ["phone", 360, 740],
 ] as const;
 
 for (const [bar, width, height] of FIT_SIZES) {
   test(`the ${bar} bar fits at ${width}×${height}, signed in and not`, async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/");
-    await expect(page.getByRole("button", { name: /sign in with/i })).toBeVisible({ timeout: 15_000 });
+    await identityResolved(page, false);
     expect(await headerFits(page), "anonymous").toEqual([]);
 
     await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
     await page.goto("/admin");
-    await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
+    await identityResolved(page, true);
     expect(await headerFits(page), "signed in").toEqual([]);
   });
 }
@@ -134,7 +149,7 @@ for (const [width, height, wordmarkHeight] of [
   test(`the wordmark is ${wordmarkHeight}px tall at ${width}×${height} and the bar fits it`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/");
-    await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+    await identityResolved(page, false);
     const m = await page.evaluate(() => {
       const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
       const header = document.querySelector<HTMLElement>("header.top-nav")!;
@@ -167,7 +182,7 @@ for (const [bar, width, height] of FIT_SIZES) {
       await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
       await page.goto("/");
       await expect(page.locator("html")).toHaveAttribute("lang", locale);
-      await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+      await identityResolved(page, false);
       const problems = await headerFits(page);
       if (problems.length) failures.push(`${locale}: ${problems.join("; ")}`);
     }
@@ -181,7 +196,7 @@ for (const [bar, width, height] of FIT_SIZES) {
 // every size by resizing: the bar is laid out by CSS alone, and twelve loads
 // rather than forty-eight keep this account's identity calls well inside
 // `/api/identity`'s limit while the rest of the suite runs beside it.
-test("the bar fits in every language signed in as a SuperMaker, at every one-row width and the short bar", async ({
+test("the bar fits in every language signed in as a SuperMaker, at every one-row width, the short bar and the phone bar", async ({
   page,
   context,
   baseURL,
@@ -198,7 +213,7 @@ test("the bar fits in every language signed in as a SuperMaker, at every one-row
     for (const [bar, width, height] of FIT_SIZES) {
       await page.setViewportSize({ width, height });
       await page.waitForFunction((w) => window.innerWidth === w, width);
-      // On the short bar ADMIN is behind MENU and measures nothing.
+      // On the short and phone bars ADMIN is behind MENU and measures nothing.
       if (bar === "one-row") await expect(page.locator(".primary-nav-admin")).toBeVisible();
       const problems = await headerFits(page);
       if (problems.length) failures.push(`${locale} at ${width}×${height}: ${problems.join("; ")}`);
@@ -239,7 +254,7 @@ for (const [width, height] of [
       await page.goto(route);
       // The profile control resolves after hydration, when every measured
       // layout (a table's frame) has had its first pass.
-      await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
+      await identityResolved(page, true);
       const excess = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       await expect.poll(excess, { message: `${route} is wider than the page` }).toBeLessThanOrEqual(0);
     });
@@ -259,7 +274,7 @@ for (const [width, height] of [
   test(`at ${width}×${height} the bar is one short row that scrolls away`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/tools/form-4");
-    await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+    await identityResolved(page, false);
 
     const top = await page.evaluate(() => {
       const header = document.querySelector<HTMLElement>("header.top-nav")!;
@@ -298,8 +313,10 @@ test("on a phone on its side MENU holds the links: Tab walks them, Escape return
     await page.keyboard.press("Tab");
     await expect(nav.getByRole("link", { name, exact: true })).toBeFocused();
   }
-  // Every row inside the screen, and a touch row tall.
-  const rows = await nav.locator(".primary-nav-links > *").evaluateAll((els) =>
+  // Every row inside the screen, and a touch row tall. (The account, language
+  // and theme rows MENU holds on a phone are not drawn here: the short bar keeps
+  // those controls in the bar.)
+  const rows = await nav.locator(".primary-nav-links > a").evaluateAll((els) =>
     els.map((el) => {
       const r = el.getBoundingClientRect();
       return { inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, tall: r.height >= 40 };
@@ -320,9 +337,80 @@ test("on a phone on its side MENU holds the links: Tab walks them, Escape return
   await expect(page).toHaveURL(/\/projects$/);
   await expect(menu).toHaveAttribute("aria-expanded", "false");
 
-  // Upright, the links are back in the bar and MENU is gone.
-  await page.setViewportSize({ width: 390, height: 844 });
+  // On a tablet, the links are back in the bar and MENU is gone. (Upright on
+  // a phone MENU stays: the phone bar, below.)
+  await page.setViewportSize({ width: 810, height: 1080 });
   await expect(menu).toBeHidden();
+  await expect(nav.getByRole("link", { name: "PROJECTS" })).toBeVisible();
+});
+
+/**
+ * The phone bar (DESIGN.md §8.12, amendment "The phone bar", owner request
+ * 2026-10-10). The compact bar was two rows — the lockup and five controls,
+ * then the links — on a phone. Below sm it is one 56px row that still sticks:
+ * the lockup, the search icon and MENU (☰). MENU holds the links and ADMIN,
+ * the account, the language and the theme.
+ */
+test("on a phone the bar is the lockup, search and MENU; MENU holds the rest", async ({ page, context, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+  await page.goto("/tools/form-4");
+  await identityResolved(page, true);
+
+  const header = page.locator("header.top-nav");
+  const shown = await header.evaluate((el) => {
+    const visible = (c: Element) => {
+      const r = c.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(c).visibility !== "hidden";
+    };
+    return {
+      controls: Array.from(el.querySelectorAll("a, button, select")).filter(visible).map((c) => c.getAttribute("aria-label") ?? c.textContent?.trim()),
+      height: Math.round(el.getBoundingClientRect().height),
+      position: getComputedStyle(el).position,
+    };
+  });
+  // In document order; on screen the search icon sits before MENU, which ends the row.
+  expect(shown).toEqual({ controls: ["MakerLAB AI", "MENU", "Search tools and pages"], height: 56, position: "sticky" });
+
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  const menu = nav.getByRole("button", { name: "MENU" });
+  await menu.click();
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  const panel = page.locator(`#${await menu.getAttribute("aria-controls")}`);
+  for (const name of ["TOOLS", "MAP", "PROJECTS", "ABOUT", "ADMIN", "ACCOUNT", "CONNECT AI ASSISTANT (MCP)"]) {
+    await expect(panel.getByRole("link", { name, exact: true })).toBeVisible();
+  }
+  await expect(panel.getByRole("button", { name: "SIGN OUT" })).toBeVisible();
+  await expect(panel.getByRole("combobox", { name: "Select language" })).toBeVisible();
+  await expect(panel.getByRole("button", { name: /color theme/i })).toBeVisible();
+  // The bar's own language and theme controls are not drawn.
+  await expect(page.locator(".nav-actions").getByRole("combobox", { name: "Select language" })).toBeHidden();
+
+  // The panel spans the screen under the bar, every row a touch row.
+  const rows = await panel.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    const tall = Array.from(el.querySelectorAll("a, button, label")).every((c) => c.getBoundingClientRect().height >= 40);
+    // Its top border sits on the bar's bottom one.
+    const under = Math.abs(r.top - document.querySelector("header.top-nav")!.getBoundingClientRect().bottom) <= 1;
+    return { left: Math.round(r.left), right: Math.round(r.right), under, tall };
+  });
+  expect(rows).toEqual({ left: 0, right: await page.evaluate(() => document.documentElement.clientWidth), under: true, tall: true });
+
+  // The theme changes from it.
+  const before = await page.evaluate(() => document.documentElement.getAttribute("data-theme"));
+  await panel.getByRole("button", { name: /color theme/i }).click();
+  expect(await page.evaluate(() => document.documentElement.getAttribute("data-theme"))).not.toBe(before);
+
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await expect(panel.getByRole("link", { name: "PROJECTS" })).toBeHidden();
+
+  // Wider than a phone, MENU is gone and the bar is the compact bar again.
+  await menu.click();
+  await page.setViewportSize({ width: 810, height: 1080 });
+  await expect(menu).toBeHidden();
+  // Hidden, MENU has no role to find it by.
+  await expect(page.locator(".primary-nav-menu-toggle")).toHaveAttribute("aria-expanded", "false");
   await expect(nav.getByRole("link", { name: "PROJECTS" })).toBeVisible();
 });
 

@@ -3,17 +3,19 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { DemoSignupForm } from "../../components/demo/DemoSignupForm";
 import { Prose, PublicPage } from "../../components/system/PublicPage";
-import { DEMO_PASS_DAYS, demoPassBudgetUsd, demoPassEnabled } from "../../lib/demo-pass/config";
+import { DEMO_PASS_DAYS, demoPassEnabled } from "../../lib/demo-pass/config";
 import { siteConfig } from "../../lib/site-config";
 
 export const metadata = {
-  title: "Try the demo",
-  description: `Sign up for a free demo pass to try ${siteConfig.name} and its assistant.`,
+  title: "Sign up",
+  description: "Interested in bringing MakerLAB AI to your makerspace? Sign up to learn more.",
 };
 
 /**
- * `/demo` (demo pass spec 2026-10-07 §5.1, §6): the demo pass sign-up, for
- * visitors whose address Google sign-in does not admit. Public and static; the
+ * `/demo` (demo pass spec 2026-10-07 §5.1, §6): the sign-up for visitors
+ * whose address Google sign-in does not admit — "Interested in bringing
+ * MakerLAB AI to your makerspace?" (amendment "Sign up to learn more",
+ * 2026-10-10). Signing up still gives this device a demo pass. Public and static; the
  * form posts to `/api/demo-pass`. With `DEMO_PASS=off` it says sign-ups are
  * closed instead.
  */
@@ -41,10 +43,10 @@ export default function DemoPage() {
       width="narrow"
       crumbs={crumbs}
       title={t("title")}
-      lede={t("lede", { site: siteConfig.name, institution: siteConfig.institution })}
+      lede={t("lede", { institution: siteConfig.institution })}
       keepCase
     >
-      <DemoSignupForm budgetUsd={demoPassBudgetUsd()} days={DEMO_PASS_DAYS} />
+      <DemoSignupForm days={DEMO_PASS_DAYS} />
     </PublicPage>
   );
 }

@@ -25,7 +25,8 @@
 > and a table wider than its column scrolls inside itself (§6, §8.3, §8.12).
 > 2026-10-05: a phone on its side gets the short bar — one 48px row, the links
 > behind MENU — and nothing sticks there (§6, §8.1, §8.12).
-> 2026-10-06: brand marks, the wordmark and the official logo (§7.1).*
+> 2026-10-06: brand marks, the wordmark and the official logo (§7.1).
+> 2026-10-10: the phone bar — one row, the rest behind MENU (§8.12).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -543,7 +544,8 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   for anyone who can reach `/admin` (2026-10-07: it replaced `REPORT`, which
   moved to the footer's **Report a problem**; the tool page and the QR arrival
   notice keep theirs), then `[⌕ Search tools… ⌘K]` beside the language and
-  theme controls (an icon button on a phone); status strip below (`86 TOOLS IN
+  theme controls (an icon button on a phone, where MENU holds the rest — the
+  phone bar, below); status strip below (`86 TOOLS IN
   INVENTORY · LAB OPEN 9AM–9PM`). The bar's only accent is the current page's
   underline; **Sign in** is a hairline box in ink; the local-only **Sign in as
   (dev)** is muted and dashed and shortens to `DEV` below `xl`. The profile
@@ -552,8 +554,9 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
 - **The bar fits every width, on the design's breakpoints.** From `xl` it is
   one row with the `// CORNELL TECH` tagline. From `lg` to `xl` it is still
   one row, tighter (24px between groups, 20px between links), without the
-  tagline, with a narrower search field. Below `lg` it is the compact bar:
-  brand and controls, then the links across the full width. No label in the
+  tagline, with a narrower search field. From `sm` to `lg` it is the compact
+  bar: brand and controls, then the links across the full width. Below `sm` it
+  is the phone bar (below). No label in the
   one-row bar wraps, in any of the twelve languages. The language control is
   a 32px square showing its `文A` glyph at every width, like the theme toggle
   (the open list names every language): a select is as wide as its longest
@@ -583,6 +586,25 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   screen — content is what a short screen is for. Every other width keeps its
   bar exactly as above, links centred from `lg`; the tool page keeps its
   breadcrumb.
+- **A phone gets the phone bar** (amendment 2026-10-10). The owner, on a
+  phone: make the bar a hamburger, with the language and the theme in it, and
+  only the search icon beside it. Below `sm` (upright; the short bar still
+  wins on a phone on its side) the bar is one 56px row: the lockup, then the
+  search icon and **MENU** — a 32px ☰ square, its word kept for assistive
+  technology, at the row's end. The account control, Sign in, the language and
+  the theme leave the row. MENU is the same disclosure as the short bar's, its
+  frosted plate the width of the bar and flush under it: the links and ADMIN;
+  then the account — who is signed in (as the profile menu's head), Add
+  equipment for `tools.add`, Account, Connect AI assistant (MCP), Sign out in
+  crimson ink (`NavMenuAccount`; rows, not a `menu`) — or **Sign in**; then
+  the language (文A, "Language" and the current language's name, the select
+  over the row) and the theme (its glyph and "Theme"). One 40px row each; a
+  long translation wraps. Those rows are drawn only while MENU is open, so the
+  rest of the time each control exists once. Sign in that cannot start closes
+  MENU, focus on it, so the notice under the bar shows. The bar still sticks,
+  above the assistant's button. The wordmark stays 30px, smaller only where a
+  phone is too narrow for the row (below ~350px). Widening past `sm` closes
+  MENU (`MENU_VIEWPORT_QUERY`).
 - **Admin: six sections** (admin sections spec 2026-10-07, the owner's
   decisions). A section bar under the top bar on every admin page:
   `OVERVIEW · MAINTENANCE · INVENTORY · PEOPLE · INSIGHTS · SETTINGS ┃ ▭ ASK MAKERLAB AI`

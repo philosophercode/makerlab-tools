@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { MessageSquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatPassDate, formatUsd } from "../../lib/demo-pass/format";
+import { formatPassDate } from "../../lib/demo-pass/format";
 import type { DemoPassView } from "../../lib/demo-pass/state";
 import { useChatLauncher } from "../ChatLauncherContext";
 import { Prose } from "../system/PublicPage";
@@ -36,9 +36,9 @@ export function DemoSignupThanks({
   const date = pass ? formatPassDate(pass.expiresAt, locale) : "";
   const body =
     status === "created" && pass
-      ? t("thanksBody", { date, budget: formatUsd(pass.budgetUsd, locale) })
+      ? t("thanksBody", { date })
       : status === "existing" && pass
-        ? t("thanksReturning", { date, remaining: formatUsd(pass.remainingUsd, locale) })
+        ? t("thanksReturning", { date })
         : status === "expired"
           ? t("thanksExpired")
           : t("thanksReceived");

@@ -229,7 +229,9 @@ body::selection {
    above the home page's search (`LandingLockup`, identity spec amendment "The
    landing lockup"). The header's rules draw it; only the height changes. */
 .landing-lockup {
-  --wordmark-height: clamp(40px, 7vw, 84px);
+  /* 40px at the least, less only where a phone is too narrow for it (below
+     ~340px): the lockup is about 7.4 wordmark heights wide. */
+  --wordmark-height: clamp(min(40px, calc((100vw - 40px) / 7.5)), 7vw, 84px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -288,20 +290,24 @@ body::selection {
   }
 }
 
-/* Space Grotesk's caps are 0.70 em, so this font size makes them as tall as
-   the wordmark; a 0.8 line box puts the baseline on the box's bottom edge,
-   level with the wordmark's. The box is held to the wordmark's height (the
-   line's empty top overflows it), so "AI" never makes the bar taller. */
+/* "AI" in Inter Bold, the body face (identity spec amendment "AI in Inter",
+   2026-10-10): Space Grotesk's bold A has a flat apex, and it read as cut off
+   at the top — on a phone it was, by 2px, under the compact bar's clip.
+   Inter's caps are 0.73 em, so this font size makes them as tall as the
+   wordmark; its ascent less its descent is 0.728 em, so a line box that tall
+   is the wordmark's box with the baseline on its bottom edge, level with the
+   wordmark's, and the caps' tops on its top edge. Held to the wordmark's
+   height, so "AI" never makes the bar taller. */
 .brand-ai {
   flex: none;
   display: flex;
   align-items: flex-end;
   height: var(--wordmark-height);
   color: var(--primary);
-  font-family: var(--font-display);
-  font-size: calc(var(--wordmark-height) / 0.7);
+  font-family: var(--font-body);
+  font-size: calc(var(--wordmark-height) / 0.73);
   font-weight: 700;
-  line-height: 0.8;
+  line-height: 0.728;
   letter-spacing: -0.01em;
 }
 
@@ -329,6 +335,12 @@ body::selection {
 }
 
 .primary-nav-menu-toggle {
+  display: none;
+}
+
+/* The account, language and theme rows MENU holds on a phone only (the
+   phone bar, below). Everywhere else the bar has these controls itself. */
+.primary-nav-menu-more {
   display: none;
 }
 
@@ -689,6 +701,48 @@ body::selection {
   color: var(--on-surface);
 }
 
+/* The row variant, in the phone bar's MENU: the glyph, "Language" and the
+   current language, with the select over the whole row (its own text still
+   transparent), so a press anywhere on it opens the list. */
+.lang-select-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  min-height: 40px;
+  padding: 0 16px;
+  transition: background-color 160ms ease-in;
+}
+
+.lang-select-row .lang-select-glyph {
+  position: static;
+  flex: none;
+  width: 16px;
+}
+
+.lang-select-label {
+  flex: 1;
+  color: var(--on-surface-muted);
+}
+
+.lang-select-current {
+  color: var(--on-surface);
+  text-transform: none;
+}
+
+.lang-select-row select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.lang-select-row:hover,
+.lang-select-row:focus-within {
+  background: var(--surface-container-high);
+}
+
 /* The theme toggle only: the ⌘K field beside it is a system component. */
 .nav-actions .theme-toggle {
   width: 32px;
@@ -725,6 +779,38 @@ body::selection {
 
 :root[data-theme="dark"] .theme-toggle::before {
   content: "☾";
+}
+
+/* The row variant, in the phone bar's MENU: the current choice's glyph, then
+   "Theme". */
+.theme-toggle-row {
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 16px;
+  border: none;
+  background: transparent;
+  color: var(--on-surface-muted);
+  font: inherit;
+  text-align: start;
+  /* A button does not inherit the nav's capitals by default. */
+  text-transform: inherit;
+  transition: background-color 160ms ease-in, color 160ms ease-in;
+}
+
+.theme-toggle-row::before {
+  flex: none;
+  width: 16px;
+  color: var(--on-surface);
+  font-size: 14px;
+  text-align: center;
+}
+
+.theme-toggle-row:hover,
+.theme-toggle-row:focus-visible {
+  background: var(--surface-container-high);
+  color: var(--primary-ink);
 }
 
 .status-strip {
@@ -851,9 +937,10 @@ body::selection {
     padding: 12px 16px 10px;
   }
 
+  /* Clipped sideways only: a cap's top never is. */
   .brand-lockup {
     max-width: 100%;
-    overflow: hidden;
+    overflow-x: clip;
   }
 
   .primary-nav {
@@ -908,6 +995,217 @@ body::selection {
   }
 }
 
+/* MENU, wherever it is drawn: on a phone (the phone bar, below) and on a
+   short viewport (the short bar, after it). The disclosure button, and the
+   frosted panel under it: one 40px touch row per entry, the current page
+   marked by the accent rule at its start (FROSTED, §3). Each bar places the
+   panel. The query is MENU_VIEWPORT_QUERY in components/use-nav-menu.ts,
+   which closes the panel when the viewport stops matching; keep the two the
+   same. */
+@media (orientation: landscape) and (max-height: 500px), (max-width: 639.98px) {
+  .primary-nav-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--outline-strong);
+    background: transparent;
+    color: var(--on-surface);
+    font: inherit;
+    cursor: pointer;
+    transition: color 160ms ease-in, border-color 160ms ease-in;
+  }
+
+  .primary-nav-menu-toggle svg {
+    flex: none;
+    width: 14px;
+    height: 14px;
+  }
+
+  .primary-nav-menu-toggle:hover,
+  .primary-nav-menu-toggle[aria-expanded="true"] {
+    border-color: var(--primary-ink);
+    color: var(--primary-ink);
+  }
+
+  .primary-nav-links {
+    display: none;
+  }
+
+  .primary-nav-links[data-open="true"] {
+    position: absolute;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 0;
+    overflow-y: auto;
+    font-size: 12px;
+  }
+
+  .primary-nav-links > a,
+  .primary-nav-links > button,
+  .primary-nav .primary-nav-menu-row {
+    display: flex;
+    flex: none;
+    align-items: center;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 16px;
+    border: none;
+    border-inline-start: 2px solid transparent;
+    background: transparent;
+    color: var(--on-surface-muted);
+    font: inherit;
+    text-align: start;
+    text-transform: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 160ms ease-in, color 160ms ease-in, border-color 160ms ease-in;
+  }
+
+  .primary-nav-links > a:hover,
+  .primary-nav-links > a:focus-visible,
+  .primary-nav-links > button:hover,
+  .primary-nav-links > button:focus-visible,
+  .primary-nav .primary-nav-menu-row:hover,
+  .primary-nav .primary-nav-menu-row:focus-visible {
+    background: var(--surface-container-high);
+  }
+}
+
+/* The phone bar: below sm, upright (DESIGN.md §8.12, amendment "The phone
+   bar", owner request 2026-10-10). The compact bar's two rows — brand and
+   five controls, then the links across the width — become one 56px row: the
+   lockup, then the search icon and MENU (☰, its word kept for assistive
+   technology). MENU holds the rest: the links and ADMIN, the account (or
+   Sign in), the language and the theme, in a frosted panel the width of the
+   bar. The bar still sticks, above the assistant's button so the panel opens
+   over it. The query is PHONE_VIEWPORT_QUERY in components/use-nav-menu.ts.
+   A small phone on its side matches both this and the short bar's query;
+   the short bar, later, wins where they differ. */
+@media (max-width: 639.98px) {
+  :root {
+    /* 12 + 32 (the controls) + 12. */
+    --nav-height: 56px;
+    /* 30px, and smaller only where the row cannot fit it (below ~350px): the
+       lockup is about 7.4 wordmark heights wide (the wordmark 5.8, the gap
+       0.2, "AI" 1.4), and the row keeps 124px for its gutters, the two
+       controls and the scrollbar a desktop window shows. */
+    --wordmark-height: min(30px, calc((100vw - 124px) / 7.5));
+  }
+
+  .top-nav {
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: var(--nav-height);
+    min-height: 0;
+    padding: 12px 16px;
+  }
+
+  .brand-lockup {
+    flex: 0 1 auto;
+    margin-inline-end: auto;
+  }
+
+  /* Static, so the panel is placed against the bar, not the button. MENU
+     goes last, at the edge: the search icon, then ☰. */
+  .primary-nav {
+    position: static;
+    order: 1;
+    flex: none;
+    width: auto;
+    min-height: 0;
+    gap: 0;
+  }
+
+  /* In MENU instead (NavMenuAccount, and its own Sign in row). */
+  .primary-nav > .profile-menu,
+  .primary-nav > .primary-nav-auth,
+  .primary-nav > .primary-nav-dev-sign-in {
+    display: none;
+  }
+
+  /* A 32px square like the search icon beside it. */
+  .primary-nav-menu-toggle {
+    justify-content: center;
+    width: 32px;
+    padding: 0;
+    color: var(--on-surface-muted);
+  }
+
+  .primary-nav-menu-toggle svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .primary-nav-menu-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .primary-nav-links[data-open="true"] {
+    top: 100%;
+    inset-inline: 0;
+    max-height: calc(100dvh - var(--nav-height));
+    border-inline-width: 0;
+  }
+
+  /* A long translation wraps rather than running off a narrow screen. */
+  .primary-nav-links > a,
+  .primary-nav-links > button,
+  .primary-nav .primary-nav-menu-row {
+    white-space: normal;
+  }
+
+  .primary-nav-menu-more {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .primary-nav-menu-account,
+  .primary-nav-menu-prefs {
+    display: flex;
+    flex-direction: column;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--outline);
+  }
+
+  /* The account's head: who is signed in, as at the top of the profile menu. */
+  .primary-nav-menu-account .profile-menu-header {
+    margin-bottom: 8px;
+    padding: 8px 16px 16px;
+    color: var(--on-surface);
+  }
+
+  .primary-nav .primary-nav-menu-signout {
+    color: var(--secondary-ink);
+  }
+
+  /* The language and the theme are MENU's last rows. */
+  .nav-actions .lang-select,
+  .nav-actions .theme-toggle {
+    display: none;
+  }
+
+  .nav-actions {
+    min-height: 0;
+  }
+
+  /* Why Sign in went nowhere, under the bar's end (MENU closes first). */
+  .primary-nav-notice {
+    right: 16px;
+  }
+}
+
 /* The short bar: a phone on its side, or any window as short (DESIGN.md
    §8.12, amendment "A phone on its side"). At 844 × 390 the compact bar and
    the status strip took 159px — 41% of the screen — and the bar stayed pinned
@@ -951,8 +1249,7 @@ body::selection {
     gap: 8px;
   }
 
-  /* MENU and Sign in at the controls' 32px, beside the 32px squares. */
-  .primary-nav-menu-toggle,
+  /* Sign in at the controls' 32px, beside MENU and the 32px squares. */
   .primary-nav .primary-nav-auth {
     display: inline-flex;
     align-items: center;
@@ -960,73 +1257,17 @@ body::selection {
     padding: 0 10px;
   }
 
-  .primary-nav-menu-toggle {
-    gap: 6px;
-    border: 1px solid var(--outline-strong);
-    background: transparent;
-    color: var(--on-surface);
-    font: inherit;
-    cursor: pointer;
-    transition: color 160ms ease-in, border-color 160ms ease-in;
-  }
-
-  .primary-nav-menu-toggle svg {
-    flex: none;
-    width: 14px;
-    height: 14px;
-  }
-
-  .primary-nav-menu-toggle:hover,
-  .primary-nav-menu-toggle[aria-expanded="true"] {
-    border-color: var(--primary-ink);
-    color: var(--primary-ink);
-  }
-
   .primary-nav .primary-nav-dev-sign-in {
     flex: none;
     padding: 4px 0;
   }
 
-  /* The panel: under MENU, one 40px touch row per link, the current page
-     marked by the accent rule at its start. A frosted plate (FROSTED, §3). */
-  .primary-nav-links {
-    display: none;
-  }
-
+  /* The panel: under MENU, from its start (the rows are shared, above). */
   .primary-nav-links[data-open="true"] {
-    position: absolute;
     top: calc(100% + 9px);
     inset-inline-start: 0;
-    z-index: 40;
-    display: flex;
-    flex-direction: column;
     min-width: 220px;
     max-height: calc(100dvh - var(--nav-height) - 16px);
-    padding: 8px 0;
-    overflow-y: auto;
-    font-size: 12px;
-  }
-
-  .primary-nav-links > a,
-  .primary-nav-links > button {
-    display: flex;
-    flex: none;
-    align-items: center;
-    width: 100%;
-    min-height: 40px;
-    padding: 0 16px;
-    border: none;
-    border-inline-start: 2px solid transparent;
-    text-align: start;
-    white-space: nowrap;
-    transition: background-color 160ms ease-in, color 160ms ease-in, border-color 160ms ease-in;
-  }
-
-  .primary-nav-links > a:hover,
-  .primary-nav-links > a:focus-visible,
-  .primary-nav-links > button:hover,
-  .primary-nav-links > button:focus-visible {
-    background: var(--surface-container-high);
   }
 
   .nav-actions {

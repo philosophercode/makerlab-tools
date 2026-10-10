@@ -82,7 +82,7 @@
 | `src/lib/data/demo-signups.ts` / `src/lib/db/schema/demo-signups.ts` | `demo_signups` (migration `0034`): `findOrCreateDemoSignup`, the ledger read the chat uses (`getDemoPassLedger`, no personal data), `chargeDemoPass`, and the super-admin list and count |
 | `src/app/api/demo-pass/route.ts` / `src/app/demo/` / `src/components/demo/*` | Sign up (`POST`) and the pass's balance (`GET`); the `/demo` form and its thank-you; the front page's `DemoSignupCallout` |
 | `src/app/admin/users/demo-signups/` / `src/components/admin/DemoSignupsTable.tsx` / `src/app/api/admin/demo-signups/export/route.ts` / `src/lib/export/demo-signups-csv.ts` | People → Demo sign-ups and its CSV (`users.manage`, audited) |
-| `src/components/chat/use-demo-pass.ts` / `DemoPassStatus.tsx` / `src/lib/chat/turn-spend.ts` | The chat's "Demo pass · $x left", the spent thank-you, and a turn's side costs (the manual search) for the ledger |
+| `src/components/chat/use-demo-pass.ts` / `DemoPassStatus.tsx` / `src/lib/chat/turn-spend.ts` | The chat's "Demo access" line (no amount since 2026-10-10), the spent thank-you, and a turn's side costs (the manual search) for the ledger |
 | `src/lib/auth/config.ts` | The Better Auth instance: Drizzle adapter, database sessions, admin plugin, domain enforcement |
 | `src/lib/auth/identity.ts` | `resolveIdentity(req)` — the one way to learn who is calling. Never throws |
 | `src/lib/auth/permissions.ts` | `statement` / `ac` / `roles` / `can()` — what each role may do |

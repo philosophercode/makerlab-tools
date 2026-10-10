@@ -1,6 +1,6 @@
 import { GlobalChrome } from "./GlobalChrome";
 import type { CatalogStats } from "./catalog-types";
-import { render, screen } from "../../test/utils/render";
+import { render, screen, userEvent, within } from "../../test/utils/render";
 import { siteConfig } from "../lib/site-config";
 import type { ClientIdentity } from "../lib/auth/sign-in-client";
 
@@ -111,6 +111,21 @@ describe("GlobalChrome", () => {
         name: "Cycle color theme (system → light → dark)",
       })
     ).toBeInTheDocument();
+  });
+
+  // The phone bar (DESIGN.md §8.12, amendment "The phone bar"): the language
+  // and theme also sit in MENU, as rows, while it is open.
+  it("puts the language and theme in MENU as rows while it is open, and in the bar once otherwise", async () => {
+    const user = userEvent.setup();
+    render(<GlobalChrome stats={stats} />);
+    expect(screen.getAllByRole("combobox", { name: "Select language" })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "MENU" }));
+    const panel = document.getElementById(screen.getByRole("button", { name: "MENU" }).getAttribute("aria-controls")!)!;
+    const inMenu = within(panel);
+    expect(inMenu.getByRole("combobox", { name: "Select language" })).toHaveValue("en");
+    expect(inMenu.getByText("English", { selector: ".lang-select-current" })).toBeInTheDocument();
+    expect(inMenu.getByRole("button", { name: "Cycle color theme (system → light → dark)" })).toHaveTextContent("Theme");
   });
 
   it("labels the lab-status strip from the catalog", () => {

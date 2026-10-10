@@ -48,6 +48,17 @@ describe("ThemeToggle", () => {
     expect(button).toBeInTheDocument();
   });
 
+  it("as a row (the phone bar's MENU) says Theme and keeps its name", async () => {
+    const user = userEvent.setup();
+    render(<ThemeToggle variant="row" />);
+    const button = screen.getByRole("button", { name: "Cycle color theme (system → light → dark)" });
+    expect(button).toHaveTextContent("Theme");
+    expect(button).toHaveClass("theme-toggle-row");
+
+    await user.click(button);
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+  });
+
   it("cycles system → light on first click and persists to localStorage", async () => {
     const user = userEvent.setup();
     render(<ThemeToggle />);

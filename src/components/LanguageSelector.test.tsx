@@ -42,6 +42,18 @@ describe("LanguageSelector", () => {
     expect(select).toHaveValue("fr");
   });
 
+  it("as a row (the phone bar's MENU) shows Language and the current language, and still changes it", async () => {
+    const user = userEvent.setup();
+    render(<LanguageSelector variant="row" />, { locale: "fr" });
+    const select = screen.getByRole("combobox", { name: "Select language" });
+    expect(select).toHaveValue("fr");
+    expect(select.closest("label")).toHaveClass("lang-select-row");
+    expect(screen.getByText("Français", { selector: ".lang-select-current" })).toBeInTheDocument();
+
+    await user.selectOptions(select, "ja");
+    expect(changeLocale).toHaveBeenCalledWith("ja");
+  });
+
   it("calls changeLocale with the chosen code and refreshes the router", async () => {
     const user = userEvent.setup();
     render(<LanguageSelector />); // active locale defaults to "en"

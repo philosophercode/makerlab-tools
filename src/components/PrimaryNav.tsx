@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { MenuIcon, XIcon } from "lucide-react";
 import { ADMIN_HREF, AdminLink } from "./AdminLink";
+import { NavMenuAccount } from "./NavMenuAccount";
 import { ProfileMenu } from "./ProfileMenu";
 import { FROSTED } from "./system/frosted";
 import { useNavMenu } from "./use-nav-menu";
@@ -29,7 +30,17 @@ const LINKS = [
 /** How long a sign-in notice stays before it fades. Long enough to read twice. */
 export const SIGN_IN_NOTICE_MS = 6000;
 
-export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDurationMs?: number } = {}) {
+interface PrimaryNavProps {
+  noticeDurationMs?: number;
+  /**
+   * The language and theme controls as rows, for the phone bar's MENU (DESIGN.md
+   * §8.12, amendment "The phone bar"). `GlobalChrome` passes them; the bar's
+   * own copies sit in its utility controls.
+   */
+  menuPreferences?: ReactNode;
+}
+
+export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS, menuPreferences }: PrimaryNavProps = {}) {
   const pathname = usePathname() || "/";
   const t = useTranslations("nav");
   const { isOpen: menuOpen, toggle: toggleMenu, close: closeMenu, toggleRef, panelRef } = useNavMenu();
@@ -79,15 +90,21 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
     if (result !== "started") {
       setBusy(false);
       setSignInNotice(result);
+      // From the phone bar's MENU: close it, so the notice under the bar shows.
+      if (menuOpen) closeMenu(true);
     }
   }
 
+  const signInLabel = t("signInAria", { institution: siteConfig.institution });
+  const devSignInHref = `${DEV_SIGN_IN_ENDPOINT}?next=${encodeURIComponent(pathname)}`;
+
   return (
     <nav className="primary-nav" aria-label={t("primaryNavLabel")}>
-      {/* MENU, on a short viewport only (a phone on its side, DESIGN.md
-          §8.12) — CSS draws it there and nowhere else. Elsewhere the links'
-          wrapper is `display: contents`, so they sit in the bar exactly as
-          they did before it existed. */}
+      {/* MENU, on a phone (☰, its word kept for assistive technology) and on
+          a short viewport (a phone on its side) — DESIGN.md §8.12; CSS draws
+          it there and nowhere else. Elsewhere the links' wrapper is
+          `display: contents`, so they sit in the bar exactly as they did
+          before it existed. */}
       <button
         ref={toggleRef}
         type="button"
@@ -97,7 +114,7 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
         onClick={toggleMenu}
       >
         {menuOpen ? <XIcon aria-hidden="true" /> : <MenuIcon aria-hidden="true" />}
-        {t("menu")}
+        <span className="primary-nav-menu-label">{t("menu")}</span>
       </button>
       <div
         ref={panelRef}
@@ -130,6 +147,36 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
             onClick={() => closeMenu(false)}
           />
         ) : null}
+        {/* What the phone bar has no room for (amendment "The phone bar",
+            2026-10-10): the account — or Sign in — then the language and
+            theme. Drawn while MENU is open, and by CSS on a phone only: the
+            short bar and every wider bar keep these controls in the bar, so
+            the rest of the time each control exists once. */}
+        {menuOpen ? (
+          <div className="primary-nav-menu-more">
+            {signedIn && identity ? (
+              <NavMenuAccount identity={identity} onNavigate={() => closeMenu(false)} />
+            ) : (
+              <div className="primary-nav-menu-account">
+                <button
+                  type="button"
+                  className="primary-nav-menu-row"
+                  onClick={handleSignIn}
+                  disabled={busy}
+                  aria-label={signInLabel}
+                >
+                  {t("signIn")}
+                </button>
+                {identity?.devSignIn ? (
+                  <a className="primary-nav-menu-row" href={devSignInHref} aria-label={t("devSignIn")}>
+                    {t("devSignIn")}
+                  </a>
+                ) : null}
+              </div>
+            )}
+            {menuPreferences ? <div className="primary-nav-menu-prefs">{menuPreferences}</div> : null}
+          </div>
+        ) : null}
       </div>
       {/* Everything else a signed-in person can do beyond browsing — Add
           equipment, their account, connecting an assistant, Sign out — lives
@@ -148,7 +195,7 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
             className="primary-nav-button primary-nav-auth"
             onClick={handleSignIn}
             disabled={busy}
-            aria-label={t("signInAria", { institution: siteConfig.institution })}
+            aria-label={signInLabel}
           >
             {t("signIn")}
           </button>
@@ -159,7 +206,7 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
           {identity?.devSignIn ? (
             <a
               className="primary-nav-button primary-nav-dev-sign-in"
-              href={`${DEV_SIGN_IN_ENDPOINT}?next=${encodeURIComponent(pathname)}`}
+              href={devSignInHref}
               aria-label={t("devSignIn")}
             >
               {/* Short below xl, where the one-row bar is tight (DESIGN.md §8.12). */}
