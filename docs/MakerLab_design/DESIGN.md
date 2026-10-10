@@ -162,7 +162,11 @@ fonts happen to be installed is not a design.
 - Page gutter 16px on a phone, 32px from `sm`. No horizontal page scroll, ever;
   a wide thing (the section bar, a code block, a table wider than its
   column) scrolls inside itself. `e2e/header-stability.spec.ts` checks the
-  main routes at 390, 1024 and 1440.
+  main routes at 390, 1024 and 1440, and the home page, About and `/demo` in
+  every language at 320, 360 and 390. A row of controls that a long
+  translation can outgrow wraps (the home page's Categories | All tools and
+  Filters, Filters keeping to the row's end), and so does a button whose
+  label can (the sign-up's).
 - Breakpoints: `sm 640 · md 768 · lg 1024 · xl 1280`. Nothing else. One
   height query beside them: the **short viewport**, landscape and at most
   500px tall — a phone on its side — for the header alone (§8.12).

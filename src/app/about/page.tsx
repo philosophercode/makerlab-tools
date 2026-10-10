@@ -120,7 +120,8 @@ export default function AboutPage() {
             <p>{t("demoBody", { days: DEMO_PASS_DAYS, institution: siteConfig.institution })}</p>
           </Prose>
           <div>
-            <Button asChild variant="default">
+            {/* Wraps where a long translation is wider than a small phone. */}
+            <Button asChild variant="default" className="h-auto min-h-8 max-w-full py-1.5 text-center whitespace-normal">
               <Link href="/demo">{t("demoCta")}</Link>
             </Button>
           </div>

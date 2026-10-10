@@ -262,6 +262,34 @@ for (const [width, height] of [
 }
 
 /**
+ * No horizontal page scroll on a phone in any language (DESIGN.md §6). On the
+ * home page, Categories | All tools and Filters were one unbreakable line:
+ * "Todas las herramientas" pushed the page 72px sideways at 320 and 2px at 390
+ * in Spanish (Portuguese, French and Russian too). The row wraps now, and the
+ * sign-up buttons wrap where a translation is wider than a small phone. One
+ * load per language and page, every width by resizing.
+ */
+test("the home page, About and the sign-up do not scroll sideways on a phone in any language", async ({ page, context, baseURL }) => {
+  const failures: string[] = [];
+  for (const locale of LOCALE_CODES) {
+    await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
+    for (const route of ["/", "/about", "/demo"]) {
+      await page.setViewportSize({ width: 320, height: 700 });
+      await page.goto(route);
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
+      await identityResolved(page, false);
+      for (const width of [320, 360, 390]) {
+        await page.setViewportSize({ width, height: 700 });
+        await page.waitForFunction((w) => window.innerWidth === w, width);
+        const excess = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (excess > 0) failures.push(`${locale} ${route} at ${width}: ${excess}px too wide`);
+      }
+    }
+  }
+  expect(failures).toEqual([]);
+});
+
+/**
  * A phone on its side (DESIGN.md §8.12, amendment "A phone on its side"). The
  * compact bar and the status strip took 159px of a 390px screen, and the bar
  * stayed pinned. On a short viewport the bar is one 48px row with the links

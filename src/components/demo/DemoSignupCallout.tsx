@@ -33,7 +33,9 @@ export function DemoSignupCallout({ variant = "box" }: { variant?: "box" | "inli
         className="ui mx-auto -mt-4 mb-12 flex w-full max-w-3xl flex-col items-center gap-3 text-center sm:-mt-8 sm:mb-16 sm:flex-row sm:justify-center sm:text-start"
       >
         <p className="m-0 text-sm leading-snug text-muted-foreground">{text}</p>
-        <Button asChild variant="outline" size="sm" className="shrink-0">
+        {/* Wraps on a phone too narrow for it ("Inscrivez-vous pour en savoir
+            plus" is wider than 280px in mono capitals): never a sideways page. */}
+        <Button asChild variant="outline" size="sm" className="h-auto min-h-7 max-w-full shrink-0 py-1 text-center whitespace-normal">
           <Link href="/demo">{t("cta")}</Link>
         </Button>
       </aside>
@@ -44,7 +46,7 @@ export function DemoSignupCallout({ variant = "box" }: { variant?: "box" | "inli
     <aside aria-label={t("label")} className="ui mx-auto w-full max-w-[1440px] px-4 pt-4 sm:px-8" data-slot="demo-callout" data-variant="box">
       <div className="flex flex-col gap-3 border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="m-0 text-sm leading-snug">{text}</p>
-        <Button asChild variant="default" className="w-full sm:w-auto">
+        <Button asChild variant="default" className="h-auto min-h-8 w-full py-1.5 text-center whitespace-normal sm:w-auto">
           <Link href="/demo">{t("cta")}</Link>
         </Button>
       </div>
