@@ -171,9 +171,9 @@
   "about": {
     "eyebrow": "À propos",
     "browseTools": "Parcourir les outils",
-    "demoHeading": "Essayez la démo complète",
-    "demoBody": "Vous venez d'une autre école ou d'un autre laboratoire ? Un pass démo gratuit vous permet d'utiliser l'assistant comme un étudiant d'ici pendant {days} jours, sans compte {institution}.",
-    "demoCta": "Inscrivez-vous pour essayer la démo complète",
+    "demoHeading": "Apportez {assistant} à votre makerspace",
+    "demoBody": "Envie d'en savoir plus ? Inscrivez-vous et nous vous recontacterons.",
+    "demoCta": "S'inscrire",
     "photoPrintersAlt": "Imprimantes 3D alignées devant le mur rouge du MakerLAB.",
     "photoFloorAlt": "L'espace ouvert du MakerLAB, avec des chaises orange et des établis.",
     "photoPrintersCaption": "Imprimantes 3D devant le mur du MakerLAB",
@@ -389,15 +389,13 @@
     "onShiftLabel": "De service maintenant"
   },
   "demoPass": {
-    "eyebrow": "Pass démo",
-    "title": "Essayez la démo complète",
-    "lede": "Obtenez un pass démo gratuit pour utiliser {site} comme un étudiant d'ici : interrogez l'assistant sur les machines du laboratoire, avec des réponses citées de leurs manuels, et signalez un problème. Aucun compte {institution} nécessaire.",
-    "passFacts": "Votre pass fonctionne sur cet appareil pendant {days} jours et couvre environ {budget} d'utilisation de l'IA.",
+    "eyebrow": "Inscription",
+    "title": "Apportez {assistant} à votre makerspace",
+    "lede": "Envie d'en savoir plus ? Laissez-nous vos coordonnées et nous vous recontacterons.",
     "required": "Obligatoire",
     "optional": "Facultatif",
     "nameLabel": "Nom",
     "emailLabel": "E-mail",
-    "emailHint": "Uniquement pour un suivi. L'assistant ne le voit jamais.",
     "institutionLabel": "Établissement ou affiliation",
     "institutionHint": "Une université, une entreprise, un laboratoire ou un makerspace.",
     "roleLabel": "Rôle",
@@ -414,11 +412,10 @@
     "no": "Non",
     "useCaseLabel": "À quoi vous servirait-il ?",
     "useCaseHint": "Une ou deux phrases suffisent.",
-    "consentLabel": "Vous pouvez me contacter au sujet de MakerLAB AI.",
     "honeypotLabel": "Laissez ce champ vide",
-    "privacy": "Nous conservons les inscriptions 12 mois. Seule la direction du laboratoire peut les voir, et rien de ce que vous saisissez ici n'est communiqué à l'IA. Pour être supprimé plus tôt, contactez le laboratoire.",
-    "submit": "Obtenir mon pass",
-    "submitting": "Inscription…",
+    "privacy": "Nous utilisons vos coordonnées uniquement pour vous contacter au sujet de {assistant}. Seule la direction du laboratoire peut les voir, et rien de ce que vous saisissez ici n'est communiqué à l'IA. Nous conservons les inscriptions 12 mois ; pour être supprimé plus tôt, contactez le laboratoire.",
+    "submit": "Envoyer",
+    "submitting": "Envoi…",
     "browseTools": "Parcourir les outils",
     "askAssistant": "Interroger l'assistant",
     "errors": {
@@ -431,18 +428,17 @@
       "unavailable": "L'inscription n'est pas disponible pour le moment. Réessayez bientôt.",
       "failed": "Une erreur s'est produite. Veuillez réessayer."
     },
-    "thanksTitle": "C'est fait",
-    "thanksBody": "Merci pour votre inscription. Votre pass démo fonctionne sur cet appareil jusqu'au {date} et couvre environ {budget} d'utilisation de l'IA.",
-    "thanksReturning": "Bon retour. Votre pass démo est de nouveau actif sur cet appareil, avec {remaining} restants, jusqu'au {date}.",
-    "thanksNext": "Ouvrez l'assistant depuis n'importe quelle page avec le bouton du chat, ou commencez ici.",
-    "thanksExpired": "Merci de vous être réinscrit. Le pass démo de cette adresse a expiré, mais nous avons vos coordonnées.",
-    "thanksReceived": "Merci pour votre inscription.",
-    "closedTitle": "Les inscriptions à la démo sont closes",
+    "thanksTitle": "Merci",
+    "thanksBody": "Nous vous recontacterons pour parler de {assistant} dans votre makerspace.",
+    "thanksReturning": "Nous avons déjà vos coordonnées et nous vous recontacterons.",
+    "thanksNext": "En attendant, posez à l'assistant toutes vos questions sur le laboratoire.",
+    "closedTitle": "Les inscriptions sont closes",
     "closedBody": "Merci de votre intérêt. Vous pouvez toujours parcourir les outils et poser quelques questions à l'assistant.",
     "callout": {
-      "label": "Pass démo",
-      "text": "De passage ? Obtenez un pass démo gratuit pour discuter avec l'assistant du laboratoire et signaler un problème. Aucun compte {institution} nécessaire.",
-      "cta": "Inscrivez-vous pour essayer la démo complète"
+      "label": "{assistant} pour votre makerspace",
+      "text": "Vous aimeriez {assistant} dans votre makerspace ?",
+      "cta": "S'inscrire",
+      "dismiss": "Fermer"
     }
   }
 }

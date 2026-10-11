@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "../../components/BrandLogo";
 import { PageSection, Prose, PublicPage } from "../../components/system/PublicPage";
-import { DEMO_PASS_DAYS, demoPassEnabled } from "../../lib/demo-pass/config";
+import { demoPassEnabled } from "../../lib/demo-pass/config";
 import { siteConfig } from "../../lib/site-config";
 import { ABOUT_LINKS, ABOUT_PEOPLE, ABOUT_PHOTOS } from "./about-content";
 
@@ -130,11 +130,12 @@ export default function AboutPage() {
         </Prose>
       </PageSection>
 
-      {/* Demo pass spec 2026-10-07 §6: the sign-up, for visitors from elsewhere. */}
+      {/* Demo pass spec 2026-10-07 §6, amendment 2026-10-11: the sign-up, for
+          people who would like the assistant in their own makerspace. */}
       {demoPassEnabled() ? (
-        <PageSection keepCase id="about-demo" title={t("demoHeading")}>
+        <PageSection keepCase id="about-demo" title={t("demoHeading", { assistant: siteConfig.chatAssistantName })}>
           <Prose>
-            <p>{t("demoBody", { days: DEMO_PASS_DAYS, institution: siteConfig.institution })}</p>
+            <p>{t("demoBody")}</p>
           </Prose>
           <div>
             <Button asChild variant="default">

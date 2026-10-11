@@ -2,20 +2,21 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { MessageSquareIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatPassDate, formatUsd } from "../../lib/demo-pass/format";
 import type { DemoPassView } from "../../lib/demo-pass/state";
+import { siteConfig } from "../../lib/site-config";
 import { useChatLauncher } from "../ChatLauncherContext";
 import { Prose } from "../system/PublicPage";
 
 /**
- * After the demo sign-up (demo pass spec 2026-10-07 §5.1, §6): the thank-you,
- * in the version the route's answer calls for — a new pass, the same pass
- * again on this device, an email whose pass has ended, or (for a filled
- * honeypot) a plain thanks. Focus moves to the heading so a screen reader
- * hears that it worked. **Ask the assistant** opens the chat right here.
+ * After the sign-up (demo pass spec 2026-10-07 §5.1, §6; amendment
+ * 2026-10-11): a short thank-you that says nothing about a pass. A new
+ * sign-up (or a filled honeypot, which must look the same) hears "we'll be in
+ * touch"; an address already signed up hears that we have its details. Focus
+ * moves to the heading so a screen reader hears that it worked. When the
+ * answer carries a live pass, **Ask the assistant** opens the chat right here.
  */
 export function DemoSignupThanks({
   status,
@@ -25,7 +26,6 @@ export function DemoSignupThanks({
   pass: DemoPassView | null;
 }) {
   const t = useTranslations("demoPass");
-  const locale = useLocale();
   const { open } = useChatLauncher();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -33,15 +33,8 @@ export function DemoSignupThanks({
     headingRef.current?.focus();
   }, []);
 
-  const date = pass ? formatPassDate(pass.expiresAt, locale) : "";
   const body =
-    status === "created" && pass
-      ? t("thanksBody", { date, budget: formatUsd(pass.budgetUsd, locale) })
-      : status === "existing" && pass
-        ? t("thanksReturning", { date, remaining: formatUsd(pass.remainingUsd, locale) })
-        : status === "expired"
-          ? t("thanksExpired")
-          : t("thanksReceived");
+    status === "existing" || status === "expired" ? t("thanksReturning") : t("thanksBody", { assistant: siteConfig.chatAssistantName });
   const hasPass = Boolean(pass) && (status === "created" || status === "existing");
 
   return (

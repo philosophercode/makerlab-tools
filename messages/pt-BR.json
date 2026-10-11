@@ -171,9 +171,9 @@
   "about": {
     "eyebrow": "Sobre",
     "browseTools": "Explorar ferramentas",
-    "demoHeading": "Experimente a demo completa",
-    "demoBody": "Vem de outra universidade ou laboratório? Um passe de demonstração gratuito permite usar o assistente como um estudante daqui por {days} dias, sem uma conta de {institution}.",
-    "demoCta": "Cadastre-se para experimentar a demo completa",
+    "demoHeading": "Leve o {assistant} para o seu makerspace",
+    "demoBody": "Quer saber mais? Cadastre-se e entraremos em contato.",
+    "demoCta": "Cadastre-se",
     "photoPrintersAlt": "Impressoras 3D alinhadas em frente à parede vermelha do MakerLAB.",
     "photoFloorAlt": "O espaço aberto do MakerLAB, com cadeiras laranja e bancadas de trabalho.",
     "photoPrintersCaption": "Impressoras 3D em frente à parede do MakerLAB",
@@ -389,15 +389,13 @@
     "onShiftLabel": "De plantão agora"
   },
   "demoPass": {
-    "eyebrow": "Passe de demonstração",
-    "title": "Experimente a demo completa",
-    "lede": "Ganhe um passe de demonstração gratuito para usar o {site} como um estudante daqui: pergunte ao assistente sobre as máquinas do laboratório, com respostas citadas dos manuais, e relate um problema. Não é preciso ter uma conta de {institution}.",
-    "passFacts": "Seu passe funciona neste dispositivo por {days} dias e cobre cerca de {budget} de uso de IA.",
+    "eyebrow": "Cadastro",
+    "title": "Leve o {assistant} para o seu makerspace",
+    "lede": "Quer saber mais? Deixe seus dados e entraremos em contato.",
     "required": "Obrigatório",
     "optional": "Opcional",
     "nameLabel": "Nome",
     "emailLabel": "E-mail",
-    "emailHint": "Apenas para contato posterior. O assistente nunca o vê.",
     "institutionLabel": "Instituição ou afiliação",
     "institutionHint": "Uma universidade, empresa, laboratório ou makerspace.",
     "roleLabel": "Função",
@@ -414,11 +412,10 @@
     "no": "Não",
     "useCaseLabel": "Para que você o usaria?",
     "useCaseHint": "Uma ou duas frases bastam.",
-    "consentLabel": "Vocês podem entrar em contato comigo sobre o MakerLAB AI.",
     "honeypotLabel": "Deixe este campo em branco",
-    "privacy": "Guardamos os cadastros por 12 meses. Só a direção do laboratório pode vê-los, e nada do que você digitar aqui é compartilhado com a IA. Para ser removido antes, fale com o laboratório.",
-    "submit": "Quero meu passe",
-    "submitting": "Cadastrando…",
+    "privacy": "Usamos seus dados apenas para entrar em contato sobre o {assistant}. Só a direção do laboratório pode vê-los, e nada do que você digitar aqui é compartilhado com a IA. Guardamos os cadastros por 12 meses; para ser removido antes, fale com o laboratório.",
+    "submit": "Enviar",
+    "submitting": "Enviando…",
     "browseTools": "Ver as ferramentas",
     "askAssistant": "Perguntar ao assistente",
     "errors": {
@@ -431,18 +428,17 @@
       "unavailable": "O cadastro não está disponível agora. Tente de novo em instantes.",
       "failed": "Algo deu errado. Tente de novo."
     },
-    "thanksTitle": "Tudo certo",
-    "thanksBody": "Obrigado pelo cadastro. Seu passe de demonstração funciona neste dispositivo até {date} e cobre cerca de {budget} de uso de IA.",
-    "thanksReturning": "Bem-vindo de volta. Seu passe de demonstração está ativo de novo neste dispositivo, com {remaining} restantes, até {date}.",
-    "thanksNext": "Abra o assistente em qualquer página pelo botão do chat, ou comece aqui.",
-    "thanksExpired": "Obrigado por se cadastrar de novo. O passe de demonstração deste e-mail terminou, mas temos seus dados.",
-    "thanksReceived": "Obrigado pelo cadastro.",
-    "closedTitle": "As inscrições para a demo estão encerradas",
+    "thanksTitle": "Obrigado",
+    "thanksBody": "Entraremos em contato para conversar sobre levar o {assistant} para o seu makerspace.",
+    "thanksReturning": "Já temos seus dados e entraremos em contato.",
+    "thanksNext": "Enquanto isso, pergunte ao assistente o que quiser sobre o laboratório.",
+    "closedTitle": "As inscrições estão encerradas",
     "closedBody": "Obrigado pelo interesse. Você ainda pode ver as ferramentas e fazer algumas perguntas ao assistente.",
     "callout": {
-      "label": "Passe de demonstração",
-      "text": "De visita? Ganhe um passe de demonstração gratuito para conversar com o assistente do laboratório e relatar um problema. Não é preciso ter uma conta de {institution}.",
-      "cta": "Cadastre-se para experimentar a demo completa"
+      "label": "{assistant} para o seu makerspace",
+      "text": "Quer levar o {assistant} para o seu makerspace?",
+      "cta": "Cadastre-se",
+      "dismiss": "Fechar"
     }
   }
 }
