@@ -2,6 +2,7 @@ import { AbsoluteFill, interpolate, spring, staticFile, useCurrentFrame, useVide
 import { COLORS, FONTS } from "../brand";
 import type { Format } from "../layout";
 import { Background } from "./Background";
+import { Lockup, OpenSourceLine } from "./Lockup";
 
 /** "MakerLAB AI · Operate, fix and build." + the address, in the site's lockup. */
 export const EndCard: React.FC<{ format: Format }> = ({ format }) => {
@@ -19,37 +20,8 @@ export const EndCard: React.FC<{ format: Format }> = ({ format }) => {
     <AbsoluteFill>
       <Background />
       <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", flexDirection: "column", gap: landscape ? 26 : 40 }}>
-        <div
-          style={{
-            width: wordW,
-            height: wordW * (79 / 475),
-            backgroundColor: COLORS.ink,
-            WebkitMaskImage: `url(${staticFile("brand/makerlab-wordmark.png")})`,
-            maskImage: `url(${staticFile("brand/makerlab-wordmark.png")})`,
-            WebkitMaskSize: "contain",
-            maskSize: "contain",
-            WebkitMaskRepeat: "no-repeat",
-            maskRepeat: "no-repeat",
-            opacity: mark,
-            transform: `translateY(${(1 - mark) * 30}px) scale(${0.96 + 0.04 * mark})`,
-          }}
-        />
-        <div
-          style={{
-            fontFamily: FONTS.display,
-            fontWeight: 700,
-            fontSize: landscape ? 76 : 92,
-            letterSpacing: "-0.01em",
-            color: COLORS.ink,
-            opacity: name,
-            transform: `translateY(${(1 - name) * 24}px)`,
-            display: "flex",
-            alignItems: "center",
-            gap: 22,
-          }}
-        >
-          <span style={{ width: landscape ? 18 : 22, height: landscape ? 18 : 22, background: COLORS.primary, display: "inline-block" }} />
-          MakerLAB AI
+        <div style={{ opacity: mark, transform: `translateY(${(1 - mark) * 30}px)` }}>
+          <Lockup height={landscape ? 100 : 80} />
         </div>
         <div style={{ display: "flex", gap: "0.3em", fontFamily: FONTS.display, fontWeight: 500, fontSize: landscape ? 46 : 58, color: COLORS.inkMuted, opacity: tag }}>
           {words.map((w, i) => {
@@ -90,6 +62,9 @@ export const EndCard: React.FC<{ format: Format }> = ({ format }) => {
           }}
         >
           The MakerLAB at Cornell Tech
+        </div>
+        <div style={{ position: "absolute", bottom: landscape ? 96 : 170, opacity: interpolate(frame, [40, 60], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) }}>
+          <OpenSourceLine size={landscape ? 22 : 26} />
         </div>
       </AbsoluteFill>
     </AbsoluteFill>
