@@ -370,3 +370,47 @@ source, usage, backup policy, `data:push` plan, About, `MaintenanceQueue` and
    (`app/api/report/route.test.ts`). A demo ticket queues no `ticket.filed` email.
 7. **Migration number.** `0034`: renumbered to `0032` when stacked, then to `0034` when
    rebuilt on `main` (2026-10-09) after found photo (`0032`) and on shift (`0033`).
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-10-11 — The sign-up is an interest form
+
+**What changed.** The words, not the mechanism. `/demo`, the front page's callout and
+the About section now speak to people interested in bringing MakerLAB AI to their own
+makerspace, and say nothing about a pass or "the full demo": the site itself is the
+demo.
+
+- **Front page and About:** "Interested in bringing MakerLAB AI to your makerspace?"
+  and **Sign up** (About: "Bring MakerLAB AI to your makerspace", "Interested in
+  learning more? Sign up and we'll be in touch."). The callout's ticket icon is a mail
+  icon. Supersedes the button names in §5.1 step 1 and §6.
+- **`/demo`:** titled "Bring MakerLAB AI to your makerspace", one line of lede, and the
+  same fields (name, email and institution required; role, the makerspace question and
+  the use case optional). The pass-facts line is gone. The button is **Submit**, and
+  **Browse the tools** is gone from the form, so a stray click cannot lose what was
+  typed; leaving is the browser's job.
+- **No consent box.** Being contacted is what the form is for, so the form sends
+  `consent: true` and the privacy line says the details are used only to contact the
+  visitor about MakerLAB AI. Supersedes "an unticked checkbox for consent" in §6. The
+  route, `parseDemoSignup` and `consent_to_contact` are unchanged, so a sign-up made
+  before this change keeps the answer it gave.
+- **Thank-you:** "Thank you" and "We'll be in touch about bringing MakerLAB AI to your
+  makerspace." An address already signed up, live pass or ended, hears "We already have
+  your details, and we'll be in touch." **Ask the assistant** still shows when the
+  answer carries a live pass. Supersedes §5.1 step 4.
+- **Strings:** the changed `demoPass.*` and `about.demo*` strings in all 12 locales;
+  `passFacts`, `consentLabel`, `thanksExpired` and `thanksReceived` removed. The
+  assistant's name comes from `siteConfig.chatAssistantName`.
+
+**Unchanged.** Submitting still issues the pass (§5.2–§5.4): the cookie, 60 chat
+messages an hour, the $0.50 ledger, demo-flagged usage and tickets. The chat's `Demo
+pass · $x left` line and the spent notice (§6) are unchanged.
+
+**Why.** The owner's instruction of 2026-10-11, for the ISAM demo that day: the people
+worth hearing from are those who might run MakerLAB AI in their own lab, and calling
+the sign-up "the full demo" implied the site was a lesser one.
+
+**Status.** Accepted by the owner (Isaac Steinberg), 2026-10-11; built in the same PR,
+as the original spec was.
