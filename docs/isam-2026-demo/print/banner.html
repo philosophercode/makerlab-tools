@@ -38,7 +38,7 @@ h2, p { margin: 0; }
   padding: var(--margin);
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 4.6in 11in;
+  grid-template-columns: minmax(0, 1fr) 11in;
   grid-template-rows: minmax(0, 1fr);
   column-gap: 0.8in;
   background-color: var(--paper);
@@ -48,11 +48,13 @@ h2, p { margin: 0; }
 .label { font: 500 22pt/1.2 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--orange-ink); }
 
 /* row 1, left: wordmark */
-.left { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; padding: 0.3in 0; }
+.left { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+.stack { display: flex; flex-direction: column; gap: 0.3in; width: max-content; }
+.row { display: flex; align-items: flex-end; justify-content: space-between; gap: 1in; }
 .brand { display: flex; flex-direction: column; gap: 0.3in; }
 .lockup { font-size: 0; line-height: 1; display: flex; align-items: flex-end; gap: 0.5in; }
-.lockup img { display: block; height: 3.6in; width: auto; }
-.lockup .ai { font: 700 370pt/0.8 "Barlow", var(--font-display); color: var(--orange); }
+.lockup img { display: block; height: 4.86in; width: auto; }
+.lockup .ai { font: 700 499pt/0.8 "Barlow", var(--font-display); color: var(--orange); }
 
 /* row 2, left: operate / fix / build, then the small lines */
 .obf { display: flex; flex-direction: column; gap: 0.5in; }
@@ -64,7 +66,7 @@ h2, p { margin: 0; }
 .oss .badge { background: var(--orange); padding: 0.08in 0.2in; letter-spacing: 0.14em; text-transform: uppercase; }
 
 /* row 1, right: QR */
-.plate { grid-column: 3; grid-row: 1; background: var(--ink); color: var(--on-ink); padding: 0.25in; display: grid; place-items: center; }
+.plate { grid-column: 2; grid-row: 1; background: var(--ink); color: var(--on-ink); padding: 0.25in; display: grid; place-items: center; }
 .qr-frame { position: relative; width: 10.5in; padding: 0.2in; }
 .qr-frame::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -80,35 +82,37 @@ h2, p { margin: 0; }
 }
 .qr-frame img { display: block; width: 100%; height: auto; background: #fff; }
 /* row 2, right: logos */
-.logos { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5in; }
-.logos .mk { height: 1.15in; width: auto; display: block; }
-.logos .ct { height: 4.6in; width: auto; display: block; }
+.logos { display: flex; align-items: flex-end; gap: 0.4in; margin-right: 0.45in; }
+.logos .mk { height: 1.3in; width: auto; display: block; }
+.logos .ct { height: 4.4in; width: auto; display: block; }
 
 @media print { body { background: var(--paper); } .sheet { zoom: 1 !important; } }
 </style>
 </head>
 <body>
 <main class="sheet" id="sheet">
-  <div class="left">
-  <header class="brand">
-    <p class="label">ISAM 2026 · Live demo</p>
-    <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
-  </header>
-  <section class="obf" aria-label="Operate, fix, build">
-    <div class="words"><h2>Operate</h2><h2>Fix</h2><h2>Build</h2></div>
-    <div class="small">
-      <p class="callout">Scan to try it. Interested? Bring MakerLAB AI to your lab. Sign up in the app.</p>
-      <p class="oss"><span class="badge">Open source</span><span>AGPL-3.0</span></p>
+  <div class="left"><div class="stack">
+    <header class="brand">
+      <p class="label">ISAM 2026 · Live demo</p>
+      <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+    </header>
+    <div class="row">
+      <section class="obf" aria-label="Operate, fix, build">
+        <div class="words"><h2>Operate</h2><h2>Fix</h2><h2>Build</h2></div>
+        <div class="small">
+          <p class="callout">Scan to try it. Interested? Bring MakerLAB AI to your lab. Sign up in the app.</p>
+          <p class="oss"><span class="badge">Open source</span><span>AGPL-3.0</span></p>
+        </div>
+      </section>
+      <div class="logos">
+        <img class="ct" src="img/Cornell-Tech-Logo.webp" alt="Cornell Tech, Cornell University, Jacobs Institute, Technion">
+        <img class="mk" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
     </div>
-  </section>
-  </div>
+  </div></div>
   <aside class="plate">
     <div class="qr-frame"><img src="img/qr-site.svg" alt="QR code for www.makerlabai.app"></div>
   </aside>
-  <footer class="logos">
-    <img class="ct" src="img/Cornell-Tech-Logo.webp" alt="Cornell Tech, Cornell University, Jacobs Institute, Technion">
-    <img class="mk" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
-  </footer>
 </main>
 <script>
   (function () {
