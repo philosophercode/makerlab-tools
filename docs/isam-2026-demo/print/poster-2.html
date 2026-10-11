@@ -192,7 +192,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 .pass dd { font: 400 11.5pt/1.35 var(--font-body); }
 
 .foot {
-  margin-top: 0.3in;
+  margin-top: 0.22in;
   border-top: 1pt solid var(--rule);
   padding-top: 0.12in;
   display: flex;
@@ -202,6 +202,24 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
   color: var(--ink-muted);
 }
 .foot b { font-weight: 600; color: var(--ink); }
+.oss {
+  margin-top: 0.22in;
+  display: flex;
+  align-items: center;
+  gap: 0.16in;
+  font: 500 11pt/1.2 var(--font-mono);
+  color: var(--ink);
+}
+.oss .badge {
+  background: var(--orange);
+  color: var(--ink);
+  padding: 0.05in 0.12in;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 10pt;
+  font-weight: 500;
+}
+.oss .sep { color: var(--ink-muted); }
 
 @media print {
   body { background: var(--paper); }
@@ -298,6 +316,8 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
       </dl>
     </div>
   </section>
+
+  <p class="oss"><span class="badge">Open source</span> <span>AGPL-3.0</span> <span class="sep">·</span> <span>github.com/philosophercode/makerlab-tools</span></p>
 
   <footer class="foot">
     <p><b>Isaac Steinberg</b> · <b>Niti Parikh</b> · <b>Miguel Ramirez Peraza</b></p>
