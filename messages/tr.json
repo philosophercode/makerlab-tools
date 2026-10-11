@@ -173,7 +173,11 @@
     "browseTools": "Araçlara göz at",
     "demoHeading": "Tam demoyu deneyin",
     "demoBody": "Başka bir okuldan ya da laboratuvardan mı geliyorsunuz? Ücretsiz bir demo kartıyla asistanı {days} gün boyunca buradaki bir öğrenci gibi, {institution} hesabı olmadan kullanabilirsiniz.",
-    "demoCta": "Tam demoyu denemek için kaydolun"
+    "demoCta": "Tam demoyu denemek için kaydolun",
+    "photoPrintersAlt": "MakerLAB'in kırmızı duvarının önünde sıralanmış 3D yazıcılar.",
+    "photoFloorAlt": "MakerLAB'in açık alanı: turuncu sandalyeler ve çalışma tezgâhları.",
+    "photoPrintersCaption": "MakerLAB duvarının önünde 3D yazıcılar",
+    "photoFloorCaption": "Laboratuvarın açık alanı"
   },
   "chat": {
     "openAria": "MakerLAB AI'yı aç",

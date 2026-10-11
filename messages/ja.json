@@ -173,7 +173,11 @@
     "browseTools": "ツールを閲覧",
     "demoHeading": "フルデモを試す",
     "demoBody": "他の学校やラボからお越しですか？無料のデモパスで、{days} 日間、ここの学生と同じようにアシスタントを使えます。{institution} のアカウントは不要です。",
-    "demoCta": "登録してフルデモを試す"
+    "demoCta": "登録してフルデモを試す",
+    "photoPrintersAlt": "MakerLAB の赤い壁の前に並ぶ 3D プリンター。",
+    "photoFloorAlt": "オレンジ色の椅子とワークベンチが並ぶ、MakerLAB のオープンなフロア。",
+    "photoPrintersCaption": "MakerLAB の壁の前の 3D プリンター",
+    "photoFloorCaption": "ラボのオープンなフロア"
   },
   "chat": {
     "openAria": "MakerLAB AI を開く",

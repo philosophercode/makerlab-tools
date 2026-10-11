@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -5,7 +6,7 @@ import { BrandLogo } from "../../components/BrandLogo";
 import { PageSection, Prose, PublicPage } from "../../components/system/PublicPage";
 import { DEMO_PASS_DAYS, demoPassEnabled } from "../../lib/demo-pass/config";
 import { siteConfig } from "../../lib/site-config";
-import { ABOUT_LINKS, ABOUT_PEOPLE } from "./about-content";
+import { ABOUT_LINKS, ABOUT_PEOPLE, ABOUT_PHOTOS } from "./about-content";
 
 export const metadata = {
   title: "About",
@@ -33,6 +34,22 @@ export default function AboutPage() {
           <p>{t("labBody")}</p>
           <p>{t("historyBody")}</p>
         </Prose>
+        {/* Two photos of the lab: one column on a phone, two from sm up. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {ABOUT_PHOTOS.map((photo) => (
+            <figure key={photo.src} className="flex min-w-0 flex-col gap-2">
+              <Image
+                src={photo.src}
+                width={photo.width}
+                height={photo.height}
+                alt={t(photo.altKey)}
+                sizes="(min-width: 40rem) 24rem, 100vw"
+                className="h-auto w-full border border-border"
+              />
+              <figcaption className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase">{t(photo.captionKey)}</figcaption>
+            </figure>
+          ))}
+        </div>
       </PageSection>
 
       <PageSection keepCase id="about-visit" title={t("visitHeading")}>

@@ -173,7 +173,11 @@
     "browseTools": "Parcourir les outils",
     "demoHeading": "Essayez la démo complète",
     "demoBody": "Vous venez d'une autre école ou d'un autre laboratoire ? Un pass démo gratuit vous permet d'utiliser l'assistant comme un étudiant d'ici pendant {days} jours, sans compte {institution}.",
-    "demoCta": "Inscrivez-vous pour essayer la démo complète"
+    "demoCta": "Inscrivez-vous pour essayer la démo complète",
+    "photoPrintersAlt": "Imprimantes 3D alignées devant le mur rouge du MakerLAB.",
+    "photoFloorAlt": "L'espace ouvert du MakerLAB, avec des chaises orange et des établis.",
+    "photoPrintersCaption": "Imprimantes 3D devant le mur du MakerLAB",
+    "photoFloorCaption": "L'espace ouvert du laboratoire"
   },
   "chat": {
     "openAria": "Ouvrir MakerLAB AI",

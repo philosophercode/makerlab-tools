@@ -173,7 +173,11 @@
     "browseTools": "עיון בכלים",
     "demoHeading": "נסו את ההדגמה המלאה",
     "demoBody": "מגיעים מאוניברסיטה או ממעבדה אחרת? כרטיס הדגמה חינמי מאפשר להשתמש בעוזר כמו סטודנט כאן במשך {days} ימים, בלי חשבון {institution}.",
-    "demoCta": "הרשמה לניסיון ההדגמה המלאה"
+    "demoCta": "הרשמה לניסיון ההדגמה המלאה",
+    "photoPrintersAlt": "מדפסות תלת־ממד בשורה מול הקיר האדום של MakerLAB.",
+    "photoFloorAlt": "החלל הפתוח של MakerLAB, עם כיסאות כתומים ושולחנות עבודה.",
+    "photoPrintersCaption": "מדפסות תלת־ממד מול הקיר של MakerLAB",
+    "photoFloorCaption": "החלל הפתוח של המעבדה"
   },
   "chat": {
     "openAria": "פתיחת MakerLAB AI",

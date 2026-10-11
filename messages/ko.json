@@ -173,7 +173,11 @@
     "browseTools": "도구 둘러보기",
     "demoHeading": "전체 데모 체험하기",
     "demoBody": "다른 학교나 연구실에서 오셨나요? 무료 데모 패스로 {days}일 동안 {institution} 계정 없이 이곳 학생처럼 어시스턴트를 사용할 수 있습니다.",
-    "demoCta": "가입하고 전체 데모 체험하기"
+    "demoCta": "가입하고 전체 데모 체험하기",
+    "photoPrintersAlt": "MakerLAB의 빨간 벽 앞에 늘어선 3D 프린터.",
+    "photoFloorAlt": "주황색 의자와 작업대가 있는 MakerLAB의 탁 트인 공간.",
+    "photoPrintersCaption": "MakerLAB 벽 앞의 3D 프린터",
+    "photoFloorCaption": "탁 트인 랩 공간"
   },
   "chat": {
     "openAria": "MakerLAB AI 열기",

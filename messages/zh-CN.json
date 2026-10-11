@@ -173,7 +173,11 @@
     "browseTools": "浏览工具",
     "demoHeading": "试用完整演示",
     "demoBody": "来自其他学校或实验室？免费的演示通行证让您在 {days} 天内像这里的学生一样使用助手，无需 {institution} 账号。",
-    "demoCta": "报名试用完整演示"
+    "demoCta": "报名试用完整演示",
+    "photoPrintersAlt": "排列在 MakerLAB 红色墙壁前的 3D 打印机。",
+    "photoFloorAlt": "MakerLAB 的开放空间，有橙色椅子和工作台。",
+    "photoPrintersCaption": "MakerLAB 墙前的 3D 打印机",
+    "photoFloorCaption": "开放的实验室空间"
   },
   "chat": {
     "openAria": "打开 MakerLAB AI",

@@ -28,6 +28,18 @@ describe("/about", () => {
     expect(logo!.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows two photos of the lab with alt text and captions, inside the lab section", () => {
+    render(<AboutPage />);
+
+    const lab = section("The MakerLAB");
+    const printers = within(lab).getByRole("img", { name: "3D printers lined up in front of the red MakerLAB wall." });
+    const floor = within(lab).getByRole("img", { name: "The open MakerLAB floor, with orange chairs and workbenches." });
+    expect(printers.getAttribute("src")).toContain("makerlab-printers");
+    expect(floor.getAttribute("src")).toContain("makerlab-floor");
+    expect(within(lab).getByText("3D printers in front of the MakerLAB wall")).toBeInTheDocument();
+    expect(within(lab).getByText("The open lab floor")).toBeInTheDocument();
+  });
+
   it("follows the official page's order, then About this project", () => {
     render(<AboutPage />);
 
