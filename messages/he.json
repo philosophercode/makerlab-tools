@@ -173,7 +173,11 @@
     "browseTools": "עיון בכלים",
     "demoHeading": "הביאו את {assistant} למייקרספייס שלכם",
     "demoBody": "רוצים לשמוע עוד? הירשמו ונחזור אליכם.",
-    "demoCta": "הרשמה"
+    "demoCta": "הרשמה",
+    "photoPrintersAlt": "מדפסות תלת־ממד בשורה מול הקיר האדום של MakerLAB.",
+    "photoFloorAlt": "החלל הפתוח של MakerLAB, עם כיסאות כתומים ושולחנות עבודה.",
+    "photoPrintersCaption": "מדפסות תלת־ממד מול הקיר של MakerLAB",
+    "photoFloorCaption": "החלל הפתוח של המעבדה"
   },
   "chat": {
     "openAria": "פתיחת MakerLAB AI",

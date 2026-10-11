@@ -173,7 +173,11 @@
     "browseTools": "浏览工具",
     "demoHeading": "把 {assistant} 带到您的创客空间",
     "demoBody": "想了解更多？报名后我们会与您联系。",
-    "demoCta": "报名"
+    "demoCta": "报名",
+    "photoPrintersAlt": "排列在 MakerLAB 红色墙壁前的 3D 打印机。",
+    "photoFloorAlt": "MakerLAB 的开放空间，有橙色椅子和工作台。",
+    "photoPrintersCaption": "MakerLAB 墙前的 3D 打印机",
+    "photoFloorCaption": "开放的实验室空间"
   },
   "chat": {
     "openAria": "打开 MakerLAB AI",

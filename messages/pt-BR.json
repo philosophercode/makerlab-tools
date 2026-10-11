@@ -173,7 +173,11 @@
     "browseTools": "Explorar ferramentas",
     "demoHeading": "Leve o {assistant} para o seu makerspace",
     "demoBody": "Quer saber mais? Cadastre-se e entraremos em contato.",
-    "demoCta": "Cadastre-se"
+    "demoCta": "Cadastre-se",
+    "photoPrintersAlt": "Impressoras 3D alinhadas em frente à parede vermelha do MakerLAB.",
+    "photoFloorAlt": "O espaço aberto do MakerLAB, com cadeiras laranja e bancadas de trabalho.",
+    "photoPrintersCaption": "Impressoras 3D em frente à parede do MakerLAB",
+    "photoFloorCaption": "O espaço aberto do laboratório"
   },
   "chat": {
     "openAria": "Abrir o MakerLAB AI",

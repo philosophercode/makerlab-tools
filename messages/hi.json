@@ -173,7 +173,11 @@
     "browseTools": "उपकरण ब्राउज़ करें",
     "demoHeading": "{assistant} को अपने मेकरस्पेस में लाएँ",
     "demoBody": "और जानना चाहते हैं? साइन अप करें, हम आपसे संपर्क करेंगे।",
-    "demoCta": "साइन अप करें"
+    "demoCta": "साइन अप करें",
+    "photoPrintersAlt": "MakerLAB की लाल दीवार के सामने कतार में लगे 3D प्रिंटर।",
+    "photoFloorAlt": "MakerLAB का खुला फ़्लोर, नारंगी कुर्सियों और वर्कबेंच के साथ।",
+    "photoPrintersCaption": "MakerLAB की दीवार के सामने 3D प्रिंटर",
+    "photoFloorCaption": "लैब का खुला फ़्लोर"
   },
   "chat": {
     "openAria": "MakerLAB AI खोलें",

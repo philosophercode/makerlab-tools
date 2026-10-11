@@ -173,7 +173,11 @@
     "browseTools": "Araçlara göz at",
     "demoHeading": "{assistant} maker alanınıza gelsin",
     "demoBody": "Daha fazla bilgi mi istiyorsunuz? Kaydolun, sizinle iletişime geçelim.",
-    "demoCta": "Kaydolun"
+    "demoCta": "Kaydolun",
+    "photoPrintersAlt": "MakerLAB'in kırmızı duvarının önünde sıralanmış 3D yazıcılar.",
+    "photoFloorAlt": "MakerLAB'in açık alanı: turuncu sandalyeler ve çalışma tezgâhları.",
+    "photoPrintersCaption": "MakerLAB duvarının önünde 3D yazıcılar",
+    "photoFloorCaption": "Laboratuvarın açık alanı"
   },
   "chat": {
     "openAria": "MakerLAB AI'yı aç",

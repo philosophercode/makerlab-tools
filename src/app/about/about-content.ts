@@ -18,3 +18,9 @@ export const ABOUT_LINKS = {
   youtube: "https://www.youtube.com/playlist?list=PL4EfVJKkC-nrCuEUS1wmk0L6jhteO2Do6",
   instagram: "https://www.instagram.com/cornelltechmakerlab/",
 } as const;
+
+/** Photos of the lab (public/about), shown under the lab description. */
+export const ABOUT_PHOTOS = [
+  { src: "/about/makerlab-printers.webp", width: 640, height: 480, altKey: "photoPrintersAlt", captionKey: "photoPrintersCaption" },
+  { src: "/about/makerlab-floor.webp", width: 640, height: 480, altKey: "photoFloorAlt", captionKey: "photoFloorCaption" },
+] as const;

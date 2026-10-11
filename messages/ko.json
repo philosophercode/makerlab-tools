@@ -173,7 +173,11 @@
     "browseTools": "도구 둘러보기",
     "demoHeading": "여러분의 메이커스페이스에 {assistant} 도입하기",
     "demoBody": "더 알고 싶으신가요? 신청해 주시면 연락드리겠습니다.",
-    "demoCta": "신청하기"
+    "demoCta": "신청하기",
+    "photoPrintersAlt": "MakerLAB의 빨간 벽 앞에 늘어선 3D 프린터.",
+    "photoFloorAlt": "주황색 의자와 작업대가 있는 MakerLAB의 탁 트인 공간.",
+    "photoPrintersCaption": "MakerLAB 벽 앞의 3D 프린터",
+    "photoFloorCaption": "탁 트인 랩 공간"
   },
   "chat": {
     "openAria": "MakerLAB AI 열기",

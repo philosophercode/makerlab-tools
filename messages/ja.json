@@ -173,7 +173,11 @@
     "browseTools": "ツールを閲覧",
     "demoHeading": "{assistant} をあなたのメイカースペースに",
     "demoBody": "詳しく知りたい方はご登録ください。こちらからご連絡します。",
-    "demoCta": "登録する"
+    "demoCta": "登録する",
+    "photoPrintersAlt": "MakerLAB の赤い壁の前に並ぶ 3D プリンター。",
+    "photoFloorAlt": "オレンジ色の椅子とワークベンチが並ぶ、MakerLAB のオープンなフロア。",
+    "photoPrintersCaption": "MakerLAB の壁の前の 3D プリンター",
+    "photoFloorCaption": "ラボのオープンなフロア"
   },
   "chat": {
     "openAria": "MakerLAB AI を開く",

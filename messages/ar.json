@@ -173,7 +173,11 @@
     "browseTools": "تصفّح الأدوات",
     "demoHeading": "أحضِر {assistant} إلى مساحة الصنّاع لديك",
     "demoBody": "تريد معرفة المزيد؟ سجّل وسنتواصل معك.",
-    "demoCta": "سجّل"
+    "demoCta": "سجّل",
+    "photoPrintersAlt": "طابعات ثلاثية الأبعاد مصطفة أمام جدار MakerLAB الأحمر.",
+    "photoFloorAlt": "المساحة المفتوحة في MakerLAB مع كراسٍ برتقالية وطاولات عمل.",
+    "photoPrintersCaption": "طابعات ثلاثية الأبعاد أمام جدار MakerLAB",
+    "photoFloorCaption": "المساحة المفتوحة في المختبر"
   },
   "chat": {
     "openAria": "فتح MakerLAB AI",
