@@ -1,28 +1,34 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { DEMO_SIGNUP_ROLES } from "../../lib/db/schema/vocabulary";
-import { formatUsd } from "../../lib/demo-pass/format";
 import { DEMO_SIGNUP_LIMITS, parseDemoSignup, type DemoSignupField, type DemoSignupFieldError } from "../../lib/demo-pass/signup";
 import { Field, errorId, hintId } from "../system/Field";
+import { useSharedIdentity } from "../../lib/auth/identity-store";
+import { siteConfig } from "../../lib/site-config";
 import { Prose } from "../system/PublicPage";
 import { DemoSignupThanks } from "./DemoSignupThanks";
+import { settleSignupNudge } from "./signup-nudge-store";
 import { submitDemoSignup, type DemoSignupOutcome, type DemoSignupPayload } from "./submit-demo-signup";
 
 /**
- * The demo pass sign-up form on `/demo` (demo pass spec 2026-10-07 §5.1, §6):
- * name, email and institution, three optional questions, and an unticked
- * consent box. Checked here with the route's own rules (`parseDemoSignup`) so
- * a mistake is said before a round trip, and again by the route, which is the
- * control. Each refused field says why beside itself and is announced; a
- * summary at the bottom says what to do next.
+ * The sign-up form on `/demo` (demo pass spec 2026-10-07 §5.1, §6; amendment
+ * 2026-10-11): name, email and institution, then three optional questions, and
+ * one **Submit**. Asking to be contacted is what the form is for, so there is
+ * no consent box: the privacy line says so and the form sends `consent: true`.
+ * No link leads away from the form, so nothing typed is lost to a stray click.
+ * The browser can fill name, email and organization from what it has saved
+ * (`autocomplete`), and a signed-in person's name and email are filled in for
+ * them while those fields are still empty.
+ * Checked here with the route's own rules (`parseDemoSignup`) so a mistake is
+ * said before a round trip, and again by the route, which is the control.
+ * Each refused field says why beside itself and is announced; a summary at
+ * the bottom says what to do next.
  *
  * The honeypot (`website`) sits off screen, out of the tab order and hidden
  * from assistive technology: a person never fills it, a form-filling bot does.
@@ -38,20 +44,13 @@ const EMPTY: DemoSignupPayload = {
   role: "",
   runsMakerspace: "",
   useCase: "",
-  consent: false,
+  // Submitting is the request to be contacted (amendment 2026-10-11).
+  consent: true,
   website: "",
 };
 
-export interface DemoSignupFormProps {
-  /** `DEMO_PASS_BUDGET_USD`, for the facts line. */
-  budgetUsd: number;
-  /** How many days a pass lasts. */
-  days: number;
-}
-
-export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
+export function DemoSignupForm() {
   const t = useTranslations("demoPass");
-  const locale = useLocale();
   const [values, setValues] = useState<DemoSignupPayload>(EMPTY);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [problem, setProblem] = useState<Problem>(null);
@@ -60,7 +59,21 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
   const [closed, setClosed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Prefill from the signed-in account once it is known (the header has
+  // already asked who this is). Derived, not copied into state: a field shows
+  // the account's value until the person edits it, and an edit — even to
+  // empty — is theirs from then on.
+  const identity = useSharedIdentity();
+  const account = identity && identity.role !== "anonymous" ? identity : null;
+  const [edited, setEdited] = useState({ name: false, email: false });
+  const filled: DemoSignupPayload = {
+    ...values,
+    name: edited.name ? values.name : values.name || account?.name || "",
+    email: edited.email ? values.email : values.email || account?.email || "",
+  };
+
   const set = <K extends keyof DemoSignupPayload>(key: K, value: DemoSignupPayload[K]) => {
+    if (key === "name" || key === "email") setEdited((current) => ({ ...current, [key]: true }));
     setValues((current) => ({ ...current, [key]: value }));
     if (key in errors) setErrors((current) => ({ ...current, [key]: undefined }));
   };
@@ -75,7 +88,7 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
     event.preventDefault();
     if (submitting) return;
     setProblem(null);
-    const checked = parseDemoSignup(values);
+    const checked = parseDemoSignup(filled);
     if (checked.kind === "invalid") {
       setErrors(checked.fields);
       setProblem("summary");
@@ -85,8 +98,11 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
     setErrors({});
     setSubmitting(true);
     try {
-      const outcome = await submitDemoSignup(values);
-      if (outcome.kind === "done") setDone(outcome);
+      const outcome = await submitDemoSignup(filled);
+      if (outcome.kind === "done") {
+        settleSignupNudge("signed-up");
+        setDone(outcome);
+      }
       else if (outcome.kind === "invalid") {
         setErrors(outcome.fields);
         setProblem("summary");
@@ -115,17 +131,14 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
   const optional = <span className="normal-case tracking-normal">{t("optional")}</span>;
 
   return (
-    <form ref={formRef} noValidate className="flex w-full max-w-[560px] min-w-0 flex-col gap-5 pt-6" onSubmit={handleSubmit} aria-describedby="demo-facts">
-      <p id="demo-facts" className="m-0 text-sm text-muted-foreground">
-        {t("passFacts", { days, budget: formatUsd(budgetUsd, locale) })}
-      </p>
-
+    <form ref={formRef} noValidate className="flex w-full max-w-[560px] min-w-0 flex-col gap-5 pt-6" onSubmit={handleSubmit}>
       <Field id="demo-name" label={t("nameLabel")} marks={required} error={errorText("name")}>
         <Input
           id="demo-name"
           name="name"
           autoComplete="name"
-          value={values.name}
+          autoCapitalize="words"
+          value={filled.name}
           onChange={(event) => set("name", event.target.value)}
           maxLength={DEMO_SIGNUP_LIMITS.name}
           required
@@ -141,7 +154,10 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
           type="email"
           autoComplete="email"
           inputMode="email"
-          value={values.email}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={filled.email}
           onChange={(event) => set("email", event.target.value)}
           maxLength={DEMO_SIGNUP_LIMITS.email}
           required
@@ -155,6 +171,7 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
           id="demo-institution"
           name="institution"
           autoComplete="organization"
+          autoCapitalize="words"
           value={values.institution}
           onChange={(event) => set("institution", event.target.value)}
           maxLength={DEMO_SIGNUP_LIMITS.institution}
@@ -217,18 +234,6 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
         />
       </Field>
 
-      <div className="flex items-start gap-2.5">
-        <Checkbox
-          id="demo-consent"
-          checked={values.consent}
-          onCheckedChange={(checked) => set("consent", checked === true)}
-          className="mt-0.5"
-        />
-        <label htmlFor="demo-consent" className="text-sm leading-snug">
-          {t("consentLabel")}
-        </label>
-      </div>
-
       {/* The honeypot: off screen, unreachable by Tab, silent to screen readers. */}
       <div aria-hidden="true" className="absolute -start-[10000px] top-auto size-px overflow-hidden">
         <label htmlFor="demo-website">{t("honeypotLabel")}</label>
@@ -243,7 +248,7 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
         />
       </div>
 
-      <p className="m-0 text-xs leading-snug text-muted-foreground">{t("privacy")}</p>
+      <p className="m-0 text-xs leading-snug text-muted-foreground">{t("privacy", { assistant: siteConfig.chatAssistantName })}</p>
 
       <p role="alert" data-slot="form-error" className="m-0 text-sm text-bad empty:hidden">
         {problem ? t(`errors.${problem}`) : null}
@@ -252,9 +257,6 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
       <div className="flex flex-wrap gap-2">
         <Button type="submit" variant="default" disabled={submitting}>
           {submitting ? t("submitting") : t("submit")}
-        </Button>
-        <Button asChild>
-          <Link href="/">{t("browseTools")}</Link>
         </Button>
       </div>
     </form>

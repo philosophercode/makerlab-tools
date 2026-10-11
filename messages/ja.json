@@ -173,9 +173,13 @@
   "about": {
     "eyebrow": "概要",
     "browseTools": "ツールを閲覧",
-    "demoHeading": "フルデモを試す",
-    "demoBody": "他の学校やラボからお越しですか？無料のデモパスで、{days} 日間、ここの学生と同じようにアシスタントを使えます。{institution} のアカウントは不要です。",
-    "demoCta": "登録してフルデモを試す"
+    "demoHeading": "{assistant} をあなたのメイカースペースに",
+    "demoBody": "詳しく知りたい方はご登録ください。こちらからご連絡します。",
+    "demoCta": "登録する",
+    "photoPrintersAlt": "MakerLAB の赤い壁の前に並ぶ 3D プリンター。",
+    "photoFloorAlt": "オレンジ色の椅子とワークベンチが並ぶ、MakerLAB のオープンなフロア。",
+    "photoPrintersCaption": "MakerLAB の壁の前の 3D プリンター",
+    "photoFloorCaption": "ラボのオープンなフロア"
   },
   "chat": {
     "openAria": "MakerLAB AI を開く",
@@ -387,10 +391,9 @@
     "onShiftLabel": "現在シフト中"
   },
   "demoPass": {
-    "eyebrow": "デモパス",
-    "title": "フルデモを試す",
-    "lede": "無料のデモパスで、{site} をここの学生と同じように使えます。ラボの機械についてアシスタントに質問すると、マニュアルを引用して答えます。不具合の報告もできます。{institution} のアカウントは不要です。",
-    "passFacts": "パスはこの端末で {days} 日間有効で、約 {budget} 分の AI 利用が含まれます。",
+    "eyebrow": "登録",
+    "title": "{assistant} をあなたのメイカースペースに",
+    "lede": "詳しく知りたい方は、ご連絡先をお寄せください。こちらからご連絡します。",
     "required": "必須",
     "optional": "任意",
     "nameLabel": "氏名",
@@ -411,11 +414,10 @@
     "no": "いいえ",
     "useCaseLabel": "何に使いたいですか？",
     "useCaseHint": "一、二文で十分です。",
-    "consentLabel": "MakerLAB AI について連絡を受け取ることに同意します。",
     "honeypotLabel": "この欄は空のままにしてください",
-    "privacy": "登録情報は 12 か月保管します。閲覧できるのはラボの責任者だけで、ここに入力した内容が AI に渡ることはありません。早めの削除をご希望の場合はラボにご連絡ください。",
-    "submit": "デモパスを受け取る",
-    "submitting": "登録中…",
+    "privacy": "ご入力いただいた情報は、{assistant} に関するご連絡にのみ使用します。閲覧できるのはラボの責任者だけで、ここに入力した内容が AI に渡ることはありません。登録情報は 12 か月保管します。早めの削除をご希望の場合はラボにご連絡ください。",
+    "submit": "送信",
+    "submitting": "送信中…",
     "browseTools": "ツールを見る",
     "askAssistant": "アシスタントに聞く",
     "errors": {
@@ -428,18 +430,17 @@
       "unavailable": "現在登録できません。しばらくしてからお試しください。",
       "failed": "問題が発生しました。もう一度お試しください。"
     },
-    "thanksTitle": "登録しました",
-    "thanksBody": "ご登録ありがとうございます。デモパスはこの端末で {date} まで有効で、約 {budget} 分の AI 利用が含まれます。",
-    "thanksReturning": "おかえりなさい。デモパスがこの端末で再び有効になりました。残り {remaining}、{date} まで有効です。",
-    "thanksNext": "どのページでもチャットボタンからアシスタントを開けます。ここから始めることもできます。",
-    "thanksExpired": "再度のご登録ありがとうございます。このメールアドレスのデモパスは期限切れですが、ご登録内容は承りました。",
-    "thanksReceived": "ご登録ありがとうございます。",
-    "closedTitle": "デモの受付は終了しました",
+    "thanksTitle": "ありがとうございます",
+    "thanksBody": "{assistant} の導入について、こちらからご連絡します。",
+    "thanksReturning": "ご登録内容はすでにお預かりしています。こちらからご連絡します。",
+    "thanksNext": "それまでの間、ラボについて何でもアシスタントに聞いてみてください。",
+    "closedTitle": "受付は終了しました",
     "closedBody": "ご関心をお寄せいただきありがとうございます。ツールの閲覧や、アシスタントへの簡単な質問は引き続きできます。",
     "callout": {
-      "label": "デモパス",
-      "text": "見学中ですか？無料のデモパスで、ラボのアシスタントとチャットしたり不具合を報告したりできます。{institution} のアカウントは不要です。",
-      "cta": "登録してフルデモを試す"
+      "label": "メイカースペースに {assistant} を",
+      "text": "あなたのメイカースペースに {assistant} を導入してみませんか？",
+      "cta": "登録する",
+      "dismiss": "閉じる"
     }
   }
 }

@@ -250,6 +250,10 @@
     "labHeading": "The MakerLAB",
     "labBody": "The MakerLAB is Cornell Tech's makerspace: an accessible production hub with the tools to prototype and build. Students get hands-on experience solving real problems, startups refine their products, and faculty build prototypes for their research. It has a wood shop for large builds and assembly, a laser room for cutting and engraving, and an electronics lab.",
     "historyBody": "The lab started in 2016 with two machines, a laser cutter and a 3D printer, and grew from there. Its new home on the first floor of the Tata Innovation Center opened on May 2, 2025.",
+    "photoPrintersAlt": "3D printers lined up in front of the red MakerLAB wall.",
+    "photoFloorAlt": "The open MakerLAB floor, with orange chairs and workbenches.",
+    "photoPrintersCaption": "3D printers in front of the MakerLAB wall",
+    "photoFloorCaption": "The open lab floor",
     "visitHeading": "Visit",
     "whereLabel": "Where",
     "where": "First floor, Tata Innovation Center, Cornell Tech, 2 West Loop Road, Roosevelt Island, New York, NY 10044",
@@ -287,9 +291,9 @@
     "productLink": "What MakerLAB Tools can do",
     "quickStartLink": "Quick start guide",
     "assistantPageLink": "What MakerLAB AI can and can't do",
-    "demoHeading": "Try the full demo",
-    "demoBody": "Visiting from another school or lab? A free demo pass lets you use the assistant like a student here for {days} days, with no {institution} account.",
-    "demoCta": "Sign up to try the full demo"
+    "demoHeading": "Bring {assistant} to your makerspace",
+    "demoBody": "Interested in learning more? Sign up and we'll be in touch.",
+    "demoCta": "Sign up"
   },
   "chat": {
     "openAria": "Open MakerLAB AI",
@@ -4060,10 +4064,9 @@
     "home": "Back to {site}"
   },
   "demoPass": {
-    "eyebrow": "Demo pass",
-    "title": "Try the full demo",
-    "lede": "Get a free demo pass to use {site} like a student here: ask the assistant about the lab's machines, with answers cited from their manuals, and report a problem. No {institution} account needed.",
-    "passFacts": "Your pass works on this device for {days} days and covers about {budget} of AI use.",
+    "eyebrow": "Sign up",
+    "title": "Bring {assistant} to your makerspace",
+    "lede": "Interested in learning more? Leave your details and we'll be in touch.",
     "required": "Required",
     "optional": "Optional",
     "nameLabel": "Name",
@@ -4084,11 +4087,10 @@
     "no": "No",
     "useCaseLabel": "What would you use it for?",
     "useCaseHint": "A sentence or two is plenty.",
-    "consentLabel": "You may contact me about MakerLAB AI.",
     "honeypotLabel": "Leave this field empty",
-    "privacy": "We keep sign-ups for 12 months. Only the lab's directors can see them, and nothing you enter here is shared with the AI. To be removed sooner, contact the lab.",
-    "submit": "Get my demo pass",
-    "submitting": "Signing up…",
+    "privacy": "We use your details only to contact you about {assistant}. Only the lab's directors can see them, and nothing you enter here is shared with the AI. We keep sign-ups for 12 months; to be removed sooner, contact the lab.",
+    "submit": "Submit",
+    "submitting": "Sending…",
     "browseTools": "Browse the tools",
     "askAssistant": "Ask the assistant",
     "errors": {
@@ -4101,18 +4103,17 @@
       "unavailable": "Sign-up isn't available right now. Please try again shortly.",
       "failed": "Something went wrong. Please try again."
     },
-    "thanksTitle": "You're in",
-    "thanksBody": "Thanks for signing up. Your demo pass works on this device until {date} and covers about {budget} of AI use.",
-    "thanksReturning": "Welcome back. Your demo pass is active on this device again, with {remaining} left, until {date}.",
-    "thanksNext": "Open the assistant from any page with the chat button, or start below.",
-    "thanksExpired": "Thanks for signing up again. The demo pass for this email has ended, but we have your details.",
-    "thanksReceived": "Thanks for signing up.",
-    "closedTitle": "Demo sign-ups are closed",
+    "thanksTitle": "Thank you",
+    "thanksBody": "We'll be in touch about bringing {assistant} to your makerspace.",
+    "thanksReturning": "We already have your details, and we'll be in touch.",
+    "thanksNext": "In the meantime, ask the assistant anything about the lab.",
+    "closedTitle": "Sign-ups are closed",
     "closedBody": "Thanks for your interest. You can still browse the tools and ask the assistant a few questions.",
     "callout": {
-      "label": "Demo pass",
-      "text": "Visiting? Get a free demo pass to chat with the lab's assistant and report a problem. No {institution} account needed.",
-      "cta": "Sign up to try the full demo"
+      "label": "{assistant} for your makerspace",
+      "text": "Interested in bringing {assistant} to your makerspace?",
+      "cta": "Sign up",
+      "dismiss": "Dismiss"
     }
   }
 }

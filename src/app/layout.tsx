@@ -15,6 +15,7 @@ import { DemoDataBanner } from "../components/DemoDataBanner";
 import { SiteChrome } from "../components/SiteChrome";
 import { SiteFooter } from "../components/SiteFooter";
 import { AskParamOpener } from "../components/AskParamOpener";
+import { DemoSignupNudge } from "../components/demo/DemoSignupNudge";
 import { UsageBeacon } from "../components/usage/UsageBeacon";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
@@ -109,6 +110,11 @@ async function LocalizedTree({
           </SiteChrome>
           <Suspense fallback={null}>
             <ChatFab />
+          </Suspense>
+          {/* After a minute on the site, "Interested in bringing MakerLAB AI to
+              your makerspace?" (demo pass spec, amendment 2026-10-11). */}
+          <Suspense fallback={null}>
+            <DemoSignupNudge />
           </Suspense>
           {/* Its own boundary: it reads the query string, which a prerender
               cannot, and must not take the chat button out of the HTML with it. */}

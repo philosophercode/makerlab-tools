@@ -28,6 +28,18 @@ describe("/about", () => {
     expect(logo!.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows two photos of the lab with alt text and captions, inside the lab section", () => {
+    render(<AboutPage />);
+
+    const lab = section("The MakerLAB");
+    const printers = within(lab).getByRole("img", { name: "3D printers lined up in front of the red MakerLAB wall." });
+    const floor = within(lab).getByRole("img", { name: "The open MakerLAB floor, with orange chairs and workbenches." });
+    expect(printers.getAttribute("src")).toContain("makerlab-printers");
+    expect(floor.getAttribute("src")).toContain("makerlab-floor");
+    expect(within(lab).getByText("3D printers in front of the MakerLAB wall")).toBeInTheDocument();
+    expect(within(lab).getByText("The open lab floor")).toBeInTheDocument();
+  });
+
   it("follows the official page's order, then About this project", () => {
     render(<AboutPage />);
 
@@ -39,20 +51,22 @@ describe("/about", () => {
       "Community",
       "Learn more",
       "About this project",
-      // The demo pass (demo pass spec 2026-10-07 §6).
-      "Try the full demo",
+      // The sign-up (demo pass spec 2026-10-07 §6, amendment 2026-10-11).
+      "Bring MakerLAB AI to your makerspace",
       "Connect an AI assistant",
     ]);
   });
 
-  it("links the demo pass sign-up, and leaves it out when DEMO_PASS is off", () => {
+  it("links the sign-up, and leaves it out when DEMO_PASS is off", () => {
     const { unmount } = render(<AboutPage />);
-    expect(within(section("Try the full demo")).getByRole("link", { name: "Sign up to try the full demo" })).toHaveAttribute("href", "/demo");
+    const signup = section("Bring MakerLAB AI to your makerspace");
+    expect(signup).toHaveTextContent("Interested in learning more? Sign up and we'll be in touch.");
+    expect(within(signup).getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/demo");
     unmount();
 
     vi.stubEnv("DEMO_PASS", "off");
     render(<AboutPage />);
-    expect(screen.queryByRole("heading", { level: 2, name: "Try the full demo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Bring MakerLAB AI to your makerspace" })).not.toBeInTheDocument();
     vi.unstubAllEnvs();
   });
 

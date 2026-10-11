@@ -102,6 +102,10 @@ const nextConfig: NextConfig = {
         pathname: "/tool-images/**",
       },
       {
+        // Photos of the lab on the About page (src/app/about/about-content.ts).
+        pathname: "/about/**",
+      },
+      {
         // Photos for the demo seed's sample project (src/lib/db/demo-seed.ts).
         pathname: "/sample-projects/**",
       },
