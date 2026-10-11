@@ -87,10 +87,12 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 /* ---------- top row: same as the first poster ---------- */
 .top { display: flex; justify-content: space-between; align-items: center; }
 .eyebrow { font-size: 11pt; }
+.logos { display: flex; align-items: center; gap: 0.2in; }
+.ct-t { height: 0.8in; width: auto; display: block; }
 .ct-logo { height: 0.62in; width: auto; display: block; }
 
 /* ---------- title ---------- */
-.title { margin-top: 0.24in; display: grid; gap: 0.18in; }
+.title { margin-top: 0.16in; display: grid; gap: 0.18in; }
 .lockup { font-size: 0; line-height: 1; display: flex; align-items: flex-end; gap: 0.13in; }
 .lockup .wordmark { display: block; height: 0.62in; width: auto; }
 .lockup .ai {
@@ -104,7 +106,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 
 /* ---------- the ink plate: QR + steps ---------- */
 .plate {
-  margin-top: 0.28in;
+  margin-top: 0.2in;
   background: var(--ink);
   color: var(--on-ink);
   padding: 0.38in 0.45in;
@@ -145,7 +147,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 .steps p { margin-top: 0.07in; font: 400 13pt/1.35 var(--font-body); color: var(--on-ink-muted); }
 
 /* ---------- questions to try ---------- */
-.try { margin-top: 0.26in; display: grid; gap: 0.16in; }
+.try { margin-top: 0.18in; display: grid; gap: 0.12in; }
 .section-head {
   display: flex;
   align-items: baseline;
@@ -196,7 +198,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 .pass dd { font: 400 11.5pt/1.35 var(--font-body); }
 
 .foot {
-  margin-top: 0.22in;
+  margin-top: 0.14in;
   border-top: 1pt solid var(--rule);
   padding-top: 0.12in;
   display: flex;
@@ -207,7 +209,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 }
 .foot b { font-weight: 600; color: var(--ink); }
 .oss {
-  margin-top: 0.22in;
+  margin-top: 0.14in;
   display: flex;
   align-items: center;
   gap: 0.16in;
@@ -242,7 +244,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 
   <div class="top">
     <p class="label eyebrow">ISAM 2026 · Live demo</p>
-    <img class="ct-logo" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+    <div class="logos"><img class="ct-logo" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB"><img class="ct-t" src="img/Cornell-Tech-Logo.webp" alt="Cornell Tech, Cornell University, Jacobs Institute, Technion"></div>
   </div>
 
   <header class="title">
