@@ -50,7 +50,7 @@ h2, p { margin: 0; }
 /* row 1, left: wordmark */
 .left { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
 .stack { display: flex; flex-direction: column; gap: 0.3in; width: max-content; }
-.row { display: flex; align-items: flex-end; justify-content: space-between; gap: 1in; }
+.row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1in; }
 .brand { display: flex; flex-direction: column; gap: 0.3in; }
 .lockup { font-size: 0; line-height: 1; display: flex; align-items: flex-end; gap: 0.5in; }
 .lockup img { display: block; height: 4.86in; width: auto; }
@@ -60,7 +60,9 @@ h2, p { margin: 0; }
 .obf { display: flex; flex-direction: column; gap: 0.5in; }
 .words { display: flex; align-items: baseline; gap: 1.4in; }
 .words h2 { font: 700 130pt/0.95 var(--font-display); letter-spacing: 0.01em; text-transform: uppercase; color: var(--orange); }
-.small { display: flex; align-items: center; gap: 0.8in; }
+.small { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25in 0.8in; }
+.url { font: 500 34pt/1.2 var(--font-mono); }
+.url b { font-weight: 500; color: var(--orange-ink); }
 .callout { font: 600 26pt/1.2 var(--font-display); }
 .oss { display: flex; align-items: center; gap: 0.2in; font: 500 22pt/1.2 var(--font-mono); }
 .oss .badge { background: var(--orange); padding: 0.08in 0.2in; letter-spacing: 0.14em; text-transform: uppercase; }
@@ -82,9 +84,9 @@ h2, p { margin: 0; }
 }
 .qr-frame img { display: block; width: 100%; height: auto; background: #fff; }
 /* row 2, right: logos */
-.logos { display: flex; align-items: flex-end; gap: 0.4in; margin-right: 0.45in; }
-.logos .mk { height: 1.3in; width: auto; display: block; }
-.logos .ct { height: 4.4in; width: auto; display: block; }
+.logos { display: flex; align-items: center; gap: 0.4in; margin-right: 0.45in; margin-top: 0.2in; }
+.logos .mk { height: 1.26in; width: auto; display: block; }
+.logos .ct { height: 1.26in; width: auto; display: block; }
 
 @media print { body { background: var(--paper); } .sheet { zoom: 1 !important; } }
 </style>
@@ -100,7 +102,8 @@ h2, p { margin: 0; }
       <section class="obf" aria-label="Operate, fix, build">
         <div class="words"><h2>Operate</h2><h2>Fix</h2><h2>Build</h2></div>
         <div class="small">
-          <p class="callout">Scan to try it. Interested? Bring MakerLAB AI to your lab. Sign up in the app.</p>
+          <p class="url">Scan to try it: <b>www.makerlabai.app</b></p>
+          <p class="callout">Interested? Bring MakerLAB AI to your lab. Sign up in the app.</p>
           <p class="oss"><span class="badge">Open source</span><span>AGPL-3.0</span></p>
         </div>
       </section>
