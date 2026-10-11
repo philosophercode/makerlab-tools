@@ -89,7 +89,11 @@
   never moves (`e2e/header-stability.spec.ts`). On a short viewport (a phone
   on its side) the header is the short bar: the links behind MENU
   (`use-nav-menu.ts`, the query repeated in `globals.css`), nothing sticky
-  (DESIGN.md §8.12). Save-on-click controls report
+  (DESIGN.md §8.12). Below `sm` it is the phone bar: the lockup, the search
+  icon and MENU (☰), which also holds the account (`NavMenuAccount`) or Sign
+  in, and the language and theme as rows (`LanguageSelector` and
+  `ThemeToggle`, `variant="row"`, handed to `PrimaryNav` as
+  `menuPreferences`), drawn only while open. Save-on-click controls report
   "Saved" in a reserved `SaveSlot` (`admin/RowStatus.tsx`). The tool page is
   two columns on desktop and draws no empty section. Its hero carries **Report
   a problem** (the one filled button) and **Ask MakerLAB AI about this

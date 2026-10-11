@@ -34,7 +34,6 @@ import {
  */
 export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
   const t = useTranslations("nav");
-  const tTitles = useTranslations("admin.titles");
   const { open: openChat } = useChatLauncher();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -48,14 +47,8 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
   const menuRef = useRef<HTMLUListElement>(null);
   const menuId = useId();
 
-  const fullName = identity.name?.trim() || "";
   const firstName = firstNameOf(identity.name);
-  const initial = (fullName || identity.email || "?").charAt(0).toUpperCase();
-  // The title a super admin set on the People page, else the role's default.
-  const titleLabel =
-    identity.role === "anonymous"
-      ? null
-      : displayTitle({ role: identity.role, title: identity.title }, (role) => tTitles(role));
+  const initial = initialOf(identity);
 
   const items = useCallback(
     () =>
@@ -191,16 +184,7 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
 
       {isOpen ? (
         <div className={`profile-menu-panel ${FROSTED}`}>
-          <div className="profile-menu-header">
-            <ProfileAvatar image={identity.image} initial={initial} size={40} />
-            <div className="profile-menu-who">
-              {fullName ? <p className="profile-menu-name">{fullName}</p> : null}
-              {identity.email ? (
-                <p className="profile-menu-email">{identity.email}</p>
-              ) : null}
-              {titleLabel ? <p className="profile-menu-role">{titleLabel}</p> : null}
-            </div>
-          </div>
+          <ProfileSummary identity={identity} />
 
           <ul
             ref={menuRef}
@@ -263,6 +247,37 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** The letter shown when there is no photo: the name's, else the email's. */
+export function initialOf(identity: ClientIdentity): string {
+  return (identity.name?.trim() || identity.email || "?").charAt(0).toUpperCase();
+}
+
+/**
+ * Who is signed in — photo, full name, email and title (`lib/people/title.ts`)
+ * — at the head of the profile menu, and of the account rows in the phone
+ * bar's MENU (`NavMenuAccount`).
+ */
+export function ProfileSummary({ identity }: { identity: ClientIdentity }) {
+  const tTitles = useTranslations("admin.titles");
+  const fullName = identity.name?.trim() || "";
+  // The title a super admin set on the People page, else the role's default.
+  const titleLabel =
+    identity.role === "anonymous"
+      ? null
+      : displayTitle({ role: identity.role, title: identity.title }, (role) => tTitles(role));
+
+  return (
+    <div className="profile-menu-header">
+      <ProfileAvatar image={identity.image} initial={initialOf(identity)} size={40} />
+      <div className="profile-menu-who">
+        {fullName ? <p className="profile-menu-name">{fullName}</p> : null}
+        {identity.email ? <p className="profile-menu-email">{identity.email}</p> : null}
+        {titleLabel ? <p className="profile-menu-role">{titleLabel}</p> : null}
+      </div>
     </div>
   );
 }

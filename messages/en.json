@@ -9,6 +9,7 @@
     "utilityControlsLabel": "Utility controls",
     "themeToggleAria": "Cycle color theme (system → light → dark)",
     "themeToggleTitle": "Cycle color theme",
+    "theme": "Theme",
     "languageLabel": "Language",
     "languageSelectorAria": "Select language",
     "add": "ADD",
@@ -285,9 +286,9 @@
     "productLink": "What MakerLAB Tools can do",
     "quickStartLink": "Quick start guide",
     "assistantPageLink": "What MakerLAB AI can and can't do",
-    "demoHeading": "Try the full demo",
-    "demoBody": "Visiting from another school or lab? A free demo pass lets you use the assistant like a student here for {days} days, with no {institution} account.",
-    "demoCta": "Sign up to try the full demo"
+    "demoHeading": "Bring MakerLAB AI to your makerspace",
+    "demoBody": "Interested in bringing MakerLAB AI to your makerspace, or want to learn more? Sign up, and try the assistant like a student here for {days} days, with no {institution} account.",
+    "demoCta": "Sign up to learn more"
   },
   "chat": {
     "openAria": "Open MakerLAB AI",
@@ -390,10 +391,10 @@
       "unavailable": "This illustration is no longer available."
     },
     "readingToolSkill": "📘 Reading the machine's guide…",
-    "demoPassLeft": "Demo pass · {amount} left",
-    "demoPassUsedUp": "Demo pass · used up",
-    "demoPassSpent": "You've used this demo pass's AI allowance. Thank you for trying MakerLAB AI! You can keep asking a few questions an hour, like any visitor.",
-    "demoPassLimited": "You've used this demo pass's AI allowance and this hour's visitor limit. Thank you for trying MakerLAB AI! Please try again in a little while.",
+    "demoPassActive": "Demo access",
+    "demoPassUsedUp": "Demo access · limit reached",
+    "demoPassSpent": "You've reached the demo's limit. Thank you for trying MakerLAB AI! You can keep asking a few questions an hour, like any visitor.",
+    "demoPassLimited": "You've reached the demo's limit and this hour's visitor limit. Thank you for trying MakerLAB AI! Please try again in a little while.",
     "demoPassContactLead": "Want to talk about it?",
     "demoPassContactTeam": "Contact the MakerLAB team"
   },
@@ -4056,10 +4057,10 @@
     "home": "Back to {site}"
   },
   "demoPass": {
-    "eyebrow": "Demo pass",
-    "title": "Try the full demo",
-    "lede": "Get a free demo pass to use {site} like a student here: ask the assistant about the lab's machines, with answers cited from their manuals, and report a problem. No {institution} account needed.",
-    "passFacts": "Your pass works on this device for {days} days and covers about {budget} of AI use.",
+    "eyebrow": "Sign up",
+    "title": "Bring MakerLAB AI to your makerspace",
+    "lede": "Interested in bringing MakerLAB AI to your makerspace, or want to learn more? Sign up below. No {institution} account needed.",
+    "passFacts": "Once you sign up, you can also try it on this device for {days} days, like a student here: ask the assistant about the lab's machines, with answers cited from their manuals, and report a problem.",
     "required": "Required",
     "optional": "Optional",
     "nameLabel": "Name",
@@ -4084,7 +4085,7 @@
     "consentLabel": "You may contact me about MakerLAB AI.",
     "honeypotLabel": "Leave this field empty",
     "privacy": "We keep sign-ups for 12 months. Only the lab's directors can see them, and nothing you enter here is shared with the AI. To be removed sooner, contact the lab.",
-    "submit": "Get my demo pass",
+    "submit": "Sign up",
     "submitting": "Signing up…",
     "browseTools": "Browse the tools",
     "askAssistant": "Ask the assistant",
@@ -4098,18 +4099,18 @@
       "unavailable": "Sign-up isn't available right now. Please try again shortly.",
       "failed": "Something went wrong. Please try again."
     },
-    "thanksTitle": "You're in",
-    "thanksBody": "Thanks for signing up. Your demo pass works on this device until {date} and covers about {budget} of AI use.",
-    "thanksReturning": "Welcome back. Your demo pass is active on this device again, with {remaining} left, until {date}.",
+    "thanksTitle": "Thanks for signing up",
+    "thanksBody": "You can try MakerLAB AI on this device until {date}.",
+    "thanksReturning": "Welcome back. You can try MakerLAB AI on this device again until {date}.",
     "thanksNext": "Open the assistant from any page with the chat button, or start below.",
-    "thanksExpired": "Thanks for signing up again. The demo pass for this email has ended, but we have your details.",
-    "thanksReceived": "Thanks for signing up.",
-    "closedTitle": "Demo sign-ups are closed",
+    "thanksExpired": "The demo for this email has ended, but we have your details.",
+    "thanksReceived": "We have your details.",
+    "closedTitle": "Sign-ups are closed",
     "closedBody": "Thanks for your interest. You can still browse the tools and ask the assistant a few questions.",
     "callout": {
-      "label": "Demo pass",
-      "text": "Visiting? Get a free demo pass to chat with the lab's assistant and report a problem. No {institution} account needed.",
-      "cta": "Sign up to try the full demo"
+      "label": "MakerLAB AI for your makerspace",
+      "text": "Interested in bringing MakerLAB AI to your makerspace?",
+      "cta": "Sign up to learn more"
     }
   }
 }

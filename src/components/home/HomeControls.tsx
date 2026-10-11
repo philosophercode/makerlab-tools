@@ -15,6 +15,11 @@ import type { GalleryShow } from "../gallery-filters";
  * The switch is a group of two toggle buttons (`aria-pressed`), drawn like
  * the header's links: the chosen one in ink with the accent rule under it.
  * Filters is a disclosure button (`aria-expanded`, `aria-controls`).
+ *
+ * The row wraps rather than running off a phone: "Todas las herramientas" in
+ * mono capitals is ~180px, and at 320–390px Filters used to push the page
+ * sideways in Spanish, Portuguese, French and Russian (DESIGN.md §6). Filters
+ * keeps to the row's end (`ms-auto`), on a line of its own when it must.
  */
 export function HomeControls({
   show,
@@ -39,8 +44,8 @@ export function HomeControls({
     { value: "all", label: t("browse.all") },
   ];
   return (
-    <div className="flex w-full items-center justify-between gap-3" data-slot="home-controls">
-      <div role="group" aria-label={t("browse.label")} className="flex items-center gap-4 sm:gap-5">
+    <div className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-2" data-slot="home-controls">
+      <div role="group" aria-label={t("browse.label")} className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:gap-x-5">
         {options.map((option) => {
           const chosen = option.value === show;
           return (
@@ -68,7 +73,7 @@ export function HomeControls({
         onClick={onToggleFilters}
         data-slot="filters-button"
         className={cn(
-          "inline-flex h-8 cursor-pointer items-center gap-2 border px-3 font-mono text-label tracking-[0.08em] whitespace-nowrap uppercase transition-colors duration-150",
+          "ms-auto inline-flex h-8 cursor-pointer items-center gap-2 border px-3 font-mono text-label tracking-[0.08em] whitespace-nowrap uppercase transition-colors duration-150",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid",
           filtersOpen ? "border-foreground/50 text-foreground" : "border-input text-muted-foreground hover:border-foreground/40 hover:text-foreground"
         )}

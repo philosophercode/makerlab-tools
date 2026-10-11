@@ -8,6 +8,7 @@
     "utilityControlsLabel": "Yardımcı denetimler",
     "themeToggleAria": "Renk temasını değiştir (sistem → açık → koyu)",
     "themeToggleTitle": "Renk temasını değiştir",
+    "theme": "Tema",
     "languageLabel": "Dil",
     "languageSelectorAria": "Dil seç",
     "add": "EKLE",
@@ -171,9 +172,9 @@
   "about": {
     "eyebrow": "Hakkında",
     "browseTools": "Araçlara göz at",
-    "demoHeading": "Tam demoyu deneyin",
-    "demoBody": "Başka bir okuldan ya da laboratuvardan mı geliyorsunuz? Ücretsiz bir demo kartıyla asistanı {days} gün boyunca buradaki bir öğrenci gibi, {institution} hesabı olmadan kullanabilirsiniz.",
-    "demoCta": "Tam demoyu denemek için kaydolun"
+    "demoHeading": "MakerLAB AI'yi maker alanınıza getirin",
+    "demoBody": "MakerLAB AI'yi maker alanınıza getirmek ya da daha fazla bilgi almak mı istiyorsunuz? Kaydolun ve asistanı {days} gün boyunca buradaki bir öğrenci gibi, {institution} hesabı olmadan deneyin.",
+    "demoCta": "Daha fazla bilgi için kaydolun"
   },
   "chat": {
     "openAria": "MakerLAB AI'yı aç",
@@ -223,10 +224,10 @@
       "altConcept": "Proje fikrinin yapay zekâ ile oluşturulmuş konsept görseli",
       "unavailable": "Bu çizim artık mevcut değil."
     },
-    "demoPassLeft": "Demo kartı · {amount} kaldı",
-    "demoPassUsedUp": "Demo kartı · bitti",
-    "demoPassSpent": "Bu demo kartının yapay zekâ hakkını kullandınız. MakerLAB AI'yi denediğiniz için teşekkürler! Her ziyaretçi gibi saatte birkaç soru sormaya devam edebilirsiniz.",
-    "demoPassLimited": "Bu kartın yapay zekâ hakkını ve bu saatin ziyaretçi sınırını kullandınız. MakerLAB AI'yi denediğiniz için teşekkürler! Lütfen biraz sonra tekrar deneyin.",
+    "demoPassActive": "Demo erişimi",
+    "demoPassUsedUp": "Demo erişimi · sınıra ulaşıldı",
+    "demoPassSpent": "Demonun sınırına ulaştınız. MakerLAB AI'yi denediğiniz için teşekkürler! Her ziyaretçi gibi saatte birkaç soru sormaya devam edebilirsiniz.",
+    "demoPassLimited": "Demonun sınırına ve bu saatin ziyaretçi sınırına ulaştınız. MakerLAB AI'yi denediğiniz için teşekkürler! Lütfen biraz sonra tekrar deneyin.",
     "demoPassContactLead": "Konuşmak ister misiniz?",
     "demoPassContactTeam": "MakerLAB ekibiyle iletişime geçin"
   },
@@ -385,10 +386,10 @@
     "onShiftLabel": "Şu an vardiyada"
   },
   "demoPass": {
-    "eyebrow": "Demo kartı",
-    "title": "Tam demoyu deneyin",
-    "lede": "{site} uygulamasını buradaki bir öğrenci gibi kullanmak için ücretsiz bir demo kartı alın: laboratuvarın makineleri hakkında asistana sorun, yanıtlar kılavuzlardan alıntılarla gelsin; bir sorunu da bildirebilirsiniz. {institution} hesabı gerekmez.",
-    "passFacts": "Kartınız bu cihazda {days} gün geçerlidir ve yaklaşık {budget} tutarında yapay zekâ kullanımını karşılar.",
+    "eyebrow": "Kayıt",
+    "title": "MakerLAB AI'yi maker alanınıza getirin",
+    "lede": "MakerLAB AI'yi maker alanınıza getirmek ya da daha fazla bilgi almak mı istiyorsunuz? Aşağıdan kaydolun. {institution} hesabı gerekmez.",
+    "passFacts": "Kaydolduktan sonra bu cihazda {days} gün boyunca buradaki bir öğrenci gibi deneyebilirsiniz de: laboratuvarın makineleri hakkında asistana sorun, yanıtlar kılavuzlardan alıntılarla gelsin; bir sorunu da bildirebilirsiniz.",
     "required": "Zorunlu",
     "optional": "İsteğe bağlı",
     "nameLabel": "Ad",
@@ -413,7 +414,7 @@
     "consentLabel": "MakerLAB AI hakkında benimle iletişime geçebilirsiniz.",
     "honeypotLabel": "Bu alanı boş bırakın",
     "privacy": "Kayıtları 12 ay saklıyoruz. Yalnızca laboratuvar yöneticileri görebilir ve buraya yazdıklarınızın hiçbiri yapay zekâyla paylaşılmaz. Daha erken silinmek için laboratuvarla iletişime geçin.",
-    "submit": "Demo kartımı al",
+    "submit": "Kaydol",
     "submitting": "Kaydediliyor…",
     "browseTools": "Araçlara göz at",
     "askAssistant": "Asistana sor",
@@ -427,18 +428,18 @@
       "unavailable": "Kayıt şu anda kullanılamıyor. Lütfen birazdan tekrar deneyin.",
       "failed": "Bir şeyler ters gitti. Lütfen tekrar deneyin."
     },
-    "thanksTitle": "Hazırsınız",
-    "thanksBody": "Kaydolduğunuz için teşekkürler. Demo kartınız bu cihazda {date} tarihine kadar geçerli ve yaklaşık {budget} tutarında yapay zekâ kullanımını karşılıyor.",
-    "thanksReturning": "Tekrar hoş geldiniz. Demo kartınız bu cihazda yeniden etkin: {date} tarihine kadar geçerli, {remaining} kaldı.",
+    "thanksTitle": "Kaydolduğunuz için teşekkürler",
+    "thanksBody": "MakerLAB AI'yi bu cihazda {date} tarihine kadar deneyebilirsiniz.",
+    "thanksReturning": "Tekrar hoş geldiniz. MakerLAB AI'yi bu cihazda {date} tarihine kadar yeniden deneyebilirsiniz.",
     "thanksNext": "Asistanı herhangi bir sayfadan sohbet düğmesiyle açın ya da buradan başlayın.",
-    "thanksExpired": "Yeniden kaydolduğunuz için teşekkürler. Bu e-postanın demo kartının süresi doldu, ancak bilgileriniz bizde.",
-    "thanksReceived": "Kaydolduğunuz için teşekkürler.",
-    "closedTitle": "Demo kayıtları kapandı",
+    "thanksExpired": "Bu e-postanın demo süresi doldu, ancak bilgileriniz bizde.",
+    "thanksReceived": "Bilgileriniz bize ulaştı.",
+    "closedTitle": "Kayıtlar kapandı",
     "closedBody": "İlginiz için teşekkürler. Araçlara yine göz atabilir ve asistana birkaç soru sorabilirsiniz.",
     "callout": {
-      "label": "Demo kartı",
-      "text": "Ziyaret mi ediyorsunuz? Laboratuvarın asistanıyla sohbet etmek ve bir sorunu bildirmek için ücretsiz bir demo kartı alın. {institution} hesabı gerekmez.",
-      "cta": "Tam demoyu denemek için kaydolun"
+      "label": "Maker alanınız için MakerLAB AI",
+      "text": "MakerLAB AI'yi maker alanınıza getirmek ister misiniz?",
+      "cta": "Daha fazla bilgi için kaydolun"
     }
   }
 }

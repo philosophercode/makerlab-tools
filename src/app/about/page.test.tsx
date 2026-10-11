@@ -39,20 +39,20 @@ describe("/about", () => {
       "Community",
       "Learn more",
       "About this project",
-      // The demo pass (demo pass spec 2026-10-07 §6).
-      "Try the full demo",
+      // The sign-up (demo pass spec 2026-10-07 §6, amendment "Sign up to learn more").
+      "Bring MakerLAB AI to your makerspace",
       "Connect an AI assistant",
     ]);
   });
 
   it("links the demo pass sign-up, and leaves it out when DEMO_PASS is off", () => {
     const { unmount } = render(<AboutPage />);
-    expect(within(section("Try the full demo")).getByRole("link", { name: "Sign up to try the full demo" })).toHaveAttribute("href", "/demo");
+    expect(within(section("Bring MakerLAB AI to your makerspace")).getByRole("link", { name: "Sign up to learn more" })).toHaveAttribute("href", "/demo");
     unmount();
 
     vi.stubEnv("DEMO_PASS", "off");
     render(<AboutPage />);
-    expect(screen.queryByRole("heading", { level: 2, name: "Try the full demo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Bring MakerLAB AI to your makerspace" })).not.toBeInTheDocument();
     vi.unstubAllEnvs();
   });
 

@@ -12,14 +12,26 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export const SHORT_VIEWPORT_QUERY = "(orientation: landscape) and (max-height: 500px)";
 
 /**
- * The header's MENU button and the links it shows on a short viewport.
+ * The phone: below `sm`. There the header is the phone bar — one row, the
+ * lockup, search and MENU (☰), with the links, the account, the language and
+ * the theme behind MENU (DESIGN.md §8.12, amendment "The phone bar").
+ * `globals.css` repeats this query too; keep the two the same.
+ */
+export const PHONE_VIEWPORT_QUERY = "(max-width: 639.98px)";
+
+/** Where MENU is drawn: a phone, upright or on its side. */
+export const MENU_VIEWPORT_QUERY = `${SHORT_VIEWPORT_QUERY}, ${PHONE_VIEWPORT_QUERY}`;
+
+/**
+ * The header's MENU button and the panel it shows on a phone and on a short
+ * viewport.
  *
  * The WAI-ARIA disclosure pattern, not a `menu` role: the links stay links,
  * in document order after the button, so Tab walks them. It closes on Escape
  * (focus back to the button), on a press outside it, when focus moves to
- * anything else, and when the viewport stops being short — a phone turned
- * upright must not come back to a menu left open. Following a link closes it
- * too (the caller wires `close` to each one).
+ * anything else, and when the viewport stops being one that draws MENU — a
+ * window widened past a phone's must not come back to a menu left open.
+ * Following a link closes it too (the caller wires `close` to each one).
  */
 export function useNavMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -50,7 +62,7 @@ export function useNavMenu() {
     function onFocusIn(event: FocusEvent) {
       if (!inside(event.target)) close(false);
     }
-    const media = typeof window.matchMedia === "function" ? window.matchMedia(SHORT_VIEWPORT_QUERY) : null;
+    const media = typeof window.matchMedia === "function" ? window.matchMedia(MENU_VIEWPORT_QUERY) : null;
     function onMediaChange() {
       if (!media?.matches) close(false);
     }

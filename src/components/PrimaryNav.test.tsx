@@ -1,6 +1,6 @@
 import { waitForElementToBeRemoved } from "@testing-library/react";
 import { PrimaryNav } from "./PrimaryNav";
-import { act, render, screen, userEvent } from "../../test/utils/render";
+import { act, render, screen, userEvent, within } from "../../test/utils/render";
 import type { ClientIdentity, SignInStart } from "../lib/auth/sign-in-client";
 
 // PrimaryNav is a client component that reads the active route from
@@ -291,7 +291,7 @@ describe("PrimaryNav — what the bar holds", () => {
       "ADMIN",
     ]);
     expect(screen.getByRole("link", { name: "ADMIN" })).toHaveAttribute("href", "/admin");
-    // MENU is in the DOM everywhere and drawn only on a short viewport (CSS).
+    // MENU is in the DOM everywhere and drawn only on a phone and a short viewport (CSS).
     expect(
       screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent)
     ).toEqual(["MENU", `Signed in as ${first}`]);
@@ -382,9 +382,10 @@ describe("PrimaryNav — what the bar holds", () => {
   });
 });
 
-// The short bar (a phone on its side, DESIGN.md §8.12): the links (and ADMIN,
-// for those who can reach /admin) sit behind MENU, a disclosure button. CSS decides where MENU is drawn; these
-// tests cover what it does — jsdom applies no stylesheet.
+// The short bar (a phone on its side) and the phone bar (below sm), DESIGN.md
+// §8.12: the links (and ADMIN, for those who can reach /admin) sit behind MENU,
+// a disclosure button. CSS decides where MENU is drawn; these tests cover what
+// it does — jsdom applies no stylesheet.
 describe("PrimaryNav — the short bar's MENU", () => {
   beforeEach(() => {
     usePathname.mockReturnValue("/");
@@ -503,7 +504,7 @@ describe("PrimaryNav — the short bar's MENU", () => {
     expect(screen.getByRole("button", { name: "Elsewhere" })).toHaveFocus();
   });
 
-  it("closes when the viewport stops being short — a phone turned upright", async () => {
+  it("closes when the viewport stops being one that draws MENU — a window widened past a phone's", async () => {
     const listeners = new Set<() => void>();
     const list = {
       matches: true,
@@ -517,7 +518,8 @@ describe("PrimaryNav — the short bar's MENU", () => {
       render(<PrimaryNav />);
 
       await user.click(menuButton());
-      expect(matchMedia).toHaveBeenCalledWith("(orientation: landscape) and (max-height: 500px)");
+      // A phone on its side, or below sm (the phone bar).
+      expect(matchMedia).toHaveBeenCalledWith("(orientation: landscape) and (max-height: 500px), (max-width: 639.98px)");
       expect(listeners.size).toBe(1);
 
       list.matches = false;
@@ -527,5 +529,99 @@ describe("PrimaryNav — the short bar's MENU", () => {
     } finally {
       Reflect.deleteProperty(window, "matchMedia");
     }
+  });
+});
+
+// The phone bar (below sm, DESIGN.md §8.12, amendment "The phone bar"): MENU
+// also holds what that bar has no room for — the account, or Sign in, then the
+// language and theme controls `GlobalChrome` hands it. Drawn only while MENU is
+// open, so the rest of the time each control exists once; CSS shows these rows
+// on a phone only.
+describe("PrimaryNav — the phone bar's MENU", () => {
+  beforeEach(() => {
+    usePathname.mockReturnValue("/");
+    fetchIdentity.mockClear();
+    fetchIdentity.mockResolvedValue(null);
+    startGoogleSignIn.mockReset();
+    startGoogleSignIn.mockResolvedValue("started");
+    signOutAndReload.mockClear();
+  });
+
+  const menuButton = () => screen.getByRole("button", { name: "MENU" });
+  const panel = () => document.getElementById(menuButton().getAttribute("aria-controls")!)!;
+
+  it("holds Sign in and the preferences it is given, only while open", async () => {
+    const user = userEvent.setup();
+    render(<PrimaryNav menuPreferences={<button type="button">Preferences</button>} />);
+    await screen.findByRole("button", { name: /Sign in with your/ });
+    expect(screen.queryByRole("button", { name: "Preferences" })).not.toBeInTheDocument();
+
+    await user.click(menuButton());
+    const inMenu = within(panel());
+    expect(inMenu.getByRole("button", { name: "Sign in with your Cornell Tech account" })).toBeInTheDocument();
+    expect(inMenu.getByRole("button", { name: "Preferences" })).toBeInTheDocument();
+
+    await user.click(menuButton());
+    expect(screen.queryByRole("button", { name: "Preferences" })).not.toBeInTheDocument();
+  });
+
+  it("holds the account for someone signed in — who, the profile menu's entries and Sign out, as rows", async () => {
+    const user = userEvent.setup();
+    fetchIdentity.mockResolvedValue({ role: "super_admin", name: "Isaac Steinberg", email: "isaac@example.edu" });
+    render(<PrimaryNav />);
+    await screen.findByRole("button", { name: "Signed in as Isaac" });
+
+    await user.click(menuButton());
+    const inMenu = within(panel());
+    expect(inMenu.getByText("Isaac Steinberg")).toBeInTheDocument();
+    expect(inMenu.getByText("isaac@example.edu")).toBeInTheDocument();
+    expect(inMenu.getByRole("button", { name: "ADD EQUIPMENT" })).toBeInTheDocument();
+    expect(inMenu.getByRole("link", { name: "ACCOUNT" })).toHaveAttribute("href", "/account");
+    expect(inMenu.getByRole("link", { name: "CONNECT AI ASSISTANT (MCP)" })).toHaveAttribute("href", "/account/tokens");
+    // A disclosure's rows, which Tab walks — not a second `menu`.
+    expect(inMenu.queryByRole("menu")).not.toBeInTheDocument();
+    expect(inMenu.queryAllByRole("menuitem")).toHaveLength(0);
+
+    await user.click(inMenu.getByRole("button", { name: "SIGN OUT" }));
+    expect(signOutAndReload).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives a student no Add equipment", async () => {
+    const user = userEvent.setup();
+    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
+    render(<PrimaryNav />);
+    await screen.findByRole("button", { name: "Signed in as Ada" });
+
+    await user.click(menuButton());
+    expect(within(panel()).queryByRole("button", { name: "ADD EQUIPMENT" })).not.toBeInTheDocument();
+    expect(within(panel()).getByRole("link", { name: "ACCOUNT" })).toBeInTheDocument();
+  });
+
+  it("closes when an account row is followed", async () => {
+    const user = userEvent.setup();
+    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
+    render(<PrimaryNav />);
+    await screen.findByRole("button", { name: "Signed in as Ada" });
+    const stop = (event: Event) => event.preventDefault();
+    window.addEventListener("click", stop, { capture: true });
+
+    await user.click(menuButton());
+    await user.click(within(panel()).getByRole("link", { name: "ACCOUNT" }));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+
+    window.removeEventListener("click", stop, { capture: true });
+  });
+
+  it("closes, focus back on MENU, when Sign in from it cannot start — so the notice under the bar shows", async () => {
+    const user = userEvent.setup();
+    startGoogleSignIn.mockResolvedValue("unconfigured");
+    render(<PrimaryNav />);
+    await screen.findByRole("button", { name: /Sign in with your/ });
+
+    await user.click(menuButton());
+    await user.click(within(panel()).getByRole("button", { name: /Sign in with your/ }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Sign-in isn't set up on this deployment yet.");
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).toHaveFocus();
   });
 });

@@ -8,6 +8,7 @@
     "utilityControlsLabel": "Controles utilitários",
     "themeToggleAria": "Alternar tema de cores (sistema → claro → escuro)",
     "themeToggleTitle": "Alternar tema de cores",
+    "theme": "Tema",
     "languageLabel": "Idioma",
     "languageSelectorAria": "Selecionar idioma",
     "add": "ADICIONAR",
@@ -171,9 +172,9 @@
   "about": {
     "eyebrow": "Sobre",
     "browseTools": "Explorar ferramentas",
-    "demoHeading": "Experimente a demo completa",
-    "demoBody": "Vem de outra universidade ou laboratório? Um passe de demonstração gratuito permite usar o assistente como um estudante daqui por {days} dias, sem uma conta de {institution}.",
-    "demoCta": "Cadastre-se para experimentar a demo completa"
+    "demoHeading": "Leve o MakerLAB AI para o seu makerspace",
+    "demoBody": "Tem interesse em levar o MakerLAB AI para o seu makerspace ou quer saber mais? Cadastre-se e experimente o assistente como um estudante daqui por {days} dias, sem uma conta de {institution}.",
+    "demoCta": "Cadastre-se para saber mais"
   },
   "chat": {
     "openAria": "Abrir o MakerLAB AI",
@@ -223,10 +224,10 @@
       "altConcept": "Render conceitual da ideia do projeto gerado por IA",
       "unavailable": "Esta ilustração não está mais disponível."
     },
-    "demoPassLeft": "Passe de demonstração · restam {amount}",
-    "demoPassUsedUp": "Passe de demonstração · esgotado",
-    "demoPassSpent": "Você usou o crédito de IA deste passe de demonstração. Obrigado por experimentar o MakerLAB AI! Você pode continuar fazendo algumas perguntas por hora, como qualquer visitante.",
-    "demoPassLimited": "Você usou o crédito de IA deste passe e o limite de visitantes desta hora. Obrigado por experimentar o MakerLAB AI! Tente de novo daqui a pouco.",
+    "demoPassActive": "Acesso de demonstração",
+    "demoPassUsedUp": "Acesso de demonstração · limite atingido",
+    "demoPassSpent": "Você atingiu o limite da demo. Obrigado por experimentar o MakerLAB AI! Você pode continuar fazendo algumas perguntas por hora, como qualquer visitante.",
+    "demoPassLimited": "Você atingiu o limite da demo e o limite de visitantes desta hora. Obrigado por experimentar o MakerLAB AI! Tente de novo daqui a pouco.",
     "demoPassContactLead": "Quer conversar sobre isso?",
     "demoPassContactTeam": "Fale com a equipe do MakerLAB"
   },
@@ -385,10 +386,10 @@
     "onShiftLabel": "De plantão agora"
   },
   "demoPass": {
-    "eyebrow": "Passe de demonstração",
-    "title": "Experimente a demo completa",
-    "lede": "Ganhe um passe de demonstração gratuito para usar o {site} como um estudante daqui: pergunte ao assistente sobre as máquinas do laboratório, com respostas citadas dos manuais, e relate um problema. Não é preciso ter uma conta de {institution}.",
-    "passFacts": "Seu passe funciona neste dispositivo por {days} dias e cobre cerca de {budget} de uso de IA.",
+    "eyebrow": "Cadastro",
+    "title": "Leve o MakerLAB AI para o seu makerspace",
+    "lede": "Tem interesse em levar o MakerLAB AI para o seu makerspace ou quer saber mais? Cadastre-se abaixo. Não é preciso ter uma conta de {institution}.",
+    "passFacts": "Depois do cadastro, você também pode experimentá-lo neste dispositivo por {days} dias, como um estudante daqui: pergunte ao assistente sobre as máquinas do laboratório, com respostas citadas dos manuais, e relate um problema.",
     "required": "Obrigatório",
     "optional": "Opcional",
     "nameLabel": "Nome",
@@ -413,7 +414,7 @@
     "consentLabel": "Vocês podem entrar em contato comigo sobre o MakerLAB AI.",
     "honeypotLabel": "Deixe este campo em branco",
     "privacy": "Guardamos os cadastros por 12 meses. Só a direção do laboratório pode vê-los, e nada do que você digitar aqui é compartilhado com a IA. Para ser removido antes, fale com o laboratório.",
-    "submit": "Quero meu passe",
+    "submit": "Cadastrar",
     "submitting": "Cadastrando…",
     "browseTools": "Ver as ferramentas",
     "askAssistant": "Perguntar ao assistente",
@@ -427,18 +428,18 @@
       "unavailable": "O cadastro não está disponível agora. Tente de novo em instantes.",
       "failed": "Algo deu errado. Tente de novo."
     },
-    "thanksTitle": "Tudo certo",
-    "thanksBody": "Obrigado pelo cadastro. Seu passe de demonstração funciona neste dispositivo até {date} e cobre cerca de {budget} de uso de IA.",
-    "thanksReturning": "Bem-vindo de volta. Seu passe de demonstração está ativo de novo neste dispositivo, com {remaining} restantes, até {date}.",
+    "thanksTitle": "Obrigado pelo cadastro",
+    "thanksBody": "Você pode experimentar o MakerLAB AI neste dispositivo até {date}.",
+    "thanksReturning": "Bem-vindo de volta. Você pode experimentar o MakerLAB AI neste dispositivo de novo até {date}.",
     "thanksNext": "Abra o assistente em qualquer página pelo botão do chat, ou comece aqui.",
-    "thanksExpired": "Obrigado por se cadastrar de novo. O passe de demonstração deste e-mail terminou, mas temos seus dados.",
-    "thanksReceived": "Obrigado pelo cadastro.",
-    "closedTitle": "As inscrições para a demo estão encerradas",
+    "thanksExpired": "A demo deste e-mail terminou, mas temos seus dados.",
+    "thanksReceived": "Recebemos seus dados.",
+    "closedTitle": "As inscrições estão encerradas",
     "closedBody": "Obrigado pelo interesse. Você ainda pode ver as ferramentas e fazer algumas perguntas ao assistente.",
     "callout": {
-      "label": "Passe de demonstração",
-      "text": "De visita? Ganhe um passe de demonstração gratuito para conversar com o assistente do laboratório e relatar um problema. Não é preciso ter uma conta de {institution}.",
-      "cta": "Cadastre-se para experimentar a demo completa"
+      "label": "MakerLAB AI para o seu makerspace",
+      "text": "Tem interesse em levar o MakerLAB AI para o seu makerspace?",
+      "cta": "Cadastre-se para saber mais"
     }
   }
 }

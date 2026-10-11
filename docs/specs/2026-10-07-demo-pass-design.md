@@ -370,3 +370,33 @@ source, usage, backup policy, `data:push` plan, About, `MaintenanceQueue` and
    (`app/api/report/route.test.ts`). A demo ticket queues no `ticket.filed` email.
 7. **Migration number.** `0034`: renumbered to `0032` when stacked, then to `0034` when
    rebuilt on `main` (2026-10-09) after found photo (`0032`) and on shift (`0033`).
+
+## Amendment — Sign up to learn more (2026-10-10)
+
+The owner, on the eve of the demo: the sign-up should not say "we're giving you
+50 cents of credit", nor sell a free demo pass. It should say "interested in
+bringing MakerLAB AI to your makerspace? Sign up here", or "want to learn more?
+Sign up here".
+
+- **The words, not the pass.** The pass, its budget, the cookie and every limit
+  in §5 are unchanged; what a visitor reads changes. No visitor-facing string
+  names an amount or a "pass" any more.
+- **Front page and About** (§6): "Interested in bringing MakerLAB AI to your
+  makerspace?" and **Sign up to learn more**; the About section is headed "Bring
+  MakerLAB AI to your makerspace". The callout lost its ticket icon. Its
+  landmark is named "MakerLAB AI for your makerspace".
+- **`/demo`**: titled "Bring MakerLAB AI to your makerspace" (the page title
+  "Sign up"), the lede the owner's question with "Sign up below", the facts
+  line what signing up also gives — trying it on this device for 14 days, like a
+  student here — and the button **Sign up**. The thank-you is headed "Thanks for
+  signing up" and gives the pass's end date only (`thanksBody`,
+  `thanksReturning`). `DemoSignupForm` no longer takes `budgetUsd`.
+- **Chat** (§6): `Demo access` under the title, `Demo access · limit reached`
+  when spent (`chat.demoPassActive`, replacing `demoPassLeft`); the spent notices
+  say "you've reached the demo's limit". The budget stays visible to super
+  admins on People → Demo sign-ups.
+- **Strings:** all 12 locales. Turkish says "maker alanı" for makerspace, as the
+  form's own question does; the Russian button is "Записаться и узнать больше"
+  so it fits a 320px screen.
+- **Tested** in `DemoSignupCallout.test.tsx`, `DemoSignupForm.test.tsx`,
+  `about/page.test.tsx` and `ChatFab.test.tsx`.

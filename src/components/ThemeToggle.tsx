@@ -29,7 +29,12 @@ function applyChoice(choice: ThemeChoice) {
   }
 }
 
-export function ThemeToggle() {
+/**
+ * The theme control: system → light → dark. `square` (the bar's) shows the
+ * current choice's glyph; `row` (the phone bar's MENU, DESIGN.md §8.12
+ * amendment "The phone bar") is a touch row with the glyph and "Theme".
+ */
+export function ThemeToggle({ variant = "square" }: { variant?: "square" | "row" }) {
   const t = useTranslations("nav");
 
   function cycle() {
@@ -40,10 +45,12 @@ export function ThemeToggle() {
   return (
     <button
       type="button"
-      className="theme-toggle"
+      className={variant === "row" ? "theme-toggle theme-toggle-row" : "theme-toggle"}
       onClick={cycle}
       aria-label={t("themeToggleAria")}
       title={t("themeToggleTitle")}
-    />
+    >
+      {variant === "row" ? <span>{t("theme")}</span> : null}
+    </button>
   );
 }

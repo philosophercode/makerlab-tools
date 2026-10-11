@@ -8,6 +8,7 @@
     "utilityControlsLabel": "ユーティリティコントロール",
     "themeToggleAria": "カラーテーマを切り替え（システム → ライト → ダーク）",
     "themeToggleTitle": "カラーテーマを切り替え",
+    "theme": "テーマ",
     "languageLabel": "言語",
     "languageSelectorAria": "言語を選択",
     "add": "追加",
@@ -171,9 +172,9 @@
   "about": {
     "eyebrow": "概要",
     "browseTools": "ツールを閲覧",
-    "demoHeading": "フルデモを試す",
-    "demoBody": "他の学校やラボからお越しですか？無料のデモパスで、{days} 日間、ここの学生と同じようにアシスタントを使えます。{institution} のアカウントは不要です。",
-    "demoCta": "登録してフルデモを試す"
+    "demoHeading": "MakerLAB AI をあなたのメイカースペースに",
+    "demoBody": "MakerLAB AI をあなたのメイカースペースに導入したい、または詳しく知りたい方は、ご登録ください。{days} 日間、{institution} のアカウントなしで、ここの学生と同じようにアシスタントを試せます。",
+    "demoCta": "登録して詳しく知る"
   },
   "chat": {
     "openAria": "MakerLAB AI を開く",
@@ -223,10 +224,10 @@
       "altConcept": "AIが生成したプロジェクトのアイデアのコンセプトレンダー",
       "unavailable": "このイラストはもう表示できません。"
     },
-    "demoPassLeft": "デモパス · 残り {amount}",
-    "demoPassUsedUp": "デモパス · 使い切りました",
-    "demoPassSpent": "このデモパスの AI 利用枠を使い切りました。MakerLAB AI をお試しいただきありがとうございます！一般の来訪者と同じく、1 時間に数回まで質問を続けられます。",
-    "demoPassLimited": "このデモパスの AI 利用枠と、この 1 時間の来訪者上限を使い切りました。MakerLAB AI をお試しいただきありがとうございます！しばらくしてからもう一度お試しください。",
+    "demoPassActive": "デモアクセス",
+    "demoPassUsedUp": "デモアクセス · 上限に達しました",
+    "demoPassSpent": "デモの上限に達しました。MakerLAB AI をお試しいただきありがとうございます！一般の来訪者と同じく、1 時間に数回まで質問を続けられます。",
+    "demoPassLimited": "デモの上限と、この 1 時間の来訪者上限に達しました。MakerLAB AI をお試しいただきありがとうございます！しばらくしてからもう一度お試しください。",
     "demoPassContactLead": "お話ししませんか？",
     "demoPassContactTeam": "MakerLAB チームに連絡する"
   },
@@ -385,10 +386,10 @@
     "onShiftLabel": "現在シフト中"
   },
   "demoPass": {
-    "eyebrow": "デモパス",
-    "title": "フルデモを試す",
-    "lede": "無料のデモパスで、{site} をここの学生と同じように使えます。ラボの機械についてアシスタントに質問すると、マニュアルを引用して答えます。不具合の報告もできます。{institution} のアカウントは不要です。",
-    "passFacts": "パスはこの端末で {days} 日間有効で、約 {budget} 分の AI 利用が含まれます。",
+    "eyebrow": "登録",
+    "title": "MakerLAB AI をあなたのメイカースペースに",
+    "lede": "MakerLAB AI をあなたのメイカースペースに導入したい、または詳しく知りたい方は、下のフォームからご登録ください。{institution} のアカウントは不要です。",
+    "passFacts": "登録すると、この端末で {days} 日間、ここの学生と同じようにお試しいただけます。ラボの機械についてアシスタントに質問すると、マニュアルを引用して答えます。不具合の報告もできます。",
     "required": "必須",
     "optional": "任意",
     "nameLabel": "氏名",
@@ -413,7 +414,7 @@
     "consentLabel": "MakerLAB AI について連絡を受け取ることに同意します。",
     "honeypotLabel": "この欄は空のままにしてください",
     "privacy": "登録情報は 12 か月保管します。閲覧できるのはラボの責任者だけで、ここに入力した内容が AI に渡ることはありません。早めの削除をご希望の場合はラボにご連絡ください。",
-    "submit": "デモパスを受け取る",
+    "submit": "登録する",
     "submitting": "登録中…",
     "browseTools": "ツールを見る",
     "askAssistant": "アシスタントに聞く",
@@ -427,18 +428,18 @@
       "unavailable": "現在登録できません。しばらくしてからお試しください。",
       "failed": "問題が発生しました。もう一度お試しください。"
     },
-    "thanksTitle": "登録しました",
-    "thanksBody": "ご登録ありがとうございます。デモパスはこの端末で {date} まで有効で、約 {budget} 分の AI 利用が含まれます。",
-    "thanksReturning": "おかえりなさい。デモパスがこの端末で再び有効になりました。残り {remaining}、{date} まで有効です。",
+    "thanksTitle": "ご登録ありがとうございます",
+    "thanksBody": "この端末で {date} まで MakerLAB AI をお試しいただけます。",
+    "thanksReturning": "おかえりなさい。この端末で {date} まで、再び MakerLAB AI をお試しいただけます。",
     "thanksNext": "どのページでもチャットボタンからアシスタントを開けます。ここから始めることもできます。",
-    "thanksExpired": "再度のご登録ありがとうございます。このメールアドレスのデモパスは期限切れですが、ご登録内容は承りました。",
-    "thanksReceived": "ご登録ありがとうございます。",
-    "closedTitle": "デモの受付は終了しました",
+    "thanksExpired": "このメールアドレスのデモは終了しましたが、ご登録内容は承りました。",
+    "thanksReceived": "ご登録内容を承りました。",
+    "closedTitle": "登録の受付は終了しました",
     "closedBody": "ご関心をお寄せいただきありがとうございます。ツールの閲覧や、アシスタントへの簡単な質問は引き続きできます。",
     "callout": {
-      "label": "デモパス",
-      "text": "見学中ですか？無料のデモパスで、ラボのアシスタントとチャットしたり不具合を報告したりできます。{institution} のアカウントは不要です。",
-      "cta": "登録してフルデモを試す"
+      "label": "メイカースペースに MakerLAB AI を",
+      "text": "MakerLAB AI をあなたのメイカースペースに導入してみませんか？",
+      "cta": "登録して詳しく知る"
     }
   }
 }
