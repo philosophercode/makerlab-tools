@@ -3,6 +3,7 @@ import {
   PERMISSIONS,
   ac,
   can,
+  canView,
   canReachAdmin,
   isGrantedRole,
   roles,
@@ -70,6 +71,9 @@ const EXPECTED: Record<Role, readonly Permission[]> = {
     "shifts.set",
   ],
   super_admin: APP_PERMISSIONS,
+  // The demo identity (demo admin spec 2026-10-11 §4): adding equipment, and
+  // two reads that gate no write. Everything else it may only look at.
+  demo_admin: ["catalog.view_drafts", "catalog.view_serials", "tools.add"],
 };
 
 describe("the declaration", () => {
@@ -248,5 +252,45 @@ describe("canReachAdmin", () => {
     for (const permission of ADMIN_SURFACE_PERMISSIONS) {
       expect(PERMISSIONS).toContain(permission);
     }
+  });
+});
+
+describe("the demo identity (demo admin spec 2026-10-11 §4)", () => {
+  for (const permission of APP_PERMISSIONS) {
+    const expected = EXPECTED.demo_admin.includes(permission);
+    it(`demo_admin ${expected ? "holds" : "does not hold"} ${permission}`, () => {
+      expect(can({ role: "demo_admin" }, permission)).toBe(expected);
+    });
+  }
+
+  it("may change no account or session, whatever the plugin asks", () => {
+    for (const permission of PERMISSIONS.filter((p) => p.startsWith("user.") || p.startsWith("session."))) {
+      expect([permission, can({ role: "demo_admin" }, permission)]).toEqual([permission, false]);
+    }
+  });
+
+  it("is not a role the admin plugin knows, so nobody can be assigned it", () => {
+    expect(Object.keys(roles)).not.toContain("demo_admin");
+    expect(isGrantedRole("demo_admin")).toBe(false);
+    expect(IDENTITY_ROLES as readonly string[]).not.toContain("demo_admin");
+  });
+
+  it("sees what a super admin sees", () => {
+    for (const permission of PERMISSIONS) {
+      expect([permission, canView({ role: "demo_admin" }, permission)]).toEqual([
+        permission,
+        can({ role: "super_admin" }, permission),
+      ]);
+    }
+    expect(canReachAdmin({ role: "demo_admin" })).toBe(true);
+  });
+
+  it("leaves seeing and doing one grant for every real role", () => {
+    for (const role of IDENTITY_ROLES) {
+      for (const permission of PERMISSIONS) {
+        expect([role, permission, canView({ role }, permission)]).toEqual([role, permission, can({ role }, permission)]);
+      }
+    }
+    expect(canView(null, "users.manage")).toBe(false);
   });
 });

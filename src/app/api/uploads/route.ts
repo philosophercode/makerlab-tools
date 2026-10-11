@@ -4,6 +4,7 @@ import { createAttachment } from "../../../lib/data/attachments";
 import { scheduleThumbnails } from "../../../lib/images/schedule-thumbnails";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
+import { withDemoActor } from "../../../lib/demo-admin/actor";
 import { can, type Permission } from "../../../lib/auth/permissions";
 import { extensionOf, isImportFileName } from "../../../lib/import/detect";
 import { IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "../../../lib/import/limits";
@@ -335,7 +336,9 @@ export async function POST(req: NextRequest) {
       // What was stored: a converted HEIC is a smaller JPEG named `.jpg`.
       sizeBytes: upload.size,
       originalFilename: upload.name || "upload",
-      uploadedBy: identity.userId,
+      // The demo identity's photos belong to the demo's actor (demo admin
+      // spec 2026-10-11 §5), so the item it adds can claim them.
+      uploadedBy: (await withDemoActor(identity)).userId,
       // A person's own file — what tells it apart from a research image owned
       // by the same pending item (gateway spec §4.2).
       origin: "upload",

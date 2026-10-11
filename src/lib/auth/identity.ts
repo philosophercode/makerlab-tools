@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { DbUnavailableError } from "../db/client";
+import { DEMO_ADMIN_NAME, demoAdminEnabled } from "../demo-admin/config";
 import { getClientIp } from "../rate-limit";
 import { getAuth } from "./config";
 import { isAllowedEmail, storedRoleOr, type Role } from "./roles";
@@ -84,11 +85,11 @@ async function resolveUncached(req: Request): Promise<Identity> {
     const auth = await getAuth();
     // No `AUTH_SECRET`: sign-in is not set up, so nobody is signed in. That is
     // the correct degraded behaviour, not an error (Article 4).
-    if (!auth) return anonymousIdentity(req);
+    if (!auth) return visitorIdentity(await anonymousIdentity(req));
 
     const result = await auth.api.getSession({ headers: toHeaders(req.headers) });
     const identity = identityFromSession(result);
-    return identity ?? anonymousIdentity(req);
+    return identity ?? visitorIdentity(await anonymousIdentity(req));
   } catch (err) {
     if (isFrameworkSignal(err)) throw err;
     if (err instanceof DbUnavailableError) {
@@ -118,11 +119,11 @@ export const resolveIdentityFromHeaders = cache(async (): Promise<Identity> => {
     const auth = await getAuth();
     const { headers } = await import("next/headers");
     const requestHeaders = await headers();
-    if (!auth) return anonymousIdentityFromHeaders(requestHeaders);
+    if (!auth) return visitorIdentity(await anonymousIdentityFromHeaders(requestHeaders));
 
     const result = await auth.api.getSession({ headers: toHeaders(requestHeaders) });
     const identity = identityFromSession(result);
-    return identity ?? anonymousIdentityFromHeaders(requestHeaders);
+    return identity ?? visitorIdentity(await anonymousIdentityFromHeaders(requestHeaders));
   } catch (err) {
     if (isFrameworkSignal(err)) throw err;
     console.warn("[auth] identity resolution failed, treating as anonymous", err);
@@ -182,7 +183,7 @@ export type UserRefusal = "out_of_domain" | "banned" | "no_role";
  */
 export function evaluateUser(
   user: SessionResult["user"]
-): { ok: true; role: Exclude<Role, "anonymous"> } | { ok: false; reason: UserRefusal } {
+): { ok: true; role: Exclude<Role, "anonymous" | "demo_admin"> } | { ok: false; reason: UserRefusal } {
   if (!isAllowedEmail(user.email)) return { ok: false, reason: "out_of_domain" };
 
   // The floor (§3.4): a listed address resolves `super_admin` whatever its row
@@ -244,6 +245,29 @@ async function anonymousFor(ip: string): Promise<Identity> {
     email: null,
     name: null,
     rateLimitKey: `ip:${await hashIp(ip)}`,
+  };
+}
+
+/**
+ * Who a visitor with no usable session is: anonymous, or — while
+ * `DEMO_ADMIN=1` — the demo identity (demo admin spec 2026-10-11 §3).
+ *
+ * Only `resolveIdentity` and `resolveIdentityFromHeaders` call this, and only
+ * where no session resolved. `anonymousIdentity` itself never answers demo,
+ * so MCP (`mcp-caller.ts`, which builds its anonymous caller from it) and every
+ * failure path stay anonymous. The demo identity keeps the visitor's per-IP
+ * `rateLimitKey` and carries **no** `userId` and no email: every path that
+ * needs a person refuses it, and the few that the demo may use attach the
+ * demo's own actor themselves (`lib/demo-admin/actor.ts`).
+ */
+export function visitorIdentity(anonymous: Identity): Identity {
+  if (!demoAdminEnabled()) return anonymous;
+  return {
+    role: "demo_admin",
+    userId: null,
+    email: null,
+    name: DEMO_ADMIN_NAME,
+    rateLimitKey: anonymous.rateLimitKey,
   };
 }
 

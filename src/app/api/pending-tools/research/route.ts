@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { resolveIdentity } from "../../../../lib/auth/identity";
 import { can } from "../../../../lib/auth/permissions";
+import { withDemoActor } from "../../../../lib/demo-admin/actor";
 import { isUuid } from "../../../../lib/data/uuid";
 import { startResearch } from "../../../../lib/intake/research-start";
 import type { PendingApiError, PendingApiErrorCode } from "../../../../lib/intake/types";
@@ -110,13 +111,19 @@ export async function POST(req: NextRequest) {
       "Retry-After": String(decision.retryAfterSeconds),
     });
   }
-  if (identity.role === "anonymous" || !identity.userId) {
+  if (identity.role === "anonymous") {
     return refuse(401, "sign_in_required", "Sign in to research equipment.");
   }
   if (!can(identity, "tools.add")) {
     return refuse(403, "forbidden", "Your account cannot add equipment.");
   }
-  const userId = identity.userId;
+  // The demo identity researches as the demo actor (demo admin spec
+  // 2026-10-11 §5): the actor's allowance, and only the actor's items.
+  const caller = await withDemoActor(identity);
+  if (!caller.userId) {
+    return refuse(401, "sign_in_required", "Sign in to research equipment.");
+  }
+  const userId = caller.userId;
 
   let raw: unknown;
   try {
@@ -130,6 +137,6 @@ export async function POST(req: NextRequest) {
   }
   // Everything after the gate and the body's shape is the one start the
   // assistant's card runs too (`lib/intake/research-start.ts`).
-  const answer = await startResearch({ ...identity, userId }, parsed.data);
+  const answer = await startResearch({ ...caller, userId }, parsed.data);
   return Response.json(answer.body, { status: answer.status });
 }

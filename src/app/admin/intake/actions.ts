@@ -9,6 +9,8 @@ import {
 } from "../../../lib/actions/intake";
 import { performAction } from "../../../lib/actions/perform";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
+import { approveAsDemo } from "../../../lib/demo-admin/approve";
+import { isDemoAdmin } from "../../../lib/demo-admin/config";
 import type {
   ApprovePendingActionInput,
   IntakeActionResult,
@@ -38,7 +40,11 @@ import type {
 
 /** **Approve** — creates the tool, published (§5.4 step 11). */
 export async function approvePending(input: unknown): Promise<IntakeApproveResult> {
-  return performAction(PENDING_APPROVE, { ...(input as ApprovePendingActionInput), publish: true }, await resolveIdentityFromHeaders(), { surface: "gui" });
+  const identity = await resolveIdentityFromHeaders();
+  // The demo identity's one approval: its own item, published (demo admin
+  // spec 2026-10-11 §5). Everything else it might press is refused below.
+  if (isDemoAdmin(identity)) return approveAsDemo(input, identity);
+  return performAction(PENDING_APPROVE, { ...(input as ApprovePendingActionInput), publish: true }, identity, { surface: "gui" });
 }
 
 /** **Approve as draft** — the same, unpublished, for finishing in the editor. */

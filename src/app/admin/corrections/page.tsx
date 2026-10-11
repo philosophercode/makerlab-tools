@@ -3,8 +3,9 @@ import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { CorrectionsQueue } from "../../../components/admin/CorrectionsQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { listFeedbackQueue } from "../../../lib/data/feedback";
+import { maskEmailsFor } from "../../../lib/demo-admin/mask-email";
 import { setCorrectionStatus } from "./actions";
 
 /**
@@ -31,7 +32,7 @@ export default async function AdminCorrectionsPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, "feedback.manage")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "feedback.manage")) return <AdminNotice kind="forbidden" />;
 
   const corrections = await listFeedbackQueue();
 
@@ -49,7 +50,8 @@ export default async function AdminCorrectionsPage() {
         ]}
       />
 
-      <CorrectionsQueue corrections={corrections} action={setCorrectionStatus} />
+      {/* Addresses masked for the demo identity, on the server (demo admin spec 2026-10-11 §6). */}
+      <CorrectionsQueue corrections={maskEmailsFor(identity, corrections, "reporterEmail")} action={setCorrectionStatus} />
     </section>
   );
 }

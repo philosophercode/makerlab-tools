@@ -10,7 +10,7 @@ import { ValueReportExport } from "../../../../components/admin/insights/value/V
 import { ValueReportView } from "../../../../components/admin/insights/value/ValueReportView";
 import { EmptyState } from "../../../../components/system/EmptyState";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { can, canView } from "../../../../lib/auth/permissions";
 import { labTimezone } from "../../../../lib/lab-time";
 import { siteConfig } from "../../../../lib/site-config";
 import { defaultAssumptions } from "../../../../lib/usage/value/assumptions";
@@ -47,7 +47,7 @@ function validTimeZone(timeZone: string): string {
 export default async function ValueReportPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const t = (await getTranslations("admin.insights")) as unknown as Translate;
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, "insights.view")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "insights.view")) return <AdminNotice kind="forbidden" />;
 
   const timeZone = validTimeZone(labTimezone());
   let data: ValueReportData | null;

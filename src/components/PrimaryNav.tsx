@@ -119,7 +119,7 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
             be (Isaac, 2026-10-07). Reporting lives on the tool page, the QR
             arrival notice, the footer and the chat. `AdminLink` renders
             nothing for anyone else, and nothing until the identity answers. */}
-        {signedIn && identity ? (
+        {identity ? (
           <AdminLink
             role={identity.role}
             className={
@@ -143,6 +143,13 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
         <ProfileMenu identity={identity} />
       ) : (
         <>
+          {/* The demo identity (demo admin spec 2026-10-11): say so, and keep
+              Sign in beside it so staff can still sign in as themselves. */}
+          {identity?.role === "demo_admin" ? (
+            <span className="primary-nav-demo-badge" title={t("demoAdminHint")}>
+              {t("demoAdmin")}
+            </span>
+          ) : null}
           <button
             type="button"
             className="primary-nav-button primary-nav-auth"

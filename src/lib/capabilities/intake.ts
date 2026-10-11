@@ -8,6 +8,7 @@ import {
   type NewPendingTool,
   type PendingTool,
 } from "../data/pending-tools";
+import { withDemoActor } from "../demo-admin/actor";
 import { createCategoryProposal, matchExistingCategory } from "../data/category-admin";
 import { findOrCreateLocation } from "../data/taxonomy";
 import { createToolRecord, type NewToolRecord } from "../data/tool-create";
@@ -241,7 +242,9 @@ const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyErro
   // owned by a session's person — none of which an MCP caller has.
   chatOnly: true,
   run: async (input, ctx): Promise<IdentifyResult | IdentifyError> => {
-    const userId = ctx.identity?.userId;
+    // The demo identity adds equipment as the demo actor (demo admin spec
+    // 2026-10-11 §5): its rows, its photos, its research allowance.
+    const userId = ctx.identity ? (await withDemoActor(ctx.identity)).userId : null;
     if (!userId) return { card_rendered: false, error: SIGN_IN_REQUIRED };
 
     // One item per distinct object: a count left in a name becomes the

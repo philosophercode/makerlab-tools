@@ -13,7 +13,7 @@ import { buildManualTriage, triageToolIds, type ManualTriageView } from "../../.
 import { ACTION_DEFINITIONS, actionById } from "../../../lib/actions/registry";
 import { mayOpen, surface } from "../../../lib/admin/surfaces";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { listInboxProposals, type ActionProposalRecord } from "../../../lib/data/action-proposals";
 import { listOpenAssistantProposals, MCP_PROPOSAL_CHAT_ID } from "../../../lib/data/chat-proposals";
 import { loadTriageTools } from "../../../lib/data/manual-triage-tools";
@@ -83,7 +83,7 @@ export default async function AdminProposalsPage({ searchParams }: { searchParam
   }
   const triageTools = rows ? triageToolIds(rows) : [];
   const triage = manualsView && rows ? await loadTriage(rows, triageTools) : null;
-  const fieldChanges = can(identity, "tools.edit") ? await countFieldProposals() : 0;
+  const fieldChanges = canView(identity, "tools.edit") ? await countFieldProposals() : 0;
 
   return (
     <section className="flex flex-col gap-4">

@@ -56,9 +56,13 @@ export interface ClientIdentity {
   devSignIn?: boolean;
 }
 
-/** True when this identity may show a name and a sign-out control. */
+/**
+ * True when this identity may show a name and a sign-out control. The demo
+ * identity (demo admin spec 2026-10-11) is nobody signed in: it gets the Sign
+ * in button, so staff can still sign in as themselves.
+ */
 export function isSignedIn(identity: ClientIdentity | null): boolean {
-  return Boolean(identity && identity.role !== "anonymous");
+  return Boolean(identity && identity.role !== "anonymous" && identity.role !== "demo_admin");
 }
 
 /** The part of a display name a header should show. "" when there is none. */

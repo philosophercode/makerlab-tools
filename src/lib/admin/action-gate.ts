@@ -1,5 +1,5 @@
 import { resolveIdentityFromHeaders, type Identity } from "../auth/identity";
-import { can, type Permission } from "../auth/permissions";
+import { can, canView, type Permission } from "../auth/permissions";
 import { ADMIN_ACTION_TIER, rateLimitAsync } from "../rate-limit";
 import type { AdminGateError } from "./action-result";
 
@@ -58,6 +58,25 @@ export async function authorizeAdminAction(
 
   if (identity.role === "anonymous") return { ok: false, error: "not_signed_in" };
   if (!can(identity, permission)) return { ok: false, error: "not_permitted" };
+
+  return { ok: true, identity };
+}
+
+/**
+ * The same preamble for a server action that only **reads** — opening the
+ * tool editor, listing what a picker offers — asked with `canView`, so the
+ * demo identity (demo admin spec 2026-10-11 §4) may look where it may not
+ * write. For every real role it is exactly {@link authorizeAdminAction}.
+ * Never for an action that changes anything.
+ */
+export async function authorizeAdminView(permission: Permission): Promise<AdminGate> {
+  const identity = await resolveIdentityFromHeaders();
+
+  const { allowed } = await rateLimitAsync(`admin-action:${identity.rateLimitKey}`, ADMIN_ACTION_TIER);
+  if (!allowed) return { ok: false, error: "rate_limited" };
+
+  if (identity.role === "anonymous") return { ok: false, error: "not_signed_in" };
+  if (!canView(identity, permission)) return { ok: false, error: "not_permitted" };
 
   return { ok: true, identity };
 }

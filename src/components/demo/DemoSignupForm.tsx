@@ -134,7 +134,7 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
         />
       </Field>
 
-      <Field id="demo-email" label={t("emailLabel")} marks={required} hint={t("emailHint")} error={errorText("email")}>
+      <Field id="demo-email" label={t("emailLabel")} marks={required} error={errorText("email")}>
         <Input
           id="demo-email"
           name="email"
@@ -146,7 +146,7 @@ export function DemoSignupForm({ budgetUsd, days }: DemoSignupFormProps) {
           maxLength={DEMO_SIGNUP_LIMITS.email}
           required
           aria-invalid={errors.email ? true : undefined}
-          aria-describedby={describedBy("email", true)}
+          aria-describedby={describedBy("email")}
         />
       </Field>
 

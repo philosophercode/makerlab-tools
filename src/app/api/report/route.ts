@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { resolveIdentity } from "../../../lib/auth/identity";
+import { withDemoActor } from "../../../lib/demo-admin/actor";
 import { identityWithDemoPass } from "../../../lib/demo-pass/identity";
 import { resolveDemoPass } from "../../../lib/demo-pass/resolve";
 import { QUICK_REPORT_BODY_MAX } from "../../../lib/maintenance/quick-report-limits";
@@ -74,7 +75,10 @@ export async function POST(req: NextRequest) {
     if (!anon.allowed) return fail("rate_limited", anon);
   }
 
-  const filed = await fileQuickReport(parsed.report, identity);
+  // The demo identity's report is the demo actor's (demo admin spec
+  // 2026-10-11 §5), so it claims the photos the demo uploaded; it still spent
+  // the anonymous slot above, and lands flagged `demo`.
+  const filed = await fileQuickReport(parsed.report, await withDemoActor(identity));
   if (!filed.ok) return fail(filed.code);
   return Response.json(filed.value, { status: 201 });
 }

@@ -35,10 +35,17 @@ import { ROLES as STORED_ROLES, type Role as StoredRole } from "../db/schema/voc
  */
 export const IDENTITY_ROLES = ["anonymous", ...STORED_ROLES] as const;
 
-export type Role = "anonymous" | StoredRole;
+/**
+ * `demo_admin` is the demo identity (demo admin spec 2026-10-11): what a
+ * visitor nobody signed in as resolves to while `DEMO_ADMIN=1`. Like
+ * `anonymous` it is never a row — it is deliberately **not** in
+ * {@link IDENTITY_ROLES}, so {@link isRole} and {@link storedRoleOr} can never
+ * read it back from the database or a client. Only `resolveIdentity` sets it.
+ */
+export type Role = "anonymous" | "demo_admin" | StoredRole;
 
-/** True when `value` is one of {@link IDENTITY_ROLES}; narrows the type. */
-export function isRole(value: string | null | undefined): value is Role {
+/** True when `value` is one of {@link IDENTITY_ROLES}; narrows the type. Never `demo_admin`. */
+export function isRole(value: string | null | undefined): value is (typeof IDENTITY_ROLES)[number] {
   return typeof value === "string" && (IDENTITY_ROLES as readonly string[]).includes(value);
 }
 
@@ -48,7 +55,7 @@ export function isRole(value: string | null | undefined): value is Role {
  * refuses it), so if one ever appears it is a bug or a restored backup from a
  * different schema, and it must resolve to the role that holds nothing.
  */
-export function storedRoleOr(value: string | null | undefined): Role {
+export function storedRoleOr(value: string | null | undefined): (typeof IDENTITY_ROLES)[number] {
   return isRole(value) ? value : "anonymous";
 }
 

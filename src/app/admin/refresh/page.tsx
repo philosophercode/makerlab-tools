@@ -7,7 +7,7 @@ import { RefreshList, type RefreshListRow } from "../../../components/admin/Refr
 import { RefreshPicker } from "../../../components/admin/RefreshPicker";
 import { loadRefreshPickerTools, queueToolRefresh } from "./actions";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { listRefreshQueue } from "../../../lib/data/tool-refreshes";
 import { listOpenAssistantProposals, MCP_PROPOSAL_CHAT_ID } from "../../../lib/data/chat-proposals";
 import { ChatProposalCards, type ChatProposalItem } from "../../../components/ChatProposalCards";
@@ -39,7 +39,7 @@ const STATUS_RANK: Record<string, number> = { proposed: 0, failed: 5, researchin
 export default async function AdminRefreshPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
 
   let rows: RefreshListRow[] | null;
   try {

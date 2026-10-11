@@ -11,7 +11,8 @@ import {
 } from "../../../../components/admin/PreliminaryToolPage";
 import { redoWhat, type IntakeTranslate } from "../../../../components/admin/redo-status";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { can, canView } from "../../../../lib/auth/permissions";
+import { isDemoAdmin, isDemoOwned } from "../../../../lib/demo-admin/config";
 import { getPendingTool, type PendingTool } from "../../../../lib/data/pending-tools";
 import {
   listCategories,
@@ -90,7 +91,7 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, INTAKE_REVIEW_PERMISSION)) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, INTAKE_REVIEW_PERMISSION)) return <AdminNotice kind="forbidden" />;
 
   const { id } = await params;
 
@@ -195,7 +196,7 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
         createdTool={createdTool}
         // Hiding Approve from somebody who may only draft is presentation;
         // `approvePending` checks `tools.publish` itself.
-        canPublish={can(identity, "tools.publish")}
+        canPublish={can(identity, "tools.publish") || (isDemoAdmin(identity) && isDemoOwned(item))}
         actions={ACTIONS}
         // What a bulk import carried: units, its links, its lab documents (bulk intake spec §3.4).
         imported={

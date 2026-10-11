@@ -53,7 +53,7 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
   const initial = (fullName || identity.email || "?").charAt(0).toUpperCase();
   // The title a super admin set on the People page, else the role's default.
   const titleLabel =
-    identity.role === "anonymous"
+    identity.role === "anonymous" || identity.role === "demo_admin"
       ? null
       : displayTitle({ role: identity.role, title: identity.title }, (role) => tTitles(role));
 

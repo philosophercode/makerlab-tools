@@ -1,5 +1,6 @@
 import { resolveIdentity } from "../../../../../lib/auth/identity";
 import { can } from "../../../../../lib/auth/permissions";
+import { isDemoAdmin } from "../../../../../lib/demo-admin/config";
 import { recordAuditEvent } from "../../../../../lib/data/audit";
 import { listDemoSignups } from "../../../../../lib/data/demo-signups";
 import { demoSignupsCsv, demoSignupsCsvFilename } from "../../../../../lib/export/demo-signups-csv";
@@ -32,6 +33,8 @@ export async function GET(req: Request) {
     );
   }
 
+  // The demo identity is told nothing exists here (demo admin spec 2026-10-11 §6).
+  if (isDemoAdmin(identity)) return Response.json({ ok: false, error: "not_found" }, { status: 404 });
   if (identity.role === "anonymous") return Response.json({ ok: false, error: "sign_in_required" }, { status: 401 });
   if (!can(identity, "users.manage")) return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
 

@@ -9,9 +9,13 @@ import { UsersTable } from "../../../components/admin/UsersTable";
 import { parseUserFilters } from "../../../components/admin/users-filters";
 import type { SearchParams } from "../../../components/admin/inventory-filters";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { listBlockedEmails } from "../../../lib/data/blocked-emails";
 import { listUsers } from "../../../lib/data/users";
+import { isDemoAdmin } from "../../../lib/demo-admin/config";
+import { emailFor } from "../../../lib/demo-admin/mask-email";
+import { samplePeople } from "../../../lib/demo-admin/sample-people";
+import { RowStatus } from "../../../components/admin/RowStatus";
 import { addPerson, removeUser, setUserName, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
 import { AddPersonForm } from "../../../components/admin/AddPersonForm";
 
@@ -51,9 +55,14 @@ export default async function AdminUsersPage({
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, "users.manage")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "users.manage")) return <AdminNotice kind="forbidden" />;
 
-  const [users, blocked, demoSignups] = await Promise.all([listUsers(), listBlockedEmails(), countDemoSignups()]);
+  // The demo identity (demo admin spec 2026-10-11 §6, §7) sees the roster
+  // read-only, every address masked, with twenty sample people appended —
+  // made up here, never stored. Nobody else ever gets them.
+  const demo = isDemoAdmin(identity);
+  const [stored, blocked, demoSignups] = await Promise.all([listUsers(), listBlockedEmails(), demo ? Promise.resolve(0) : countDemoSignups()]);
+  const users = demo ? [...stored, ...samplePeople()] : stored;
 
   const admins = users.filter((person) => person.role === "admin" || person.role === "super_admin").length;
 
@@ -69,19 +78,28 @@ export default async function AdminUsersPage({
           t("facts.blocked", { count: blocked.length }),
         ]}
         // Visitors who signed up for a demo pass (demo pass spec 2026-10-07 §5.6).
+        // Not for the demo identity: the sign-ups are real visitors' contact
+        // details, and that page refuses it (`can`, not `canView`).
         actions={
-          <Button asChild size="sm">
-            <Link href="/admin/users/demo-signups">{t("demoSignups.link", { count: demoSignups })}</Link>
-          </Button>
+          demo ? undefined : (
+            <Button asChild size="sm">
+              <Link href="/admin/users/demo-signups">{t("demoSignups.link", { count: demoSignups })}</Link>
+            </Button>
+          )
         }
       />
 
       {/* Super admins only, like everything on this page (`users.manage`,
-          checked above and again inside the action). */}
-      <AddPersonForm action={addPerson} />
+          checked above and again inside the action). The demo only looks. */}
+      {demo ? (
+        <RowStatus tone="muted">{t("users.demoReadOnly")}</RowStatus>
+      ) : (
+        <AddPersonForm action={addPerson} />
+      )}
 
       <UsersTable
         users={users}
+        demo={demo}
         currentUserId={identity.userId}
         initial={parseUserFilters(await searchParams)}
         setRole={setUserRole}
@@ -92,7 +110,7 @@ export default async function AdminUsersPage({
 
       <BlockedEmailsList
         rows={blocked.map((entry) => ({
-          email: entry.email,
+          email: emailFor(identity, entry.email),
           reason: entry.reason,
           blockedByName: entry.blockedByName,
           blockedOn: entry.createdAt.toISOString().slice(0, 10),

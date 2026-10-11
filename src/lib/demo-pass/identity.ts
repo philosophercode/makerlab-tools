@@ -1,4 +1,5 @@
 import type { Identity } from "../auth/identity";
+import { hasNoSession } from "../demo-admin/config";
 import type { DemoPassState } from "./state";
 
 /**
@@ -14,9 +15,11 @@ import type { DemoPassState } from "./state";
  *   a pass — but still marked, so its turns and tickets count as demo traffic.
  *
  * A signed-in caller's pass is ignored: the session is the better credential.
+ * The demo identity (demo admin spec 2026-10-11) is nobody signed in, so its
+ * pass counts as an anonymous visitor's would; its role is left as it is.
  */
 export function identityWithDemoPass(identity: Identity, pass: DemoPassState | null): Identity {
-  if (!pass || identity.role !== "anonymous") return identity;
+  if (!pass || !hasNoSession(identity)) return identity;
   if (pass.exhausted) return { ...identity, demoPass: { id: pass.id, exhausted: true } };
   return { ...identity, rateLimitKey: `demo:${pass.id}`, demoPass: { id: pass.id, exhausted: false } };
 }

@@ -42,6 +42,7 @@ import { loadPageContext, pageContextSection } from "../../../lib/actions/page-c
 import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
 import { recordChatTurnUsage } from "../../../lib/usage/chat-turn";
 import { resolveDemoPass } from "../../../lib/demo-pass/resolve";
+import { isDemoTraffic } from "../../../lib/demo-admin/config";
 import { identityWithDemoPass } from "../../../lib/demo-pass/identity";
 import { chargeDemoPassTurn } from "../../../lib/demo-pass/charge";
 import { demoPassContactEmail } from "../../../lib/demo-pass/config";
@@ -296,7 +297,7 @@ export async function POST(req: Request) {
             steps,
             messages,
             role: identity.role,
-            demo: Boolean(identity.demoPass),
+            demo: isDemoTraffic(identity),
             focusedToolId: focused?.id,
             locale,
             turn: ctx.turn,
@@ -340,7 +341,7 @@ function rateLimitedResponse(decision: RateLimitDecision, demoPass: Identity["de
       { status: 429, headers: { "Retry-After": String(decision.retryAfterSeconds) } }
     );
   }
-  const canSignIn = decision.role === "anonymous" && !demoPass;
+  const canSignIn = (decision.role === "anonymous" || decision.role === "demo_admin") && !demoPass;
   return Response.json(
     {
       code: canSignIn ? "rate_limited_sign_in" : "rate_limited",

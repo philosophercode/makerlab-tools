@@ -4,8 +4,9 @@ import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { LogCompletedForm } from "../../../components/admin/LogCompletedForm";
 import { MaintenanceQueue } from "../../../components/admin/MaintenanceQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { listMaintenanceQueue } from "../../../lib/data/maintenance";
+import { maskEmailsFor } from "../../../lib/demo-admin/mask-email";
 import { countDueSchedules } from "../../../lib/data/maintenance-schedules";
 import { listToolUnitOptions } from "../../../lib/data/tool-options";
 import { listAssignableStaff } from "../../../lib/data/users";
@@ -45,7 +46,7 @@ export default async function AdminMaintenancePage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, "maintenance.manage")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "maintenance.manage")) return <AdminNotice kind="forbidden" />;
 
   // The roster read is the assignee list, not an authorization input: assigning
   // a ticket grants nobody anything (see `listAssignableStaff`).
@@ -89,7 +90,9 @@ export default async function AdminMaintenancePage() {
       <LogCompletedForm tools={toolOptions} action={logCompletedMaintenance} />
 
       <MaintenanceQueue
-        tickets={tickets}
+        // Reporter addresses masked for the demo identity, on the server
+        // (demo admin spec 2026-10-11 §6).
+        tickets={maskEmailsFor(identity, tickets, "reportedByEmail")}
         staff={staff.map((person) => ({ id: person.id, name: person.name }))}
         action={updateTicket}
       />

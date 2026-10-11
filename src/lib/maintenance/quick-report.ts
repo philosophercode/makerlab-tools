@@ -3,6 +3,7 @@ import type { LanguageModel } from "ai";
 import { getCatalogTool } from "../catalog";
 import { describeDbError } from "../db/describe-error";
 import type { Identity } from "../auth/identity";
+import { isDemoTraffic } from "../demo-admin/config";
 import { fileProblemTicket } from "./file-ticket";
 import {
   QUICK_REPORT_MIN_OPEN_MS,
@@ -112,7 +113,7 @@ export interface FileQuickReportOptions {
 
 export async function fileQuickReport(
   report: QuickReport,
-  identity: Pick<Identity, "userId" | "name" | "email" | "demoPass">,
+  identity: Pick<Identity, "role" | "userId" | "name" | "email" | "demoPass">,
   options: FileQuickReportOptions = {}
 ): Promise<{ ok: true; value: QuickReportFiled } | { ok: false; code: QuickReportError }> {
   let tool: Awaited<ReturnType<typeof getCatalogTool>>;
@@ -157,8 +158,9 @@ export async function fileQuickReport(
       // notifications spec §5.1).
       surface: "gui",
       // A demo pass's report lands flagged, as `report_issue` files it (demo
-      // pass spec 2026-10-07 §5.4): from the server-resolved pass only.
-      demo: Boolean(identity.demoPass),
+      // pass spec 2026-10-07 §5.4): from the server-resolved pass only. The
+      // demo identity's too (demo admin spec 2026-10-11 §5).
+      demo: isDemoTraffic(identity),
     });
     if (report.photoIds.length > 0 && record.photosAttached === 0) {
       console.warn(`[quick-report] ticket ${record.id} filed without its ${report.photoIds.length} photo(s): no upload matched`);
