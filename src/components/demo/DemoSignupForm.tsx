@@ -9,9 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { DEMO_SIGNUP_ROLES } from "../../lib/db/schema/vocabulary";
 import { DEMO_SIGNUP_LIMITS, parseDemoSignup, type DemoSignupField, type DemoSignupFieldError } from "../../lib/demo-pass/signup";
 import { Field, errorId, hintId } from "../system/Field";
+import { useSharedIdentity } from "../../lib/auth/identity-store";
 import { siteConfig } from "../../lib/site-config";
 import { Prose } from "../system/PublicPage";
 import { DemoSignupThanks } from "./DemoSignupThanks";
+import { settleSignupNudge } from "./signup-nudge-store";
 import { submitDemoSignup, type DemoSignupOutcome, type DemoSignupPayload } from "./submit-demo-signup";
 
 /**
@@ -20,6 +22,9 @@ import { submitDemoSignup, type DemoSignupOutcome, type DemoSignupPayload } from
  * one **Submit**. Asking to be contacted is what the form is for, so there is
  * no consent box: the privacy line says so and the form sends `consent: true`.
  * No link leads away from the form, so nothing typed is lost to a stray click.
+ * The browser can fill name, email and organization from what it has saved
+ * (`autocomplete`), and a signed-in person's name and email are filled in for
+ * them while those fields are still empty.
  * Checked here with the route's own rules (`parseDemoSignup`) so a mistake is
  * said before a round trip, and again by the route, which is the control.
  * Each refused field says why beside itself and is announced; a summary at
@@ -54,7 +59,21 @@ export function DemoSignupForm() {
   const [closed, setClosed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Prefill from the signed-in account once it is known (the header has
+  // already asked who this is). Derived, not copied into state: a field shows
+  // the account's value until the person edits it, and an edit — even to
+  // empty — is theirs from then on.
+  const identity = useSharedIdentity();
+  const account = identity && identity.role !== "anonymous" ? identity : null;
+  const [edited, setEdited] = useState({ name: false, email: false });
+  const filled: DemoSignupPayload = {
+    ...values,
+    name: edited.name ? values.name : values.name || account?.name || "",
+    email: edited.email ? values.email : values.email || account?.email || "",
+  };
+
   const set = <K extends keyof DemoSignupPayload>(key: K, value: DemoSignupPayload[K]) => {
+    if (key === "name" || key === "email") setEdited((current) => ({ ...current, [key]: true }));
     setValues((current) => ({ ...current, [key]: value }));
     if (key in errors) setErrors((current) => ({ ...current, [key]: undefined }));
   };
@@ -69,7 +88,7 @@ export function DemoSignupForm() {
     event.preventDefault();
     if (submitting) return;
     setProblem(null);
-    const checked = parseDemoSignup(values);
+    const checked = parseDemoSignup(filled);
     if (checked.kind === "invalid") {
       setErrors(checked.fields);
       setProblem("summary");
@@ -79,8 +98,11 @@ export function DemoSignupForm() {
     setErrors({});
     setSubmitting(true);
     try {
-      const outcome = await submitDemoSignup(values);
-      if (outcome.kind === "done") setDone(outcome);
+      const outcome = await submitDemoSignup(filled);
+      if (outcome.kind === "done") {
+        settleSignupNudge("signed-up");
+        setDone(outcome);
+      }
       else if (outcome.kind === "invalid") {
         setErrors(outcome.fields);
         setProblem("summary");
@@ -115,7 +137,8 @@ export function DemoSignupForm() {
           id="demo-name"
           name="name"
           autoComplete="name"
-          value={values.name}
+          autoCapitalize="words"
+          value={filled.name}
           onChange={(event) => set("name", event.target.value)}
           maxLength={DEMO_SIGNUP_LIMITS.name}
           required
@@ -124,19 +147,22 @@ export function DemoSignupForm() {
         />
       </Field>
 
-      <Field id="demo-email" label={t("emailLabel")} marks={required} hint={t("emailHint")} error={errorText("email")}>
+      <Field id="demo-email" label={t("emailLabel")} marks={required} error={errorText("email")}>
         <Input
           id="demo-email"
           name="email"
           type="email"
           autoComplete="email"
           inputMode="email"
-          value={values.email}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          value={filled.email}
           onChange={(event) => set("email", event.target.value)}
           maxLength={DEMO_SIGNUP_LIMITS.email}
           required
           aria-invalid={errors.email ? true : undefined}
-          aria-describedby={describedBy("email", true)}
+          aria-describedby={describedBy("email")}
         />
       </Field>
 
@@ -145,6 +171,7 @@ export function DemoSignupForm() {
           id="demo-institution"
           name="institution"
           autoComplete="organization"
+          autoCapitalize="words"
           value={values.institution}
           onChange={(event) => set("institution", event.target.value)}
           maxLength={DEMO_SIGNUP_LIMITS.institution}

@@ -392,7 +392,6 @@
     "optional": "任意",
     "nameLabel": "氏名",
     "emailLabel": "メールアドレス",
-    "emailHint": "ご連絡のためだけに使います。アシスタントには一切見えません。",
     "institutionLabel": "所属",
     "institutionHint": "大学、企業、研究室、メイカースペースなど。",
     "roleLabel": "立場",
@@ -434,7 +433,8 @@
     "callout": {
       "label": "メイカースペースに {assistant} を",
       "text": "あなたのメイカースペースに {assistant} を導入してみませんか？",
-      "cta": "登録する"
+      "cta": "登録する",
+      "dismiss": "閉じる"
     }
   }
 }

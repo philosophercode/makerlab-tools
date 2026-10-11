@@ -392,7 +392,6 @@
     "optional": "רשות",
     "nameLabel": "שם",
     "emailLabel": "דוא״ל",
-    "emailHint": "רק לצורך המשך קשר. העוזר אף פעם לא רואה אותו.",
     "institutionLabel": "מוסד או שיוך",
     "institutionHint": "אוניברסיטה, חברה, מעבדה או מייקרספייס.",
     "roleLabel": "תפקיד",
@@ -434,7 +433,8 @@
     "callout": {
       "label": "{assistant} למייקרספייס שלכם",
       "text": "רוצים את {assistant} במייקרספייס שלכם?",
-      "cta": "הרשמה"
+      "cta": "הרשמה",
+      "dismiss": "סגירה"
     }
   }
 }

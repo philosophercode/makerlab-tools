@@ -401,8 +401,25 @@ demo.
   your details, and we'll be in touch." **Ask the assistant** still shows when the
   answer carries a live pass. Supersedes §5.1 step 4.
 - **Strings:** the changed `demoPass.*` and `about.demo*` strings in all 12 locales;
-  `passFacts`, `consentLabel`, `thanksExpired` and `thanksReceived` removed. The
+  `passFacts`, `consentLabel`, `emailHint`, `thanksExpired` and `thanksReceived` removed;
+  `callout.dismiss` added for the notice. The
   assistant's name comes from `siteConfig.chatAssistantName`.
+
+- **More prominent on the home page:** the inline callout is the heading face at
+  reading size in the text colour, with the filled button, still one line with no box.
+- **A sign-up notice after a minute on the site** (`DemoSignupNudge`, mounted in the
+  root layout): a frosted plate in the bottom corner opposite the chat button, with the
+  callout's question, **Sign up** and a dismiss button. The minute counts from the first
+  page of the visit (`sessionStorage`); dismissing it, following it or signing up hides
+  it for good in this browser (`localStorage`, `makerlab.signup-nudge`). Not a dialog:
+  no focus taken, announced through a polite live region, out of the way while a dialog
+  or the assistant's first-visit callout is showing. Never on `/demo`, the admin,
+  account and OAuth pages or the kiosk, never for a signed-in member, nothing with
+  `DEMO_PASS=off`.
+- **Easier to fill in:** the browser's saved name, email and organization
+  (`autocomplete`), phone keyboard hints, and a signed-in person's name and email filled
+  in while those fields are empty. The email field's "For follow-up only. The assistant
+  never sees it." hint is removed (`emailHint`); the privacy line covers it.
 
 **Unchanged.** Submitting still issues the pass (§5.2–§5.4): the cookie, 60 chat
 messages an hour, the $0.50 ledger, demo-flagged usage and tickets. The chat's `Demo

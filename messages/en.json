@@ -4063,7 +4063,6 @@
     "optional": "Optional",
     "nameLabel": "Name",
     "emailLabel": "Email",
-    "emailHint": "For follow-up only. The assistant never sees it.",
     "institutionLabel": "Institution or affiliation",
     "institutionHint": "A university, company, lab or makerspace.",
     "roleLabel": "Role",
@@ -4105,7 +4104,8 @@
     "callout": {
       "label": "{assistant} for your makerspace",
       "text": "Interested in bringing {assistant} to your makerspace?",
-      "cta": "Sign up"
+      "cta": "Sign up",
+      "dismiss": "Dismiss"
     }
   }
 }

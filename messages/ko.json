@@ -392,7 +392,6 @@
     "optional": "선택",
     "nameLabel": "이름",
     "emailLabel": "이메일",
-    "emailHint": "후속 연락에만 사용합니다. 어시스턴트는 절대 볼 수 없습니다.",
     "institutionLabel": "소속 기관",
     "institutionHint": "대학, 회사, 연구실 또는 메이커스페이스.",
     "roleLabel": "역할",
@@ -434,7 +433,8 @@
     "callout": {
       "label": "메이커스페이스용 {assistant}",
       "text": "여러분의 메이커스페이스에 {assistant} 도입을 고민하고 계신가요?",
-      "cta": "신청하기"
+      "cta": "신청하기",
+      "dismiss": "닫기"
     }
   }
 }

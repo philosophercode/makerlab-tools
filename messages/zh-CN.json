@@ -392,7 +392,6 @@
     "optional": "选填",
     "nameLabel": "姓名",
     "emailLabel": "电子邮箱",
-    "emailHint": "仅用于后续联系，助手永远看不到。",
     "institutionLabel": "机构或单位",
     "institutionHint": "大学、公司、实验室或创客空间。",
     "roleLabel": "身份",
@@ -434,7 +433,8 @@
     "callout": {
       "label": "为您的创客空间引入 {assistant}",
       "text": "有兴趣把 {assistant} 带到您的创客空间吗？",
-      "cta": "报名"
+      "cta": "报名",
+      "dismiss": "关闭"
     }
   }
 }

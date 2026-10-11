@@ -1,7 +1,9 @@
 import { http, HttpResponse } from "msw";
 import { server } from "../../../test/msw/server";
 import { render, screen, userEvent, waitFor } from "../../../test/utils/render";
+import { publishIdentity } from "../../lib/auth/identity-store";
 import { DemoSignupForm } from "./DemoSignupForm";
+import { SIGNUP_NUDGE_KEY } from "./signup-nudge-store";
 
 /**
  * The sign-up form (demo pass spec 2026-10-07 §5.1, §6; amendment
@@ -79,6 +81,24 @@ describe("DemoSignupForm", () => {
     expect(heading.closest("section")).not.toHaveTextContent(/pass/i);
     expect(screen.getByRole("button", { name: "Ask the assistant" })).toBeInTheDocument();
     expect(sent).toMatchObject({ name: "Ada Lovelace", email: "ada@example.org", role: "lab_manager", runsMakerspace: "yes", consent: true, website: "" });
+    // Signed up: the one-minute sign-up notice will not ask again.
+    expect(window.localStorage.getItem(SIGNUP_NUDGE_KEY)).toBe("signed-up");
+  });
+
+  it("fills in a signed-in person's name and email, and leaves what was typed alone", async () => {
+    publishIdentity({ role: "user", name: "Grace Hopper", email: "grace@cornell.edu" });
+    render(<DemoSignupForm />);
+    expect(await screen.findByDisplayValue("Grace Hopper")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /^Email/ })).toHaveValue("grace@cornell.edu");
+  });
+
+  it("asks the phone for the right keyboards and the browser for its saved details", () => {
+    render(<DemoSignupForm />);
+    expect(screen.getByRole("textbox", { name: /^Name/ })).toHaveAttribute("autocomplete", "name");
+    const email = screen.getByRole("textbox", { name: /^Email/ });
+    expect(email).toHaveAttribute("autocomplete", "email");
+    expect(email).toHaveAttribute("autocapitalize", "none");
+    expect(screen.getByRole("textbox", { name: /^Institution/ })).toHaveAttribute("autocomplete", "organization");
   });
 
   it("tells a returning address that we already have its details", async () => {

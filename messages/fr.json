@@ -392,7 +392,6 @@
     "optional": "Facultatif",
     "nameLabel": "Nom",
     "emailLabel": "E-mail",
-    "emailHint": "Uniquement pour un suivi. L'assistant ne le voit jamais.",
     "institutionLabel": "Établissement ou affiliation",
     "institutionHint": "Une université, une entreprise, un laboratoire ou un makerspace.",
     "roleLabel": "Rôle",
@@ -434,7 +433,8 @@
     "callout": {
       "label": "{assistant} pour votre makerspace",
       "text": "Vous aimeriez {assistant} dans votre makerspace ?",
-      "cta": "S'inscrire"
+      "cta": "S'inscrire",
+      "dismiss": "Fermer"
     }
   }
 }

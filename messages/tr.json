@@ -392,7 +392,6 @@
     "optional": "İsteğe bağlı",
     "nameLabel": "Ad",
     "emailLabel": "E-posta",
-    "emailHint": "Yalnızca sizinle iletişim için. Asistan bunu asla görmez.",
     "institutionLabel": "Kurum veya bağlı olunan yer",
     "institutionHint": "Bir üniversite, şirket, laboratuvar veya maker alanı.",
     "roleLabel": "Rol",
@@ -434,7 +433,8 @@
     "callout": {
       "label": "Maker alanınız için {assistant}",
       "text": "{assistant} uygulamasını maker alanınıza getirmek ister misiniz?",
-      "cta": "Kaydolun"
+      "cta": "Kaydolun",
+      "dismiss": "Kapat"
     }
   }
 }
