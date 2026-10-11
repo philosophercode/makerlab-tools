@@ -24,7 +24,7 @@
   --font-display: "Space Grotesk", "Arial Narrow", Arial, sans-serif;
   --font-body: "Inter", Arial, sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-  --margin: 0.7in;
+  --margin: 0.5in;
 }
 @page { size: 48in 12in; margin: 0; }
 * { box-sizing: border-box; }
@@ -38,10 +38,9 @@ h2, p { margin: 0; }
   padding: var(--margin);
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 7.5in;
-  grid-template-rows: auto minmax(0, 1fr);
-  column-gap: 1in;
-  row-gap: 0.4in;
+  grid-template-columns: minmax(0, 1fr) 4.6in 11in;
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: 0.8in;
   background-color: var(--paper);
   background-image: radial-gradient(circle, rgba(23,23,23,0.09) 0.7pt, transparent 0.9pt);
   background-size: 0.3in 0.3in;
@@ -49,49 +48,48 @@ h2, p { margin: 0; }
 .label { font: 500 22pt/1.2 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--orange-ink); }
 
 /* row 1, left: wordmark */
-.brand { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; justify-content: center; gap: 0.3in; }
+.left { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; padding: 0.3in 0; }
+.brand { display: flex; flex-direction: column; gap: 0.3in; }
 .lockup { font-size: 0; line-height: 1; display: flex; align-items: flex-end; gap: 0.5in; }
-.lockup img { display: block; height: 4.3in; width: auto; }
-.lockup .ai { font: 700 442pt/0.8 "Barlow", var(--font-display); color: var(--orange); }
+.lockup img { display: block; height: 3.6in; width: auto; }
+.lockup .ai { font: 700 370pt/0.8 "Barlow", var(--font-display); color: var(--orange); }
 
 /* row 2, left: operate / fix / build, then the small lines */
-.obf { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; padding-top: 0.3in; }
+.obf { display: flex; flex-direction: column; gap: 0.5in; }
 .words { display: flex; align-items: baseline; gap: 1.4in; }
-.words h2 { font: 700 112pt/0.95 var(--font-display); letter-spacing: 0.01em; text-transform: uppercase; color: var(--orange); }
+.words h2 { font: 700 130pt/0.95 var(--font-display); letter-spacing: 0.01em; text-transform: uppercase; color: var(--orange); }
 .small { display: flex; align-items: center; gap: 0.8in; }
 .callout { font: 600 26pt/1.2 var(--font-display); }
 .oss { display: flex; align-items: center; gap: 0.2in; font: 500 22pt/1.2 var(--font-mono); }
 .oss .badge { background: var(--orange); padding: 0.08in 0.2in; letter-spacing: 0.14em; text-transform: uppercase; }
 
 /* row 1, right: QR */
-.plate { grid-column: 2; grid-row: 1; background: var(--ink); color: var(--on-ink); padding: 0.3in 0.3in 0.25in; display: grid; justify-items: center; gap: 0.15in; align-self: start; }
-.qr-frame { position: relative; width: 6.5in; padding: 0.2in; }
+.plate { grid-column: 3; grid-row: 1; background: var(--ink); color: var(--on-ink); padding: 0.25in; display: grid; place-items: center; }
+.qr-frame { position: relative; width: 10.5in; padding: 0.2in; }
 .qr-frame::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background:
-    linear-gradient(var(--orange), var(--orange)) top left / 0.8in 7pt no-repeat,
-    linear-gradient(var(--orange), var(--orange)) top left / 7pt 0.8in no-repeat,
-    linear-gradient(var(--orange), var(--orange)) top right / 0.8in 7pt no-repeat,
-    linear-gradient(var(--orange), var(--orange)) top right / 7pt 0.8in no-repeat,
-    linear-gradient(var(--orange), var(--orange)) bottom left / 0.8in 7pt no-repeat,
-    linear-gradient(var(--orange), var(--orange)) bottom left / 7pt 0.8in no-repeat,
-    linear-gradient(var(--orange), var(--orange)) bottom right / 0.8in 7pt no-repeat,
-    linear-gradient(var(--orange), var(--orange)) bottom right / 7pt 0.8in no-repeat;
+    linear-gradient(var(--orange), var(--orange)) top left / 1.1in 8pt no-repeat,
+    linear-gradient(var(--orange), var(--orange)) top left / 8pt 1.1in no-repeat,
+    linear-gradient(var(--orange), var(--orange)) top right / 1.1in 8pt no-repeat,
+    linear-gradient(var(--orange), var(--orange)) top right / 8pt 1.1in no-repeat,
+    linear-gradient(var(--orange), var(--orange)) bottom left / 1.1in 8pt no-repeat,
+    linear-gradient(var(--orange), var(--orange)) bottom left / 8pt 1.1in no-repeat,
+    linear-gradient(var(--orange), var(--orange)) bottom right / 1.1in 8pt no-repeat,
+    linear-gradient(var(--orange), var(--orange)) bottom right / 8pt 1.1in no-repeat;
 }
 .qr-frame img { display: block; width: 100%; height: auto; background: #fff; }
-.plate .cap { font: 700 26pt/1 var(--font-display); letter-spacing: -0.01em; }
-.plate .cap span { font: 500 16pt/1 var(--font-mono); margin-left: 0.2in; color: var(--on-ink); }
-
 /* row 2, right: logos */
-.logos { grid-column: 2; grid-row: 2; display: flex; align-items: center; justify-content: center; gap: 0.3in; padding-top: 0.2in; }
-.logos .mk { height: 1.05in; width: auto; display: block; }
-.logos .ct { height: 1.9in; width: auto; display: block; }
+.logos { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5in; }
+.logos .mk { height: 1.15in; width: auto; display: block; }
+.logos .ct { height: 4.6in; width: auto; display: block; }
 
 @media print { body { background: var(--paper); } .sheet { zoom: 1 !important; } }
 </style>
 </head>
 <body>
 <main class="sheet" id="sheet">
+  <div class="left">
   <header class="brand">
     <p class="label">ISAM 2026 · Live demo</p>
     <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
@@ -99,13 +97,13 @@ h2, p { margin: 0; }
   <section class="obf" aria-label="Operate, fix, build">
     <div class="words"><h2>Operate</h2><h2>Fix</h2><h2>Build</h2></div>
     <div class="small">
-      <p class="callout">Interested? Bring MakerLAB AI to your lab. Sign up in the app.</p>
+      <p class="callout">Scan to try it. Interested? Bring MakerLAB AI to your lab. Sign up in the app.</p>
       <p class="oss"><span class="badge">Open source</span><span>AGPL-3.0</span></p>
     </div>
   </section>
+  </div>
   <aside class="plate">
     <div class="qr-frame"><img src="img/qr-site.svg" alt="QR code for www.makerlabai.app"></div>
-    <p class="cap">Scan to try it <span>www.makerlabai.app</span></p>
   </aside>
   <footer class="logos">
     <img class="ct" src="img/Cornell-Tech-Logo.webp" alt="Cornell Tech, Cornell University, Jacobs Institute, Technion">
