@@ -48,20 +48,21 @@ h2, p { margin: 0; }
 
 .brand { display: flex; flex-direction: column; justify-content: center; gap: 0.45in; flex: none; }
 .lockup { font-size: 0; line-height: 1; display: flex; align-items: flex-end; gap: 0.25in; }
-.lockup img { display: block; height: 1.9in; width: auto; }
-.lockup .ai { font: 700 195pt/0.8 "Barlow", var(--font-display); color: var(--orange); }
-.tag { font: 700 40pt/1.05 var(--font-display); letter-spacing: -0.02em; max-width: 12.5in; }
+.lockup img { display: block; height: 2.3in; width: auto; }
+.lockup .ai { font: 700 236pt/0.8 "Barlow", var(--font-display); color: var(--orange); }
+.tag { font: 700 40pt/1.05 var(--font-display); letter-spacing: -0.02em; max-width: 17in; }
 
-.words { display: flex; flex-direction: column; justify-content: center; gap: 0.3in; flex: none; border-left: 6pt solid var(--ink); padding-left: 0.7in; }
-.words h2 { font: 700 112pt/0.95 var(--font-display); letter-spacing: 0.01em; text-transform: uppercase; color: var(--orange); }
+.words { display: flex; flex-direction: column; justify-content: center; gap: 0.3in; flex: none; border-left: 6pt solid var(--ink); padding-left: 0.5in; }
+.words h2 { font: 700 88pt/0.95 var(--font-display); letter-spacing: 0.01em; text-transform: uppercase; color: var(--orange); }
 .words p { font: 500 24pt/1.2 var(--font-display); }
 .words div { display: flex; align-items: baseline; gap: 0.5in; }
 .words div p { max-width: 5.6in; }
 
 .plate { background: var(--ink); color: var(--on-ink); padding: 0.4in 0.55in 0.4in 0.7in; display: flex; align-items: center; gap: 0.6in; flex: none; }
-.plate .txt { display: grid; gap: 0.3in; width: 5.2in; }
-.plate .big { font: 700 54pt/1 var(--font-display); letter-spacing: -0.02em; }
+.plate .txt { display: grid; gap: 0.3in; width: 4.2in; }
+.plate .big { font: 700 46pt/1 var(--font-display); letter-spacing: -0.02em; }
 .plate .label { color: var(--orange); font-size: 18pt; }
+.plate .callout { border-top: 4pt solid var(--orange); padding-top: 0.25in; font: 600 26pt/1.2 var(--font-display); }
 .plate .url { font: 500 22pt/1.2 var(--font-mono); }
 .qr-frame { position: relative; width: 9.9in; padding: 0.2in; flex: none; }
 .qr-frame::before {
@@ -80,7 +81,7 @@ h2, p { margin: 0; }
 
 .logos { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; flex: none; }
 .logos .mk { height: 1.05in; width: auto; display: block; }
-.logos .ct { height: 3.9in; width: auto; display: block; }
+.logos .ct { height: 3.3in; width: auto; display: block; }
 .oss { display: flex; align-items: center; gap: 0.2in; font: 500 20pt/1.2 var(--font-mono); }
 .oss .badge { background: var(--orange); padding: 0.08in 0.2in; letter-spacing: 0.14em; text-transform: uppercase; }
 
@@ -104,6 +105,7 @@ h2, p { margin: 0; }
       <p class="big">Scan to try it</p>
       <p class="label">Every answer cites the manual page</p>
       <p class="url">www.makerlabai.app</p>
+      <p class="callout">Interested? Bring MakerLAB AI to your lab. Sign up in the app.</p>
     </div>
     <div class="qr-frame"><img src="img/qr-site.svg" alt="QR code for www.makerlabai.app"></div>
   </aside>
