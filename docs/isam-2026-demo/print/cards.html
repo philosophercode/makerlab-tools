@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MakerLAB AI Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@600&display=swap">
+<style>
+/* Layout: one US Letter sheet of ten 3.5 × 2 in cards, 2 across and 5 down, butted
+   edge to edge so each cut line is shared (the standard 10-up business-card grid:
+   0.75 in sides, 0.5 in top and bottom). Crop marks sit in the margin; optional
+   hairline cut guides run through the grid. Cards are white so a home printer lays
+   no tint down; ink, one safety-orange accent and mono labels carry the brand. */
+:root {
+  --card: #ffffff;
+  --ink: #171717;
+  --ink-muted: #59524a;
+  --guide: #d9d2c7;
+  --orange: #ff6b35;
+  --orange-ink: #c2481a;
+
+  /* The screen around the sheet follows the viewer's theme; the sheet never does. */
+  --stage: #e2d8ca;
+  --stage-ink: #59524a;
+  --stage-accent: #b8431a;
+
+  --font-display: "Space Grotesk", "Arial Narrow", Arial, sans-serif;
+  --font-body: "Inter", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --stage: #0f0f0f; --stage-ink: #a1a1aa; --stage-accent: #ff6b35; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --stage: #0f0f0f; --stage-ink: #a1a1aa; --stage-accent: #ff6b35; color-scheme: dark; }
+
+@page { size: 8.5in 11in; margin: 0; }
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--stage);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+p { margin: 0; }
+
+/* ---------- screen chrome ---------- */
+.stage-note {
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px 20px;
+  font: 500 12px/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--stage-ink);
+  text-align: center;
+}
+.stage-note label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.stage-note input { width: 16px; height: 16px; margin: 0; accent-color: var(--stage-accent); }
+.stage-note input:focus-visible { outline: 2px solid var(--stage-accent); outline-offset: 2px; }
+.stage { padding-inline: 16px; padding-block: 0 32px; display: flex; justify-content: center; }
+
+/* ---------- the sheet ---------- */
+.sheet {
+  zoom: var(--z, 1);
+  flex: none;
+  position: relative;
+  width: 8.5in;
+  height: 11in;
+  overflow: hidden;
+  background: var(--card);
+}
+.grid {
+  position: absolute;
+  left: 0.75in;
+  top: 0.5in;
+  display: grid;
+  grid-template-columns: repeat(2, 3.5in);
+  grid-template-rows: repeat(5, 2in);
+}
+
+/* Cut guides: hairlines on the shared cut lines, drawn over the cards. */
+.guides {
+  position: absolute;
+  left: 0.75in;
+  top: 0.5in;
+  width: 7in;
+  height: 10in;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, var(--guide) 0.5pt, transparent 0.5pt) 0 0 / 3.5in 100%,
+    linear-gradient(var(--guide) 0.5pt, transparent 0.5pt) 0 0 / 100% 2in;
+  outline: 0.5pt solid var(--guide);
+}
+.sheet.no-guides .guides { display: none; }
+
+/* Crop marks in the margin, one at each end of every cut line. */
+.mark { position: absolute; background: var(--ink); }
+.mark.v { width: 0.5pt; height: 0.26in; }
+.mark.h { height: 0.5pt; width: 0.3in; }
+
+/* ---------- one card ---------- */
+.card {
+  width: 3.5in;
+  height: 2in;
+  padding: 0.18in 0.18in 0.17in 0.2in;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.12in;
+  column-gap: 0.16in;
+}
+.info { display: flex; flex-direction: column; min-width: 0; }
+.lockup { font-size: 0; line-height: 1; display: flex; align-items: flex-end; gap: 0.045in; }
+.lockup img { display: block; height: 0.24in; width: auto; }
+.lockup .ai {
+  /* Barlow caps are 0.70 em: 24.7pt gives a 0.24 in cap height, level with the lettering. */
+  font: 700 24.7pt/0.8 "Barlow", var(--font-display);
+  color: var(--orange);
+}
+.tagline { margin-top: 0.1in; font: 600 9.6pt/1.15 var(--font-display); letter-spacing: -0.005em; }
+.desc { margin-top: 0.05in; font: 400 7.3pt/1.36 var(--font-body); color: var(--ink-muted); }
+.ct { margin-top: auto; display: block; height: 0.27in; width: auto; align-self: flex-start; }
+
+.scan { display: flex; flex-direction: column; align-items: center; justify-content: space-between; min-width: 0; }
+.scan .label {
+  font: 500 6.4pt/1 var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--orange-ink);
+}
+.scan img { display: block; width: 1.12in; height: 1.12in; }
+.scan .url { font: 500 5.7pt/1 var(--font-mono); color: var(--ink); white-space: nowrap; }
+
+@media print {
+  body { background: var(--card); }
+  .stage-note { display: none; }
+  .stage { padding: 0; display: block; }
+  .sheet { zoom: 1; }
+}
+</style>
+</head>
+<body>
+
+<div class="stage-note">
+  <span>10 cards · US Letter · print at 100%, no margins · cut on the marks</span>
+  <label for="guides-toggle"><input type="checkbox" id="guides-toggle" checked> Cut guides</label>
+</div>
+
+<div class="stage">
+<main class="sheet" id="sheet" aria-label="Sheet of ten MakerLAB AI cards">
+  <div class="grid">
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="info">
+        <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+        <p class="tagline">Ask your makerspace anything.</p>
+        <p class="desc">An AI assistant that knows every tool in the Cornell Tech MakerLAB. Ask how to operate, fix or build, and it cites the manual page.</p>
+        <img class="ct" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+      <div class="scan">
+        <p class="label">Scan to try</p>
+        <img src="img/qr-site.svg" alt="QR code for www.makerlabai.app">
+        <p class="url">www.makerlabai.app</p>
+      </div>
+    </section>
+  </div>
+  <div class="guides" aria-hidden="true"></div>
+  <div class="marks" aria-hidden="true">
+    <!-- vertical cut lines at x = 0.75, 4.25, 7.75 in -->
+    <i class="mark v" style="left: 0.75in; top: 0.16in"></i><i class="mark v" style="left: 0.75in; top: 10.58in"></i>
+    <i class="mark v" style="left: 4.25in; top: 0.16in"></i><i class="mark v" style="left: 4.25in; top: 10.58in"></i>
+    <i class="mark v" style="left: 7.75in; top: 0.16in"></i><i class="mark v" style="left: 7.75in; top: 10.58in"></i>
+    <!-- horizontal cut lines at y = 0.5, 2.5 … 10.5 in -->
+    <i class="mark h" style="top: 0.5in; left: 0.37in"></i><i class="mark h" style="top: 0.5in; left: 7.83in"></i>
+    <i class="mark h" style="top: 2.5in; left: 0.37in"></i><i class="mark h" style="top: 2.5in; left: 7.83in"></i>
+    <i class="mark h" style="top: 4.5in; left: 0.37in"></i><i class="mark h" style="top: 4.5in; left: 7.83in"></i>
+    <i class="mark h" style="top: 6.5in; left: 0.37in"></i><i class="mark h" style="top: 6.5in; left: 7.83in"></i>
+    <i class="mark h" style="top: 8.5in; left: 0.37in"></i><i class="mark h" style="top: 8.5in; left: 7.83in"></i>
+    <i class="mark h" style="top: 10.5in; left: 0.37in"></i><i class="mark h" style="top: 10.5in; left: 7.83in"></i>
+  </div>
+</main>
+</div>
+
+<script>
+  // Zoom the Letter sheet to the window width on screen; print stays 1:1.
+  (function () {
+    var SHEET_PX = 8.5 * 96;
+    function fit() {
+      var z = Math.min(1, (document.documentElement.clientWidth - 32) / SHEET_PX);
+      document.documentElement.style.setProperty("--z", z.toFixed(4));
+    }
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener("beforeprint", function () { document.documentElement.style.setProperty("--z", "1"); });
+    window.addEventListener("afterprint", fit);
+
+    // Cut guides on or off; remembered in this browser only.
+    var sheet = document.getElementById("sheet");
+    var box = document.getElementById("guides-toggle");
+    var KEY = "makerlab-cards-guides";
+    try { if (localStorage.getItem(KEY) === "off") box.checked = false; } catch (e) {}
+    function apply() { sheet.classList.toggle("no-guides", !box.checked); }
+    box.addEventListener("change", function () {
+      apply();
+      try { localStorage.setItem(KEY, box.checked ? "on" : "off"); } catch (e) {}
+    });
+    apply();
+  })();
+</script>
+</body>
+</html>
