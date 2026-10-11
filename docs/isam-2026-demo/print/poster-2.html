@@ -90,7 +90,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 .ct-logo { height: 0.62in; width: auto; display: block; }
 
 /* ---------- title ---------- */
-.title { margin-top: 0.3in; display: grid; gap: 0.18in; }
+.title { margin-top: 0.24in; display: grid; gap: 0.18in; }
 .lockup { font-size: 0; line-height: 1; display: flex; align-items: flex-end; gap: 0.13in; }
 .lockup .wordmark { display: block; height: 0.62in; width: auto; }
 .lockup .ai {
@@ -104,7 +104,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 
 /* ---------- the ink plate: QR + steps ---------- */
 .plate {
-  margin-top: 0.36in;
+  margin-top: 0.28in;
   background: var(--ink);
   color: var(--on-ink);
   padding: 0.38in 0.45in;
@@ -137,13 +137,14 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 .steps { display: grid; gap: 0.36in; }
 .steps .label { color: var(--orange); }
 .steps ol { display: grid; gap: 0.34in; }
-.steps li { display: grid; grid-template-columns: 0.62in 1fr; align-items: start; }
+.scan .get { font: 400 12pt/1.3 var(--font-body); color: var(--on-ink-muted); text-align: center; }
+.steps li { display: block; }
 .steps .n { font: 700 46pt/0.82 var(--font-display); color: var(--orange); font-variant-numeric: tabular-nums; }
-.steps h3 { font-size: 23pt; font-weight: 700; line-height: 1.05; letter-spacing: -0.01em; }
+.steps h3 { font-size: 30pt; text-transform: uppercase; letter-spacing: 0.02em; color: var(--orange); font-weight: 700; line-height: 1.05; letter-spacing: 0.02em; }
 .steps p { margin-top: 0.07in; font: 400 13pt/1.35 var(--font-body); color: var(--on-ink-muted); }
 
 /* ---------- questions to try ---------- */
-.try { margin-top: 0.36in; display: grid; gap: 0.2in; }
+.try { margin-top: 0.26in; display: grid; gap: 0.16in; }
 .section-head {
   display: flex;
   align-items: baseline;
@@ -154,7 +155,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 }
 .section-head h2 { font-size: 24pt; font-weight: 700; letter-spacing: -0.01em; line-height: 1; }
 .section-head .label { color: var(--ink-muted); }
-.questions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.2in; }
+.questions { grid-auto-flow: column; grid-template-rows: repeat(2, auto); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.2in; }
 .q {
   background: var(--card);
   padding: 0.18in 0.2in 0.16in;
@@ -172,9 +173,10 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
   color: var(--ink-muted);
 }
 
-/* ---------- bottom: for lab managers, and what the pass is ---------- */
+/* ---------- bottom: for lab managers, and bringing it to your lab ---------- */
 .bottom {
   margin-top: auto;
+  padding-top: 0.16in;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
   gap: 0.5in;
@@ -184,6 +186,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
 .bottom h2 { font-size: 19pt; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; }
 .labs p { margin-top: 0.09in; font: 400 12.5pt/1.4 var(--font-body); color: var(--ink-muted); }
 .labs .mail { margin-top: 0.1in; font: 500 12pt/1.2 var(--font-mono); color: var(--ink); }
+.pass p { margin-top: 0.09in; font: 400 12.5pt/1.4 var(--font-body); color: var(--ink-muted); }
 .pass dl { margin-top: 0.08in; display: grid; grid-template-columns: 1.15in 1fr; }
 .pass dl > div { display: contents; }
 .pass dt, .pass dd { padding: 0.06in 0; border-top: 1pt solid var(--rule); }
@@ -244,20 +247,21 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
   <header class="title">
     <p class="lockup"><img class="wordmark" src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
     <h1>Try it yourself.</h1>
-    <p class="sub">Get a free demo pass and ask about any machine in the Cornell&nbsp;Tech MakerLAB. <b>Every answer cites the manual page.</b></p>
+    <p class="sub">Try it now: ask about any machine in the Cornell&nbsp;Tech MakerLAB. <b>Every answer cites the manual page.</b></p>
   </header>
 
   <section class="plate" aria-label="How to try it">
     <div class="scan">
       <div class="qr-frame"><img src="img/qr-demo.svg" alt="QR code for www.makerlabai.app/demo"></div>
       <p class="url">www.makerlabai.app/demo</p>
+      <p class="get">Interested in MakerLAB AI for your makerspace? Scan to sign up.</p>
     </div>
     <div class="steps">
-      <p class="label">Three steps</p>
+      <p class="label">AI to help operate, fix and build</p>
       <ol>
-        <li><span class="n">1</span><div><h3>Scan the code</h3><p>Point your phone’s camera at it.</p></div></li>
-        <li><span class="n">2</span><div><h3>Get a free demo pass</h3><p>Name, email and school. No Cornell account needed.</p></div></li>
-        <li><span class="n">3</span><div><h3>Ask MakerLAB AI</h3><p>About any machine in our lab. The pass lasts 14 days.</p></div></li>
+        <li><div><h3>Operate</h3><p>Ask how to run any machine in our lab, step by step.</p></div></li>
+        <li><div><h3>Fix</h3><p>Something went wrong? Find out what to check.</p></div></li>
+        <li><div><h3>Build</h3><p>Plan a project with the tools the lab has.</p></div></li>
       </ol>
     </div>
   </section>
@@ -274,19 +278,19 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
         <span class="src">Cites: Prusa MK3S+ Handbook, pp. 24–25</span>
       </li>
       <li class="q">
+        <span class="label">Operate · Compare</span>
+        <p>“Which machines here can cut acrylic?”</p>
+        <span class="src">Cites: Epilog Helix 24 SOP, p. 120</span>
+      </li>
+      <li class="q">
         <span class="label">Fix</span>
         <p>“Why won’t my Form 4 print stick?”</p>
         <span class="src">Cites: Form 4 SOP, pp. 46–47</span>
       </li>
       <li class="q">
-        <span class="label">Safety</span>
+        <span class="label">Fix · Safety</span>
         <p>“What do I do if I see a flame in the Trotec laser?”</p>
         <span class="src">Cites: Trotec Speedy 400 SOP, p. 25</span>
-      </li>
-      <li class="q">
-        <span class="label">Compare</span>
-        <p>“Which machines here can cut acrylic?”</p>
-        <span class="src">Cites: Epilog Helix 24 SOP, p. 120</span>
       </li>
       <li class="q">
         <span class="label">Build</span>
@@ -294,7 +298,7 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
         <span class="src">Plans across the lab’s machines</span>
       </li>
       <li class="q">
-        <span class="label">Any language</span>
+        <span class="label">Build · Any language</span>
         <p lang="es">“¿Cómo cargo el filamento en la Prusa?”</p>
         <span class="src">Answers in your language</span>
       </li>
@@ -308,14 +312,11 @@ h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; }
       <p class="mail">ies22@cornell.edu</p>
     </div>
     <div class="pass">
-      <h2>About the demo pass</h2>
-      <dl>
-        <div><dt>Lasts</dt><dd>14 days, on the device you sign up with</dd></div>
-        <div><dt>AI use</dt><dd>About $0.50</dd></div>
-        <div><dt>Your details</dt><dd>Only the lab’s directors see sign-ups. Nothing you enter is shared with the AI.</dd></div>
-      </dl>
+      <h2>Bring MakerLAB AI to your makerspace</h2>
+      <p>Scan the code above and sign up. We’ll be in touch.</p>
+      <p>MakerLAB AI is open source (AGPL-3.0), so you can read the code and run your own.</p>
     </div>
-  </section>
+    </section>
 
   <p class="oss"><span class="badge">Open source</span> <span>AGPL-3.0</span> <span class="sep">·</span> <span>github.com/philosophercode/makerlab-tools</span></p>
 
