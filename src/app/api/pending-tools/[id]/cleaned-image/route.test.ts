@@ -14,6 +14,11 @@ vi.mock("@/lib/auth/permissions", async (importOriginal) => {
       override.permissions
         ? override.permissions.has(permission)
         : actual.can(subject, permission as Parameters<typeof actual.can>[1]),
+    // The route gates on `canView` (a read; demo admin spec 2026-10-11).
+    canView: (subject: Parameters<typeof actual.canView>[0], permission: string) =>
+      override.permissions
+        ? override.permissions.has(permission)
+        : actual.canView(subject, permission as Parameters<typeof actual.canView>[1]),
   };
 });
 

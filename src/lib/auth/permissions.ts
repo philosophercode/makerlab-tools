@@ -141,6 +141,32 @@ export const roles = {
   }),
 } as const;
 
+/**
+ * What the demo identity may **do** (demo admin spec 2026-10-11 §4). Not in
+ * {@link roles}: that object is handed to Better Auth's admin plugin, and a
+ * role the plugin knows is a role it could be asked to assign. This one is
+ * never a row.
+ *
+ * One write and two reads, nothing else:
+ *
+ * - `tools.add` — add equipment: name it in the chat, research it, and
+ *   publish *the demo's own* item (`lib/demo-admin/approve.ts` checks the
+ *   item's owner; `tools.approve` and `tools.publish` stay withheld, so no
+ *   other approval, publish, archive or restore is reachable).
+ * - Filing a maintenance report needs no permission at all — it is open to
+ *   every visitor — so nothing is granted for it.
+ * - `catalog.view_drafts` and `catalog.view_serials` — reads that gate no
+ *   write, so the demo sees what a director sees on tool pages and in chat.
+ *
+ * **Fail closed.** Every other write checks `can()`, and `can()` asks this
+ * declaration, so a write path nobody thought about refuses the demo. Seeing
+ * the admin pages is a separate question, {@link canView}.
+ */
+const demoAdmin = ac.newRole({
+  tools: ["add"],
+  catalog: ["view_drafts", "view_serials"],
+});
+
 type Statement = typeof statement;
 
 /**
@@ -180,12 +206,32 @@ export function can(
   permission: Permission
 ): boolean {
   const role = subject?.role;
-  if (!isGrantedRole(role)) return false;
-
   const request = parsePermission(permission);
   if (!request) return false;
 
+  if (role === "demo_admin") return demoAdmin.authorize(request as never).success;
+  if (!isGrantedRole(role)) return false;
+
   return roles[role].authorize(request as never).success;
+}
+
+/**
+ * May `subject` **see** what `permission` guards — open the page, read the
+ * list? (demo admin spec 2026-10-11 §4.)
+ *
+ * For every real role this is exactly {@link can}: seeing and doing were one
+ * grant before the demo, and they still are. The demo identity sees what a
+ * director sees, so for it this asks `super_admin`'s grants.
+ *
+ * **Pages and reads only.** A server action, route handler or capability that
+ * writes calls `can()`, never this — that is what keeps the demo read-only.
+ */
+export function canView(
+  subject: { role: Role | null | undefined } | null | undefined,
+  permission: Permission
+): boolean {
+  if (subject?.role === "demo_admin") return can({ role: "super_admin" }, permission);
+  return can(subject, permission);
 }
 
 /**
@@ -209,9 +255,12 @@ export const ADMIN_SURFACE_PERMISSIONS: Permission[] = [
   "taxonomy.manage",
 ];
 
-/** True when `subject` holds any {@link ADMIN_SURFACE_PERMISSIONS}. */
+/**
+ * True when `subject` may see any {@link ADMIN_SURFACE_PERMISSIONS} — asked
+ * with {@link canView}, so the demo identity reaches `/admin` to look.
+ */
 export function canReachAdmin(subject: { role: Role | null | undefined } | null | undefined): boolean {
-  return ADMIN_SURFACE_PERMISSIONS.some((permission) => can(subject, permission));
+  return ADMIN_SURFACE_PERMISSIONS.some((permission) => canView(subject, permission));
 }
 
 /** `"tools.approve"` → `{ tools: ["approve"] }`, or null if it names nothing real. */

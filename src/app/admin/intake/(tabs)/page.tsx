@@ -3,7 +3,7 @@ import { AdminNotice } from "../../../../components/admin/AdminNotice";
 import { IntakeList } from "../../../../components/admin/IntakeList";
 import { EmptyState } from "../../../../components/system/EmptyState";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { canView } from "../../../../lib/auth/permissions";
 import { listIntakeQueueSummaries } from "../../../../lib/data/pending-tools";
 import { INTAKE_REVIEW_PERMISSION } from "../../../../lib/intake/access";
 import { researchAllowanceLeft } from "../../../../lib/intake/allowance";
@@ -43,7 +43,7 @@ export default async function AdminIntakePage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, INTAKE_REVIEW_PERMISSION)) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, INTAKE_REVIEW_PERMISSION)) return <AdminNotice kind="forbidden" />;
 
   let items: PendingToolView[] | null;
   try {

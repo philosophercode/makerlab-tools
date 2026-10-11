@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { DownloadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { DemoSignupsTable, type DemoSignupRow } from "../../../../components/admin/DemoSignupsTable";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
 import { can } from "../../../../lib/auth/permissions";
+import { isDemoAdmin } from "../../../../lib/demo-admin/config";
 import { listDemoSignups } from "../../../../lib/data/demo-signups";
 import { demoPassBudgetUsd } from "../../../../lib/demo-pass/config";
 
@@ -26,6 +28,9 @@ export const metadata = {
 export default async function DemoSignupsPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
+  // The demo identity never learns this page exists (demo admin spec
+  // 2026-10-11 §6): these are real visitors' contact details.
+  if (isDemoAdmin(identity)) notFound();
   if (!can(identity, "users.manage")) return <AdminNotice kind="forbidden" />;
 
   const signups = await listDemoSignups();

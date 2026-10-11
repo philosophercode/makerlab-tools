@@ -6,7 +6,7 @@ import { ADMIN_INTAKE_PATH } from "../../../../lib/intake/types";
 import { IMPORT_PERMISSION } from "../../../../lib/import/access";
 import { INTAKE_REVIEW_PERMISSION } from "../../../../lib/intake/access";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { canView } from "../../../../lib/auth/permissions";
 import { loadAdminOverview } from "../../../../lib/data/admin-overview";
 
 /**
@@ -34,8 +34,8 @@ import { loadAdminOverview } from "../../../../lib/data/admin-overview";
 export default async function AddEquipmentLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
-  const canReview = can(identity, INTAKE_REVIEW_PERMISSION);
-  const canImport = can(identity, IMPORT_PERMISSION);
+  const canReview = canView(identity, INTAKE_REVIEW_PERMISSION);
+  const canImport = canView(identity, IMPORT_PERMISSION);
 
   // Neither tab is open to this person: the page underneath says so.
   if (!canReview && !canImport) return <>{children}</>;

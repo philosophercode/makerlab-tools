@@ -14,6 +14,8 @@
     "addAria": "Agregar nuevo equipo al inventario",
     "addSeed": "Quiero agregar nuevo equipo al inventario.",
     "signIn": "INICIAR SESIÓN",
+    "demoAdmin": "ADMIN DEMO",
+    "demoAdminHint": "Modo demo: recorre las páginas de administración, añade equipos e informa de un problema. Inicia sesión para actuar con tu cuenta.",
     "signInAria": "Inicia sesión con tu cuenta de {institution}",
     "signOut": "CERRAR SESIÓN",
     "signedInAria": "Sesión iniciada como {name}",

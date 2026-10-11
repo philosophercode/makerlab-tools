@@ -12,7 +12,7 @@ import {
   type SearchParams,
 } from "../../../components/admin/inventory-filters";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { can, canView } from "../../../lib/auth/permissions";
 import { listInventoryRows, listUnlinkedUnits } from "../../../lib/data/inventory";
 import type { ToolEditorActions } from "../../../components/admin/tool-editor-actions";
 import {
@@ -90,7 +90,7 @@ export default async function AdminInventoryPage({
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
 
   const [params, rows, unlinked] = await Promise.all([
     searchParams,

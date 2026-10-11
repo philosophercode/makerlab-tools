@@ -13,7 +13,7 @@ import { QuestionKinds } from "../../../components/admin/insights/QuestionKinds"
 import { UnansweredQueue } from "../../../components/admin/insights/UnansweredQueue";
 import { EmptyState } from "../../../components/system/EmptyState";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { isoDay } from "../../../lib/iso-day";
 import { insightsTimeZone, loadInsights, type InsightsData } from "../../../lib/usage/queries";
 import { dismissUnanswered, fileUnansweredAsCorrection } from "./actions";
@@ -38,7 +38,7 @@ export const metadata = {
 export default async function AdminInsightsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const t = await getTranslations("admin.insights");
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, "insights.view")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "insights.view")) return <AdminNotice kind="forbidden" />;
 
   const params = parseInsightsParams(await searchParams);
   const timeZone = insightsTimeZone();

@@ -1,6 +1,7 @@
 import { authSecret, resolveIdentity } from "../../../lib/auth/identity";
 import { findOrCreateDemoSignup } from "../../../lib/data/demo-signups";
 import { DEMO_PASS_DAYS, demoPassBudgetUsd, demoPassContactEmail, demoPassEnabled } from "../../../lib/demo-pass/config";
+import { hasNoSession } from "../../../lib/demo-admin/config";
 import { demoPassSetCookie, isHttpsRequest } from "../../../lib/demo-pass/cookie";
 import { resolveDemoPass } from "../../../lib/demo-pass/resolve";
 import { parseDemoSignup } from "../../../lib/demo-pass/signup";
@@ -97,7 +98,7 @@ export async function GET(req: Request): Promise<Response> {
   const limit = await checkRateLimit("demoPassStatus", identity);
   if (!limit.allowed) return rateLimited(limit);
 
-  if (identity.role !== "anonymous") return Response.json({ active: false }, { headers: NO_STORE });
+  if (!hasNoSession(identity)) return Response.json({ active: false }, { headers: NO_STORE });
   const pass = await resolveDemoPass(req.headers);
   if (!pass) return Response.json({ active: false }, { headers: NO_STORE });
   return Response.json({ active: true, pass: toDemoPassView(pass, demoPassContactEmail()) }, { headers: NO_STORE });

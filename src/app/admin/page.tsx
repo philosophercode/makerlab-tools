@@ -9,7 +9,7 @@ import { healthRows, needToKnow, needToKnowCount, waitingRows, waitingTotal } fr
 import { OnShiftPanel } from "../../components/on-shift/OnShiftPanel";
 import { EmptyState } from "../../components/system/EmptyState";
 import { countLoadersFor, surfacesFor } from "../../lib/admin/surfaces";
-import { can } from "../../lib/auth/permissions";
+import { can, canView } from "../../lib/auth/permissions";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { isLegacyMcpTokenSet } from "../../lib/auth/mcp-caller";
 import { adminBackupNotice } from "../../lib/cron/backup-freshness";
@@ -54,8 +54,8 @@ export default async function AdminOverviewPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
   const open = surfacesFor(identity);
-  const maintains = can(identity, "maintenance.manage");
-  const edits = can(identity, "tools.edit");
+  const maintains = canView(identity, "maintenance.manage");
+  const edits = canView(identity, "tools.edit");
   const today = labToday();
 
   // Together, not one after the other: the backup notice is a Blob list on a
@@ -63,7 +63,7 @@ export default async function AdminOverviewPage() {
   const [overview, backupNotice, tickets, dueItems, unitsDown] = await Promise.all([
     loadAdminOverview(countLoadersFor(identity), { userId: identity.userId }),
     adminBackupNotice({
-      canManageUsers: can(identity, "users.manage"),
+      canManageUsers: canView(identity, "users.manage"),
       substrate: dataSubstrate(),
     }),
     maintains ? settle("tickets", () => listMaintenanceQueue()) : Promise.resolve(null),

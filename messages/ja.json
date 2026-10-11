@@ -14,6 +14,8 @@
     "addAria": "在庫に新しい機材を追加",
     "addSeed": "在庫に新しい機材を追加したいです。",
     "signIn": "サインイン",
+    "demoAdmin": "デモ管理者",
+    "demoAdminHint": "デモモード：管理ページの閲覧、機器の追加、不具合の報告ができます。ご自身として操作するにはサインインしてください。",
     "signInAria": "{institution} のアカウントでサインイン",
     "signOut": "サインアウト",
     "signedInAria": "{name} としてサインイン中",

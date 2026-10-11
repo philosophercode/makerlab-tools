@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { performAction } from "../../../lib/actions/perform";
 import { REFRESH_QUEUE } from "../../../lib/actions/refresh";
-import { authorizeAdminAction } from "../../../lib/admin/action-gate";
+import { authorizeAdminAction, authorizeAdminView } from "../../../lib/admin/action-gate";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { closeEmptyRefresh, getRefresh, lastRefreshedByTool } from "../../../lib/data/tool-refreshes";
@@ -47,7 +47,7 @@ const SURFACE = "admin/refresh";
  * nobody had open. Null when the caller may not, or a read failed.
  */
 export async function loadRefreshPickerTools(): Promise<PickerTool[] | null> {
-  const gate = await authorizeAdminAction("tools.edit");
+  const gate = await authorizeAdminView("tools.edit");
   if (!gate.ok) return null;
   try {
     const [inventory, refreshed] = await Promise.all([listInventoryRows(), lastRefreshedByTool()]);

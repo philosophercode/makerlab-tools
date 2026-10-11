@@ -1,7 +1,7 @@
 import { AdminNotice } from "../../../../../components/admin/AdminNotice";
 import { ImportsList } from "../../../../../components/admin/ImportsList";
 import { resolveIdentityFromHeaders } from "../../../../../lib/auth/identity";
-import { can } from "../../../../../lib/auth/permissions";
+import { canView } from "../../../../../lib/auth/permissions";
 import { listBulkImports } from "../../../../../lib/data/bulk-imports";
 import { IMPORT_PERMISSION } from "../../../../../lib/import/access";
 import { toImportView, type ImportView } from "../../../../../lib/import/view";
@@ -23,7 +23,7 @@ export const metadata = {
 
 export default async function AdminImportsPage() {
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, IMPORT_PERMISSION)) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, IMPORT_PERMISSION)) return <AdminNotice kind="forbidden" />;
 
   let imports: ImportView[] | null;
   try {

@@ -3,7 +3,7 @@ import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { TaxonomyBoard } from "../../../components/admin/TaxonomyBoard";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { listAdminCategories, listCategoryProposals, listToolsForTaxonomy } from "../../../lib/data/category-admin";
 import { decideCategoryProposal, editCategory, mergeCategories, proposeCategory, recategorizeTool, setCategoryRetired } from "./actions";
 
@@ -25,7 +25,7 @@ export default async function AdminTaxonomyPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, "taxonomy.manage")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "taxonomy.manage")) return <AdminNotice kind="forbidden" />;
 
   const [categories, proposals, tools] = await Promise.all([listAdminCategories(), listCategoryProposals(), listToolsForTaxonomy()]);
   const live = categories.filter((category) => !category.retiredAt);

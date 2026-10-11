@@ -2,6 +2,8 @@ import { z } from "zod";
 import { getCatalogTools } from "../catalog";
 import { describeDbError } from "../db/describe-error";
 import { CHAT_MAX_TICKETS_PER_TURN } from "../intake/limits";
+import { isDemoTraffic } from "../demo-admin/config";
+import { withDemoActor } from "../demo-admin/actor";
 import { fileProblemTicket } from "../maintenance/file-ticket";
 import { checkRateLimit } from "../rate-limit";
 import { buildUnitLookup, findUnit } from "./helpers";
@@ -181,6 +183,10 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
       // The tool whose page the person is on wins a label two tools share; a
       // unit id (a scanned unit label gives one) is exact either way.
       const match = unit_label ? findUnit(unitLookup, unit_label, { preferToolId: ctx.focusedToolId }) : null;
+      // The demo identity's ticket is the demo actor's (demo admin spec
+      // 2026-10-11 §5), so it claims the photos the demo uploaded. It already
+      // spent an anonymous slot above, and lands flagged `demo`.
+      const reporter = ctx.identity ? await withDemoActor(ctx.identity) : null;
 
       // The one ticket write, shared with the quick report form (quick report
       // spec §3.2): an open issue report, then the ticket-count caches.
@@ -202,7 +208,7 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         // Server-resolved only. There is no input field for this, and there is
         // deliberately no path that would let one exist.
         reportedByEmail: ctx.identity?.email || null,
-        reportedByUserId: ctx.identity?.userId || null,
+        reportedByUserId: reporter?.userId || null,
         photoAttachmentIds: photoIds,
         // Stamped by the adapter, never by a request: the staff email says
         // "via a connected app" for an MCP ticket (email notifications §5.1).
@@ -211,7 +217,7 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         // badged in the queue, out of the lab's counts and histories. From the
         // server-resolved pass, never from input; nothing from the pass's
         // sign-up is copied onto the ticket.
-        demo: Boolean(ctx.identity?.demoPass),
+        demo: isDemoTraffic(ctx.identity),
       });
 
       // Photos offered but none claimed: say so rather than let the student

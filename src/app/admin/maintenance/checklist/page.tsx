@@ -4,7 +4,7 @@ import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { DueTasks } from "../../../../components/admin/DueTasks";
 import { openIssues, type ChecklistIssue } from "../../../../components/admin/checklist-issues";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { canView } from "../../../../lib/auth/permissions";
 import { listMaintenanceQueue } from "../../../../lib/data/maintenance";
 import { countDueSchedules, listDueSchedules } from "../../../../lib/data/maintenance-schedules";
 import { labToday } from "../../../../lib/lab-time";
@@ -33,7 +33,7 @@ export default async function AdminChecklistPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, "maintenance.manage")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "maintenance.manage")) return <AdminNotice kind="forbidden" />;
 
   const today = labToday();
   const [items, counts, issues] = await Promise.all([listDueSchedules(today), countDueSchedules(today), loadIssues()]);

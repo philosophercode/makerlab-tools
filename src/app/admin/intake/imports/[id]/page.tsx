@@ -6,7 +6,7 @@ import { EmptyState } from "../../../../../components/system/EmptyState";
 import { Button } from "@/components/ui/button";
 import { ImportReview } from "../../../../../components/admin/ImportReview";
 import { resolveIdentityFromHeaders } from "../../../../../lib/auth/identity";
-import { can } from "../../../../../lib/auth/permissions";
+import { canView } from "../../../../../lib/auth/permissions";
 import { getBulkImport, type BulkImportRecord } from "../../../../../lib/data/bulk-imports";
 import { listPendingTools, type PendingTool } from "../../../../../lib/data/pending-tools";
 import { listCategories, listLocations } from "../../../../../lib/data/taxonomy";
@@ -56,7 +56,7 @@ const HEAD_LINES = 12;
 export default async function ImportPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("admin.import");
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, IMPORT_PERMISSION)) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, IMPORT_PERMISSION)) return <AdminNotice kind="forbidden" />;
 
   const { id } = await params;
   let found: BulkImportRecord | null;

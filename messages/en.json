@@ -20,6 +20,8 @@
     "signInFailed": "Couldn't start sign-in. Try again.",
     "devSignIn": "Sign in as (dev)",
     "devSignInShort": "Dev",
+    "demoAdmin": "DEMO ADMIN",
+    "demoAdminHint": "Demo mode: look around the admin pages, add equipment and report a problem. Sign in to act as yourself.",
     "signOut": "SIGN OUT",
     "signedInAria": "Signed in as {name}",
     "admin": "ADMIN",
@@ -1982,6 +1984,8 @@
       "search": "Search",
       "searchPlaceholder": "Name, address or title",
       "emptyFiltered": "Nobody matches these filters. Clear them to see everyone.",
+      "sample": "Sample",
+      "demoReadOnly": "Demo mode: addresses are masked, the people tagged Sample are made up, and nothing here can be changed.",
       "filterSignedIn": "Signed in",
       "signedIn": {
         "yes": "Signed in",

@@ -76,6 +76,8 @@ export interface RosterRow {
   isSelf: boolean;
   roleLockedReason: AdminActionError | null;
   removeLockedReason: AdminActionError | null;
+  /** A made-up person shown to the demo identity (`lib/demo-admin/sample-people.ts`), tagged **Sample**. */
+  sample?: boolean;
 }
 
 /** A row with its title as the Title column shows it — what the Title facet, search and sort use. */
@@ -88,6 +90,12 @@ export interface UsersRosterProps {
   removeUser: RemoveUserAction;
   setTitle: SetTitleAction;
   setName: SetNameAction;
+  /**
+   * The demo identity is looking (demo admin spec 2026-10-11): names, titles
+   * and roles as text, and no Remove — nothing on the roster is a control.
+   * Presentation; every action refuses the demo on the server anyway.
+   */
+  readOnly?: boolean;
 }
 
 type Removed = Extract<RemoveUserResult, { ok: true }>;
@@ -101,6 +109,7 @@ export function UsersRoster({
   removeUser,
   setTitle,
   setName,
+  readOnly = false,
 }: UsersRosterProps) {
   const t = useTranslations("admin");
   const [filters, setFilters] = useState<UserFilterState>(initial);
@@ -167,7 +176,7 @@ export function UsersRoster({
         sortingFn: "text",
         enableHiding: false,
         meta: { rowHeader: true, className: "min-w-[14rem] whitespace-normal" },
-        cell: ({ row }) => <Person row={row.original} setName={setName} />,
+        cell: ({ row }) => <Person row={row.original} setName={readOnly ? null : setName} />,
       },
       {
         id: "title",
@@ -175,15 +184,18 @@ export function UsersRoster({
         header: t("columnTitle"),
         sortingFn: "text",
         meta: { className: "min-w-[10rem] whitespace-normal" },
-        cell: ({ row }) => (
-          <TitleEditor
-            userId={row.original.id}
-            personName={row.original.name}
-            role={row.original.role}
-            title={row.original.title}
-            action={setTitle}
-          />
-        ),
+        cell: ({ row }) =>
+          readOnly ? (
+            <span className="text-sm">{row.original.shownTitle}</span>
+          ) : (
+            <TitleEditor
+              userId={row.original.id}
+              personName={row.original.name}
+              role={row.original.role}
+              title={row.original.title}
+              action={setTitle}
+            />
+          ),
       },
       {
         id: "role",
@@ -193,15 +205,18 @@ export function UsersRoster({
         header: t("columnRole"),
         sortingFn: "basic",
         sortDescFirst: true,
-        cell: ({ row }) => (
-          <RoleSelect
-            userId={row.original.id}
-            personName={row.original.name}
-            role={row.original.role}
-            disabledReason={row.original.roleLockedReason}
-            action={setRole}
-          />
-        ),
+        cell: ({ row }) =>
+          readOnly ? (
+            <span className="text-sm">{t(`roles.${row.original.role}`)}</span>
+          ) : (
+            <RoleSelect
+              userId={row.original.id}
+              personName={row.original.name}
+              role={row.original.role}
+              disabledReason={row.original.roleLockedReason}
+              action={setRole}
+            />
+          ),
       },
       {
         id: "joined",
@@ -218,19 +233,20 @@ export function UsersRoster({
         header: t("columnAccount"),
         enableSorting: false,
         meta: { className: "whitespace-normal" },
-        cell: ({ row }) => (
-          <RemoveUserControl
-            userId={row.original.id}
-            personName={row.original.name}
-            email={row.original.email}
-            disabledReason={row.original.removeLockedReason}
-            action={removeUser}
-            onRemoved={removed}
-          />
-        ),
+        cell: ({ row }) =>
+          readOnly ? null : (
+            <RemoveUserControl
+              userId={row.original.id}
+              personName={row.original.name}
+              email={row.original.email}
+              disabledReason={row.original.removeLockedReason}
+              action={removeUser}
+              onRemoved={removed}
+            />
+          ),
       },
     ];
-  }, [t, setRole, removeUser, setTitle, setName]);
+  }, [t, setRole, removeUser, setTitle, setName, readOnly]);
 
   const active = Boolean(userFiltersToSearchParams(filters).toString());
   const clear = () => setFilters(NO_USER_FILTERS);
@@ -304,10 +320,18 @@ export function UsersRoster({
         mobileRow={(row) => (
           <div className="flex flex-col gap-1.5 px-1 py-2">
             <div className="flex items-start justify-between gap-3">
-              <Person row={row} setName={setName} />
+              <Person row={row} setName={readOnly ? null : setName} />
               <Joined joined={row.joined} />
             </div>
-            <TitleEditor userId={row.id} personName={row.name} role={row.role} title={row.title} action={setTitle} />
+            {readOnly ? (
+              <span className="text-sm">
+                {row.shownTitle} · {t(`roles.${row.role}`)}
+              </span>
+            ) : null}
+            {readOnly ? null : (
+              <TitleEditor userId={row.id} personName={row.name} role={row.role} title={row.title} action={setTitle} />
+            )}
+            {readOnly ? null : (
             <div className="flex flex-wrap items-start gap-2">
               <RoleSelect
                 userId={row.id}
@@ -325,6 +349,7 @@ export function UsersRoster({
                 onRemoved={onRemoved}
               />
             </div>
+            )}
           </div>
         )}
       />
@@ -340,24 +365,22 @@ const getRowName = (row: ShownRow) => row.name;
  * mono, muted. Added without a name, the address *is* the name until Google
  * supplies one (or somebody types one here), so it is said once, not twice.
  */
-function Person({ row, setName }: { row: RosterRow; setName: SetNameAction }) {
+function Person({ row, setName }: { row: RosterRow; setName: SetNameAction | null }) {
   const t = useTranslations("admin");
   const nameIsAddress = row.name === row.email;
+  const display = (name: string) => (
+    <span className="flex items-center gap-2">
+      <span data-testid="person-name" className={name === row.email ? "font-mono text-xs" : "font-medium"}>
+        {name}
+      </span>
+      {row.isSelf ? <Badge variant="accent">{t("you")}</Badge> : null}
+      {row.sample ? <Badge variant="outline">{t("users.sample")}</Badge> : null}
+    </span>
+  );
   return (
     <span className="flex min-w-0 flex-col leading-tight">
-      <NameEditor
-        userId={row.id}
-        name={row.name}
-        action={setName}
-        display={(name) => (
-          <span className="flex items-center gap-2">
-            <span data-testid="person-name" className={name === row.email ? "font-mono text-xs" : "font-medium"}>
-              {name}
-            </span>
-            {row.isSelf ? <Badge variant="accent">{t("you")}</Badge> : null}
-          </span>
-        )}
-      />
+      {/* No pencil when the roster is read-only (the demo identity). */}
+      {setName ? <NameEditor userId={row.id} name={row.name} action={setName} display={display} /> : display(row.name)}
       {/* The one surface in the app that shows an address: telling two
           accounts apart is the whole job here (spec §8). Mono: an identifier. */}
       {nameIsAddress ? null : (

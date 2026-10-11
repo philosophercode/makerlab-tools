@@ -9,7 +9,7 @@ import { ToolSkillWriteButton } from "../../../../../components/admin/skills/Too
 import { EmptyState } from "../../../../../components/system/EmptyState";
 import { modelIdFor } from "../../../../../lib/ai/models";
 import { resolveIdentityFromHeaders } from "../../../../../lib/auth/identity";
-import { can } from "../../../../../lib/auth/permissions";
+import { canView } from "../../../../../lib/auth/permissions";
 import { findToolByIdOrSlug } from "../../../../../lib/data/catalog";
 import { getDb } from "../../../../../lib/db/client";
 import { isoDay } from "../../../../../lib/iso-day";
@@ -45,7 +45,7 @@ export const metadata = {
 export default async function AdminToolSkillPage({ params }: { params: Promise<{ tool: string }> }) {
   const t = await getTranslations("admin.skills");
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
 
   const { tool: key } = await params;
   const db = await getDb();

@@ -5,7 +5,7 @@ import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { LabNotesForm } from "../../../../components/admin/lab-notes/LabNotesForm";
 import { EmptyState } from "../../../../components/system/EmptyState";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { canView } from "../../../../lib/auth/permissions";
 import { getLabSetting, LAB_NOTES_SETTING, type LabSetting } from "../../../../lib/data/lab-settings";
 import { listToolsWithLabNotes, type ToolWithLabNotes } from "../../../../lib/data/tool-lab-notes";
 import { getDb } from "../../../../lib/db/client";
@@ -36,7 +36,7 @@ export const metadata = {
 export default async function AdminLabNotesPage() {
   const t = await getTranslations("admin.labNotes");
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
 
   let setting: LabSetting | null;
   let toolNotes: ToolWithLabNotes[];

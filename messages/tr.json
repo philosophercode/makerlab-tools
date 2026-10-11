@@ -14,6 +14,8 @@
     "addAria": "Envantere yeni ekipman ekle",
     "addSeed": "Envantere yeni ekipman eklemek istiyorum.",
     "signIn": "OTURUM AÇ",
+    "demoAdmin": "DEMO YÖNETİCİ",
+    "demoAdminHint": "Demo modu: yönetim sayfalarına göz atın, ekipman ekleyin ve sorun bildirin. Kendi adınıza işlem yapmak için oturum açın.",
     "signInAria": "{institution} hesabınızla oturum açın",
     "signOut": "OTURUMU KAPAT",
     "signedInAria": "{name} olarak oturum açıldı",

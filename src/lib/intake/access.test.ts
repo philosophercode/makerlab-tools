@@ -102,7 +102,8 @@ describe("the intake modules are client-safe", () => {
       (match) => match[1]
     );
     expect(
-      valueImports.filter((specifier) => specifier !== "../auth/permissions" && specifier !== "./limits")
+      // `demo-admin/config` is pure too: an env read and two constants.
+      valueImports.filter((specifier) => specifier !== "../auth/permissions" && specifier !== "./limits" && specifier !== "../demo-admin/config")
     ).toEqual([]);
     expect(source).not.toMatch(/server-only/);
   });

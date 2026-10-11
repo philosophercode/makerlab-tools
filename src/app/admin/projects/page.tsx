@@ -3,7 +3,7 @@ import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { ProjectQueue } from "../../../components/admin/ProjectQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { listProjectsForModeration } from "../../../lib/data/projects";
 import { setPublished } from "./actions";
 
@@ -32,7 +32,7 @@ export default async function AdminProjectsPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, "projects.moderate")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "projects.moderate")) return <AdminNotice kind="forbidden" />;
 
   const projects = await listProjectsForModeration();
 

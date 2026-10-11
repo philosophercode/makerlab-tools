@@ -19,7 +19,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { ADMIN_SURFACE_PERMISSIONS, can, type Permission } from "../auth/permissions";
+import { ADMIN_SURFACE_PERMISSIONS, canView, type Permission } from "../auth/permissions";
 import type { Role } from "../auth/roles";
 import { INTAKE_REVIEW_PERMISSION } from "../intake/access";
 
@@ -38,7 +38,7 @@ import { INTAKE_REVIEW_PERMISSION } from "../intake/access";
  * never a refusal or a hub.
  *
  * **Each entry carries its own permission**, the same one its page checks with
- * `can()`, and every list shown to a person is {@link surfacesFor} that
+ * `canView()` (which is `can()` for every real role), and every list shown to a person is {@link surfacesFor} that
  * person: nobody is offered a surface that would refuse them. Showing is
  * presentation; the page's own check is the control.
  *
@@ -122,6 +122,12 @@ export interface AdminSurface {
    * (amendment 2026-09-25 "Admin polish").
    */
   alsoCounts?: readonly { loader: CountLoader; permission: Permission }[];
+  /**
+   * The page is the viewer's own — their Notion connection, their MCP
+   * proposals — so it needs a signed-in person, and the demo identity (demo
+   * admin spec 2026-10-11), who is nobody, is not offered it.
+   */
+  personal?: boolean;
 }
 
 export const ADMIN_SURFACES: readonly AdminSurface[] = [
@@ -170,12 +176,12 @@ export const ADMIN_SURFACES: readonly AdminSurface[] = [
   // ── Settings ──
   // The settings page itself: the lab screen, the catalogue cache, tokens.
   { key: "settings", href: "/admin/settings", section: "settings", permission: ADMIN_SURFACE_PERMISSIONS, icon: Settings },
-  { key: "mirror", href: "/admin/mirror", section: "settings", permission: "mirror.manage", icon: Share2, count: "mirror" },
+  { key: "mirror", href: "/admin/mirror", section: "settings", permission: "mirror.manage", icon: Share2, count: "mirror", personal: true },
   // MCP (was "Assistant proposals"; assistant–GUI parity spec §3.8, §6): the
   // viewer's own proposals from MCP clients, and how to connect one. Anybody
   // who reaches /admin may have made one, so it is open to every admin-surface
   // permission.
-  { key: "proposals", href: "/admin/proposals", section: "settings", permission: ADMIN_SURFACE_PERMISSIONS, icon: Plug, count: "proposals" },
+  { key: "proposals", href: "/admin/proposals", section: "settings", permission: ADMIN_SURFACE_PERMISSIONS, icon: Plug, count: "proposals", personal: true },
   // AI agents: the research and intake agents, and the research budget
   // (moved from People; the budget itself is still `users.manage`).
   { key: "agents", href: "/admin/settings/ai-agents", section: "settings", permission: "tools.edit", icon: Bot },
@@ -190,9 +196,13 @@ export function surfacesFor(subject: { role: Role | null | undefined } | null | 
 }
 
 /** Whether `subject` holds `surface`'s permission (any one of a list). */
-export function mayOpen(subject: { role: Role | null | undefined } | null | undefined, surface: Pick<AdminSurface, "permission">): boolean {
+export function mayOpen(
+  subject: { role: Role | null | undefined } | null | undefined,
+  surface: Pick<AdminSurface, "permission" | "personal">
+): boolean {
+  if (surface.personal && subject?.role === "demo_admin") return false;
   const permissions: readonly Permission[] = typeof surface.permission === "string" ? [surface.permission] : surface.permission;
-  return permissions.some((permission) => can(subject, permission));
+  return permissions.some((permission) => canView(subject, permission));
 }
 
 /** A surface by key. */
@@ -245,7 +255,7 @@ export function currentSection(pathname: string, items: readonly Pick<AdminNavIt
 export function countLoadersFor(subject: { role: Role | null | undefined } | null | undefined): CountLoader[] {
   return surfacesFor(subject).flatMap((entry) => [
     ...(entry.count ? [entry.count] : []),
-    ...(entry.alsoCounts ?? []).filter((extra) => can(subject, extra.permission)).map((extra) => extra.loader),
+    ...(entry.alsoCounts ?? []).filter((extra) => canView(subject, extra.permission)).map((extra) => extra.loader),
   ]);
 }
 

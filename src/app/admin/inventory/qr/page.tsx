@@ -3,7 +3,7 @@ import { AdminNotice } from "../../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { QrLabelStudio, type QrLabelRow } from "../../../../components/admin/qr/QrLabelStudio";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { canView } from "../../../../lib/auth/permissions";
 import { listInventoryRows } from "../../../../lib/data/inventory";
 import { listToolUnitOptions } from "../../../../lib/data/tool-options";
 import { qrSiteUrl } from "../../../../lib/qr/site-url";
@@ -37,7 +37,7 @@ export const metadata = {
 export default async function AdminQrLabelsPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
 
   const [inventory, unitOptions] = await Promise.all([listInventoryRows(), listToolUnitOptions()]);
   const unitsByTool = new Map(unitOptions.map((tool) => [tool.id, tool.units.map((unit) => ({ id: unit.id, name: unit.label }))]));

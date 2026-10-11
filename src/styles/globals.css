@@ -395,6 +395,18 @@ body::selection {
   white-space: nowrap;
 }
 
+/* "Demo admin" beside Sign in while DEMO_ADMIN=1 (demo admin spec
+   2026-10-11): a label, not a control. */
+.primary-nav .primary-nav-demo-badge {
+  flex: none;
+  padding: 2px 6px;
+  border: 1px solid var(--outline-strong);
+  color: var(--on-surface-muted);
+  font-size: 0.75em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
 /* Why the last "Sign in" click went nowhere. Anchored under the nav's right
    edge and taken out of the flow, so it never pushes the links or the rows
    beneath the header when it appears. */

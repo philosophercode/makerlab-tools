@@ -5,6 +5,7 @@ import { Prose, PublicPage } from "../../../components/system/PublicPage";
 import { Button } from "@/components/ui/button";
 import { AUTH_BASE_PATH } from "../../../lib/auth/config";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
+import { hasNoSession } from "../../../lib/demo-admin/config";
 import { oauthClientName } from "../../../lib/data/api-tokens";
 import { siteConfig } from "../../../lib/site-config";
 
@@ -50,7 +51,7 @@ async function SignIn({ searchParams }: { searchParams: SearchParams }) {
   const identity = await resolveIdentityFromHeaders();
 
   const crumbs = [{ label: t("eyebrow") }];
-  if (identity.role !== "anonymous") {
+  if (!hasNoSession(identity)) {
     return (
       <PublicPage width="narrow" crumbs={crumbs} title={t("signInTitle", { client })} lede={t("alreadySignedIn")}>
         <div className="pt-4">

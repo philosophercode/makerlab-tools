@@ -1,5 +1,6 @@
 import { can, type Permission } from "../auth/permissions";
 import type { Role } from "../auth/roles";
+import { isDemoAdmin, isDemoOwned } from "../demo-admin/config";
 import type { DuplicateResolution, PendingStatus } from "../db/schema/vocabulary";
 import { RESEARCH_START_STALE_MS } from "./limits";
 
@@ -30,6 +31,9 @@ type Subject = { role: Role | null | undefined; userId?: string | null } | null 
  */
 export function canActOnPendingTool(subject: Subject, item: { createdBy: string | null }): boolean {
   if (!can(subject, "tools.add")) return false;
+  // The demo identity carries no user id; the items it may work are the demo
+  // actor's, and only those (demo admin spec 2026-10-11 §5).
+  if (isDemoAdmin(subject)) return isDemoOwned(item);
   const userId = subject?.userId;
   if (typeof userId === "string" && userId !== "" && item.createdBy === userId) return true;
   return can(subject, "tools.approve");

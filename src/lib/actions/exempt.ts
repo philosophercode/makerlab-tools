@@ -81,6 +81,13 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/i18n/locale.ts#setLocaleCookie": "Never: a client preference (§4.1 #4)",
   "src/app/mcp/actions.ts#runMcpTryIt": "Not a write: anonymous public MCP reads only (§4.1 #9)",
 
+  // Demo admin mode (demo admin spec 2026-10-11 §5): every real caller still
+  // goes through performAction(PENDING_APPROVE); only the demo identity is
+  // routed to approveAsDemo, which runs the same definition's run() for the
+  // demo's own item alone and is never offered to the assistant or MCP.
+  "src/app/admin/intake/actions.ts#approvePending":
+    "Already shared: performAction(PENDING_APPROVE) for every real caller; the demo identity's own-item approval (lib/demo-admin/approve.ts) runs the same definition behind an owner check",
+
   // ── Reads that happen to be server actions ───────────────────────────
   "src/app/admin/inventory/actions.ts#loadToolForEditor": "Not a write: the editor panel's read",
   "src/app/admin/refresh/actions.ts#loadRefreshPickerTools": "Not a write: the Refresh research picker's tool list, read when it opens",

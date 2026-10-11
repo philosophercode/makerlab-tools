@@ -1,6 +1,6 @@
 "use server";
 
-import { authorizeAdminAction } from "../../../lib/admin/action-gate";
+import { authorizeAdminView } from "../../../lib/admin/action-gate";
 import { listCategories, listLocations } from "../../../lib/data/taxonomy";
 import { loadToolEditor } from "../../../lib/data/tool-editor";
 import { otherToolNames } from "../../../lib/data/tool-name-clash";
@@ -61,7 +61,7 @@ import { withFreshEditor } from "./fresh-editor";
  * conflict; one read from a cached HTML page would make the check meaningless.
  */
 export async function loadToolForEditor(idOrSlug: string): Promise<LoadToolEditorResult> {
-  const gate = await authorizeAdminAction("tools.edit");
+  const gate = await authorizeAdminView("tools.edit");
   if (!gate.ok) return gate;
 
   const editor = await loadToolEditor(idOrSlug);

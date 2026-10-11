@@ -4,6 +4,7 @@ import { OAuthConsent } from "../../../components/account/OAuthConsent";
 import { EmptyState } from "../../../components/system/EmptyState";
 import { Prose, PublicPage } from "../../../components/system/PublicPage";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
+import { hasNoSession } from "../../../lib/demo-admin/config";
 import { pendingConsentFor } from "../../../lib/account/oauth-consent";
 import { oauthClientName } from "../../../lib/data/api-tokens";
 import { decideConsentAction } from "./actions";
@@ -46,7 +47,8 @@ async function Consent({ searchParams }: { searchParams: SearchParams }) {
     </PublicPage>
   );
 
-  if (identity.role === "anonymous") return refusal(t("consentSignedOut"));
+  // The demo identity (demo admin spec 2026-10-11) is nobody signed in too.
+  if (hasNoSession(identity)) return refusal(t("consentSignedOut"));
   // The client and where the code goes come from the pending authorization
   // the consent code names, never from the query string (security fix
   // 2026-10-05).

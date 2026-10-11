@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { resolveIdentity } from "../../../../../lib/auth/identity";
-import { can } from "../../../../../lib/auth/permissions";
+import { canView } from "../../../../../lib/auth/permissions";
 import { getBlobStore, isBlobConfigured } from "../../../../../lib/blob";
 import { findAttachmentsByIds } from "../../../../../lib/data/attachments";
 import { getPendingTool } from "../../../../../lib/data/pending-tools";
@@ -59,7 +59,8 @@ export async function GET(
   if (identity.role === "anonymous") {
     return refusal("sign_in_required", "Sign in to review pending equipment.", 401);
   }
-  if (!can(identity, INTAKE_REVIEW_PERMISSION)) {
+  // A read: the demo identity (demo admin spec 2026-10-11) may look, as the review page lets it.
+  if (!canView(identity, INTAKE_REVIEW_PERMISSION)) {
     return refusal("forbidden", "Your account cannot review pending equipment.", 403);
   }
 

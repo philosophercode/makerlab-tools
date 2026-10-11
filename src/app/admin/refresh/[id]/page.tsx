@@ -6,7 +6,7 @@ import { EmptyState } from "../../../../components/system/EmptyState";
 import { Button } from "@/components/ui/button";
 import { RefreshReview, type RefreshReviewView } from "../../../../components/admin/RefreshReview";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { can, canView } from "../../../../lib/auth/permissions";
 import { findDuplicate } from "../../../../lib/data/duplicates";
 import {
   closeEmptyRefresh,
@@ -41,7 +41,7 @@ const ACTIONS: RefreshReviewActions = { decide: decideRefreshProposals, again: r
 export default async function AdminRefreshItemPage({ params }: { params: Promise<{ id: string }> }) {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
 
   const { id } = await params;
   const refresh = await getRefresh(id);

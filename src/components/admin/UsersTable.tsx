@@ -1,4 +1,6 @@
 import { isSuperAdminFloor } from "../../lib/auth/super-admins";
+import { maskEmail } from "../../lib/demo-admin/mask-email";
+import { isSamplePerson } from "../../lib/demo-admin/sample-people";
 import type { UserRecord } from "../../lib/data/users";
 import type {
   AdminActionError,
@@ -39,9 +41,15 @@ export interface UsersTableProps {
   removeUser: RemoveUserAction;
   setTitle: SetTitleAction;
   setName: SetNameAction;
+  /**
+   * The viewer is the demo identity (demo admin spec 2026-10-11 §6, §7):
+   * every address leaves here masked — the floor is read from the real one
+   * first — the sample people are marked, and the roster is read-only.
+   */
+  demo?: boolean;
 }
 
-export function UsersTable({ users, currentUserId, initial, setRole, removeUser, setTitle, setName }: UsersTableProps) {
+export function UsersTable({ users, currentUserId, initial, setRole, removeUser, setTitle, setName, demo = false }: UsersTableProps) {
   // Who would still hold `super_admin` if a given row lost it. Banned super
   // admins — a state only a hand-written UPDATE can make now — are not
   // counted: they resolve to anonymous and can undo nothing.
@@ -70,10 +78,16 @@ export function UsersTable({ users, currentUserId, initial, setRole, removeUser,
           ? "last_super_admin"
           : null;
 
+    // Masked on the server, so a real address never reaches a demo browser. A
+    // person added without a name is called by their address: that too.
+    const email = demo ? maskEmail(person.email) : person.email;
+    const name = demo && person.name === person.email ? email : person.name;
+
     return {
       id: person.id,
-      name: person.name,
-      email: person.email,
+      name,
+      email,
+      ...(demo && isSamplePerson(person.id) ? { sample: true } : {}),
       role: person.role,
       title: person.title,
       // ISO, locale-neutral: a formatted date would render differently on the
@@ -89,6 +103,7 @@ export function UsersTable({ users, currentUserId, initial, setRole, removeUser,
   return (
     <UsersRoster
       rows={rows}
+      readOnly={demo}
       initial={initial}
       setRole={setRole}
       removeUser={removeUser}

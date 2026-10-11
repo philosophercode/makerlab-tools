@@ -3,7 +3,7 @@ import { AdminNotice } from "../../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { ScheduleBoard } from "../../../../components/admin/ScheduleBoard";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
-import { can } from "../../../../lib/auth/permissions";
+import { canView } from "../../../../lib/auth/permissions";
 import { listSchedules } from "../../../../lib/data/maintenance-schedules";
 import { listToolUnitOptions } from "../../../../lib/data/tool-options";
 import { labToday } from "../../../../lib/lab-time";
@@ -29,7 +29,7 @@ export default async function AdminSchedulesPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
-  if (!can(identity, "maintenance.manage")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "maintenance.manage")) return <AdminNotice kind="forbidden" />;
 
   const today = labToday();
   const [schedules, toolOptions] = await Promise.all([listSchedules(), listToolUnitOptions()]);

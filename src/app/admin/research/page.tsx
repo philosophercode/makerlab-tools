@@ -6,7 +6,7 @@ import { ManualStateStrip } from "../../../components/admin/ManualStateStrip";
 import { StarterAnswerTable } from "../../../components/admin/StarterAnswerTable";
 import { EmptyState } from "../../../components/system/EmptyState";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { canView } from "../../../lib/auth/permissions";
 import { countManualsByState, listManualLibrary } from "../../../lib/data/manual-chunks";
 import { getDb } from "../../../lib/db/client";
 import { loadStarterChipRows, type StarterChipAdminRow } from "../../../lib/starters/admin-rows";
@@ -29,7 +29,7 @@ export const metadata = {
 export default async function AdminResearchPage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
-  if (!can(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
+  if (!canView(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
 
   let data;
   // The starter chips' cache (starter answers) is read on its own: a failure
