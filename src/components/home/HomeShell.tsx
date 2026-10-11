@@ -35,22 +35,20 @@ import { useFiltersOpen } from "./use-filters-open";
  * (`useCatalogueState`), so a view, a search or a filter is a link, and the
  * page stays one cached prerender for everybody.
  *
- * `onShift` is "On shift now: Alex M." under the search (on-shift spec
- * 2026-10-07), a dynamic hole the page passes in its own Suspense boundary;
- * nobody on shift renders nothing. `demoCallout` is the demo pass's one line
- * (demo pass spec 2026-10-07 §6), between the search and the categories: a
+ * Who is on shift is no longer here: it is the third item of the header's
+ * status strip (on-shift spec, amendment 2026-10-11). `demoCallout` is the
+ * demo pass's callout box (demo pass spec 2026-10-07 §6, amendment
+ * 2026-10-11), between the search and the categories: a
  * server component the page passes in, which renders nothing when the demo
  * pass is off.
  */
 export function HomeShell({
   tools,
   categoryOrder,
-  onShift = null,
   demoCallout = null,
 }: {
   tools: readonly GalleryTool[];
   categoryOrder: readonly string[];
-  onShift?: ReactNode;
   demoCallout?: ReactNode;
 }) {
   const t = useTranslations("gallery.home");
@@ -104,7 +102,6 @@ export function HomeShell({
             onVisibility={setVisibility}
           />
         </div>
-        {onShift}
       </section>
 
       {demoCallout}

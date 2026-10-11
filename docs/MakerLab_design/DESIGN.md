@@ -544,7 +544,7 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   moved to the footer's **Report a problem**; the tool page and the QR arrival
   notice keep theirs), then `[⌕ Search tools… ⌘K]` beside the language and
   theme controls (an icon button on a phone); status strip below (`86 TOOLS IN
-  INVENTORY · LAB OPEN 9AM–9PM`). The bar's only accent is the current page's
+  INVENTORY · LAB OPEN 9AM–9PM`, then `ON SHIFT NOW: ALEX M.` as a third item when somebody is on shift: nothing when nobody is; one row, the name ellipsised on a phone). The bar's only accent is the current page's
   underline; **Sign in** is a hairline box in ink; the local-only **Sign in as
   (dev)** is muted and dashed and shortens to `DEV` below `xl`. The profile
   menu is a frosted plate (§3) holding Add equipment (for `tools.add`),
@@ -723,10 +723,8 @@ Facts, not panels, and only the facts the tool has: crumb `// TOOLS › FORM 4`
 official name in mono, **one** status line of glyphs and words, the lab's
 **Lab notes** when it has any — an ink start rule, a mono `LAB NOTES · FROM
 THE LAB'S STAFF` label, one note a sentence and several a list — then the
-description, Safety doc / SOP, then **On shift now** when somebody is: the
-status strip's live dot and `ON SHIFT NOW: ALEX M.` in the mono label type,
-the same line the gallery shows under its facts and nothing at all when nobody
-is on shift) → **two columns on desktop**: **Safety**, the
+description, Safety doc / SOP; who is on shift is the status strip's third
+item, not a line here) → **two columns on desktop**: **Safety**, the
 one tinted section (bad start rule, compact label/value rows), then **Details**
 as a dense `<dl>` on the left; **Documents & resources** as a ruled list (the
 kind as a mono word, the manual's Contents under it) and **Physical machines**

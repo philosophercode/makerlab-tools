@@ -437,6 +437,7 @@
     "callout": {
       "label": "{assistant} para tu makerspace",
       "text": "¿Te interesa llevar {assistant} a tu makerspace?",
+      "body": "Déjanos tus datos y nos pondremos en contacto.",
       "cta": "Regístrate",
       "dismiss": "Cerrar"
     }

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { CatalogStats } from "./catalog-types";
 import { HeaderBrand } from "./HeaderBrand";
@@ -11,9 +12,11 @@ interface GlobalChromeProps {
   stats: CatalogStats;
   /** The published tools the ⌘K palette searches (public polish). */
   paletteTools?: readonly PaletteTool[];
+  /** Who is on shift: a dynamic hole the layout passes in its own Suspense; the strip's third item. */
+  onShift?: ReactNode;
 }
 
-export function GlobalChrome({ stats, paletteTools = [] }: GlobalChromeProps) {
+export function GlobalChrome({ stats, paletteTools = [], onShift = null }: GlobalChromeProps) {
   const t = useTranslations();
 
   return (
@@ -34,6 +37,7 @@ export function GlobalChrome({ stats, paletteTools = [] }: GlobalChromeProps) {
           {t("status.toolsInInventory", { count: stats.toolsInInventory })}
         </span>
         <span>{stats.labHours}</span>
+        {onShift}
       </div>
     </>
   );
