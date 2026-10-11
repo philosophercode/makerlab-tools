@@ -7,54 +7,32 @@ import { siteConfig } from "../../lib/site-config";
 
 /**
  * The way to the sign-up (demo pass spec 2026-10-07 §6, amendment
- * 2026-10-11): "Interested in bringing MakerLAB AI to your makerspace?" and
- * **Sign up**. A server component with no JavaScript, so a cached prerender
- * carries it; nothing at all with `DEMO_PASS=off`.
- *
- * Two looks, one content:
- *
- * - `inline` — the home page (student home spec 2026-10-07): one centred
- *   line between the smart search and the categories, no box. The home is
- *   white space and one search box; a band across it would be the "Start
- *   here" band the owner removed. Since the amendment of 2026-10-11 the line
- *   is the heading face at reading size in the text colour, with the filled
- *   button, so it is seen without becoming a band.
- * - `box` (default) — above the full list on `/tools`: a bordered card the
- *   width of the page, the CTA filled.
+ * 2026-10-11): a callout box on the home page, between the search and the
+ * categories. A heading ("Interested in bringing MakerLAB AI to your
+ * makerspace?"), one short line, and **Sign up**, in a square box with the
+ * accent ink border on the muted surface tint (both follow light and dark),
+ * stacked under `sm` with the button full width. It replaces the bare
+ * centred line of the first amendment, which the owner found easy to miss.
+ * A server component with no JavaScript, so a cached prerender carries it;
+ * nothing at all with `DEMO_PASS=off`.
  */
-export function DemoSignupCallout({ variant = "box" }: { variant?: "box" | "inline" }) {
+export function DemoSignupCallout() {
   const t = useTranslations("demoPass.callout");
   if (!demoPassEnabled()) return null;
   const label = t("label", { assistant: siteConfig.chatAssistantName });
-  const text = t("text", { assistant: siteConfig.chatAssistantName });
-
-  if (variant === "inline") {
-    return (
-      <aside
-        aria-label={label}
-        data-slot="demo-callout"
-        data-variant="inline"
-        className="ui mx-auto -mt-4 mb-12 flex w-full max-w-3xl flex-col items-center gap-3 px-4 text-center sm:-mt-8 sm:mb-16 sm:flex-row sm:justify-center sm:gap-4 sm:text-start"
-      >
-        <p className="m-0 flex items-start gap-2 font-heading text-base leading-snug font-medium text-foreground sm:text-lg">
-          <MailIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-ink sm:mt-1" />
-          <span>{text}</span>
-        </p>
-        <Button asChild variant="default" className="shrink-0">
-          <Link href="/demo">{t("cta")}</Link>
-        </Button>
-      </aside>
-    );
-  }
+  const heading = t("text", { assistant: siteConfig.chatAssistantName });
 
   return (
-    <aside aria-label={label} className="ui mx-auto w-full max-w-[1440px] px-4 pt-4 sm:px-8" data-slot="demo-callout" data-variant="box">
-      <div className="flex flex-col gap-3 border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="m-0 flex items-start gap-2 text-sm leading-snug">
-          <MailIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary-ink" />
-          <span>{text}</span>
-        </p>
-        <Button asChild variant="default" className="w-full sm:w-auto">
+    <aside aria-label={label} data-slot="demo-callout" className="ui mx-auto mb-10 w-full max-w-3xl sm:mb-14">
+      <div className="flex flex-col gap-4 border border-primary-ink bg-muted p-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6">
+        <div className="flex min-w-0 items-start gap-3">
+          <MailIcon aria-hidden="true" className="mt-1 size-5 shrink-0 text-primary-ink" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2 className="m-0 font-heading text-base leading-snug font-medium text-foreground sm:text-lg">{heading}</h2>
+            <p className="m-0 text-sm leading-snug text-muted-foreground">{t("body")}</p>
+          </div>
+        </div>
+        <Button asChild variant="default" className="w-full shrink-0 sm:w-auto">
           <Link href="/demo">{t("cta")}</Link>
         </Button>
       </div>

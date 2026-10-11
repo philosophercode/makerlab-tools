@@ -96,6 +96,21 @@ describe("GlobalChrome", () => {
     expect(screen.getByText("24/7")).toBeInTheDocument();
   });
 
+  it("puts who is on shift in the status strip as its third item, after the hours", () => {
+    render(<GlobalChrome stats={stats} onShift={<span data-slot="on-shift-now">On shift now: Alex M.</span>} />);
+
+    const strip = screen.getByLabelText("Lab status");
+    const items = Array.from(strip.children).map((child) => child.textContent?.trim());
+    expect(items).toEqual(["42 TOOLS IN INVENTORY", "Mon–Fri 9am–9pm", "On shift now: Alex M."]);
+  });
+
+  it("keeps the status strip to the two facts when nobody is on shift", () => {
+    render(<GlobalChrome stats={stats} />);
+
+    expect(screen.getByLabelText("Lab status").children).toHaveLength(2);
+    expect(screen.queryByText(/on shift/i)).not.toBeInTheDocument();
+  });
+
   it("mounts the utility controls (LanguageSelector + ThemeToggle) without error", () => {
     render(<GlobalChrome stats={stats} />);
 

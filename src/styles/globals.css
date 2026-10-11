@@ -749,6 +749,23 @@ body::selection {
   gap: 8px;
 }
 
+/* "On shift now: Alex M." — the strip's third item, only when somebody is on
+   shift (on-shift spec, amendment 2026-10-11). The strip stays one row so its
+   height (--status-strip-height) holds: on a narrow screen the name shrinks
+   to an ellipsis (never below 12ch) and the strip itself scrolls, not the page. */
+.status-strip [data-slot="on-shift-now"] {
+  flex: 0 1 auto;
+  min-width: 12ch;
+  color: var(--on-surface);
+}
+
+.status-strip [data-slot="on-shift-now"] > span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .live-dot {
   display: inline-block;
   width: 8px;

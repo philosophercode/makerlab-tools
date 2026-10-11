@@ -433,6 +433,7 @@
     "callout": {
       "label": "为您的创客空间引入 {assistant}",
       "text": "有兴趣把 {assistant} 带到您的创客空间吗？",
+      "body": "留下您的联系方式，我们会与您联系。",
       "cta": "报名",
       "dismiss": "关闭"
     }
