@@ -1,0 +1,11 @@
+{
+  "clip": "kiosk",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "deviceScaleFactor": 2,
+  "url": "http://localhost:3923/kiosk",
+  "duration": 6.603000164031982,
+  "events": []
+}
