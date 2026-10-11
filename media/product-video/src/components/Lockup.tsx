@@ -41,7 +41,5 @@ export const Lockup: React.FC<{ height: number }> = ({ height }) => {
 export const OpenSourceLine: React.FC<{ size: number }> = ({ size }) => (
   <div style={{ fontFamily: FONTS.mono, fontSize: size, letterSpacing: "0.06em", color: COLORS.inkMuted, textAlign: "center", lineHeight: 1.5 }}>
     Open source · AGPL-3.0
-    <br />
-    <span style={{ color: COLORS.ink }}>github.com/philosophercode/makerlab-tools</span>
   </div>
 );
