@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MakerLAB AI Banner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* One landscape strip, 48 × 12 in (4 ft × 1 ft), a two-column grid with two rows.
+   Left: the wordmark over OPERATE / FIX / BUILD. Right: the QR over the logos.
+   Change --w and --h (and the @page line, which cannot read variables) to resize;
+   the QR column and type use fixed inches. */
+:root {
+  --w: 48in;
+  --h: 12in;
+  --paper: #f7f4ee;
+  --ink: #171717;
+  --on-ink: #f7f4ee;
+  --orange: #ff6b35;
+  --orange-ink: #c2481a;
+  --stage: #e2d8ca;
+  --font-display: "Space Grotesk", "Arial Narrow", Arial, sans-serif;
+  --font-body: "Inter", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --margin: 0.5in;
+}
+@page { size: 48in 12in; margin: 0; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--stage); color: var(--ink); font-family: var(--font-body); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+h2, p { margin: 0; }
+
+.sheet {
+  zoom: var(--z, 1);
+  width: var(--w);
+  height: var(--h);
+  padding: var(--margin);
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 11in;
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: 0.8in;
+  background-color: var(--paper);
+  background-image: radial-gradient(circle, rgba(23,23,23,0.09) 0.7pt, transparent 0.9pt);
+  background-size: 0.3in 0.3in;
+}
+.label { font: 500 22pt/1.2 var(--font-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--orange-ink); }
+
+/* row 1, left: wordmark */
+.left { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+.stack { display: flex; flex-direction: column; gap: 0.3in; width: max-content; max-width: 35.2in; }
+.row { display: flex; align-items: flex-end; justify-content: space-between; gap: 1in; }
+.brand { display: flex; flex-direction: column; gap: 0.3in; }
+.lockup { font-size: 0; line-height: 1; display: flex; align-items: flex-end; gap: 0.5in; }
+.lockup img { display: block; height: 4.86in; width: auto; }
+.lockup .ai { font: 700 499pt/0.8 "Barlow", var(--font-display); color: var(--orange); }
+
+/* row 2, left: operate / fix / build, then the small lines */
+.obf { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 0.5in; }
+.words { display: flex; align-items: baseline; gap: 1.4in; }
+.words h2 { font: 700 130pt/0.95 var(--font-display); letter-spacing: 0.01em; text-transform: uppercase; color: var(--orange); }
+.small { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25in 0.8in; }
+.url { font: 500 34pt/1.2 var(--font-mono); }
+.url b { font-weight: 500; color: var(--orange-ink); }
+.callout { font: 600 26pt/1.2 var(--font-display); }
+.oss { display: flex; align-items: center; gap: 0.2in; font: 500 22pt/1.2 var(--font-mono); }
+.oss .badge { background: var(--orange); padding: 0.08in 0.2in; letter-spacing: 0.14em; text-transform: uppercase; }
+
+/* row 1, right: QR */
+.plate { grid-column: 2; grid-row: 1; background: var(--ink); color: var(--on-ink); padding: 0.25in; display: grid; place-items: center; }
+.qr-frame { position: relative; width: 10.5in; padding: 0.2in; }
+.qr-frame::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(var(--orange), var(--orange)) top left / 1.1in 8pt no-repeat,
+    linear-gradient(var(--orange), var(--orange)) top left / 8pt 1.1in no-repeat,
+    linear-gradient(var(--orange), var(--orange)) top right / 1.1in 8pt no-repeat,
+    linear-gradient(var(--orange), var(--orange)) top right / 8pt 1.1in no-repeat,
+    linear-gradient(var(--orange), var(--orange)) bottom left / 1.1in 8pt no-repeat,
+    linear-gradient(var(--orange), var(--orange)) bottom left / 8pt 1.1in no-repeat,
+    linear-gradient(var(--orange), var(--orange)) bottom right / 1.1in 8pt no-repeat,
+    linear-gradient(var(--orange), var(--orange)) bottom right / 8pt 1.1in no-repeat;
+}
+.qr-frame img { display: block; width: 100%; height: auto; background: #fff; }
+/* row 2, right: logos */
+.logos { display: flex; align-items: center; gap: 0.4in; margin-right: 0.45in; }
+.logos .mk { height: 1.5in; width: auto; display: block; }
+.logos .ct { height: 2.5in; width: auto; display: block; }
+
+@media print { body { background: var(--paper); } .sheet { zoom: 1 !important; } }
+</style>
+</head>
+<body>
+<main class="sheet" id="sheet">
+  <div class="left"><div class="stack">
+    <header class="brand">
+      <p class="label">ISAM 2026 · Live demo</p>
+      <p class="lockup"><img src="img/makerlab-title.svg" alt="MakerLAB"><span class="ai">AI</span></p>
+    </header>
+    <div class="row">
+      <section class="obf" aria-label="Operate, fix, build">
+        <div class="words"><h2>Operate</h2><h2>Fix</h2><h2>Build</h2></div>
+        <div class="small">
+          <p class="url">Scan to try it: <b>www.makerlabai.app</b></p>
+          <p class="callout">Interested? Bring MakerLAB AI to your lab. Sign up in the app.</p>
+          <p class="oss"><span class="badge">Open source</span><span>AGPL-3.0</span></p>
+        </div>
+      </section>
+      <div class="logos">
+        <img class="ct" src="img/Cornell-Tech-Logo.webp" alt="Cornell Tech, Cornell University, Jacobs Institute, Technion">
+        <img class="mk" src="img/cornell-tech-makerlab-logo.svg" alt="Cornell Tech MakerLAB">
+      </div>
+    </div>
+  </div></div>
+  <aside class="plate">
+    <div class="qr-frame"><img src="img/qr-site.svg" alt="QR code for www.makerlabai.app"></div>
+  </aside>
+</main>
+<script>
+  (function () {
+    function fit() {
+      var s = document.getElementById("sheet");
+      var z = Math.min(1, (document.documentElement.clientWidth - 32) / (s.offsetWidth || 4608));
+      document.documentElement.style.setProperty("--z", z.toFixed(4));
+    }
+    fit(); window.addEventListener("resize", fit);
+    window.addEventListener("beforeprint", function () { document.documentElement.style.setProperty("--z", "1"); });
+    window.addEventListener("afterprint", fit);
+  })();
+</script>
+</body>
+</html>
