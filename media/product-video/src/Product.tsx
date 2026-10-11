@@ -3,6 +3,7 @@ import { Narration, Soundtrack } from "./audio";
 import { loadFonts } from "./brand";
 import { Background } from "./components/Background";
 import { Captions } from "./components/Captions";
+import { LogoCard } from "./components/LogoCard";
 import { EndCard } from "./components/EndCard";
 import { SceneLabel } from "./components/SceneText";
 import { ShotView } from "./components/ShotView";
@@ -31,7 +32,9 @@ export function plan(fps: number) {
  * `narration`: play the AI voice clips at their cues and leave the words to
  * closed captions (a sidecar VTT / muxed track) instead of burning them in.
  */
-export const Product: React.FC<{ format: Format; narration?: boolean }> = ({ format, narration = false }) => {
+export const BOOTH_LOGO_SECONDS = 2.5;
+
+export const Product: React.FC<{ format: Format; narration?: boolean; booth?: boolean }> = ({ format, narration = false, booth = false }) => {
   const { fps } = useVideoConfig();
   const p = plan(fps);
   const sideFor = (scene: Scene) => format === "landscape" && Boolean(scene.headline) && scene.shots.some((s) => s.device === "phone");
@@ -39,9 +42,16 @@ export const Product: React.FC<{ format: Format; narration?: boolean }> = ({ for
   const sideRanges = p.scenes.flatMap(({ scene, shots }) =>
     shots.filter(({ shot }) => sideFor(scene) && shot.device === "phone").map(({ from, to }) => [from, to] as [number, number])
   );
+  const lead = booth ? Math.round(BOOTH_LOGO_SECONDS * fps) : 0;
   return (
     <AbsoluteFill>
       <Background />
+      {booth && (
+        <Sequence from={0} durationInFrames={lead} name="logo card">
+          <LogoCard format={format} seconds={BOOTH_LOGO_SECONDS} />
+        </Sequence>
+      )}
+      <Sequence from={lead} name="content">
       {p.scenes.map(({ scene, from, to, shots }, i) => (
         <Sequence key={scene.id} from={from} durationInFrames={to - from} name={scene.id}>
           {shots.map(({ shot, from: sf, to: st }) => {
@@ -60,6 +70,7 @@ export const Product: React.FC<{ format: Format; narration?: boolean }> = ({ for
         <EndCard format={format} />
       </Sequence>
       {narration ? <Narration /> : <Captions format={format} sideRanges={sideRanges} />}
+      </Sequence>
       <Soundtrack />
     </AbsoluteFill>
   );

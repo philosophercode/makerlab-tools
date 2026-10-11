@@ -8,6 +8,8 @@
     "studio": "remotion studio src/index.ts",
     "render:16x9": "remotion render src/index.ts Product16x9 out/makerlab-ai-60s-16x9.mp4 --codec=h264 --crf=26 --x264-preset=slow",
     "render:9x16": "remotion render src/index.ts Product9x16 out/makerlab-ai-60s-9x16.mp4 --codec=h264 --crf=26 --x264-preset=slow",
+    "render:booth": "remotion render src/index.ts Booth16x9 out/booth-loop-16x9.mp4 --codec=h264 --pixel-format=yuv420p --crf=20 --x264-preset=slow --muted",
+    "render:booth-9x16": "remotion render src/index.ts Booth9x16 out/booth-loop-9x16.mp4 --codec=h264 --pixel-format=yuv420p --crf=20 --x264-preset=slow --muted",
     "render:poster": "remotion still src/index.ts Product16x9 out/makerlab-ai-60s-poster.png --frame=326",
     "render": "npm run render:16x9 && npm run render:16x9-vo && npm run render:9x16 && npm run render:poster",
     "typecheck": "tsc --noEmit",
