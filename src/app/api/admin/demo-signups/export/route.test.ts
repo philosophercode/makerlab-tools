@@ -54,6 +54,16 @@ describe("GET /api/admin/demo-signups/export", () => {
     }
   });
 
+  it("answers the demo identity 404 with no sign-up in it (demo admin spec 2026-10-11 §6)", async () => {
+    vi.stubEnv("DEMO_ADMIN", "1");
+    const res = await download();
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("ada.export@example.org");
+    // A real super admin is unaffected while the flag is on.
+    const { cookie } = await signInAsNew({ role: "super_admin" });
+    expect((await download(cookie)).status).toBe(200);
+  });
+
   it("hands a super admin the CSV, uncached, and records the download", async () => {
     const { cookie, user } = await signInAsNew({ role: "super_admin", name: "Dee Rector" });
     const res = await download(cookie);
