@@ -171,9 +171,9 @@
   "about": {
     "eyebrow": "关于",
     "browseTools": "浏览工具",
-    "demoHeading": "试用完整演示",
-    "demoBody": "来自其他学校或实验室？免费的演示通行证让您在 {days} 天内像这里的学生一样使用助手，无需 {institution} 账号。",
-    "demoCta": "报名试用完整演示"
+    "demoHeading": "把 {assistant} 带到您的创客空间",
+    "demoBody": "想了解更多？报名后我们会与您联系。",
+    "demoCta": "报名"
   },
   "chat": {
     "openAria": "打开 MakerLAB AI",
@@ -385,15 +385,13 @@
     "onShiftLabel": "当前值班"
   },
   "demoPass": {
-    "eyebrow": "演示通行证",
-    "title": "试用完整演示",
-    "lede": "免费领取演示通行证，像这里的学生一样使用 {site}：向助手询问实验室的设备，回答附有手册引用；还可以报告问题。无需 {institution} 账号。",
-    "passFacts": "通行证在此设备上有效 {days} 天，包含约 {budget} 的 AI 用量。",
+    "eyebrow": "报名",
+    "title": "把 {assistant} 带到您的创客空间",
+    "lede": "想了解更多？留下您的联系方式，我们会与您联系。",
     "required": "必填",
     "optional": "选填",
     "nameLabel": "姓名",
     "emailLabel": "电子邮箱",
-    "emailHint": "仅用于后续联系，助手永远看不到。",
     "institutionLabel": "机构或单位",
     "institutionHint": "大学、公司、实验室或创客空间。",
     "roleLabel": "身份",
@@ -410,11 +408,10 @@
     "no": "否",
     "useCaseLabel": "您会用它做什么？",
     "useCaseHint": "一两句话即可。",
-    "consentLabel": "可以就 MakerLAB AI 与我联系。",
     "honeypotLabel": "请勿填写此字段",
-    "privacy": "我们会保留报名信息 12 个月。只有实验室主任可以查看，您在此填写的任何内容都不会提供给 AI。如需提前删除，请联系实验室。",
-    "submit": "领取演示通行证",
-    "submitting": "正在报名…",
+    "privacy": "您的信息仅用于就 {assistant} 与您联系。只有实验室主任可以查看，您在此填写的任何内容都不会提供给 AI。我们会保留报名信息 12 个月；如需提前删除，请联系实验室。",
+    "submit": "提交",
+    "submitting": "正在提交…",
     "browseTools": "浏览设备",
     "askAssistant": "询问助手",
     "errors": {
@@ -427,18 +424,17 @@
       "unavailable": "报名暂时不可用，请稍后再试。",
       "failed": "出了点问题，请重试。"
     },
-    "thanksTitle": "报名成功",
-    "thanksBody": "感谢报名。您的演示通行证在此设备上有效期至 {date}，包含约 {budget} 的 AI 用量。",
-    "thanksReturning": "欢迎回来。您的演示通行证已在此设备上重新启用，剩余 {remaining}，有效期至 {date}。",
-    "thanksNext": "在任意页面点击聊天按钮即可打开助手，也可以从这里开始。",
-    "thanksExpired": "感谢再次报名。此邮箱的演示通行证已过期，但我们已记下您的信息。",
-    "thanksReceived": "感谢报名。",
-    "closedTitle": "演示报名已结束",
+    "thanksTitle": "谢谢",
+    "thanksBody": "我们会就把 {assistant} 引入您的创客空间与您联系。",
+    "thanksReturning": "我们已经收到您的信息，会与您联系。",
+    "thanksNext": "在此期间，您可以随时向助手询问关于实验室的任何问题。",
+    "closedTitle": "报名已结束",
     "closedBody": "感谢您的关注。您仍可浏览设备，并向助手提几个问题。",
     "callout": {
-      "label": "演示通行证",
-      "text": "来参观？免费领取演示通行证，与实验室助手对话并报告问题。无需 {institution} 账号。",
-      "cta": "报名试用完整演示"
+      "label": "为您的创客空间引入 {assistant}",
+      "text": "有兴趣把 {assistant} 带到您的创客空间吗？",
+      "cta": "报名",
+      "dismiss": "关闭"
     }
   }
 }
