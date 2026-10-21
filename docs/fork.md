@@ -53,9 +53,14 @@ The licence covers the code, not Cornell's names, logos or photos
 
 ## 4 · Your inventory
 
-Start from the demo seed and add equipment in `/admin` (paste a list, a product link or
-a photo of a label; the app researches each item and leaves a draft to approve), or
-import an existing Notion inventory ([`deploy.md`](deploy.md) Stage 2).
+The no-configuration database is in memory: anything added to it is gone when the server
+restarts. Before entering real equipment, give it somewhere to live, either a local
+database that persists (`PGLITE_DATA_DIR=.pglite-data npm run dev`, copied up later with
+`npm run data:push`) or a hosted one (`DATABASE_URL`, [`deploy.md`](deploy.md) Part 2).
+
+Then add equipment in `/admin` (paste a list, a product link or a photo of a label; the
+app researches each item and leaves a draft to approve), or import an existing Notion
+inventory ([`deploy.md`](deploy.md) Stage 2).
 
 ## 5 · Host it
 
