@@ -525,3 +525,38 @@ page: the list at rest").
 - **Tested** in `HeaderBrand.test.tsx`, `home/HomeShell.test.tsx`,
   `GlobalChrome.test.tsx`, `e2e/gallery.spec.ts` and
   `e2e/header-stability.spec.ts`.
+
+## Amendment — Source code and forking (2026-10-21)
+
+After the ISAM demo the owner asked to make the app demo-able in public and the
+repository ready for other labs to fork, with a link from the app to the code.
+This amendment is the spec; the implementation is a separate PR.
+
+- **`siteConfig.sourceUrl`** — the public repository a deployment's code comes
+  from: `NEXT_PUBLIC_SOURCE_URL`, default
+  `https://github.com/philosophercode/makerlab-tools`. A fork sets it to its own
+  repository, which is how a modified network deployment offers its source
+  (AGPL-3.0 §13, `LICENSING.md`). Documented in `.env.example`.
+- **The site footer** gains **Source code** (`footer.source`, 12 locales) after
+  MCP, linking `siteConfig.sourceUrl` in a new tab (`rel="noopener"`). One more
+  word on the mono line; it wraps like the others on a phone.
+- **`/product`'s closing section** gains a third action beside Try it and Quick
+  start: **Fork it for your lab** (`product.forkCta`), linking
+  `siteConfig.sourceUrl`, with one line under it (`product.forkLede`): open
+  source under the AGPL, runs with no keys, and a pointer to `docs/fork.md`.
+- **The About page** names the licence and links the source in its resources
+  list (`about.sourceLink`).
+- **`docs/fork.md`** — the fork guide: run it with nothing configured, the
+  rebranding variables, the Cornell-specific files to replace (logo, About
+  people and photos, `lab-context.ts`, `lab-companion.ts`, the product page's
+  screenshots), the inventory, hosting, and keeping the source link on the
+  fork. Linked from the README. Added with this amendment.
+- **Not in scope:** moving `lab-context.ts`, `lab-companion.ts` or
+  `about-content.ts` behind environment variables or the database. The fork
+  guide lists them as files to edit; making them data is a later spec if forks
+  ask for it.
+- **Tested** in `SiteFooter.test.tsx` (the link, its target, the env override),
+  `app/product/page.test.tsx`, `app/about/page.test.tsx`, `site-config` unit
+  tests, and `e2e/product.spec.ts` (the footer link is present and the footer
+  still fits a phone with no sideways scroll). `npm run spec:coverage` covers
+  `NEXT_PUBLIC_SOURCE_URL`.

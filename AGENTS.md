@@ -30,6 +30,7 @@ before the move still show paths with the old `v5/` prefix.
 | `README.md` | Overview and quick start |
 | `docs/specs/README.md` | Status of every spec: what is built, what is open |
 | `docs/architecture-guide.md` | How the app works and why, for whoever inherits it |
+| `docs/fork.md` | Forking it for another lab: what to rebrand and replace |
 | `docs/deploy.md` | Local setup in stages, then a Vercel deployment step by step |
 | `docs/handover.md` | Operating it: accounts, routine tasks, backups, incidents |
 | `docs/operations.md` | Monitoring, backups and restore |

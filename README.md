@@ -5,7 +5,10 @@ find a machine, read how to use it, and ask an assistant that answers from the l
 records and manuals. Staff keep the inventory, work maintenance tickets and add new
 equipment in the same app.
 
-**Live:** <https://makerlab-ai.vercel.app>
+**Live:** <https://www.makerlabai.app>
+
+**Run it for your own lab:** fork this repository, `npm install && npm run dev`, and
+follow [`docs/fork.md`](docs/fork.md). It runs with no keys and no configuration.
 
 Deployed across the lab's ~100 machines, and the subject of an accepted demo paper at
 ISAM 2026. **ISAM 2026 demo:** the abstract, figures and submission record are in
@@ -120,6 +123,7 @@ The test suite needs **no credentials and makes no network calls**.
 
 | Document | For |
 |---|---|
+| [`docs/fork.md`](docs/fork.md) | **Forking it for your lab.** What to rebrand and replace, then where to host it. |
 | [`docs/deploy.md`](docs/deploy.md) | **Setting it up.** Local stages, then a Vercel deployment step by step. |
 | [`docs/handover.md`](docs/handover.md) | **Running it.** Accounts, routine tasks, backups, what to do when it breaks. |
 | [`docs/operations.md`](docs/operations.md) | Monitoring, backups and restore. |
