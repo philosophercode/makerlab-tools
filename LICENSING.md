@@ -13,7 +13,7 @@ Copyright (C) 2026 Isaac Steinberg (https://github.com/philosophercode)
 ```
 
 Isaac Steinberg owns MakerLAB Tools. It was built for use at the Cornell Tech MakerLAB,
-which runs the live deployment at https://makerlab-ai.vercel.app.
+which runs the live deployment at https://www.makerlabai.app.
 
 ## In one paragraph
 

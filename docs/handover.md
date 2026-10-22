@@ -14,7 +14,7 @@
 ## 1. What this system is, in operational terms
 
 A website that lists the lab's machines and answers questions about them, at
-<https://makerlab-ai.vercel.app>. The data lives in **Postgres** (Neon, provisioned through
+<https://www.makerlabai.app>. The data lives in **Postgres** (Neon, provisioned through
 Vercel); files live in **Vercel Blob**; an AI assistant sits on top. Staff manage everything
 **in the app**, under **Admin** — the inventory, tickets, corrections, projects, new
 equipment and people.
@@ -61,7 +61,7 @@ Director) and Isaac Steinberg (Tech Lead).
 | Super admins | `AUTH_SUPER_ADMIN_EMAILS` in Vercel | ⬜ **TBD** | Permanent Cornell addresses. The lock-out guarantee |
 | GitHub repository | `philosophercode/makerlab-tools` | ⬜ **TBD** | The code |
 | Notion workspace | notion.so | ⬜ **TBD** | The old databases, kept for reference. `NOTION_API_KEY` is needed only to re-run the one-time import |
-| Domain / DNS | ⬜ | ⬜ **TBD** | `makerlab-ai.vercel.app` until a custom domain is chosen |
+| Domain / DNS | Registrar of `makerlabai.app`; Vercel → Domains | ⬜ **TBD** | `www.makerlabai.app`; `makerlab-ai.vercel.app` redirects there |
 | `ADMIN_REVALIDATE_SECRET` | Vercel env vars | ⬜ **TBD** | Forces a refresh; runs the nightly job by hand |
 | `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly cron prove it is Vercel (§3) |
 | `CRON_HEARTBEAT_URL` + heartbeat monitor | Vercel env vars; Healthchecks.io or Better Stack | ⬜ **TBD** | Emails the shared address when the nightly backup fails or does not run ([`operations.md`](operations.md)) |
@@ -172,7 +172,7 @@ last data if the network drops (an amber bar says so after three minutes), shift
 pixels every five minutes against burn-in, and reloads itself at 04:00 so a deploy reaches
 it.
 
-- **TV:** open `https://makerlab-ai.vercel.app/kiosk` in the TV's browser and make it full
+- **TV:** open `https://www.makerlabai.app/kiosk` in the TV's browser and make it full
   screen (F11 or the browser's kiosk mode). Turn off the TV's own sleep/screensaver.
 - **iPad:** open the same address in Safari → Share → **Add to Home Screen**, open it from
   the home screen, then Settings → Accessibility → **Guided Access** on (triple-click to

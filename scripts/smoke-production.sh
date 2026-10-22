@@ -3,13 +3,13 @@
 # 2026-10-06 "Post-deploy smoke test"). Run by .github/workflows/deploy-smoke.yml
 # after every production deployment, and by hand:
 #
-#   npm run smoke:production                         # https://makerlab-ai.vercel.app
+#   npm run smoke:production                         # https://www.makerlabai.app
 #   SMOKE_BASE_URL=https://example.org npm run smoke:production
 #
 # Read-only: GET requests only, no sign-in, no chat (a chat turn costs money and
 # counts as usage). Exits non-zero when any check fails.
 set -u
-B="${SMOKE_BASE_URL:-https://makerlab-ai.vercel.app}"
+B="${SMOKE_BASE_URL:-https://www.makerlabai.app}"
 B="${B%/}"
 fail=0
 ok() { echo "ok    $*"; }

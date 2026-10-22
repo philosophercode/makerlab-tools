@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/philosophercode/makerlab-tools/security/advisories/new
+    about: Please report vulnerabilities privately, not as an issue.
+  - name: Run it for your lab
+    url: https://github.com/philosophercode/makerlab-tools/blob/main/docs/fork.md
+    about: The fork guide covers setup, rebranding and hosting.

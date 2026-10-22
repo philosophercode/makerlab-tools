@@ -13,7 +13,7 @@ the catalog to external agents. White-labelled via env vars.
 Deployed at the Cornell Tech MakerLAB over ~100 machines, and the subject of an
 accepted ISAM 2026 demo paper.
 
-Live at <https://makerlab-ai.vercel.app>. **This repository is the product** —
+Live at <https://www.makerlabai.app>. **This repository is the product** —
 new features, fixes and operations all happen here, under the constitution and
 a spec per feature. Owned by the Cornell Tech MakerLAB (Niti Parikh, Director;
 Luis Rodrigo Navarro, Assistant Director; Isaac Steinberg, Tech Lead).

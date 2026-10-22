@@ -1,0 +1,30 @@
+name: Bug report
+description: Something in the app does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The page or route (for example /tools/form-4), and whether it was the live site, your own deployment or local dev.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+  - type: markdown
+    attributes:
+      value: Security problems go through private reporting, not an issue. See SECURITY.md.
