@@ -50,6 +50,7 @@ The licence covers the code, not Cornell's names, logos or photos
 | `src/lib/ai/lab-context.ts` | "Where you are": what the assistant knows about the lab, its building, staff and hours |
 | `src/lib/ai/lab-companion.ts` | Who the assistant suggests asking |
 | `public/product/` | Screenshots and the walkthrough video of the Cornell site |
+| `src/lib/map/studio-101.ts` | The floor plan of Studio 101 ([`map.md`](map.md) has a prompt that traces yours) |
 
 ## 4 · Your inventory
 
@@ -62,13 +63,21 @@ Then add equipment in `/admin` (paste a list, a product link or a photo of a lab
 app researches each item and leaves a draft to approve), or import an existing Notion
 inventory ([`deploy.md`](deploy.md) Stage 2).
 
-## 5 · Host it
+## 5 · Check the assistant
+
+`npm run eval:all` runs every agent eval: the chat eval (finding machines, citing the
+catalogue, calling the right tool, admitting what the lab lacks), then your manuals'
+questions end to end. It makes real, paid calls (a few cents) and needs the Gateway key.
+Run it after changing the prompt, the lab description or the model
+([`evals/README.md`](../evals/README.md)).
+
+## 6 · Host it
 
 [`deploy.md`](deploy.md) Part 2 walks through a Vercel deployment: Neon Postgres, two
 Blob stores, Google sign-in, the variables, and the nightly job. Hosting runs about
 $20–40 a month and the AI about $10–15 at one lab's use (`/product`, "What it costs").
 
-## 6 · Keep the source link pointing at your fork
+## 7 · Keep the source link pointing at your fork
 
 MakerLAB Tools is licensed under the AGPL-3.0. If you change it and let people use it
 over a network, you must offer them your version's source

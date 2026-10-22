@@ -90,6 +90,7 @@ npm run test:all     # lint + typecheck + vitest + playwright; must pass before 
 npm run spec:coverage  # every route, tool, script and env var is documented
 npm run manuals:eval-questions [-- --apply] [--tool slug]  # eval questions for indexed manuals (dry run by default)
 npm run tools:skills [-- --apply] [--tool slug] [--limit N] [--force]  # tool skills for tools that need one (dry run by default)
+npm run eval:all                # every agent eval: chat, then manual questions end to end (paid; scripts/eval-all.sh)
 npm run eval:manual-questions   # manual retrieval recall; EVAL_MQ_E2E=1 for the paid end-to-end check (evals/README.md)
 npm run data:push -- --to .env.hosted [--dry-run] [--yes]   # copy local PGlite + .blob-data up to a hosted deploy
 npm run thumbnails:bundled [-- --check]   # after changing public/tool-images/*.png

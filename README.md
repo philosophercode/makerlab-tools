@@ -62,6 +62,75 @@ receives a one-way copy of the inventory.
 
 ---
 
+## How it's built
+
+```mermaid
+flowchart LR
+  subgraph People
+    S[Students and visitors]
+    T[Staff]
+    A[Claude, ChatGPT, Codex…]
+  end
+  S --> P[Pages: tools, map, kiosk]
+  S --> C["/api/chat"]
+  T --> AD["/admin: server actions"]
+  A --> M["/api/mcp"]
+  C --> R[Capability registry<br/>src/lib/capabilities]
+  M --> R
+  R --> AL[Action layer<br/>src/lib/actions]
+  AD --> AL
+  R --> G[Vercel AI Gateway] --> LLM[Models]
+  P --> CAT[Cached catalogue<br/>src/lib/catalog.ts]
+  R --> CAT
+  CAT --> DB[(Postgres + pgvector<br/>PGlite locally)]
+  AL --> DB
+  W[Workflows: research, manuals,<br/>photos, mirror] --> DB
+  W --> B[(Vercel Blob)]
+  AD --> W
+```
+
+Four ideas carry the design ([`docs/architecture-guide.md`](docs/architecture-guide.md)
+explains each and why):
+
+1. **Postgres is the source of truth and the app is its admin UI.** No spreadsheet or
+   Notion behind it at runtime.
+2. **The assistant reads live data through tool calls**, so publishing a machine
+   reaches the chat at once, with no prompt rebuild or deploy.
+3. **Every agent ability is declared once** in the capability registry, and the chat
+   and the MCP server are thin adapters over it. Add a tool and both get it, behind the
+   same permission check (`can()`).
+4. **Slow AI work runs as durable workflows**: researching a new machine, finding its
+   photo, archiving and indexing its manuals. A page never waits on a model.
+
+Manuals are stored as text, split into passages, embedded and reranked, so an answer
+names the page it came from. Everything a model writes about the catalogue is a draft
+or a proposal a person approves.
+
+---
+
+## Using it at your lab
+
+Nothing about the Cornell lab is in the code paths; it is in data, environment
+variables and a short list of files ([`docs/fork.md`](docs/fork.md)). What another lab
+gets as is:
+
+| Feature | Needs |
+|---|---|
+| Tool pages, search, facets, QR labels, twelve languages | Nothing; works on the demo data |
+| The assistant, answering from your manuals with page citations | `AI_GATEWAY_API_KEY` |
+| Adding equipment from a list, a link or a photo, researched into drafts | The assistant's key |
+| Maintenance tickets, recurring maintenance, staff email | Sign-in; email needs Resend |
+| The MCP server for Claude, ChatGPT and Codex ([`docs/mcp.md`](docs/mcp.md)) | Nothing for public reads; sign-in to act |
+| The lab status screen (`/kiosk`) | Nothing |
+| A floor map of your lab ([`docs/map.md`](docs/map.md)) | A plan image traced by a model with the prompt in the guide |
+| Usage and value reports for directors | Sign-in |
+
+What a fork replaces: names, logos and photos, the About page, the assistant's
+"Where you are" description of the lab, the floor plan, and the sign-in domain
+(`cornell.edu` by default).
+
+---
+
 ## Quick start
 
 ```bash
@@ -98,7 +167,7 @@ npm test               # vitest: unit + integration + component
 npm run test:e2e       # playwright (once: npx playwright install chromium)
 npm run test:all       # all of the above; must pass before a merge
 npm run spec:coverage  # every route, tool, script and env var is documented
-npm run eval           # agent eval harness — real, paid model calls; never in CI
+npm run eval:all       # every agent eval (chat + manual questions) — real, paid model calls; never in CI
 ```
 
 The test suite needs **no credentials and makes no network calls**.
@@ -124,6 +193,7 @@ The test suite needs **no credentials and makes no network calls**.
 | Document | For |
 |---|---|
 | [`docs/fork.md`](docs/fork.md) | **Forking it for your lab.** What to rebrand and replace, then where to host it. |
+| [`docs/map.md`](docs/map.md) | Your lab's floor map, with a prompt that traces it from a plan image. |
 | [`docs/deploy.md`](docs/deploy.md) | **Setting it up.** Local stages, then a Vercel deployment step by step. |
 | [`docs/handover.md`](docs/handover.md) | **Running it.** Accounts, routine tasks, backups, what to do when it breaks. |
 | [`docs/operations.md`](docs/operations.md) | Monitoring, backups and restore. |
