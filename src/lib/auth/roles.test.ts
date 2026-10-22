@@ -73,20 +73,20 @@ describe("isAllowedEmail", () => {
   });
 
   it("accepts an address named in AUTH_ALLOWED_EMAILS, off-domain", () => {
-    vi.stubEnv("AUTH_ALLOWED_EMAILS", "steinbergisaac@gmail.com");
-    expect(isAllowedEmail("steinbergisaac@gmail.com")).toBe(true);
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "owner.personal@gmail.com");
+    expect(isAllowedEmail("owner.personal@gmail.com")).toBe(true);
     // Normalized on both sides, like every other address in this module.
-    expect(isAllowedEmail("  SteinbergIsaac@Gmail.com ")).toBe(true);
+    expect(isAllowedEmail("  Owner.Personal@Gmail.com ")).toBe(true);
   });
 
   it("does not open the named address's domain to anybody else", () => {
     // The whole point: exceptions are addresses, never domains.
-    vi.stubEnv("AUTH_ALLOWED_EMAILS", "steinbergisaac@gmail.com");
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "owner.personal@gmail.com");
     expect(isAllowedEmail("someone.else@gmail.com")).toBe(false);
   });
 
   it("keeps accepting the institutional domain alongside the exceptions", () => {
-    vi.stubEnv("AUTH_ALLOWED_EMAILS", "steinbergisaac@gmail.com");
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "owner.personal@gmail.com");
     expect(isAllowedEmail("abc123@cornell.edu")).toBe(true);
   });
 
