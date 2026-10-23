@@ -1,6 +1,6 @@
 import { authSecret, resolveIdentity } from "../../../lib/auth/identity";
-import { findOrCreateDemoSignup } from "../../../lib/data/demo-signups";
-import { DEMO_PASS_DAYS, demoPassBudgetUsd, demoPassContactEmail, demoPassEnabled } from "../../../lib/demo-pass/config";
+import { findOrCreateDemoSignupWithinLimit } from "../../../lib/data/demo-signups";
+import { DEMO_PASS_DAYS, demoPassBudgetUsd, demoPassContactEmail, demoPassDailyLimit, demoPassEnabled } from "../../../lib/demo-pass/config";
 import { hasNoSession } from "../../../lib/demo-admin/config";
 import { demoPassSetCookie, isHttpsRequest } from "../../../lib/demo-pass/cookie";
 import { resolveDemoPass } from "../../../lib/demo-pass/resolve";
@@ -15,9 +15,12 @@ import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit"
  * - **`POST`** — sign up from `/demo`: store the sign-up (or find this
  *   address's) and set the pass cookie. In order: the limiter (60 an hour per
  *   hashed IP, before anything else), the body cap, the honeypot, validation,
- *   the secret, the write. One pass per email: signing up again answers
- *   `existing` with a fresh cookie for the same pass, and an expired pass is
- *   not renewed.
+ *   the secret, the deployment-wide daily cap on new passes, the write. One
+ *   pass per email: signing up again answers `existing` with a fresh cookie for
+ *   the same pass, and an expired pass is not renewed. The address is not
+ *   verified, so the daily cap (`DEMO_PASS_DAILY_LIMIT`) is what bounds the new
+ *   AI allowance one script could mint (security audit 2026-10-23); past it a
+ *   new address is told to try again later (503 `busy`).
  * - **`GET`** — the caller's pass, for the chat's indicator: the money left
  *   and the end date, never the name or address. `{ active: false }` for no
  *   pass, and for a signed-in caller, whose session outranks any pass.
@@ -64,9 +67,17 @@ export async function POST(req: Request): Promise<Response> {
 
   const now = new Date();
   let created: boolean;
-  let pass: Awaited<ReturnType<typeof findOrCreateDemoSignup>>["pass"];
+  let pass: Extract<Awaited<ReturnType<typeof findOrCreateDemoSignupWithinLimit>>, { pass: unknown }>["pass"];
   try {
-    ({ created, pass } = await findOrCreateDemoSignup({ ...parsed.value, passExpiresAt: new Date(now.getTime() + DEMO_PASS_DAYS * DAY_MS) }));
+    const result = await findOrCreateDemoSignupWithinLimit(
+      { ...parsed.value, passExpiresAt: new Date(now.getTime() + DEMO_PASS_DAYS * DAY_MS) },
+      { dailyLimit: demoPassDailyLimit(), now }
+    );
+    if ("capped" in result) {
+      console.warn("[demo-pass] the daily limit on new passes is reached");
+      return Response.json({ ok: false, code: "busy" }, { status: 503, headers: NO_STORE });
+    }
+    ({ created, pass } = result);
   } catch (err) {
     // Never the error's message: Drizzle's lists the bound values, and they are a visitor's details.
     console.warn("[demo-pass] a sign-up could not be stored", err instanceof Error ? err.name : "error");

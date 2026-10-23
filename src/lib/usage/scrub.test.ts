@@ -38,6 +38,25 @@ describe("scrubQuestion", () => {
     expect(scrubQuestion("  ¿Cómo   uso\nla   cortadora?  ")).toBe("¿Cómo uso la cortadora?");
     expect(scrubQuestion("激光切割机怎么用")).toBe("激光切割机怎么用");
   });
+
+  it("stays fast on a 400,000-character question with no @ (security audit 2026-10-23)", () => {
+    const started = performance.now();
+    scrubQuestion("a".repeat(400_000));
+    const words = scrubQuestion("ab ".repeat(130_000));
+    expect(performance.now() - started).toBeLessThan(250);
+    expect(Array.from(words)).toHaveLength(SCRUB_MAX_CHARS);
+  });
+
+  it("never keeps part of an address cut by the input bound", () => {
+    const padded = `Help${" ".repeat(1186)}casey@cornell.edu ${"b".repeat(2_000)}`;
+    expect(scrubQuestion(padded)).not.toMatch(/casey|corn/);
+    const atTheCut = `${"word ".repeat(238)}casey@cornell.edu`;
+    expect(scrubQuestion(atTheCut)).not.toMatch(/casey@|@corn/);
+  });
+
+  it("still redacts an email near the start of a long question", () => {
+    expect(scrubQuestion(`casey@cornell.edu ${"b".repeat(5_000)}`).startsWith(REDACTED)).toBe(true);
+  });
 });
 
 describe("gapKey", () => {

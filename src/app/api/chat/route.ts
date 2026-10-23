@@ -35,7 +35,7 @@ import {
 import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
 import { loadToolSkillForChat } from "../../../lib/chat/tool-skill";
 import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
-import { markOutsideReads, newTurnState } from "../../../lib/chat/taint";
+import { historyReadOutside, markOutsideReads, newTurnState } from "../../../lib/chat/taint";
 import { curationCapability } from "../../../lib/capabilities/curation";
 import { ILLUSTRATIONS_CAPABILITY_ID, illustrationsAvailable } from "../../../lib/capabilities/illustrations";
 import { loadPageContext, pageContextSection } from "../../../lib/actions/page-context";
@@ -232,8 +232,11 @@ export async function POST(req: Request) {
         ...(chatId ? { chatId } : {}),
         // Whether this turn read outside content (assistant–GUI parity spec §8.4):
         // attached manuals, a curation record and a tool skill (written by AI
-        // from manuals and web pages) are in the prompt from the start.
-        turn: newTurnState({ outsideInPrompt: manuals.length > 0 || Boolean(curation) || Boolean(toolSkill) }),
+        // from manuals and web pages) are in the prompt from the start, and so
+        // is any earlier turn's outside read the history carries.
+        turn: newTurnState({
+          outsideInPrompt: manuals.length > 0 || Boolean(curation) || Boolean(toolSkill) || historyReadOutside(messages),
+        }),
       };
 
       // Compose the system prompt + capability tools from the shared registry

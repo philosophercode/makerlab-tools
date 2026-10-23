@@ -1,6 +1,14 @@
-import { DEFAULT_DEMO_PASS_BUDGET_USD, DEFAULT_DEMO_PASS_CONTACT_EMAIL, demoPassBudgetUsd, demoPassContactEmail, demoPassEnabled } from "./config";
+import {
+  DEFAULT_DEMO_PASS_BUDGET_USD,
+  DEFAULT_DEMO_PASS_CONTACT_EMAIL,
+  DEFAULT_DEMO_PASS_DAILY_LIMIT,
+  demoPassBudgetUsd,
+  demoPassContactEmail,
+  demoPassDailyLimit,
+  demoPassEnabled,
+} from "./config";
 
-/** The demo pass's three settings (demo pass spec 2026-10-07, `.env.example`). */
+/** The demo pass's settings (demo pass spec 2026-10-07, `.env.example`). */
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -44,5 +52,22 @@ describe("demo pass settings", () => {
     expect(demoPassContactEmail()).toBe(DEFAULT_DEMO_PASS_CONTACT_EMAIL);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("demoPassDailyLimit (security audit 2026-10-23)", () => {
+  it("defaults to 200 and reads a whole number from 1 up", () => {
+    vi.stubEnv("DEMO_PASS_DAILY_LIMIT", "");
+    expect(demoPassDailyLimit()).toBe(DEFAULT_DEMO_PASS_DAILY_LIMIT);
+    vi.stubEnv("DEMO_PASS_DAILY_LIMIT", "25");
+    expect(demoPassDailyLimit()).toBe(25);
+  });
+
+  it("falls back to the default for anything else", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const raw of ["0", "-3", "2.5", "lots"]) {
+      vi.stubEnv("DEMO_PASS_DAILY_LIMIT", raw);
+      expect(demoPassDailyLimit()).toBe(DEFAULT_DEMO_PASS_DAILY_LIMIT);
+    }
   });
 });
