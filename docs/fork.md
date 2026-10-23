@@ -82,7 +82,9 @@ $20–40 a month and the AI about $10–15 at one lab's use (`/product`, "What i
 MakerLAB Tools is licensed under the AGPL-3.0. If you change it and let people use it
 over a network, you must offer them your version's source
 ([`LICENSING.md`](../LICENSING.md)). The simplest way is a public fork and a link to it
-from your site.
+from your site: set `NEXT_PUBLIC_SOURCE_URL` to your fork's address, and the footer's
+**Source code**, `/product`'s **Fork it for your lab** and the About page all point
+there.
 
 ## Sending changes back
 

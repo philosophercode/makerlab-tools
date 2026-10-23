@@ -82,6 +82,15 @@ describe("/about", () => {
     );
   });
 
+  // Amendment "Source code and forking" (2026-10-21).
+  it("links the source code and names its licence under Learn more", () => {
+    render(<AboutPage />);
+
+    const source = within(section("Learn more")).getByRole("link", { name: "The source code, open source under the AGPL-3.0" });
+    expect(source).toHaveAttribute("href", "https://github.com/philosophercode/makerlab-tools");
+    expect(source).toHaveAttribute("target", "_blank");
+  });
+
   it("names the people who run the lab, with their addresses", () => {
     render(<AboutPage />);
 

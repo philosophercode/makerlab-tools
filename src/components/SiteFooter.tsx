@@ -15,7 +15,8 @@ const LINKS = [
 /**
  * The site footer (identity spec amendment 2026-09-28 "Product page and quick
  * start"): the product page, the quick start, About and MCP — pages worth
- * finding that do not belong in the main nav — then "Report a problem", which
+ * finding that do not belong in the main nav — the source code (amendment
+ * "Source code and forking", 2026-10-21), then "Report a problem", which
  * opens the assistant (amendment "ADMIN in the bar", 2026-10-07), and the
  * lab's official page.
  * Drawn on every page except the kiosk (the root layout wraps it in
@@ -38,6 +39,12 @@ export function SiteFooter() {
                 </Link>
               </li>
             ))}
+            {/* The code this deployment runs (amendment "Source code and forking", 2026-10-21). */}
+            <li>
+              <a href={siteConfig.sourceUrl} target="_blank" rel="noopener" className="hover:text-foreground">
+                {t("source")}
+              </a>
+            </li>
             {/* Reporting from any page, since REPORT left the header (2026-10-07). */}
             <li>
               <FooterReportButton label={t("report")} seed={t("reportSeed")} />

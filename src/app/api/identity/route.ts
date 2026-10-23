@@ -1,4 +1,5 @@
 import { devSignInAllowed } from "../../../lib/auth/dev-sign-in";
+import { demoAdminReadOnly } from "../../../lib/demo-admin/config";
 import { resolveIdentity } from "../../../lib/auth/identity";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 
@@ -72,6 +73,9 @@ export async function GET(req: Request): Promise<Response> {
           // The People page's custom title, for the profile menu; null means
           // the menu shows the role's default.
           title: identity.title ?? null,
+          // The read-only public demo (`DEMO_ADMIN=view`, amendment
+          // 2026-10-22), so the header's badge can say it changes nothing.
+          ...(identity.role === "demo_admin" && demoAdminReadOnly() ? { readOnly: true } : {}),
         };
 
   return Response.json(

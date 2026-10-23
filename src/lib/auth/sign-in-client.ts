@@ -54,6 +54,12 @@ export interface ClientIdentity {
    * amendment 2026-09-24). Absent everywhere else.
    */
   devSignIn?: boolean;
+  /**
+   * True only for the demo identity under `DEMO_ADMIN=view` (demo admin
+   * amendment "A read-only public admin", 2026-10-22): it may look, never
+   * change anything. Absent everywhere else.
+   */
+  readOnly?: boolean;
 }
 
 /**
@@ -101,6 +107,7 @@ export async function fetchIdentity(
     if (typeof body.image === "string" && body.image) identity.image = body.image;
     if (typeof body.title === "string" && body.title) identity.title = body.title;
     if (body.devSignIn === true) identity.devSignIn = true;
+    if (body.readOnly === true) identity.readOnly = true;
     return identity;
   } catch {
     return null;

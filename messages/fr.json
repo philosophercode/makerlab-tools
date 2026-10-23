@@ -355,6 +355,7 @@
     "body": "Ce catalogue contient des données d'exemple intégrées, et non l'inventaire réel de {institution}. Notion n'est pas configuré."
   },
   "footer": {
+    "source": "Code source",
     "report": "Signaler un problème",
     "reportSeed": "Je voudrais signaler un problème."
   },

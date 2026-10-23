@@ -98,6 +98,12 @@ export default function AboutPage() {
             <li>
               <a href={ABOUT_LINKS.instagram}>{t("instagramLink")}</a>
             </li>
+            {/* Amendment "Source code and forking" (2026-10-21): the licence and the code. */}
+            <li>
+              <a href={siteConfig.sourceUrl} target="_blank" rel="noopener">
+                {t("sourceLink")}
+              </a>
+            </li>
           </ul>
         </Prose>
       </PageSection>

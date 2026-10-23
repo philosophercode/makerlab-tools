@@ -12,7 +12,7 @@ import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { canView } from "../../../lib/auth/permissions";
 import { listBlockedEmails } from "../../../lib/data/blocked-emails";
 import { listUsers } from "../../../lib/data/users";
-import { isDemoAdmin } from "../../../lib/demo-admin/config";
+import { demoAdminReadOnly, isDemoAdmin } from "../../../lib/demo-admin/config";
 import { emailFor } from "../../../lib/demo-admin/mask-email";
 import { samplePeople } from "../../../lib/demo-admin/sample-people";
 import { RowStatus } from "../../../components/admin/RowStatus";
@@ -59,9 +59,16 @@ export default async function AdminUsersPage({
 
   // The demo identity (demo admin spec 2026-10-11 §6, §7) sees the roster
   // read-only, every address masked, with twenty sample people appended —
-  // made up here, never stored. Nobody else ever gets them.
+  // made up here, never stored. Nobody else ever gets them. The read-only
+  // public demo (`DEMO_ADMIN=view`, amendment 2026-10-22) sees the sample
+  // people alone: no stored person's name reaches the open internet.
   const demo = isDemoAdmin(identity);
-  const [stored, blocked, demoSignups] = await Promise.all([listUsers(), listBlockedEmails(), demo ? Promise.resolve(0) : countDemoSignups()]);
+  const publicDemo = demo && demoAdminReadOnly();
+  const [stored, blocked, demoSignups] = await Promise.all([
+    publicDemo ? Promise.resolve([]) : listUsers(),
+    publicDemo ? Promise.resolve([]) : listBlockedEmails(),
+    demo ? Promise.resolve(0) : countDemoSignups(),
+  ]);
   const users = demo ? [...stored, ...samplePeople()] : stored;
 
   const admins = users.filter((person) => person.role === "admin" || person.role === "super_admin").length;

@@ -24,6 +24,18 @@ describe("/product", () => {
     for (const link of screen.getAllByRole("link", { name: "Quick start" })) expect(link).toHaveAttribute("href", "/product/quick-start");
   });
 
+  // Amendment "Source code and forking" (2026-10-21).
+  it("closes with Fork it for your lab, linking the source in a new tab, and says it is open source", () => {
+    render(<ProductPage />);
+
+    const closing = screen.getByRole("region", { name: "Try it on a real machine" });
+    const fork = within(closing).getByRole("link", { name: "Fork it for your lab" });
+    expect(fork).toHaveAttribute("href", "https://github.com/philosophercode/makerlab-tools");
+    expect(fork).toHaveAttribute("target", "_blank");
+    expect(closing).toHaveTextContent("open source under the AGPL-3.0");
+    expect(closing).toHaveTextContent("docs/fork.md");
+  });
+
   it("reads in product-page order", () => {
     render(<ProductPage />);
 

@@ -355,6 +355,7 @@
     "body": "此目录为内置示例数据，并非 {institution} 的真实库存。Notion 尚未配置。"
   },
   "footer": {
+    "source": "源代码",
     "report": "报告问题",
     "reportSeed": "我想报告一个问题。"
   },
