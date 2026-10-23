@@ -41,9 +41,17 @@ describe("scrubQuestion", () => {
 
   it("stays fast on a 400,000-character question with no @ (security audit 2026-10-23)", () => {
     const started = performance.now();
-    const out = scrubQuestion("a".repeat(400_000));
+    scrubQuestion("a".repeat(400_000));
+    const words = scrubQuestion("ab ".repeat(130_000));
     expect(performance.now() - started).toBeLessThan(250);
-    expect(Array.from(out)).toHaveLength(SCRUB_MAX_CHARS);
+    expect(Array.from(words)).toHaveLength(SCRUB_MAX_CHARS);
+  });
+
+  it("never keeps part of an address cut by the input bound", () => {
+    const padded = `Help${" ".repeat(1186)}casey@cornell.edu ${"b".repeat(2_000)}`;
+    expect(scrubQuestion(padded)).not.toMatch(/casey|corn/);
+    const atTheCut = `${"word ".repeat(238)}casey@cornell.edu`;
+    expect(scrubQuestion(atTheCut)).not.toMatch(/casey@|@corn/);
   });
 
   it("still redacts an email near the start of a long question", () => {

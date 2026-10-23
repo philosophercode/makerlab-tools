@@ -37,8 +37,23 @@ function digitCount(text: string): number {
   return (text.match(/\d/g) ?? []).length;
 }
 
+/**
+ * The first {@link SCRUB_INPUT_CHARS} code points, whitespace folded first (a
+ * linear pass) so padding cannot push an address past the cut. When the text
+ * is cut, the last, possibly partial token is dropped too: half an address is
+ * not one the email pattern can see.
+ */
+function boundedInput(text: string): string {
+  const folded = text.replace(/\s+/g, " ");
+  const chars = Array.from(folded);
+  if (chars.length <= SCRUB_INPUT_CHARS) return folded;
+  const cut = chars.slice(0, SCRUB_INPUT_CHARS).join("");
+  const lastSpace = cut.lastIndexOf(" ");
+  return lastSpace > 0 ? cut.slice(0, lastSpace) : "";
+}
+
 export function scrubQuestion(text: string): string {
-  let out = Array.from(String(text ?? "")).slice(0, SCRUB_INPUT_CHARS).join("");
+  let out = boundedInput(String(text ?? ""));
   out = out.replace(EMAIL, REDACTED);
   out = out.replace(URL_LIKE, REDACTED);
   out = out.replace(PHONE, (match) => (digitCount(match) >= 7 ? REDACTED : match));

@@ -83,13 +83,45 @@ const LIST_LIMIT = 2_000;
  * pass per email). An existing row is returned **unchanged** — the first
  * sign-up stands, and the same pass with its ledger is what signing up again
  * gets. `created` says which happened.
+ *
  */
 export async function findOrCreateDemoSignup(
   input: NewDemoSignup,
   options: DemoSignupOptions = {}
 ): Promise<{ created: boolean; pass: DemoPassLedger }> {
   const db = options.db ?? (await getDb());
-  const [inserted] = await db
+  return db.transaction((tx) => insertOrFind(tx, input));
+}
+
+/**
+ * {@link findOrCreateDemoSignup}, but a **new** address is refused (`capped`)
+ * once `dailyLimit` sign-ups were made in the 24 hours before `now` (security
+ * audit 2026-10-23). The check and the insert run under one
+ * transaction-scoped advisory lock, so concurrent sign-ups near the limit
+ * cannot all read the same count and all get a pass. An address that already
+ * has a sign-up gets it back whatever the count.
+ */
+export async function findOrCreateDemoSignupWithinLimit(
+  input: NewDemoSignup,
+  limits: { dailyLimit: number; now: Date },
+  options: DemoSignupOptions = {}
+): Promise<{ created: boolean; pass: DemoPassLedger } | { capped: true }> {
+  const db = options.db ?? (await getDb());
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(${DEMO_SIGNUP_LOCK})`);
+    const [existing] = await tx.select(LEDGER).from(demoSignups).where(eq(demoSignups.email, input.email)).limit(1);
+    if (existing) return { created: false, pass: toLedger(existing) };
+    const since = new Date(limits.now.getTime() - DAY_MS);
+    const [row] = await tx.select({ n: count() }).from(demoSignups).where(gte(demoSignups.createdAt, since));
+    if (Number(row?.n ?? 0) >= limits.dailyLimit) return { capped: true as const };
+    return insertOrFind(tx, input);
+  });
+}
+
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+async function insertOrFind(tx: Tx, input: NewDemoSignup): Promise<{ created: boolean; pass: DemoPassLedger }> {
+  const [inserted] = await tx
     .insert(demoSignups)
     .values({
       name: input.name,
@@ -105,19 +137,16 @@ export async function findOrCreateDemoSignup(
     .returning(LEDGER);
   if (inserted) return { created: true, pass: toLedger(inserted) };
 
-  const [existing] = await db.select(LEDGER).from(demoSignups).where(eq(demoSignups.email, input.email)).limit(1);
+  const [existing] = await tx.select(LEDGER).from(demoSignups).where(eq(demoSignups.email, input.email)).limit(1);
   // The insert lost to a row with this address, so the row exists. A concurrent
   // delete in between is the only way here; report it as the failure it is.
   if (!existing) throw new Error("demo sign-up vanished between insert and read");
   return { created: false, pass: toLedger(existing) };
 }
 
-/** Whether this (normalised) address already has a sign-up. */
-export async function demoSignupExists(email: string, options: DemoSignupOptions = {}): Promise<boolean> {
-  const db = options.db ?? (await getDb());
-  const [row] = await db.select({ id: demoSignups.id }).from(demoSignups).where(eq(demoSignups.email, email)).limit(1);
-  return Boolean(row);
-}
+/** The advisory-lock key that serialises capped sign-ups (any fixed bigint; "demo" in ASCII). */
+const DEMO_SIGNUP_LOCK = 0x64656d6f;
+const DAY_MS = 86_400_000;
 
 /** How many sign-ups were made at or after `since` (the deployment-wide daily cap). */
 export async function countDemoSignupsSince(since: Date, options: DemoSignupOptions = {}): Promise<number> {

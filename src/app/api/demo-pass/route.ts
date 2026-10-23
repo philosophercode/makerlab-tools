@@ -1,5 +1,5 @@
 import { authSecret, resolveIdentity } from "../../../lib/auth/identity";
-import { countDemoSignupsSince, demoSignupExists, findOrCreateDemoSignup } from "../../../lib/data/demo-signups";
+import { findOrCreateDemoSignupWithinLimit } from "../../../lib/data/demo-signups";
 import { DEMO_PASS_DAYS, demoPassBudgetUsd, demoPassContactEmail, demoPassDailyLimit, demoPassEnabled } from "../../../lib/demo-pass/config";
 import { hasNoSession } from "../../../lib/demo-admin/config";
 import { demoPassSetCookie, isHttpsRequest } from "../../../lib/demo-pass/cookie";
@@ -66,23 +66,18 @@ export async function POST(req: Request): Promise<Response> {
   if (!secret) return Response.json({ ok: false, code: "unavailable" }, { status: 503, headers: NO_STORE });
 
   const now = new Date();
-  try {
-    if (!(await demoSignupExists(parsed.value.email))) {
-      const lastDay = await countDemoSignupsSince(new Date(now.getTime() - DAY_MS));
-      if (lastDay >= demoPassDailyLimit()) {
-        console.warn("[demo-pass] the daily limit on new passes is reached");
-        return Response.json({ ok: false, code: "busy" }, { status: 503, headers: NO_STORE });
-      }
-    }
-  } catch (err) {
-    console.warn("[demo-pass] the daily limit could not be checked", err instanceof Error ? err.name : "error");
-    return Response.json({ ok: false, code: "unavailable" }, { status: 503, headers: NO_STORE });
-  }
-
   let created: boolean;
-  let pass: Awaited<ReturnType<typeof findOrCreateDemoSignup>>["pass"];
+  let pass: Extract<Awaited<ReturnType<typeof findOrCreateDemoSignupWithinLimit>>, { pass: unknown }>["pass"];
   try {
-    ({ created, pass } = await findOrCreateDemoSignup({ ...parsed.value, passExpiresAt: new Date(now.getTime() + DEMO_PASS_DAYS * DAY_MS) }));
+    const result = await findOrCreateDemoSignupWithinLimit(
+      { ...parsed.value, passExpiresAt: new Date(now.getTime() + DEMO_PASS_DAYS * DAY_MS) },
+      { dailyLimit: demoPassDailyLimit(), now }
+    );
+    if ("capped" in result) {
+      console.warn("[demo-pass] the daily limit on new passes is reached");
+      return Response.json({ ok: false, code: "busy" }, { status: 503, headers: NO_STORE });
+    }
+    ({ created, pass } = result);
   } catch (err) {
     // Never the error's message: Drizzle's lists the bound values, and they are a visitor's details.
     console.warn("[demo-pass] a sign-up could not be stored", err instanceof Error ? err.name : "error");
