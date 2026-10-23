@@ -206,7 +206,7 @@ export function isGrantedRole(role: Role | null | undefined): role is GrantedRol
  * rather than an exception, because a typo in a gate must fail closed.
  */
 export function can(
-  subject: { role: Role | null | undefined } | null | undefined,
+  subject: { role: Role | null | undefined; readOnly?: boolean } | null | undefined,
   permission: Permission
 ): boolean {
   const role = subject?.role;
@@ -215,7 +215,9 @@ export function can(
 
   if (role === "demo_admin") {
     // `DEMO_ADMIN=view` (amendment 2026-10-22): the public demo holds nothing.
-    if (demoAdminReadOnly()) return false;
+    // The server reads the switch; the browser, which cannot, reads the
+    // identity's `readOnly`, so both render the same controls.
+    if (subject?.readOnly || demoAdminReadOnly()) return false;
     return demoAdmin.authorize(request as never).success;
   }
   if (!isGrantedRole(role)) return false;

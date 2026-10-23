@@ -46,9 +46,11 @@ describe("the flag", () => {
     }
   });
 
-  it("makes a visitor with no session the same demo identity in view mode", () => {
+  it("makes a visitor with no session the same demo identity in view mode, marked read-only", () => {
     vi.stubEnv("DEMO_ADMIN", "view");
-    expect(visitorIdentity(anonymous)).toEqual(demo);
+    expect(visitorIdentity(anonymous)).toEqual({ ...demo, readOnly: true });
+    vi.stubEnv("DEMO_ADMIN", "1");
+    expect(visitorIdentity(anonymous)).not.toHaveProperty("readOnly");
   });
 
   it("leaves a visitor with no session anonymous when off — exactly as before", () => {
@@ -135,6 +137,13 @@ describe("the read-only public demo (DEMO_ADMIN=view)", () => {
     expect(canView(demo, "users.manage")).toBe(true);
     expect(canView(demo, "insights.view")).toBe(true);
     expect(canView(demo, "catalog.view_drafts")).toBe(true);
+  });
+
+  // In the browser DEMO_ADMIN is unset; the identity's `readOnly` carries the mode there.
+  it("holds nothing in the browser either, where only the identity says read-only", () => {
+    vi.stubEnv("DEMO_ADMIN", "");
+    for (const permission of PERMISSIONS) expect(can({ ...demo, readOnly: true }, permission), permission).toBe(false);
+    expect(can(demo, "tools.add")).toBe(true);
   });
 
   it("works no pending item, not even one the booth demo left behind", () => {

@@ -44,6 +44,7 @@ type RefreshState = "idle" | "refreshing" | "refreshed" | "failed";
 
 export function CommandPaletteDialog({
   role,
+  readOnly,
   tools,
   onAsk,
   open,
@@ -61,8 +62,8 @@ export function CommandPaletteDialog({
   const staff = surfaces.length > 0;
   // The category groups the tools fall in, each with its count — a link to the full list filtered to it.
   const categories = useMemo(() => categoryEntries(tools ?? []), [tools]);
-  const canAdd = canAddEquipment({ role });
-  const canRefresh = can({ role }, "tools.edit");
+  const canAdd = canAddEquipment({ role, readOnly });
+  const canRefresh = can({ role, readOnly }, "tools.edit");
 
   const setOpenAndReset = useCallback(
     (next: boolean) => {

@@ -123,7 +123,7 @@ export default async function AdminInventoryPage({
                 {t("qrLabels.open")}
               </Link>
             </Button>
-            <AddInventoryButton role={identity.role} />
+            <AddInventoryButton role={identity.role} readOnly={identity.readOnly} />
           </>
         }
       />
