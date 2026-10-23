@@ -4,7 +4,7 @@
 **Status:** Implemented — storage moved from Notion to Postgres (data platform phase 3); moderation at `/admin/projects` (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `philosophercode/projects-gallery` (rebase onto `main`)
-**Supersedes:** [`2026-05-29-gallery-projects-design.md`](../superpowers/specs/2026-05-29-gallery-projects-design.md)
+**Supersedes:** [`2026-05-29-gallery-projects-design.md`](https://github.com/philosophercode/makerlab-tools/blob/6978cebfcc2f8ec0c4ec0827faf17185f977f664/docs/superpowers/specs/2026-05-29-gallery-projects-design.md), removed from the tree
 
 ## 1. Summary
 
