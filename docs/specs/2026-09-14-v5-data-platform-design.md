@@ -1550,7 +1550,7 @@ non-empty. The picker gets wider; the two server-side enforcement points in §3.
 they are the control. A deployment that leaves the list empty is byte-identical to before.
 
 **The bootstrap, decided 2026-09-22.** `AUTH_SUPER_ADMIN_EMAILS=ies22@cornell.edu` remains the
-floor for launch — it works today with no code change. `steinbergisaac@gmail.com` goes in
+floor for launch — it works today with no code change. The owner's personal address goes in
 `AUTH_ALLOWED_EMAILS`, and may be added to the floor, so access survives the Cornell account.
 
 **Status.** Accepted. Tested in `roles.test.ts`: an off-domain named address is admitted, its

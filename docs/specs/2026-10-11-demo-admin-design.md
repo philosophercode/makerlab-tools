@@ -94,3 +94,31 @@ roster is read-only for that viewer. Real signed-in viewers never see them.
   demo pass's when the visitor holds one.
 - A banned or out-of-domain session also falls back to the demo identity while
   the flag is on (read-only, masked).
+
+## Amendment — A read-only public admin (2026-10-22, proposed)
+
+After ISAM the owner asked to keep "some of the admin stuff" visible to the
+public once the site is shared openly. `DEMO_ADMIN=1` was built for one
+supervised booth: strangers on the open internet could add equipment that is
+researched (paid AI) and published to the live catalogue at once, and the
+People page lists real students' names beside masked addresses.
+
+- **`DEMO_ADMIN=view`**: a third value. The visitor is the same demo identity
+  and sees the same pages (`canView` unchanged), but `can()` grants it
+  **nothing**: no `tools.add`, so no research, no upload, no approval. The
+  chat offers the demo only what an anonymous visitor gets. `1`/`true` keep
+  today's booth behaviour; anything else is off. `demoAdminMode()` returns
+  `"off" | "view" | "booth"`; `demoAdminEnabled()` stays true for both modes.
+- **Report a problem** stays what it is for every anonymous visitor (the
+  quick report form, the chat's `report_issue` with a name), flagged `demo`.
+- **People shows sample people only** in `view` mode: the twenty made-up rows,
+  never stored users. Blocked emails and demo sign-ups stay hidden.
+- **Ticket and correction text** is shown as today (reporters masked). Staff
+  should know a public admin shows what students wrote in their reports; the
+  `.env.example` entry says so.
+- **The banner** in `view` mode reads "Read-only demo: sign in as staff to
+  make changes".
+- **Tested** in `demo-admin.test.ts` (mode parsing; `can()` false for every
+  permission in `view`; `canView` as before), the People page test (no stored
+  user in `view`), and an E2E pass of `/admin` signed out in `view` mode with
+  every write control absent or refused.

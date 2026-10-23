@@ -195,3 +195,13 @@ no-op on an unknown kind; a runner that writes to real Notion.
    and before a demo. Worth writing into the handover guide rather than assuming.
 3. **Should cases be seeded from real questions?** Real chat questions would make the suite
    far more representative, but v5 does not log them. Blueprint does. *Not blocking.*
+
+## Amendment — One command for every eval (2026-10-22)
+
+The owner asked for "a clean way to run all the evals" for the open-source
+release. `npm run eval:all` (`scripts/eval-all.sh`) loads `.env.local`, runs
+the chat eval, then the manual question eval end to end (`EVAL_MQ_E2E=1`) on
+the inventory when `DATABASE_URL` or `PGLITE_DATA_DIR` is set, else on the
+bundled fixtures (`EVAL_MQ_FIXTURES=1`). Both run even if the first fails; the
+exit code is non-zero if either did. Paid, never in CI, like each suite alone.
+The two suites and their options are unchanged.

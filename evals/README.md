@@ -19,6 +19,19 @@ Design spec: [`docs/specs/2026-07-29-agent-eval-harness-design.md`](../docs/spec
 
 ---
 
+## Run everything
+
+```bash
+npm run eval:all     # the chat eval, then the manual question eval end to end
+```
+
+`scripts/eval-all.sh` loads `.env.local`, runs `npm run eval`, then
+`EVAL_MQ_E2E=1 npm run eval:manual-questions` on your inventory when
+`DATABASE_URL` or `PGLITE_DATA_DIR` is set, or on the bundled fixture manuals
+(`EVAL_MQ_FIXTURES=1`) when neither is. Both run even if the first fails, and it
+exits non-zero if either did. `EVAL_MODEL` and the `EVAL_MQ_*` options below pass
+through. Paid, like each suite on its own: a few cents a run at the default models.
+
 ## Running it
 
 Every model call goes through the Vercel AI Gateway (gateway spec §3.1) — there

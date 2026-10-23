@@ -356,6 +356,26 @@ in [`assistant.md`](assistant.md).
   email address: no assistant, in the site or over MCP, has a tool for any of
   those.
 
+## Your own lab's server
+
+Every deployment of MakerLab Tools is its own MCP server: a fork serves its own
+catalogue at `https://<your-deployment>/api/mcp` with nothing extra to set up. The
+public, read-only tools work with no account; signing in uses the deployment's own
+Google sign-in (`AUTH_*` in `.env.example`). Locally, `npm run dev` serves it at
+`http://localhost:3000/api/mcp` on the demo data, which is the quickest way to try a
+client against it.
+
+The Cornell Tech MakerLAB's server is `https://www.makerlabai.app/api/mcp`.
+
+**Adding a tool.** A tool is declared once in the capability registry
+(`src/lib/capabilities/`) as a name, a description, a zod input schema, a
+required permission and a `run()`; the chat and MCP both offer it, to the roles
+its permission allows. Never add one to the MCP route directly
+([`constitution.md`](constitution.md) Article 2). How the registry, the adapters
+and access work: [`architecture-guide.md`](architecture-guide.md) §3. Tokens,
+OAuth and the routes: [`architecture/mcp-access.md`](architecture/mcp-access.md).
+`npm run spec:coverage` flags a tool that no document names; add it to the table above.
+
 ## Troubleshooting
 
 - **401 "unknown token" / "token revoked" / "token expired"** — create a new
