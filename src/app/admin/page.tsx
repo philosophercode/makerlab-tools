@@ -162,7 +162,7 @@ export default async function AdminOverviewPage() {
 
         <aside aria-label={t("overview.sideLabel")} className="flex min-w-0 flex-col gap-4">
           <OverviewBlock id="quick-actions" title={t("overview.quickHeading")} plate>
-            <AdminActions role={identity.role} />
+            <AdminActions role={identity.role} readOnly={identity.readOnly} />
           </OverviewBlock>
 
           <OverviewBlock id="waiting" title={t("overview.waitingHeading")} plate>

@@ -8,6 +8,7 @@ import { PillarGrid } from "../../components/product/PillarGrid";
 import { ProductHero } from "../../components/product/ProductHero";
 import { ProductSection } from "../../components/product/ProductSection";
 import { WalkthroughVideo } from "../../components/product/WalkthroughVideo";
+import { siteConfig } from "../../lib/site-config";
 import { productMetadata } from "./metadata";
 import { QUICK_START_HREF, TRY_IT_HREF } from "./product-content";
 
@@ -21,7 +22,7 @@ const PRIVACY = ["signIn", "usage", "permissions", "safety"] as const;
  * the lab's director, a visitor — in the order a product page is read: what
  * it is and a way to try it, a 49-second video, the three things it helps
  * with, every feature with a real screenshot, what it costs to run, privacy
- * and safety, and who made it. Static: no request data, English underneath
+ * and safety, who made it, and the source code to fork. Static: no request data, English underneath
  * every locale. Linked from the About page and the footer, not the main nav.
  */
 export default function ProductPage() {
@@ -79,7 +80,14 @@ export default function ProductPage() {
           <Button asChild variant="outline" className="h-10 px-5">
             <Link href={QUICK_START_HREF}>{t("quickStartCta")}</Link>
           </Button>
+          {/* Amendment "Source code and forking" (2026-10-21): the code, for another lab. */}
+          <Button asChild variant="outline" className="h-10 px-5">
+            <a href={siteConfig.sourceUrl} target="_blank" rel="noopener">
+              {t("forkCta")}
+            </a>
+          </Button>
         </div>
+        <p className="max-w-[72ch] text-[15px] leading-normal text-muted-foreground">{t("forkLede")}</p>
       </ProductSection>
     </main>
   );

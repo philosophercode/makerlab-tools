@@ -29,10 +29,10 @@ import type { Role } from "../../lib/auth/roles";
  * nothing when none applies; hiding is presentation, every page and the chat
  * check again.
  */
-export function AdminActions({ role }: { role: Role }) {
+export function AdminActions({ role, readOnly }: { role: Role; readOnly?: boolean }) {
   const t = useTranslations();
   const { open } = useChatLauncher();
-  const subject = { role };
+  const subject = { role, readOnly };
   const canAdd = canAddEquipment(subject);
   const canEdit = can(subject, "tools.edit");
   const canMaintain = can(subject, "maintenance.manage");

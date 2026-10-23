@@ -45,6 +45,14 @@ export interface SiteConfig {
    * structured (kiosk spec phase 2); `NEXT_PUBLIC_LAB_HOURS` overrides it.
    */
   labHours: string;
+  /**
+   * The public repository this deployment's code comes from, linked from the
+   * footer, `/product` and About (identity spec amendment "Source code and
+   * forking", 2026-10-21). A fork sets `NEXT_PUBLIC_SOURCE_URL` to its own
+   * repository: that link is how a modified network deployment offers its
+   * source under the AGPL-3.0 (§13, `LICENSING.md`).
+   */
+  sourceUrl: string;
   /** Brand colors — injected as CSS variables at the root layout. */
   colors: {
     primary: string;
@@ -72,6 +80,8 @@ export const siteConfig: SiteConfig = {
   logoPng: pngTwin(LOGO),
   wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/brand/makerlab-wordmark-official.svg",
   labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 8AM-8PM",
+  sourceUrl:
+    process.env.NEXT_PUBLIC_SOURCE_URL || "https://github.com/philosophercode/makerlab-tools",
   colors: {
     primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY ?? "#ff6b35",
     primaryDark: process.env.NEXT_PUBLIC_COLOR_PRIMARY_DARK ?? "#cc4f1f",

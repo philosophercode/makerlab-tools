@@ -196,7 +196,7 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
         createdTool={createdTool}
         // Hiding Approve from somebody who may only draft is presentation;
         // `approvePending` checks `tools.publish` itself.
-        canPublish={can(identity, "tools.publish") || (isDemoAdmin(identity) && isDemoOwned(item))}
+        canPublish={can(identity, "tools.publish") || (isDemoAdmin(identity) && can(identity, "tools.add") && isDemoOwned(item))}
         actions={ACTIONS}
         // What a bulk import carried: units, its links, its lab documents (bulk intake spec §3.4).
         imported={

@@ -30,6 +30,14 @@ test("the footer leads to the product page, which offers Try it on the X1-Carbon
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /\/product\/og\.png$/);
 });
 
+// Amendment "Source code and forking" (2026-10-21).
+test("the footer and the product page link the source code", async ({ page }) => {
+  await page.goto("/product");
+  const repo = "https://github.com/philosophercode/makerlab-tools";
+  await expect(page.getByRole("contentinfo").getByRole("link", { name: "Source code" })).toHaveAttribute("href", repo);
+  await expect(page.getByRole("link", { name: "Fork it for your lab" })).toHaveAttribute("href", repo);
+});
+
 test("every screenshot loads, and the video, poster and captions are served", async ({ page, request }) => {
   await page.goto("/product");
   await expectImagesLoaded(page, "[data-slot='product-page']");
@@ -72,6 +80,14 @@ test.describe("on a phone", () => {
       expect(overflow).toBeLessThanOrEqual(0);
     });
   }
+
+  test("the footer, with Source code, fits without sideways scroll", async ({ page }) => {
+    await page.goto("/");
+    const footer = page.locator("[data-slot='site-footer']");
+    await expect(footer.getByRole("link", { name: "Source code" })).toBeVisible();
+    const overflow = await footer.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
 });
 
 test("the kiosk draws no footer", async ({ page }) => {

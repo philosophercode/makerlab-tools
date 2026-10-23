@@ -72,6 +72,9 @@ export async function GET(req: Request): Promise<Response> {
           // The People page's custom title, for the profile menu; null means
           // the menu shows the role's default.
           title: identity.title ?? null,
+          // The read-only public demo (`DEMO_ADMIN=view`, amendment
+          // 2026-10-22), so the header's badge can say it changes nothing.
+          ...(identity.readOnly ? { readOnly: true } : {}),
         };
 
   return Response.json(

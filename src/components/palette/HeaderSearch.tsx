@@ -30,7 +30,8 @@ export function HeaderSearch({ tools }: { tools: readonly PaletteTool[] }) {
   const pathname = usePathname();
   const pageHasSearch = pathname === ALL_TOOLS_PATH;
   const role = scope?.role ?? identity?.role ?? "anonymous";
+  const readOnly = scope ? scope.readOnly : identity?.readOnly;
   const drafts = scope?.drafts;
   const all = useMemo(() => (drafts && drafts.length > 0 ? [...tools, ...drafts] : tools), [tools, drafts]);
-  return <CommandPalette role={role} tools={all} onAsk={(query) => open(query || undefined)} triggerHidden={pageHasSearch} />;
+  return <CommandPalette role={role} readOnly={readOnly} tools={all} onAsk={(query) => open(query || undefined)} triggerHidden={pageHasSearch} />;
 }

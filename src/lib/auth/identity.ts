@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { DbUnavailableError } from "../db/client";
-import { DEMO_ADMIN_NAME, demoAdminEnabled } from "../demo-admin/config";
+import { DEMO_ADMIN_NAME, demoAdminEnabled, demoAdminReadOnly } from "../demo-admin/config";
 import { getClientIp } from "../rate-limit";
 import { getAuth } from "./config";
 import { isAllowedEmail, storedRoleOr, type Role } from "./roles";
@@ -56,6 +56,13 @@ export interface Identity {
    * chat tier. Optional like `image`.
    */
   demoPass?: { id: string; exhausted: boolean } | null;
+  /**
+   * True only on the demo identity under `DEMO_ADMIN=view` (demo admin
+   * amendment "A read-only public admin", 2026-10-22). It travels with the
+   * identity — to `/api/identity` and into client components — so `can()`
+   * answers false in the browser too, where `DEMO_ADMIN` cannot be read.
+   */
+  readOnly?: boolean;
 }
 
 export type { Role };
@@ -268,6 +275,7 @@ export function visitorIdentity(anonymous: Identity): Identity {
     email: null,
     name: DEMO_ADMIN_NAME,
     rateLimitKey: anonymous.rateLimitKey,
+    ...(demoAdminReadOnly() ? { readOnly: true } : {}),
   };
 }
 
