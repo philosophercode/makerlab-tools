@@ -136,7 +136,7 @@ What a fork replaces: names, logos and photos, the About page, the assistant's
 ```bash
 git clone https://github.com/philosophercode/makerlab-tools.git
 cd makerlab-tools
-npm install
+npm install                  # Node 24 (.nvmrc)
 npm run dev                  # http://localhost:3000
 ```
 
@@ -217,11 +217,12 @@ Dated specs in `docs/specs/` written before the move refer to paths under `v5/`.
 
 ## Contributing
 
-Every feature starts with a spec that merges **before** the implementation
+[`CONTRIBUTING.md`](CONTRIBUTING.md) has the setup and the checklist. In short: every feature starts with a spec that merges **before** the implementation
 ([`docs/constitution.md`](docs/constitution.md), Article 1). Use
 [`docs/specs/TEMPLATE.md`](docs/specs/TEMPLATE.md), or `/spec` in Claude Code.
 `npm run test:all` must pass before any merge. Outside contributors sign the
 [Contributor License Agreement](CLA.md) once, before their first pull request merges.
+Report security problems privately, as [`SECURITY.md`](SECURITY.md) describes.
 
 ## License
 

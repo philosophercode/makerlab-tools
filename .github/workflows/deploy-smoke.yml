@@ -30,7 +30,7 @@ jobs:
       # caught by the retry below.
       - name: Smoke test
         env:
-          SMOKE_BASE_URL: https://makerlab-ai.vercel.app
+          SMOKE_BASE_URL: https://www.makerlabai.app
         run: |
           for attempt in 1 2 3; do
             if bash scripts/smoke-production.sh; then exit 0; fi

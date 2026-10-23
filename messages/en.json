@@ -3743,7 +3743,7 @@
       "steps": {
         "open": {
           "title": "Open the site",
-          "body": "Go to makerlab-ai.vercel.app on a laptop or phone. Every tool in the lab is there: search, filter by category or status, or press ⌘K (Ctrl K) to jump to one. No account needed.",
+          "body": "Go to www.makerlabai.app on a laptop or phone. Every tool in the lab is there: search, filter by category or status, or press ⌘K (Ctrl K) to jump to one. No account needed.",
           "alt": "The tools gallery: a search box, filters and tool cards with photos."
         },
         "ask": {

@@ -6,6 +6,6 @@ This file exists so Claude Code loads it automatically; keeping the content in
 one place stops the two documents from drifting apart.
 
 **This repository is the product.** The app lives at the repository root and is
-the live Cornell Tech deployment (<https://makerlab-ai.vercel.app>); development
+the live Cornell Tech deployment (<https://www.makerlabai.app>); development
 continues here. Its data layer is Postgres; Notion is read only by the one-time
 import.
