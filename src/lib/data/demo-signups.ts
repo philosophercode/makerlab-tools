@@ -1,4 +1,4 @@
-import { count, desc, eq, sql } from "drizzle-orm";
+import { count, desc, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { demoSignups } from "../db/schema/index.ts";
 import type { DemoSignupRole } from "../db/schema/vocabulary.ts";
@@ -110,6 +110,20 @@ export async function findOrCreateDemoSignup(
   // delete in between is the only way here; report it as the failure it is.
   if (!existing) throw new Error("demo sign-up vanished between insert and read");
   return { created: false, pass: toLedger(existing) };
+}
+
+/** Whether this (normalised) address already has a sign-up. */
+export async function demoSignupExists(email: string, options: DemoSignupOptions = {}): Promise<boolean> {
+  const db = options.db ?? (await getDb());
+  const [row] = await db.select({ id: demoSignups.id }).from(demoSignups).where(eq(demoSignups.email, email)).limit(1);
+  return Boolean(row);
+}
+
+/** How many sign-ups were made at or after `since` (the deployment-wide daily cap). */
+export async function countDemoSignupsSince(since: Date, options: DemoSignupOptions = {}): Promise<number> {
+  const db = options.db ?? (await getDb());
+  const [row] = await db.select({ n: count() }).from(demoSignups).where(gte(demoSignups.createdAt, since));
+  return Number(row?.n ?? 0);
 }
 
 /** The pass `id` names, or null for a missing row or anything that is not a uuid. */

@@ -22,8 +22,12 @@ import { checkRateLimit } from "../../../../lib/rate-limit";
  * Either way the deployment still serves the catalogue and the assistant:
  * sign-in unlocks, it does not gate the front door.
  *
- * **The one thing the route does decide is that the admin plugin's own HTTP
- * endpoints are not part of the public surface.** See {@link isPluginAdminPath}.
+ * **The one thing the route does decide is that some plugin HTTP endpoints are
+ * not part of the public surface:** the admin plugin's (see
+ * {@link isPluginAdminPath}), and two of the mcp plugin's (see
+ * {@link isUnexposedMcpPath}). It also refuses to redeem an authorization code
+ * that is still waiting for the person's consent (see
+ * {@link refusePendingConsentCode}).
  */
 
 // `runtime` cannot be set when nextConfig.cacheComponents is enabled.
@@ -35,6 +39,11 @@ const NOT_CONFIGURED = { error: "Sign-in is not configured." };
 const ADMIN_NOT_EXPOSED = {
   error: "Account administration is not available over this API. Use /admin/users.",
   code: "admin_api_not_exposed",
+};
+
+const MCP_ENDPOINT_NOT_EXPOSED = {
+  error: "This endpoint is not available over this API. Consent is given on /oauth/consent.",
+  code: "mcp_endpoint_not_exposed",
 };
 
 async function handle(req: Request): Promise<Response> {
@@ -57,6 +66,9 @@ async function handle(req: Request): Promise<Response> {
   if (isPluginAdminPath(req)) {
     return Response.json(ADMIN_NOT_EXPOSED, { status: 403 });
   }
+  if (isUnexposedMcpPath(req)) {
+    return Response.json(MCP_ENDPOINT_NOT_EXPOSED, { status: 403 });
+  }
 
   const consentRedirect = forceConsent(req);
   if (consentRedirect) return consentRedirect;
@@ -66,6 +78,8 @@ async function handle(req: Request): Promise<Response> {
   if (isSocialSignIn(req) && !hasGoogleEnv()) {
     return Response.json(NOT_CONFIGURED, { status: 503 });
   }
+  const pendingRefusal = await refusePendingConsentCode(req, auth);
+  if (pendingRefusal) return pendingRefusal;
 
   // A blocked address (auth spec amendment 2026-09-25), or one outside the
   // domain (amendment 2026-10-07), comes back from the OAuth callback as Better
@@ -104,6 +118,70 @@ function forceConsent(req: Request): Response | null {
   url.searchParams.delete("prompt");
   url.searchParams.set("prompt", "consent");
   return Response.redirect(url.toString(), 302);
+}
+
+/**
+ * True for the two mcp plugin endpoints the app never calls over HTTP
+ * (security audit 2026-10-23):
+ *
+ * - **`/oauth2/consent`** finishes a pending authorization for *whoever's*
+ *   consent code it is given. It checks that the caller has a session, not
+ *   that the session is the code's owner, and it skips the read-only option and
+ *   the `token.created` audit. Consent is given on `/oauth/consent`, whose
+ *   server action (`decideConsent`) checks all three and calls
+ *   `auth.api.oAuthConsent` in process.
+ * - **`/mcp/get-session`** returns the whole token row to the holder of an
+ *   access token, refresh token included, so a leaked one-hour token could
+ *   renew itself indefinitely. The app resolves tokens itself
+ *   (`findOAuthAccessToken`).
+ *
+ * Decoded and lower-cased, like {@link isPluginAdminPath}.
+ */
+function isUnexposedMcpPath(req: Request): boolean {
+  const path = normalizedPath(req).replace(/\/+$/, "");
+  return path === `${AUTH_BASE_PATH}/oauth2/consent` || path === `${AUTH_BASE_PATH}/mcp/get-session`;
+}
+
+type AuthInstance = NonNullable<Awaited<ReturnType<typeof getAuth>>>;
+
+/**
+ * Refuse `POST /mcp/token` for a code that still awaits consent (security
+ * audit 2026-10-23).
+ *
+ * The plugin keeps the consent page's `consent_code` as an ordinary
+ * authorization-code row marked `requireConsent`, and its token endpoint
+ * never reads that mark. The client already holds its own id, redirect URI and
+ * PKCE verifier, so without this check a pending code would be a grant before
+ * the person pressed Allow. Allowing re-keys the row under a new code without
+ * the mark, so the real exchange is untouched. The body is read from a clone;
+ * the plugin still gets the original.
+ */
+async function refusePendingConsentCode(req: Request, auth: AuthInstance): Promise<Response | null> {
+  if (req.method !== "POST") return null;
+  if (normalizedPath(req).replace(/\/+$/, "") !== `${AUTH_BASE_PATH}/mcp/token`) return null;
+  let code = "";
+  try {
+    const type = req.headers.get("content-type") ?? "";
+    const text = await req.clone().text();
+    const body: unknown = type.includes("json") ? JSON.parse(text) : Object.fromEntries(new URLSearchParams(text));
+    const value = (body as { code?: unknown } | null)?.code;
+    code = typeof value === "string" ? value : "";
+  } catch {
+    return null; // The plugin answers a body it cannot read.
+  }
+  if (!code) return null;
+  const row = await (await auth.$context).internalAdapter.findVerificationValue(code);
+  let pending = false;
+  try {
+    pending = Boolean(row && (JSON.parse(row.value) as { requireConsent?: unknown }).requireConsent);
+  } catch {
+    pending = false;
+  }
+  if (!pending) return null;
+  return Response.json(
+    { error: "invalid_grant", error_description: "This authorization is still waiting for consent." },
+    { status: 400 }
+  );
 }
 
 /** True for `POST /api/auth/sign-in/social`, the one endpoint Google gates. */

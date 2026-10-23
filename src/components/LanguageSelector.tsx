@@ -16,8 +16,8 @@ export function LanguageSelector() {
     const next = event.target.value;
     if (next === locale) return;
     startTransition(async () => {
-      // Persist the cookie + revalidate the layout server-side, then refresh
-      // so all Server Components re-render in the new locale.
+      // Persist the cookie server-side, then refresh so all Server
+      // Components re-render in the new locale.
       await changeLocale(next);
       router.refresh();
     });

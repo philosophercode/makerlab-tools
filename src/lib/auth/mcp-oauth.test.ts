@@ -294,3 +294,65 @@ describe("authorizing an MCP client", () => {
     expect(decision).toEqual({ ok: false, error: "expired" });
   });
 });
+
+describe("plugin endpoints the app does not expose (security audit 2026-10-23)", () => {
+  async function pendingAuthorization(owner: SignedInSession, ip: string) {
+    const clientId = await register("Claude", ip);
+    const { verifier, challenge } = pkce();
+    const res = await AUTH_GET(
+      new Request(authorizeUrl(clientId, challenge, "consent"), { headers: { cookie: owner.cookie, "x-forwarded-for": ip } })
+    );
+    const consentCode = new URL(res.headers.get("location") ?? "", BASE).searchParams.get("consent_code") ?? "";
+    expect(consentCode).toBeTruthy();
+    return { clientId, verifier, consentCode };
+  }
+
+  it("will not exchange a consent code that is still waiting for consent", async () => {
+    const owner = await signInAsNew({ role: "admin" });
+    const { clientId, verifier, consentCode } = await pendingAuthorization(owner, "198.51.100.30");
+    const { status, body } = await exchange(clientId, consentCode, verifier);
+    expect(status).toBe(400);
+    expect(body.error).toBe("invalid_grant");
+    const db = await getDb();
+    expect(await db.select().from(oauthAccessToken)).toHaveLength(0);
+
+    // The person can still allow it afterwards, and the real code still works.
+    setMockHeaders({ cookie: owner.cookie, "x-forwarded-for": "198.51.100.30" });
+    const decision = await decideConsent({ consentCode, accept: true, readOnly: false }, new Headers({ cookie: owner.cookie }));
+    if (!decision.ok) throw new Error(decision.error);
+    const granted = await exchange(clientId, new URL(decision.redirectURI).searchParams.get("code") ?? "", verifier);
+    expect(granted.status).toBe(200);
+  });
+
+  it("refuses the plugin's HTTP consent endpoint, so nobody can answer another person's request", async () => {
+    const owner = await signInAsNew({ role: "admin" });
+    const { consentCode } = await pendingAuthorization(owner, "198.51.100.31");
+    const intruder = await signInAsNew({ role: "user" });
+    for (const path of ["/api/auth/oauth2/consent", "/api/auth/OAuth2/Consent/", "/api/auth/oauth2%2Fconsent"]) {
+      const res = await AUTH_POST(
+        new Request(`${BASE}${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", cookie: intruder.cookie, "x-forwarded-for": "198.51.100.31" },
+          body: JSON.stringify({ accept: true, consent_code: consentCode }),
+        })
+      );
+      expect(res.status).toBe(403);
+    }
+    const db = await getDb();
+    expect(await db.select().from(oauthConsent)).toHaveLength(0);
+  });
+
+  it("refuses get-session, so an access token cannot read its refresh token", async () => {
+    const person = await signInAsNew({ role: "user" });
+    const { clientId, verifier, decision } = await consentFlow(person, { accept: true, readOnly: false });
+    if (!decision.ok) throw new Error(decision.error);
+    const { body } = await exchange(clientId, new URL(decision.redirectURI).searchParams.get("code") ?? "", verifier);
+    const res = await AUTH_GET(
+      new Request(`${BASE}/api/auth/mcp/get-session`, {
+        headers: { authorization: `Bearer ${body.access_token}`, "x-forwarded-for": "198.51.100.32" },
+      })
+    );
+    expect(res.status).toBe(403);
+    expect(JSON.stringify(await res.json())).not.toContain(body.refresh_token);
+  });
+});
