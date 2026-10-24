@@ -12,6 +12,7 @@ import { ChatLauncherProvider } from "../components/ChatLauncherContext";
 import { PageSelectionProvider } from "../components/chat/page-selection";
 import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
+import { OnShiftNow } from "../components/on-shift/OnShiftNow";
 import { SiteChrome } from "../components/SiteChrome";
 import { SiteFooter } from "../components/SiteFooter";
 import { AskParamOpener } from "../components/AskParamOpener";
@@ -101,7 +102,16 @@ async function LocalizedTree({
       <ChatLauncherProvider>
         <PageSelectionProvider>
           <SiteChrome>
-            <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
+            <GlobalChrome
+              stats={catalogStats}
+              paletteTools={paletteTools}
+              onShift={
+                // On-shift spec 2026-10-07: its own dynamic hole, so the cached chrome stays cached.
+                <Suspense fallback={null}>
+                  <OnShiftNow variant="strip" />
+                </Suspense>
+              }
+            />
             <DemoDataBanner />
           </SiteChrome>
           {children}

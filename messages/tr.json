@@ -439,6 +439,7 @@
     "callout": {
       "label": "Maker alanınız için {assistant}",
       "text": "{assistant} uygulamasını maker alanınıza getirmek ister misiniz?",
+      "body": "Bilgilerinizi bırakın, size dönüş yapalım.",
       "cta": "Kaydolun",
       "dismiss": "Kapat"
     }

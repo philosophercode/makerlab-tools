@@ -22,8 +22,8 @@ import { OnShiftNow } from "./OnShiftNow";
  * nobody is on shift. Dynamic before it reads the clock.
  */
 
-async function renderLine() {
-  const element = (await OnShiftNow({})) as ReactElement | null;
+async function renderLine(props: Parameters<typeof OnShiftNow>[0] = {}) {
+  const element = (await OnShiftNow(props)) as ReactElement | null;
   return element ? render(element) : null;
 }
 
@@ -37,4 +37,18 @@ it("says who is on shift, joined as a sentence", async () => {
 it("renders nothing at all when nobody is on shift: no stand-in name, no 'nobody'", async () => {
   names.value = [];
   expect(await renderLine()).toBeNull();
+});
+
+it("as the status strip's third item it is a span, with the live dot and the same sentence", async () => {
+  names.value = ["Alex M."];
+  await renderLine({ variant: "strip" });
+  const item = screen.getByText("On shift now: Alex M.").closest('[data-slot="on-shift-now"]') as HTMLElement;
+  expect(item.tagName).toBe("SPAN");
+  expect(item).toHaveAttribute("data-variant", "strip");
+  expect(item.querySelector(".live-dot")).not.toBeNull();
+});
+
+it("the strip variant renders nothing either when nobody is on shift", async () => {
+  names.value = [];
+  expect(await renderLine({ variant: "strip" })).toBeNull();
 });

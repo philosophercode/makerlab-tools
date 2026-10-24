@@ -3,10 +3,21 @@ import { cn } from "@/lib/utils";
 /**
  * The one look of the on-shift line (on-shift spec 2026-10-07 §6): the live
  * dot the header's status strip uses, then the sentence, in the mono label
- * type of a facts line. Presentational only; `OnShiftNow` decides whether
+ * type of a facts line. The `strip` variant is the third item of the header's
+ * status strip, as a span. Presentational only; `OnShiftNow` decides whether
  * there is anything to say.
  */
-export function OnShiftLine({ text, className }: { text: string; className?: string }) {
+export function OnShiftLine({ text, className, variant = "line" }: { text: string; className?: string; variant?: "line" | "strip" }) {
+  // In the status strip the strip's own mono uppercase type applies and the
+  // text truncates (globals.css) so a phone never scrolls the page sideways.
+  if (variant === "strip") {
+    return (
+      <span data-slot="on-shift-now" data-variant="strip" className={className}>
+        <i className="live-dot" aria-hidden="true" />
+        <span>{text}</span>
+      </span>
+    );
+  }
   return (
     <p
       data-slot="on-shift-now"
