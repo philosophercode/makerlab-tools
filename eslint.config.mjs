@@ -28,6 +28,8 @@ const eslintConfig = defineConfig([
     "src/app/.well-known/workflow/**",
     // Agent worktrees: full checkouts of this repo nested inside it.
     ".claude/**",
+    // Marketing media (media/product-video): its own package.json and toolchain.
+    "media/**",
   ]),
 ]);
 

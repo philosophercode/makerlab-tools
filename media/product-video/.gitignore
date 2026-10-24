@@ -1,0 +1,9 @@
+# Raw screencast frames (GBs); `npm run capture` rebuilds them.
+footage-raw/
+# Renders: kept out of git (≈12 MB each); see README "Output".
+out/
+# Scratch: previews, stills, one-off probes.
+.scratch/
+# Audio is dropped in locally; commit it only with its licence recorded.
+public/voiceover.mp3
+public/music.mp3
