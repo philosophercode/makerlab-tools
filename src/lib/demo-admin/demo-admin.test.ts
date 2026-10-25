@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReactElement } from "react";
 import { visitorIdentity, type Identity } from "@/lib/auth/identity";
-import { can, canReachAdmin, canView } from "@/lib/auth/permissions";
+import { PERMISSIONS, can, canReachAdmin, canView } from "@/lib/auth/permissions";
 import { surfacesFor } from "@/lib/admin/surfaces";
 import { canActOnPendingTool } from "@/lib/intake/access";
 import { canSeeMap } from "@/lib/map/access";
 import { audienceFor } from "@/lib/usage/events";
-import { DEMO_ACTOR_ID, demoAdminEnabled, hasNoSession, isDemoTraffic } from "@/lib/demo-admin/config";
+import { DEMO_ACTOR_ID, demoAdminEnabled, demoAdminMode, demoAdminReadOnly, hasNoSession, isDemoTraffic } from "@/lib/demo-admin/config";
 import { emailFor, maskEmail, maskEmailsFor } from "@/lib/demo-admin/mask-email";
 import { isSamplePerson, samplePeople } from "@/lib/demo-admin/sample-people";
 import { UsersTable } from "@/components/admin/UsersTable";
@@ -35,6 +35,22 @@ describe("the flag", () => {
     expect(demoAdminEnabled()).toBe(true);
     vi.stubEnv("DEMO_ADMIN", "true");
     expect(demoAdminEnabled()).toBe(true);
+  });
+
+  it("reads DEMO_ADMIN=view as the read-only public mode, and 1 or true as the booth", () => {
+    for (const [raw, mode] of [["", "off"], ["yes", "off"], ["1", "booth"], ["TRUE", "booth"], ["view", "view"], [" View ", "view"], ["viewer", "off"]] as const) {
+      vi.stubEnv("DEMO_ADMIN", raw);
+      expect(demoAdminMode(), raw).toBe(mode);
+      expect(demoAdminEnabled(), raw).toBe(mode !== "off");
+      expect(demoAdminReadOnly(), raw).toBe(mode === "view");
+    }
+  });
+
+  it("makes a visitor with no session the same demo identity in view mode, marked read-only", () => {
+    vi.stubEnv("DEMO_ADMIN", "view");
+    expect(visitorIdentity(anonymous)).toEqual({ ...demo, readOnly: true });
+    vi.stubEnv("DEMO_ADMIN", "1");
+    expect(visitorIdentity(anonymous)).not.toHaveProperty("readOnly");
   });
 
   it("leaves a visitor with no session anonymous when off — exactly as before", () => {
@@ -105,6 +121,40 @@ describe("what the demo identity may do", () => {
     expect(isDemoTraffic(demo)).toBe(true);
     expect(isDemoTraffic(anonymous)).toBe(false);
     expect(audienceFor("demo_admin")).toBe("demo");
+  });
+});
+
+// Amendment "A read-only public admin" (2026-10-22).
+describe("the read-only public demo (DEMO_ADMIN=view)", () => {
+  it("holds no permission at all", () => {
+    vi.stubEnv("DEMO_ADMIN", "view");
+    for (const permission of PERMISSIONS) expect(can(demo, permission), permission).toBe(false);
+  });
+
+  it("sees what the booth demo sees", () => {
+    vi.stubEnv("DEMO_ADMIN", "view");
+    expect(canReachAdmin(demo)).toBe(true);
+    expect(canView(demo, "users.manage")).toBe(true);
+    expect(canView(demo, "insights.view")).toBe(true);
+    expect(canView(demo, "catalog.view_drafts")).toBe(true);
+  });
+
+  // In the browser DEMO_ADMIN is unset; the identity's `readOnly` carries the mode there.
+  it("holds nothing in the browser either, where only the identity says read-only", () => {
+    vi.stubEnv("DEMO_ADMIN", "");
+    for (const permission of PERMISSIONS) expect(can({ ...demo, readOnly: true }, permission), permission).toBe(false);
+    expect(can(demo, "tools.add")).toBe(true);
+  });
+
+  it("works no pending item, not even one the booth demo left behind", () => {
+    vi.stubEnv("DEMO_ADMIN", "view");
+    expect(canActOnPendingTool(demo, { createdBy: DEMO_ACTOR_ID })).toBe(false);
+  });
+
+  it("leaves a real role exactly as it was", () => {
+    vi.stubEnv("DEMO_ADMIN", "view");
+    expect(can({ role: "super_admin" }, "tools.publish")).toBe(true);
+    expect(can({ role: "user" }, "projects.submit")).toBe(true);
   });
 });
 

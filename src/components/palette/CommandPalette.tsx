@@ -45,6 +45,8 @@ const PAGE_SEARCH_SELECTOR = '[role="search"] input[type="search"], [role="searc
  */
 export interface CommandPaletteProps {
   role: Role;
+  /** The read-only public demo (`Identity.readOnly`): no action is offered. */
+  readOnly?: boolean;
   /** Tools to jump to, or null when the list could not be read. */
   tools: readonly PaletteTool[] | null;
   /** Open the assistant; `query` (possibly empty) is what was typed, sent as the first message. */

@@ -16,6 +16,8 @@ import type { PaletteTool } from "./palette-types";
  */
 export interface PaletteScopeValue {
   role: Role;
+  /** The read-only public demo (`Identity.readOnly`): the palette offers it no action. */
+  readOnly?: boolean;
   /**
    * The drafts this viewer may open, added to the header's published list —
    * empty for a viewer who may not see drafts, and when they could not be read
@@ -46,10 +48,10 @@ export function usePaletteScope(): PaletteScopeValue | null {
 }
 
 /** Rendered by a layout that knows more than the header: publishes while mounted. Renders nothing. */
-export function PaletteScope({ role, drafts }: PaletteScopeValue) {
+export function PaletteScope({ role, readOnly, drafts }: PaletteScopeValue) {
   useEffect(() => {
-    set({ role, drafts });
+    set({ role, readOnly, drafts });
     return () => set(null);
-  }, [role, drafts]);
+  }, [role, readOnly, drafts]);
   return null;
 }

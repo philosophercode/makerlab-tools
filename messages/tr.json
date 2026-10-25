@@ -355,6 +355,7 @@
     "body": "Bu katalog yerleşik örnek verilerdir, {institution} kurumunun gerçek envanteri değildir. Notion yapılandırılmamış."
   },
   "footer": {
+    "source": "Kaynak kodu",
     "report": "Sorun bildir",
     "reportSeed": "Bir sorun bildirmek istiyorum."
   },

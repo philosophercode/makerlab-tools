@@ -75,7 +75,7 @@ export default async function AdminLayout({
  * catalogue tag). A read that fails leaves the published list the header
  * already has, which is still true (Article 4).
  */
-async function AdminPaletteScope({ role, withDrafts }: { role: Role; withDrafts: boolean }) {
+async function AdminPaletteScope({ role, readOnly, withDrafts }: { role: Role; readOnly?: boolean; withDrafts: boolean }) {
   let drafts: PaletteTool[] = [];
   if (withDrafts) {
     try {
@@ -84,7 +84,7 @@ async function AdminPaletteScope({ role, withDrafts }: { role: Role; withDrafts:
       console.error("[admin] could not read the palette's drafts", err);
     }
   }
-  return <PaletteScope role={role} drafts={drafts} />;
+  return <PaletteScope role={role} readOnly={readOnly} drafts={drafts} />;
 }
 
 /** Resolves who is asking, and renders the children only if they may be here. */
@@ -102,7 +102,7 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
           open — in its own boundary, so the page never waits on it
           (performance plan, quick win 12). */}
       <Suspense fallback={null}>
-        <AdminPaletteScope role={identity.role} withDrafts={can(identity, "catalog.view_drafts")} />
+        <AdminPaletteScope role={identity.role} readOnly={identity.readOnly} withDrafts={can(identity, "catalog.view_drafts")} />
       </Suspense>
       {/* The floating chat button is not drawn on admin pages; the bar opens the assistant. */}
       <AdminNav items={items} end={<AskAssistantButton />} />

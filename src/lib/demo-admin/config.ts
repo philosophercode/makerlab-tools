@@ -1,22 +1,39 @@
 import type { Role } from "../auth/roles";
 
 /**
- * Demo admin mode (demo admin spec 2026-10-11): while `DEMO_ADMIN=1`, a
- * visitor nobody is signed in as is the demo identity — they see the admin
- * surface as a director does, and may add equipment and report a problem,
- * nothing else.
+ * Which demo admin mode is on (demo admin spec 2026-10-11, and its amendment
+ * "A read-only public admin", 2026-10-22):
+ *
+ * - `"booth"` (`DEMO_ADMIN=1` or `true`): a visitor nobody is signed in as is
+ *   the demo identity — they see the admin surface as a director does, and may
+ *   add equipment and report a problem, nothing else. For a supervised booth.
+ * - `"view"` (`DEMO_ADMIN=view`): the same identity and the same pages, but
+ *   `can()` grants it nothing, so nothing can be added, researched or
+ *   published. For a site shared openly.
+ * - `"off"`: anything else, unset included. A typo leaves the app as it was.
  *
  * Read at **call time**, like every env switch in `lib/auth/`, so turning it
  * off is a redeploy with the variable removed and tests can `vi.stubEnv`.
- * Only `1` or `true` turns it on: a typo leaves the app exactly as it was.
  *
  * Client-safe: in a browser bundle `process.env.DEMO_ADMIN` is undefined, so
- * this answers false there — the browser learns the role from
+ * this answers `"off"` there — the browser learns the role from
  * `/api/identity`, never from this.
  */
-export function demoAdminEnabled(): boolean {
+export function demoAdminMode(): "off" | "view" | "booth" {
   const raw = (process.env.DEMO_ADMIN || "").trim().toLowerCase();
-  return raw === "1" || raw === "true";
+  if (raw === "1" || raw === "true") return "booth";
+  if (raw === "view") return "view";
+  return "off";
+}
+
+/** True in either demo mode: a visitor with no session is the demo identity. */
+export function demoAdminEnabled(): boolean {
+  return demoAdminMode() !== "off";
+}
+
+/** True when the demo is the read-only public one (`DEMO_ADMIN=view`): it may look, never write. */
+export function demoAdminReadOnly(): boolean {
+  return demoAdminMode() === "view";
 }
 
 /** The display name the demo identity carries: the header, a ticket's reporter. */

@@ -146,7 +146,7 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
           {/* The demo identity (demo admin spec 2026-10-11): say so, and keep
               Sign in beside it so staff can still sign in as themselves. */}
           {identity?.role === "demo_admin" ? (
-            <span className="primary-nav-demo-badge" title={t("demoAdminHint")}>
+            <span className="primary-nav-demo-badge" title={t(identity.readOnly ? "demoAdminViewHint" : "demoAdminHint")}>
               {t("demoAdmin")}
             </span>
           ) : null}

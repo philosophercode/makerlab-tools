@@ -1,5 +1,6 @@
 import { createAccessControl } from "better-auth/plugins/access";
 import { defaultStatements } from "better-auth/plugins/admin/access";
+import { demoAdminReadOnly } from "../demo-admin/config";
 import type { Role } from "./roles";
 
 /**
@@ -158,6 +159,9 @@ export const roles = {
  * - `catalog.view_drafts` and `catalog.view_serials` — reads that gate no
  *   write, so the demo sees what a director sees on tool pages and in chat.
  *
+ * Under `DEMO_ADMIN=view` (amendment "A read-only public admin", 2026-10-22)
+ * it holds none of these: {@link can} answers false for every permission.
+ *
  * **Fail closed.** Every other write checks `can()`, and `can()` asks this
  * declaration, so a write path nobody thought about refuses the demo. Seeing
  * the admin pages is a separate question, {@link canView}.
@@ -202,14 +206,20 @@ export function isGrantedRole(role: Role | null | undefined): role is GrantedRol
  * rather than an exception, because a typo in a gate must fail closed.
  */
 export function can(
-  subject: { role: Role | null | undefined } | null | undefined,
+  subject: { role: Role | null | undefined; readOnly?: boolean } | null | undefined,
   permission: Permission
 ): boolean {
   const role = subject?.role;
   const request = parsePermission(permission);
   if (!request) return false;
 
-  if (role === "demo_admin") return demoAdmin.authorize(request as never).success;
+  if (role === "demo_admin") {
+    // `DEMO_ADMIN=view` (amendment 2026-10-22): the public demo holds nothing.
+    // The server reads the switch; the browser, which cannot, reads the
+    // identity's `readOnly`, so both render the same controls.
+    if (subject?.readOnly || demoAdminReadOnly()) return false;
+    return demoAdmin.authorize(request as never).success;
+  }
   if (!isGrantedRole(role)) return false;
 
   return roles[role].authorize(request as never).success;

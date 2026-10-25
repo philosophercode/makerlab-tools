@@ -16,10 +16,10 @@ import type { Role } from "../../lib/auth/roles";
  * Shown to holders of `tools.add`; hiding is presentation, and the chat
  * composes intake only for them.
  */
-export function AddInventoryButton({ role }: { role: Role }) {
+export function AddInventoryButton({ role, readOnly }: { role: Role; readOnly?: boolean }) {
   const t = useTranslations();
   const { open } = useChatLauncher();
-  if (!canAddEquipment({ role })) return null;
+  if (!canAddEquipment({ role, readOnly })) return null;
   return (
     <Button variant="default" onClick={() => open(t("nav.addSeed"))}>
       {t("admin.inventory.addInventory")}

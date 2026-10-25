@@ -8,7 +8,7 @@ import { describeDbError } from "../db/describe-error";
 import { ADMIN_ACTION_TIER, rateLimitAsync } from "../rate-limit";
 import type { IntakeApproveResult } from "../../app/admin/intake/action-result";
 import { withDemoActor } from "./actor";
-import { isDemoAdmin, isDemoOwned } from "./config";
+import { demoAdminReadOnly, isDemoAdmin, isDemoOwned } from "./config";
 
 /**
  * **Approve** for the demo identity (demo admin spec 2026-10-11 §5): the one
@@ -27,6 +27,9 @@ import { isDemoAdmin, isDemoOwned } from "./config";
  */
 export async function approveAsDemo(rawInput: unknown, identity: Identity): Promise<IntakeApproveResult> {
   if (!isDemoAdmin(identity)) return { ok: false, error: "not_permitted" };
+  // The read-only public demo (amendment 2026-10-22) publishes nothing, not even
+  // an item the booth demo left behind.
+  if (demoAdminReadOnly()) return { ok: false, error: "not_permitted" };
 
   const { allowed } = await rateLimitAsync(`admin-action:${identity.rateLimitKey}`, ADMIN_ACTION_TIER);
   if (!allowed) return { ok: false, error: "rate_limited" };

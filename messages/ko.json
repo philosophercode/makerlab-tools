@@ -355,6 +355,7 @@
     "body": "이 카탈로그는 내장된 샘플 데이터이며 {institution}의 실제 재고가 아닙니다. Notion이 구성되지 않았습니다."
   },
   "footer": {
+    "source": "소스 코드",
     "report": "문제 신고",
     "reportSeed": "문제를 신고하고 싶어요."
   },

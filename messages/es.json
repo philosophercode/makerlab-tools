@@ -355,6 +355,7 @@
     "body": "Este catálogo son datos de muestra integrados, no el inventario real de {institution}. Notion no está configurado."
   },
   "footer": {
+    "source": "Código fuente",
     "report": "Reportar un problema",
     "reportSeed": "Quiero reportar un problema."
   },

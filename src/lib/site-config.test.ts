@@ -26,6 +26,7 @@ describe("site-config", () => {
       delete process.env.NEXT_PUBLIC_COLOR_PRIMARY;
       delete process.env.NEXT_PUBLIC_COLOR_PRIMARY_DARK;
       delete process.env.NEXT_PUBLIC_LAB_HOURS;
+      delete process.env.NEXT_PUBLIC_SOURCE_URL;
 
       vi.resetModules();
       const { siteConfig } = await import("@/lib/site-config");
@@ -41,6 +42,7 @@ describe("site-config", () => {
       expect(siteConfig.logoPng).toBe("/brand/cornell-tech-makerlab-logo.png");
       expect(siteConfig.wordmark).toBe("/brand/makerlab-wordmark-official.svg");
       expect(siteConfig.labHours).toBe("LAB OPEN 8AM-8PM");
+      expect(siteConfig.sourceUrl).toBe("https://github.com/philosophercode/makerlab-tools");
       expect(siteConfig.colors).toEqual({
         primary: "#ff6b35",
         primaryDark: "#cc4f1f",
@@ -60,6 +62,7 @@ describe("site-config", () => {
       vi.stubEnv("NEXT_PUBLIC_COLOR_PRIMARY", "#123456");
       vi.stubEnv("NEXT_PUBLIC_COLOR_PRIMARY_DARK", "#0a1a2a");
       vi.stubEnv("NEXT_PUBLIC_LAB_HOURS", "Mon–Fri 10am–6pm");
+      vi.stubEnv("NEXT_PUBLIC_SOURCE_URL", "https://github.com/acme/lab-tools");
 
       vi.resetModules();
       const { siteConfig } = await import("@/lib/site-config");
@@ -73,6 +76,7 @@ describe("site-config", () => {
       expect(siteConfig.logoPng).toBe("/acme-logo.png");
       expect(siteConfig.wordmark).toBe("/acme-wordmark.svg");
       expect(siteConfig.labHours).toBe("Mon–Fri 10am–6pm");
+      expect(siteConfig.sourceUrl).toBe("https://github.com/acme/lab-tools");
       expect(siteConfig.colors).toEqual({
         primary: "#123456",
         primaryDark: "#0a1a2a",
@@ -107,6 +111,15 @@ describe("site-config", () => {
       const { siteConfig } = await import("@/lib/site-config");
 
       expect(siteConfig.labHours).toBe("LAB OPEN 8AM-8PM");
+    });
+
+    it("treats an empty NEXT_PUBLIC_SOURCE_URL as unset, so the source link never goes nowhere", async () => {
+      vi.stubEnv("NEXT_PUBLIC_SOURCE_URL", "");
+
+      vi.resetModules();
+      const { siteConfig } = await import("@/lib/site-config");
+
+      expect(siteConfig.sourceUrl).toBe("https://github.com/philosophercode/makerlab-tools");
     });
   });
 });

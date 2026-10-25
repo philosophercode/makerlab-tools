@@ -34,7 +34,7 @@ import type { Capability } from "./types";
 export const INTAKE_PERMISSION: Permission = "tools.add";
 
 /** Anything that carries a role: an `Identity`, or a client identity. */
-export type AccessSubject = { role: Role | null | undefined } | null | undefined;
+export type AccessSubject = { role: Role | null | undefined; readOnly?: boolean } | null | undefined;
 
 /** True when `subject` may add equipment to the catalogue. */
 export function canAddEquipment(subject: AccessSubject): boolean {
