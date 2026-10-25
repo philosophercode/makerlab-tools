@@ -38,7 +38,7 @@ export function stubWrites(capabilities: Capability[] = CAPABILITIES): Capabilit
                   stubbed: true,
                   code: "tainted_turn",
                   message:
-                    "This turn read content from outside the lab, so it may not propose changes to people or anything that cannot be undone. Nothing was proposed or changed. Ask the person to repeat the request in a new message.",
+                    "This conversation has read content from outside the lab, so it may not propose changes to people or anything that cannot be undone. Nothing was proposed or changed. Ask the person to make the request in a new chat.",
                 }
               : {
                   proposed: true,

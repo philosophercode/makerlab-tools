@@ -12,7 +12,10 @@
  * - NetID-shaped tokens (2–3 letters then 2–5 digits: `abc123`, `jd42`). One
  *   digit is spared on purpose: `CO2` and `MK4` are what students ask about.
  *
- * Then whitespace is folded and the text is capped at {@link SCRUB_MAX_CHARS}
+ * The patterns run on the first {@link SCRUB_INPUT_CHARS} code points only:
+ * the email pattern backtracks quadratically on a long run with no `@`, and a
+ * chat message may be 400,000 characters (security audit 2026-10-23). Then
+ * whitespace is folded and the text is capped at {@link SCRUB_MAX_CHARS}
  * characters (by code point, so a cap never splits an emoji or a CJK
  * character). Pure; a name the patterns miss is why the text is admin-only,
  * short-lived and never backed up.
@@ -20,6 +23,8 @@
 
 export const SCRUB_MAX_CHARS = 300;
 export const REDACTED = "[…]";
+/** How much of the question the patterns see; a few times the stored cap. */
+export const SCRUB_INPUT_CHARS = SCRUB_MAX_CHARS * 4;
 
 const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}/gu;
 const URL_LIKE = /\b(?:https?:\/\/|www\.)[^\s<>"']+/giu;
@@ -32,8 +37,23 @@ function digitCount(text: string): number {
   return (text.match(/\d/g) ?? []).length;
 }
 
+/**
+ * The first {@link SCRUB_INPUT_CHARS} code points, whitespace folded first (a
+ * linear pass) so padding cannot push an address past the cut. When the text
+ * is cut, the last, possibly partial token is dropped too: half an address is
+ * not one the email pattern can see.
+ */
+function boundedInput(text: string): string {
+  const folded = text.replace(/\s+/g, " ");
+  const chars = Array.from(folded);
+  if (chars.length <= SCRUB_INPUT_CHARS) return folded;
+  const cut = chars.slice(0, SCRUB_INPUT_CHARS).join("");
+  const lastSpace = cut.lastIndexOf(" ");
+  return lastSpace > 0 ? cut.slice(0, lastSpace) : "";
+}
+
 export function scrubQuestion(text: string): string {
-  let out = String(text ?? "");
+  let out = boundedInput(String(text ?? ""));
   out = out.replace(EMAIL, REDACTED);
   out = out.replace(URL_LIKE, REDACTED);
   out = out.replace(PHONE, (match) => (digitCount(match) >= 7 ? REDACTED : match));

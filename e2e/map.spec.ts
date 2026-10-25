@@ -40,8 +40,12 @@ test("a zone is a history entry: Back, Whole map and Escape all return to the pl
   // A zone on the plan itself, then Escape.
   await page.locator('svg.floor-map a[data-zone="Z4"]').click();
   await expect(page).toHaveURL(/\/map\?highlight=Z4$/);
-  await page.keyboard.press("Escape");
-  await expect(page).toHaveURL(/\/map$/);
+  // MapExplorer listens for Escape only once the picked zone has rendered and
+  // hydrated, which can trail the URL by a beat; press again until it lands.
+  await expect(async () => {
+    await page.keyboard.press("Escape");
+    await expect(page).toHaveURL(/\/map$/, { timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
 });
 
 test("a project page shows a signed-in visitor where its tools are, and nobody else", async ({ page, context, baseURL }) => {
