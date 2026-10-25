@@ -66,6 +66,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 
 | Spec | Notes |
 |---|---|
+| [Lab Config](2026-10-25-lab-config-design.md) — every lab-specific value (names, logo, colours, address, staff, sign-in domain, timezone, the assistant's lab facts) in one file, `lab/lab.config.ts`; the floor plan as `lab/floor-plan.json` against a JSON Schema, traced by any vision model; `npm run lab:check` | Awaiting the owner's review. Phase 1 the config file, phase 2 the plan as data, phase 3 (in-app tracing) undecided |
 | [Kiosk Mode](2026-09-27-kiosk-mode-design.md) — public read-only lab screen at `/kiosk`: down machines, ticket counts, hours, featured tool, QR to chat | **Phase 1 built** (#94, `/kiosk`); phases 2–3 awaiting review; phase 2 adds editable hours and pins |
 
 The 2026-09-27 feature specs build on the Assistant–GUI Parity action layer; each writes its
