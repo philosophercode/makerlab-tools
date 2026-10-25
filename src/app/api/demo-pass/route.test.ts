@@ -11,6 +11,7 @@
 import { eq } from "drizzle-orm";
 import { resetAuthForTests } from "@/lib/auth/config";
 import { getDb, resetDbForTests } from "@/lib/db/client";
+import { countDemoSignupsSince } from "@/lib/data/demo-signups";
 import { demoSignups } from "@/lib/db/schema/index";
 import { signDemoPass } from "@/lib/demo-pass/token";
 import { GET, POST } from "./route";
@@ -77,6 +78,22 @@ afterEach(() => {
 afterAll(() => resetDbForTests());
 
 describe("POST /api/demo-pass", () => {
+  it("stops issuing new passes at the daily limit, but still returns an existing one (security audit 2026-10-23)", async () => {
+    const already = await countDemoSignupsSince(new Date(Date.now() - 86_400_000));
+    vi.stubEnv("DEMO_PASS_DAILY_LIMIT", String(already + 1));
+    const first = form();
+    expect((await post(first)).status).toBe(201);
+
+    const refused = await post(form());
+    expect(refused.status).toBe(503);
+    expect(await refused.json()).toMatchObject({ ok: false, code: "busy" });
+    expect(refused.headers.get("set-cookie")).toBeNull();
+
+    const again = await post(first);
+    expect(again.status).toBe(200);
+    expect(await again.json()).toMatchObject({ ok: true, status: "existing" });
+  });
+
   it("stores the sign-up and sets a signed, httpOnly, secure cookie for 14 days", async () => {
     const body = form();
     const res = await post(body);

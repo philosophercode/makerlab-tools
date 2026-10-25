@@ -13,11 +13,15 @@ import { countToolCalls, type StepLike } from "../ai/tool-caps";
  *
  * - every proposal it makes is stored `tainted` and its card says so;
  * - it may not propose a `people` or `destructive` action at all — the
- *   assistant asks the person to repeat the request in a new message, whose
- *   turn starts clean.
+ *   assistant asks the person to make the request in a new chat, whose
+ *   turns start clean.
  *
  * A turn is one chat request, and it starts tainted when the route itself
- * put outside text in the prompt (attached manuals, a curation record). The
+ * put outside text in the prompt (attached manuals, a curation record), or
+ * when the history the browser re-sends carries an earlier turn's outside
+ * read ({@link historyReadOutside}): that text is in front of the model again,
+ * so a follow-up message in the same conversation is not clean (security
+ * audit 2026-10-23). The
  * state lives on the capability context the
  * route builds (`CapabilityCtx.turn`), shared by reference with the copy the
  * chat adapter hands each tool, and is set two ways: when one of these tools
@@ -59,6 +63,24 @@ export interface TurnState {
  */
 export function newTurnState(options: { outsideInPrompt?: boolean } = {}): TurnState {
   return { readOutside: options.outsideInPrompt === true };
+}
+
+/** A UI message part, as far as taint needs to read it. */
+type PartLike = { type: string; toolName?: unknown };
+
+/**
+ * Whether the re-sent history carries a call to an outside-content tool, or a
+ * tool part this file cannot name (a dynamic tool), from an earlier turn.
+ * Trusting the history here is safe: a client that strips its own history
+ * only changes which of its own proposals are refused.
+ */
+export function historyReadOutside(messages: readonly { parts?: readonly PartLike[] }[]): boolean {
+  return messages.some((message) =>
+    (message.parts ?? []).some((part) => {
+      if (part.type === "dynamic-tool") return true;
+      return part.type.startsWith("tool-") && readsOutsideContent(part.type.slice("tool-".length));
+    })
+  );
 }
 
 /** Whether calling `toolName` taints the turn. */

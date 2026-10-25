@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { toAiTools } from "../capabilities/chat-adapter";
 import type { Capability } from "../capabilities/types";
-import { markOutsideReads, newTurnState, OUTSIDE_CONTENT_TOOLS, readsOutsideContent } from "./taint";
+import { historyReadOutside, markOutsideReads, newTurnState, OUTSIDE_CONTENT_TOOLS, readsOutsideContent } from "./taint";
 
 /**
  * Taint (assistant–GUI parity spec §8.4): a turn that called a tool returning
@@ -55,4 +55,23 @@ it("marks the turn from a finished step that called exa_search", () => {
 it("starts tainted when the route put outside text in the prompt (attached manuals, a curation record)", () => {
   expect(newTurnState().readOutside).toBe(false);
   expect(newTurnState({ outsideInPrompt: true }).readOutside).toBe(true);
+});
+
+describe("historyReadOutside (security audit 2026-10-23)", () => {
+  const text = { type: "text", text: "hello" };
+
+  it("is false for a conversation with no outside-content tool parts", () => {
+    expect(historyReadOutside([{ parts: [text] }, { parts: [{ type: "tool-search_tools" }, text] }])).toBe(false);
+    expect(historyReadOutside([])).toBe(false);
+  });
+
+  it("is true when an earlier turn read tickets, a web page or a manual", () => {
+    for (const name of ["list_open_tickets", "read_page", "exa_search", "search_manual"]) {
+      expect(historyReadOutside([{ parts: [text] }, { parts: [{ type: `tool-${name}` }] }])).toBe(true);
+    }
+  });
+
+  it("is true for a dynamic tool part it cannot name", () => {
+    expect(historyReadOutside([{ parts: [{ type: "dynamic-tool", toolName: "anything" }] }])).toBe(true);
+  });
 });

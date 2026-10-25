@@ -7,6 +7,12 @@
  *   an ordinary anonymous visitor. Anything else (or unset) leaves it on.
  * - `DEMO_PASS_BUDGET_USD` — what one pass may spend on AI, in dollars.
  *   Default `0.50`. Read on every turn, so a change reaches every pass at once.
+ * - `DEMO_PASS_DAILY_LIMIT` — how many new passes the whole deployment issues
+ *   in any 24 hours. Default {@link DEFAULT_DEMO_PASS_DAILY_LIMIT}. The address
+ *   is not verified, so without a cap one script could mint a fresh budget per
+ *   made-up address (security audit 2026-10-23); with it, new allowance is at
+ *   most the limit times the budget a day. An address that already has a pass
+ *   still gets it back.
  * - `DEMO_PASS_CONTACT_EMAIL` — the address the chat's thank-you offers.
  *   Default {@link DEFAULT_DEMO_PASS_CONTACT_EMAIL} (owner decision 2026-10-09);
  *   `off` points to the About page's lab contacts instead.
@@ -22,6 +28,9 @@ export const DEFAULT_DEMO_PASS_BUDGET_USD = 0.5;
 
 /** The thank-you's contact address when `DEMO_PASS_CONTACT_EMAIL` is unset or unusable (owner decision 2026-10-09). */
 export const DEFAULT_DEMO_PASS_CONTACT_EMAIL = "ies22@cornell.edu";
+
+/** New passes a day when `DEMO_PASS_DAILY_LIMIT` is unset or unusable: a busy conference, about $100 at the default budget. */
+export const DEFAULT_DEMO_PASS_DAILY_LIMIT = 200;
 
 /** The most a budget may be set to — a typo of `50` for `0.50` must not cost fifty dollars a visitor. */
 const MAX_DEMO_PASS_BUDGET_USD = 20;
@@ -44,6 +53,19 @@ export function demoPassBudgetUsd(): number {
   if (Number.isFinite(value) && value > 0 && value <= MAX_DEMO_PASS_BUDGET_USD) return value;
   console.warn(`[demo-pass] DEMO_PASS_BUDGET_USD is not a dollar amount between 0 and ${MAX_DEMO_PASS_BUDGET_USD}; using ${DEFAULT_DEMO_PASS_BUDGET_USD}`);
   return DEFAULT_DEMO_PASS_BUDGET_USD;
+}
+
+/**
+ * New passes the deployment may issue in any 24 hours. A value that is not a
+ * whole number from 1 up falls back to the default and says so in the log.
+ */
+export function demoPassDailyLimit(): number {
+  const raw = (process.env.DEMO_PASS_DAILY_LIMIT ?? "").trim();
+  if (!raw) return DEFAULT_DEMO_PASS_DAILY_LIMIT;
+  const value = Number(raw);
+  if (Number.isInteger(value) && value >= 1) return value;
+  console.warn(`[demo-pass] DEMO_PASS_DAILY_LIMIT is not a whole number from 1 up; using ${DEFAULT_DEMO_PASS_DAILY_LIMIT}`);
+  return DEFAULT_DEMO_PASS_DAILY_LIMIT;
 }
 
 /**
