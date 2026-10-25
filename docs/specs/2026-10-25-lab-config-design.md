@@ -1,10 +1,10 @@
 # Lab Config — Design Spec
 
 **Date:** 2026-10-25
-**Status:** Draft, awaiting the owner's review
+**Status:** Approved for planning (owner, 2026-10-25)
 **Target:** the app (repository root)
 **Branch:** `claude/project-thread-kmp718`
-**Spec PR:** this PR · **Implementation PR:** opens after this merges (Article 1)
+**Spec PR:** #189 · **Implementation PR:** opens after this merges (Article 1)
 
 ## 1. Summary
 
@@ -313,13 +313,14 @@ text (§11 Q2).
 - **Evals:** none change; `npm run eval:all` after phase 1 confirms the assistant's
   "Where you are" answers are the same.
 
-## 11. Open questions
+## 11. Decisions (owner, 2026-10-25)
 
-1. **Config file name and place**: `lab/lab.config.ts` at the root (recommended: one
-   folder a fork owns) or `src/lab.config.ts`?
-2. **Untranslated staff titles** (§6): accept that "Director, Learning Spaces and
-   MakerLABs" shows in English in every locale (recommended; it is a title, like a name),
-   or keep per-locale titles in the config?
-3. **`/product` for forks**: hide by default in a fork (`pages.product: false` in a fresh
-   template), or keep it on and leave it to the fork?
-4. **Phase 3**: worth a spec now, or wait until a second lab asks?
+The owner took the recommended answer to each open question:
+
+1. **Config file name and place:** `lab/lab.config.ts` at the repository root, one folder
+   a fork owns.
+2. **Staff titles** (§6): not translated. A title shows as written in every locale, like a
+   name.
+3. **`/product` for forks:** stays on (`pages.product: true`); a fork turns it off if it
+   wants.
+4. **Phase 3** (in-app tracing): no spec yet; wait until a second lab asks.
