@@ -41,7 +41,7 @@ before the move still show paths with the old `v5/` prefix.
 | `docs/assistant.md` | What the assistant can do, by role |
 | `docs/mcp.md` | User guide: connecting Claude, ChatGPT, Codex and other MCP clients (sign in with Google by default; tokens as the fallback) |
 | `docs/MakerLab_design/DESIGN.md` | The "Architectural Brutalism + Blueprint Archive" design system |
-| `docs/isam-2026-demo/` | ISAM 2026 demo abstract and figures. `abstract-v1.*` is the frozen submitted record; edit `abstract-v1.1.html`. Dates and open items in `DECISIONS.md` |
+| `docs/isam-2026-demo/` | ISAM 2026 demo abstract and figures. `abstract-v1.*` is the frozen submitted record; the current source is `abstract-v2.md`, built by `node docs/isam-2026-demo/build.mjs`. Dates and open items in `DECISIONS.md` |
 
 ## Stack
 
