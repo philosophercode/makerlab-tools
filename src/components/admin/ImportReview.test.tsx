@@ -5,6 +5,7 @@ import type { ImportActions } from "../../app/admin/intake/imports/action-result
 import type { ResearchPost } from "../../lib/import/research-queue";
 import type { ImportItemView, ImportView } from "../../lib/import/view";
 import { ImportCard } from "../ImportCard";
+import { ACTION_CONFIRMED_EVENT } from "../chat/ActionProposalCard";
 import { ImportMapping } from "./ImportMapping";
 import { ImportReview } from "./ImportReview";
 import { needsName, researchPlan, visibleRows } from "./import-table";
@@ -255,5 +256,17 @@ describe("ImportCard (the chat hand-off)", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("asks again when a proposal is confirmed, so research started from the chat shows up", async () => {
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, import: IMPORT, items: [ROWS[0]], cursor: "c1" })
+      .mockResolvedValue({ ok: true, import: IMPORT, items: [{ ...ROWS[0], status: "researching" }], cursor: "c2" });
+    render(<ImportCard load={load} payload={{ kind: "import-card", import: IMPORT, href: "/x" }} />);
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(1));
+    act(() => window.dispatchEvent(new Event(ACTION_CONFIRMED_EVENT)));
+    await waitFor(() => expect(load).toHaveBeenLastCalledWith({ importId: "imp-1", since: "c1" }));
+    expect(await screen.findByText(/Researching: 1 running/)).toBeInTheDocument();
   });
 });

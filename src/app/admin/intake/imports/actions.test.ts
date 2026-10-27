@@ -24,7 +24,8 @@ vi.mock("../../../../workflows/import-document", () => ({
 import { signInAsNew, type SignedInSession } from "../../../../../test/utils/session";
 import { resetAuthForTests } from "../../../../lib/auth/config";
 import { setNameSuggestion } from "../../../../lib/data/bulk-imports";
-import { countResearchRequestedSince, getPendingTool } from "../../../../lib/data/pending-tools";
+import { countResearchRequestedSince, getPendingTool, listPendingTools } from "../../../../lib/data/pending-tools";
+import { driftedFields } from "../../../../lib/actions/staleness";
 import { resetDbForTests } from "../../../../lib/db/client";
 import { startImport } from "../../../../lib/import/service";
 import { IMPORTS_RESEARCH } from "../../../../lib/actions/imports";
@@ -245,6 +246,21 @@ describe("imports.research (import progress spec §3.4)", () => {
     expect(result).toMatchObject({ ok: true, queued: 1, undecided: 1 });
     const again = await performAction(IMPORTS_RESEARCH, { importId }, await resolveIdentityFromHeaders(), { surface: "gui" });
     expect(again).toMatchObject({ ok: false, error: "unresolved_duplicate" });
+  });
+
+  it("binds its card to the rows it named: a different row set is a stale card", async () => {
+    const owner = await as("admin");
+    const { importId } = await listImport(owner, [`Drum sander ${tag()}`, `Belt sander ${tag()}`]);
+    const ctx = { identity: await resolveIdentityFromHeaders() } as never;
+    const all = await IMPORTS_RESEARCH.preview!({ importId }, ctx);
+    const again = await IMPORTS_RESEARCH.preview!({ importId }, ctx);
+    expect(all?.version).toBeTruthy();
+    expect(again?.version).toBe(all?.version);
+
+    const rows = await listPendingTools({ importId, limit: null });
+    const one = await IMPORTS_RESEARCH.preview!({ importId, ids: [rows[0].id] }, ctx);
+    expect(one?.version).not.toBe(all?.version);
+    expect(driftedFields(one!, all)).toEqual([expect.objectContaining({ opaque: true })]);
   });
 
   it("refuses a student", async () => {

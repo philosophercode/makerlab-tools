@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { start } from "workflow/api";
 import { z } from "zod";
 import type { ImportActionError } from "../../app/admin/intake/imports/action-result";
@@ -539,6 +539,10 @@ export const IMPORTS_RESEARCH = defineAction<
       ],
       subjectName: file,
       link: importPath(input.importId),
+      // The rows the card named: if more are identified (or some start
+      // research elsewhere) before it is confirmed, the card is stale and is
+      // refused, so confirming never spends on rows nobody was shown.
+      version: researchPlanVersion(plan.send),
     };
   },
   run: async (input, ctx) => {
@@ -577,3 +581,9 @@ export const IMPORTS_RESEARCH = defineAction<
     };
   },
 });
+
+/** A fingerprint of the rows a research proposal would send, for its preview's `version`. */
+export function researchPlanVersion(ids: readonly string[]): string {
+  return createHash("sha256").update([...ids].sort().join(",")).digest("hex").slice(0, 16);
+}
+

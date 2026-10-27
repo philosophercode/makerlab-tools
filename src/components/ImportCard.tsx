@@ -9,6 +9,7 @@ import { IMPORT_POLL_IDLE_AFTER_MS, IMPORT_POLL_IDLE_INTERVAL_MS, IMPORT_POLL_IN
 import { importCounts, importIsMoving, importStage, mergeItems } from "../lib/import/progress";
 import type { ImportCardPayload, ImportItemView } from "../lib/import/view";
 import { ImportProgress } from "./admin/ImportProgress";
+import { ACTION_CONFIRMED_EVENT } from "./chat/ActionProposalCard";
 import { usePoll } from "./admin/use-poll";
 import { Button } from "@/components/ui/button";
 
@@ -66,6 +67,18 @@ export function ImportCard({ payload, load = loadImportProgress }: ImportCardPro
     asked.current = true;
     void ask();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
+  }, []);
+
+  // Research confirmed on a proposal card starts work this card cannot see
+  // until it asks again; once asked, the stage moves and polling resumes.
+  useEffect(() => {
+    const again = () => {
+      lastChange.current = 0;
+      void ask();
+    };
+    window.addEventListener(ACTION_CONFIRMED_EVENT, again);
+    return () => window.removeEventListener(ACTION_CONFIRMED_EVENT, again);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ask reads refs and the latest state setter
   }, []);
 
   usePoll(ask, slow ? IMPORT_POLL_IDLE_INTERVAL_MS : IMPORT_POLL_INTERVAL_MS, heard && importIsMoving(stage));
