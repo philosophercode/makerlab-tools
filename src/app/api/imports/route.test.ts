@@ -101,4 +101,22 @@ describe("POST /api/imports", () => {
     expect(many.status).toBe(413);
     expect(many.body).toMatchObject({ code: "too_many_items", count: 1001, limit: 1000 });
   });
+
+  it("refuses a paste over 4 MB with its own code, before anything is read (import progress spec §3.5)", async () => {
+    const admin = await person("admin");
+    const big = `${"Bandsaw\n".repeat(Math.ceil((4 * 1024 * 1024) / 8) + 10)}`;
+    const res = await post({ text: big }, admin);
+    expect(res).toMatchObject({ status: 413, body: { code: "too_large", limitBytes: 4 * 1024 * 1024 } });
+  });
+
+  it("starts the chat's own import of a table as the chat does: columns matched, no mapping step", async () => {
+    const admin = await person("admin");
+    const name = `Chat bandsaw ${crypto.randomUUID().slice(0, 6)}`;
+    const page = await post({ text: `Item\tQty\n${name}\t1` }, admin);
+    expect(page.body.import.status).toBe("mapping");
+    const chat = await post({ text: `Item\tQty\n${name} 2\t1`, sourceName: "list.tsv", origin: "chat" }, admin);
+    expect(chat.status).toBe(201);
+    expect(chat.body.import).toMatchObject({ status: "ready", sourceKind: "chat", itemCount: 1 });
+    expect((await post({ text: "x", origin: "page" }, admin)).body.code).toBe("invalid_body");
+  });
 });

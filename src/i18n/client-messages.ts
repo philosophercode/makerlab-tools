@@ -49,6 +49,8 @@ export const PUBLIC_CLIENT_MESSAGES = [
   "admin.errors",
   "admin.warnings",
   "admin.mirror.errors",
+  // The chat's import card follows its import with the page's bar (import progress spec §3.4).
+  "admin.import.progress",
   // The chat's proposal cards (ProposalCard).
   "admin.proposal",
   // The ⌘K palette's admin surfaces and the profile menu's titles, for staff.

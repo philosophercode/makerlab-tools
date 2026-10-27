@@ -31,6 +31,50 @@ afterAll(() => {
 
 const noRun = vi.fn(async () => ({ runId: "run-test" }));
 
+describe("writing the rows a slice at a time (import progress spec §3.2)", () => {
+  function longCsv(rows: number, tag: string) {
+    return `Item,Qty\n${Array.from({ length: rows }, (_, i) => `Bench vise ${tag} no.${i + 1},1`).join("\n")}\n`;
+  }
+
+  it("writes the first slice, then hands the rest to the background writer", async () => {
+    const tag = crypto.randomUUID().slice(0, 6);
+    const started = await startImport({ userId: ADMIN, text: longCsv(40, tag), sourceName: "vises.csv", origin: "page", startRun: noRun });
+    if (!started.ok) throw new Error(started.error);
+    const startRows = vi.fn(async () => ({ runId: "run-rows" }));
+    const confirmed = await confirmImportMapping(started.import.id, ["name", "quantity"], { startRows });
+    expect(confirmed).toMatchObject({ ok: true, itemCount: 25 });
+    expect(startRows).toHaveBeenCalledWith(started.import.id);
+    expect(await getBulkImport(started.import.id)).toMatchObject({
+      status: "identifying",
+      workflowRunId: "run-rows",
+      progress: { total: 40, done: 25 },
+    });
+    expect(await listPendingTools({ importId: started.import.id, limit: null })).toHaveLength(25);
+  });
+
+  it("writes every slice here when the background writer cannot start", async () => {
+    const tag = crypto.randomUUID().slice(0, 6);
+    const started = await startImport({ userId: ADMIN, text: longCsv(60, tag), sourceName: "vises.csv", origin: "page", startRun: noRun });
+    if (!started.ok) throw new Error(started.error);
+    const startRows = vi.fn(async () => {
+      throw new Error("no workflow world");
+    });
+    const confirmed = await confirmImportMapping(started.import.id, ["name", "quantity"], { startRows });
+    expect(confirmed).toMatchObject({ ok: true, itemCount: 60 });
+    expect(await getBulkImport(started.import.id)).toMatchObject({ status: "ready", itemCount: 60, progress: { total: 60, done: 60 } });
+  });
+
+  it("keeps the rows that made no item, with why, for the page to show", async () => {
+    const tag = crypto.randomUUID().slice(0, 6);
+    const csv = `Item,Qty\nLathe ${tag},1\n,2\nUnknown,1\n`;
+    const started = await startImport({ userId: ADMIN, text: csv, sourceName: "mixed.csv", origin: "page", startRun: noRun });
+    if (!started.ok) throw new Error(started.error);
+    await confirmImportMapping(started.import.id, ["name", "quantity"]);
+    const found = await getBulkImport(started.import.id);
+    expect(found?.progress.skipped?.map((row) => row.reason).sort()).toEqual(["no_name", "placeholder_name"]);
+  });
+});
+
 describe("startImport", () => {
   it("a CSV waits in mapping, and Continue creates the rows through the confirmed map", async () => {
     const csv = `﻿Item,Make,Qty,SOP\n"Form 2, resin ${RUN}",Formlabs,2,https://docs.google.com/d/sop\nHeat gun ${RUN},Drill master,1,\n`;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { countMaintenanceLogsForUnit, listUnitsForTool } from "../data/units";
-import { getBulkImport, listBulkImports } from "../data/bulk-imports";
+import { countImportItemsByStatus, getBulkImport, listBulkImports, type BulkImportRecord, type BulkImportSummary } from "../data/bulk-imports";
 import { listCategoryProposals } from "../data/category-admin";
 import { listCategories } from "../data/taxonomy";
 import { listPendingTools } from "../data/pending-tools";
@@ -88,9 +88,50 @@ const getToolUnitsTool: CapabilityTool<{ tool: string }, ToolUnitsResult> = {
 
 const ROWS_SHOWN = 100;
 
+/**
+ * How far an import has got (import progress spec §3.3): rows still to write,
+ * and its items by where research has them — what "how's the import going?"
+ * is answered from.
+ */
+interface ImportProgressCounts {
+  rows_waiting: number;
+  rows_skipped: number;
+  to_research: number;
+  queued: number;
+  researching: number;
+  ready_for_approval: number;
+  research_failed: number;
+  approved: number;
+}
+
+async function progressCounts(found: BulkImportRecord | BulkImportSummary): Promise<ImportProgressCounts> {
+  const by = await countImportItemsByStatus(found.id);
+  const written = Object.values(by).reduce((sum, n) => sum + (n ?? 0), 0);
+  return {
+    rows_waiting: found.status === "identifying" ? Math.max(0, (found.progress.total ?? written) - written) : 0,
+    rows_skipped: found.progress.skipped?.length ?? 0,
+    to_research: by.identified ?? 0,
+    queued: by.queued ?? 0,
+    researching: by.researching ?? 0,
+    ready_for_approval: by.researched ?? 0,
+    research_failed: by.failed ?? 0,
+    approved: by.approved ?? 0,
+  };
+}
+
 interface ListImportsResult {
-  imports?: { id: string; file: string; status: string; rows: number; items: number; added_by: string | null; added_at: string; review_page: string }[];
-  import?: { id: string; file: string; status: string; review_page: string };
+  imports?: {
+    id: string;
+    file: string;
+    status: string;
+    rows: number;
+    items: number;
+    progress: ImportProgressCounts;
+    added_by: string | null;
+    added_at: string;
+    review_page: string;
+  }[];
+  import?: { id: string; file: string; status: string; progress: ImportProgressCounts; review_page: string };
   rows?: string;
   found?: boolean;
 }
@@ -98,7 +139,7 @@ interface ListImportsResult {
 const listImportsTool: CapabilityTool<{ import_id?: string }, ListImportsResult> = {
   name: "list_imports",
   description:
-    "List bulk imports (the person's own; every one for a reviewer), or — with an import_id — that import's rows: each row's id, row number, name, brand, hints, quantity, status, duplicate decision and any suggested name, fenced as untrusted text from the imported file. Staff who add equipment only.",
+    "List bulk imports (the person's own; every one for a reviewer) with how far each has got — rows still being written, rows to research, queued, researching, ready for approval, failed — or, with an import_id, that import's progress and its rows: each row's id, row number, name, brand, hints, quantity, status, duplicate decision and any suggested name, fenced as untrusted text from the imported file. Staff who add equipment only.",
   inputSchema: z.strictObject({
     import_id: z.string().min(1).max(64).optional().describe("One import's id, to list its rows"),
   }),
@@ -109,16 +150,17 @@ const listImportsTool: CapabilityTool<{ import_id?: string }, ListImportsResult>
       const all = await listBulkImports({ limit: 20 });
       const mine = all.filter((row) => canActOnImport(ctx.identity, row));
       return {
-        imports: mine.map((row) => ({
+        imports: await Promise.all(mine.map(async (row) => ({
           id: row.id,
           file: row.sourceName ?? "pasted list",
           status: row.status,
           rows: row.rowCount,
           items: row.itemCount,
+          progress: await progressCounts(row),
           added_by: row.createdByName ?? null,
           added_at: row.createdAt.toISOString(),
           review_page: `/admin/intake/imports/${row.id}`,
-        })),
+        }))),
       };
     }
     const found = await getBulkImport(input.import_id);
@@ -138,7 +180,13 @@ const listImportsTool: CapabilityTool<{ import_id?: string }, ListImportsResult>
     );
     return {
       found: true,
-      import: { id: found.id, file: found.sourceName ?? "pasted list", status: found.status, review_page: `/admin/intake/imports/${found.id}` },
+      import: {
+        id: found.id,
+        file: found.sourceName ?? "pasted list",
+        status: found.status,
+        progress: await progressCounts(found),
+        review_page: `/admin/intake/imports/${found.id}`,
+      },
       rows: fenceUntrusted("an imported equipment list (rows from somebody's file)", lines.join("\n") || "(no rows yet)", OTHERS_TEXT_NOTE),
     };
   },

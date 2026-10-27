@@ -1,5 +1,6 @@
 import { index, integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { ColumnMap } from "../../import/columns.ts";
+import type { ImportProgress } from "../../import/types.ts";
 import { attachments } from "./attachments.ts";
 import { user } from "./auth.ts";
 import { inListCheck, timestamps, userReference } from "./helpers.ts";
@@ -22,6 +23,11 @@ import { IMPORT_FORMAT, IMPORT_SOURCE_KIND, IMPORT_STATUS } from "./vocabulary.t
  * - `source_attachment_id` is the uploaded file itself, private Blob, owned by
  *   the import (`attachments.owner_type = 'bulk_import'`), when there was one.
  * - `column_map` is header index → field, as confirmed; null until then.
+ * - `progress` is how far the rows are written, and a document read (import
+ *   progress spec 2026-10-27, migration `0035`): the total, the rows done, the
+ *   last source row a slice committed (where a restarted run resumes), the
+ *   chunks read and the rows that made no item, with why. `{}` for imports
+ *   finished before it.
  *
  * `research_allowances` — a **setup allowance** (§4.2): extra research items a
  * super admin grants somebody for a while, on top of the daily 100. Only ever
@@ -47,6 +53,7 @@ export const bulkImports = pgTable(
     itemCount: integer("item_count").notNull().default(0),
     duplicateCount: integer("duplicate_count").notNull().default(0),
     workflowRunId: text("workflow_run_id"),
+    progress: jsonb("progress").$type<ImportProgress>().notNull().default({}),
     // Nullable and `set null` since migration `0016` (auth spec amendment
     // 2026-09-25): an import stays as history when its author is removed.
     createdBy: userReference("created_by"),

@@ -1,11 +1,11 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { bulkImports, pendingTools, researchRequests, user } from "../db/schema/index.ts";
-import type { ImportFormat, ImportSourceKind, ImportStatus } from "../db/schema/vocabulary.ts";
+import type { ImportFormat, ImportSourceKind, ImportStatus, PendingStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import type { ColumnMap } from "../import/columns.ts";
-import { IMPORT_MAX_LINKS_PER_ITEM, IMPORT_MAX_QUANTITY } from "../import/limits.ts";
-import type { ImportItem, NameSuggestion } from "../import/types.ts";
+import { IMPORT_MAX_LINKS_PER_ITEM, IMPORT_MAX_QUANTITY, IMPORT_SLICE_SIZE } from "../import/limits.ts";
+import type { ImportItem, ImportProgress, NameSuggestion, SkippedRow } from "../import/types.ts";
 import { claimAttachments } from "./attachments.ts";
 import { countResearchRequestedSince, createPendingBatch, EDITABLE_PENDING_STATUSES } from "./pending-tools.ts";
 import { isUuid } from "./uuid.ts";
@@ -17,12 +17,15 @@ import type { Refused } from "./write-result.ts";
  *
  * An import is created holding its text. A table waits in `mapping` until its
  * column matches are confirmed; a plain list gets its rows at once; a
- * document is `parsing` while the model reads it. {@link addImportItems} is the
- * one way rows are made: in one transaction, the import is locked and must
- * still be waiting, every row becomes an **identified** pending item in the
- * import's batch through `createPendingBatch` — the same duplicate check as the
- * chat's, plus each row against the rows before it — and the import becomes
- * `ready` with its counts. A second confirm finds it `ready` and makes nothing.
+ * document is `parsing` while the model reads it. Rows are made only by
+ * {@link beginImportRows} and {@link writeImportSlice} (import progress spec
+ * 2026-10-27): the import becomes `identifying`, then each slice of 25, in its
+ * own transaction with the import locked, becomes **identified** pending items
+ * in the import's batch through `createPendingBatch` — the same duplicate check
+ * as the chat's, plus each row against the rows before it — and moves
+ * `progress` on; after the last the import is `ready` with its counts. A second
+ * confirm finds it begun and begins nothing. {@link addImportItems} runs both
+ * here and now.
  *
  * Nothing here researches, approves or publishes (Article 5).
  *
@@ -45,6 +48,8 @@ export interface BulkImportRecord {
   itemCount: number;
   duplicateCount: number;
   workflowRunId: string | null;
+  /** How far the rows are written (import progress spec §4); `{}` for older imports. */
+  progress: ImportProgress;
   /** Null once the person who imported it has been removed. */
   createdBy: string | null;
   createdAt: Date;
@@ -142,6 +147,7 @@ export async function listBulkImports(query: { limit?: number } = {}, options: O
       itemCount: bulkImports.itemCount,
       duplicateCount: bulkImports.duplicateCount,
       workflowRunId: bulkImports.workflowRunId,
+      progress: bulkImports.progress,
       createdBy: bulkImports.createdBy,
       createdAt: bulkImports.createdAt,
       updatedAt: bulkImports.updatedAt,
@@ -169,87 +175,200 @@ export type AddImportItemsResult =
   | { ok: true; itemCount: number; duplicateCount: number; itemIds: string[] }
   | Refused<"not_found" | "not_editable">;
 
+/** What the rows are written from: the validated items, the source's row count, the skipped rows. */
+export interface ImportRowsInput {
+  items: ImportItem[];
+  rowCount: number;
+  columnMap?: ColumnMap | null;
+  skipped?: SkippedRow[];
+}
+
+export type BeginImportRowsResult =
+  | { ok: true; status: "identifying" | "failed"; total: number }
+  | Refused<"not_found" | "not_editable">;
+
 /**
- * Turn validated items into the import's pending rows and mark it `ready`
- * (or `failed` with `no_items` when there are none). Only from `mapping` or
- * `parsing`: the import row is locked first, so two confirms cannot both make
- * rows.
+ * Start writing an import's rows (import progress spec 2026-10-27 §3.2): the
+ * import moves from `mapping` or `parsing` to **`identifying`**, with the
+ * column map, the row count and `progress = { total, done: 0 }`. No items is
+ * `failed` with `no_items`, as before. Locked first, so two confirms cannot
+ * both begin; an import already `identifying` answers as it stands, so a
+ * retried step begins nothing twice.
  */
-export async function addImportItems(
-  importId: string,
-  input: { items: ImportItem[]; rowCount: number; columnMap?: ColumnMap | null },
-  options: Options = {}
-): Promise<AddImportItemsResult> {
+export async function beginImportRows(importId: string, input: ImportRowsInput, options: Options = {}): Promise<BeginImportRowsResult> {
   if (!isUuid(importId)) return { ok: false, reason: "not_found" };
   const db = options.db ?? (await getDb());
-  return db.transaction(async (tx): Promise<AddImportItemsResult> => {
+  return db.transaction(async (tx): Promise<BeginImportRowsResult> => {
     const [row] = await tx.select().from(bulkImports).where(eq(bulkImports.id, importId)).for("update");
     if (!row) return { ok: false, reason: "not_found" };
+    if (row.status === "identifying") return { ok: true, status: "identifying", total: row.progress.total ?? input.items.length };
     if (row.status !== "mapping" && row.status !== "parsing") return { ok: false, reason: "not_editable" };
-
+    const columnMap = input.columnMap ?? row.columnMap;
     if (input.items.length === 0) {
       await tx
         .update(bulkImports)
-        .set({ status: "failed", parseError: "no_items", rowCount: input.rowCount, columnMap: input.columnMap ?? row.columnMap })
+        .set({ status: "failed", parseError: "no_items", rowCount: input.rowCount, columnMap, progress: { ...row.progress, skipped: input.skipped ?? [] } })
         .where(eq(bulkImports.id, importId));
-      return { ok: true, itemCount: 0, duplicateCount: 0, itemIds: [] };
+      return { ok: true, status: "failed", total: 0 };
     }
-
-    const batch = await createPendingBatch(
-      {
-        createdBy: row.createdBy,
-        items: input.items.map((item) => ({
-          name: item.name,
-          brand: item.brand,
-          categoryHint: item.categoryHint,
-          locationHint: item.locationHint,
-          serialNumber: item.serials[0] ?? null,
-          imported: {
-            importId,
-            sourceRow: item.sourceRow,
-            quantity: item.quantity,
-            serials: item.serials,
-            labDocs: item.labDocs,
-            links: item.links,
-            notes: item.notes,
-          },
-        })),
-      },
-      { db: tx, batchId: row.batchId, checkWithinBatch: true }
-    );
-    const itemIds = batch.items.map((item) => item.id);
-    const [{ duplicates }] = await tx
-      .select({ duplicates: sql<number>`count(*)::int` })
-      .from(pendingTools)
-      .where(
-        and(
-          inArray(pendingTools.id, itemIds),
-          sql`(${pendingTools.duplicateOfToolId} is not null or ${pendingTools.duplicateOfPendingId} is not null)`
-        )
-      );
     await tx
       .update(bulkImports)
       .set({
-        status: "ready",
+        status: "identifying",
         parseError: null,
         rowCount: input.rowCount,
-        itemCount: itemIds.length,
-        duplicateCount: Number(duplicates),
-        columnMap: input.columnMap ?? row.columnMap,
+        itemCount: 0,
+        duplicateCount: 0,
+        columnMap,
+        progress: {
+          ...row.progress,
+          total: input.items.length,
+          done: 0,
+          lastRow: 0,
+          skipped: input.skipped ?? [],
+          startedAt: new Date().toISOString(),
+        },
       })
       .where(eq(bulkImports.id, importId));
-    return { ok: true, itemCount: itemIds.length, duplicateCount: Number(duplicates), itemIds };
+    return { ok: true, status: "identifying", total: input.items.length };
   });
 }
 
-/** The import could not be read. Only while it is still waiting; the text stays for the page to show. */
+export type ImportSliceResult =
+  | { ok: true; finished: boolean; written: string[]; done: number; total: number }
+  | Refused<"not_found" | "not_editable">;
+
+/**
+ * Write the next slice of an `identifying` import's items — `items` is the
+ * whole list, in order, and `progress.done` says where the last slice
+ * stopped — in one transaction with the import locked: every row an
+ * **identified** pending item in the import's batch through
+ * `createPendingBatch`, each checked against the inventory, waiting items and
+ * the import's rows already committed. `progress` moves on in the same
+ * transaction, so a slice is written once or not at all. After the last
+ * slice the import is `ready` with its counts.
+ */
+export async function writeImportSlice(
+  importId: string,
+  items: readonly ImportItem[],
+  options: Options & { size?: number } = {}
+): Promise<ImportSliceResult> {
+  if (!isUuid(importId)) return { ok: false, reason: "not_found" };
+  const db = options.db ?? (await getDb());
+  const size = Math.max(1, options.size ?? IMPORT_SLICE_SIZE);
+  return db.transaction(async (tx): Promise<ImportSliceResult> => {
+    const [row] = await tx.select().from(bulkImports).where(eq(bulkImports.id, importId)).for("update");
+    if (!row) return { ok: false, reason: "not_found" };
+    if (row.status !== "identifying") return { ok: false, reason: "not_editable" };
+    const total = items.length;
+    const from = Math.min(row.progress.done ?? 0, total);
+    const slice = items.slice(from, from + size);
+
+    let written: string[] = [];
+    if (slice.length > 0) {
+      const batch = await createPendingBatch(
+        { createdBy: row.createdBy, items: slice.map(toNewPendingTool(importId)) },
+        { db: tx, batchId: row.batchId, checkWithinBatch: true }
+      );
+      written = batch.items.map((item) => item.id);
+    }
+    const done = from + slice.length;
+    const finished = done >= total;
+    const [{ items: itemCount, duplicates }] = await tx
+      .select({
+        items: sql<number>`count(*)::int`,
+        duplicates: sql<number>`count(*) filter (where ${pendingTools.duplicateOfToolId} is not null or ${pendingTools.duplicateOfPendingId} is not null)::int`,
+      })
+      .from(pendingTools)
+      .where(eq(pendingTools.importId, importId));
+    const lastRow = slice.reduce((last, item) => Math.max(last, item.sourceRow ?? 0), row.progress.lastRow ?? 0);
+    await tx
+      .update(bulkImports)
+      .set({
+        ...(finished ? { status: "ready" } : {}),
+        itemCount: Number(itemCount),
+        duplicateCount: Number(duplicates),
+        progress: { ...row.progress, total, done, lastRow },
+      })
+      .where(eq(bulkImports.id, importId));
+    return { ok: true, finished, written, done, total };
+  });
+}
+
+/**
+ * Turn validated items into the import's pending rows and mark it `ready`
+ * (or `failed` with `no_items` when there are none), here and now: begun, then
+ * every slice in turn, each its own transaction so the page sees the rows
+ * arrive. Only from `mapping` or `parsing`. The background path
+ * (`importRows`) runs the same two writes, a slice a step.
+ */
+export async function addImportItems(importId: string, input: ImportRowsInput, options: Options = {}): Promise<AddImportItemsResult> {
+  const begun = await beginImportRows(importId, input, options);
+  if (!begun.ok) return begun;
+  const itemIds: string[] = [];
+  if (begun.status === "identifying") {
+    for (;;) {
+      const slice = await writeImportSlice(importId, input.items, options);
+      if (!slice.ok) return slice;
+      itemIds.push(...slice.written);
+      if (slice.finished) break;
+    }
+  }
+  const found = await getBulkImport(importId, options);
+  return { ok: true, itemCount: found?.itemCount ?? itemIds.length, duplicateCount: found?.duplicateCount ?? 0, itemIds };
+}
+
+function toNewPendingTool(importId: string) {
+  return (item: ImportItem) => ({
+    name: item.name,
+    brand: item.brand,
+    categoryHint: item.categoryHint,
+    locationHint: item.locationHint,
+    serialNumber: item.serials[0] ?? null,
+    imported: {
+      importId,
+      sourceRow: item.sourceRow,
+      quantity: item.quantity,
+      serials: item.serials,
+      labDocs: item.labDocs,
+      links: item.links,
+      notes: item.notes,
+    },
+  });
+}
+
+/** How many of an import's items are in each pending status (import progress spec §3.3). */
+export async function countImportItemsByStatus(importId: string, options: Options = {}): Promise<Partial<Record<PendingStatus, number>>> {
+  if (!isUuid(importId)) return {};
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .select({ status: pendingTools.status, count: sql<number>`count(*)::int` })
+    .from(pendingTools)
+    .where(eq(pendingTools.importId, importId))
+    .groupBy(pendingTools.status);
+  return Object.fromEntries(rows.map((row) => [row.status, Number(row.count)]));
+}
+
+/** A document's parts read so far (import progress spec §3.2), for "Reading part 3 of 8". */
+export async function recordChunkRead(importId: string, chunks: number, options: Options = {}): Promise<void> {
+  if (!isUuid(importId)) return;
+  const db = options.db ?? (await getDb());
+  await db
+    .update(bulkImports)
+    .set({
+      progress: sql`${bulkImports.progress} || jsonb_build_object('chunks', ${chunks}::int, 'chunksDone', coalesce((${bulkImports.progress}->>'chunksDone')::int, 0) + 1)`,
+    })
+    .where(and(eq(bulkImports.id, importId), eq(bulkImports.status, "parsing")));
+}
+
+/** The import could not be read, or its rows written. Only while it is still waiting; the text, and the rows already written, stay. */
 export async function failBulkImport(importId: string, error: string, options: Options = {}): Promise<boolean> {
   if (!isUuid(importId)) return false;
   const db = options.db ?? (await getDb());
   const rows = await db
     .update(bulkImports)
     .set({ status: "failed", parseError: error.slice(0, MAX_ERROR) })
-    .where(and(eq(bulkImports.id, importId), inArray(bulkImports.status, ["mapping", "parsing"])))
+    .where(and(eq(bulkImports.id, importId), inArray(bulkImports.status, ["mapping", "parsing", "identifying"])))
     .returning({ id: bulkImports.id });
   return rows.length > 0;
 }

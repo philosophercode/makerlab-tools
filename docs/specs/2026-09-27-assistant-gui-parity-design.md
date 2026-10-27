@@ -1904,3 +1904,26 @@ puts that tool's skill into the prompt, and the turn starts tainted, as with an 
 and an anonymous visitor gains `get_tool_skill`. The MCP lists gain `get_tool_skill` for every audience: it is one of the public reads
 (`PUBLIC_READS` in the MCP route, access and catalog tests). The registry holds 58 definitions.
 Migration `0031_tool_skills`.
+
+### 2026-10-27 — Import progress: one action and progress counts
+
+Written by AI after research (import progress spec 2026-10-27 §5). One registered action, run on the
+page by the one-line server action `researchImport` (`app/admin/intake/imports/actions.ts`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `imports.research` | `research_import` | spend | `tools.add` | propose | never |
+
+It sends an import's rows to research: every row not yet researched, or only the rows named. Rows with
+an undecided possible duplicate wait and are counted on the card (`undecided`). It runs in chunks of 25
+through the same start `pending.research` runs, so it honours the daily cap; when the cap is partly
+spent it sends exactly what is left and stops. Refusals: `unresolved_duplicate`, `not_researchable`.
+The import page's **Research selected** keeps its own client-side queue over `pending.research`; the
+new action is the assistant's door, so the chat can carry an import from list to research.
+
+`list_imports` gains a `progress` object per import: `rows_waiting`, `rows_skipped`, `to_research`,
+`queued`, `researching`, `ready_for_approval`, `research_failed`, `approved`. The import's progress
+poll (`loadImportProgress`) is a read, exempt as such.
+
+**Counts:** action tools go from 42 to **43** for a director and 38 to **39** for a SuperMaker; chat
+tools from 69 to **70** and 64 to **65**. Students and the MCP lists are unchanged.

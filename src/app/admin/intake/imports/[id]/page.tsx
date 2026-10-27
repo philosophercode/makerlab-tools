@@ -12,6 +12,7 @@ import { listPendingTools, type PendingTool } from "../../../../../lib/data/pend
 import { listCategories, listLocations } from "../../../../../lib/data/taxonomy";
 import { canActOnImport, IMPORT_PERMISSION } from "../../../../../lib/import/access";
 import { buildTablePreview, readImportTable, type TablePreview } from "../../../../../lib/import/preview";
+import { sourceRowsView } from "../../../../../lib/import/rows";
 import { toImportItemView, toImportView } from "../../../../../lib/import/view";
 import { ADMIN_INTAKE_PATH } from "../../../../../lib/intake/types";
 import type { ImportActions } from "../action-result";
@@ -20,6 +21,7 @@ import {
   confirmImportColumns,
   ignoreImportSuggestions,
   loadImport,
+  loadImportProgress,
   mergeImportRow,
   removeImportRows,
   requestImportSuggestions,
@@ -40,6 +42,7 @@ export const metadata = {
 
 const ACTIONS: ImportActions = {
   load: loadImport,
+  progress: loadImportProgress,
   confirmColumns: confirmImportColumns,
   updateRow: updateImportRow,
   setHints: setImportRowHints,
@@ -124,6 +127,7 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
       initialItems={items.map(toImportItemView)}
       preview={preview}
       sourceHead={sourceHead}
+      sourceRows={sourceRowsView(found)}
       categories={categories}
       locations={locations}
       actions={ACTIONS}

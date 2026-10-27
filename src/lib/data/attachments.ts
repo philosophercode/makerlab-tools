@@ -338,6 +338,26 @@ export async function createAttachment(
   return { id: created.id };
 }
 
+/**
+ * The row already recorded for a stored pathname, or null. A direct upload is
+ * completed by the browser (`POST /api/uploads/token`), so a second completion
+ * of the same file must find the first row rather than make a second — two
+ * rows over one blob would let the unclaimed sweep delete a file a claimed
+ * row still points at.
+ */
+export async function findAttachmentByPathname(
+  blobPathname: string,
+  options: AttachmentReadOptions = {}
+): Promise<{ id: string; uploadedBy: string | null } | null> {
+  const db = options.db ?? (await getDb());
+  const [row] = await db
+    .select({ id: attachments.id, uploadedBy: attachments.uploadedBy })
+    .from(attachments)
+    .where(eq(attachments.blobPathname, blobPathname))
+    .limit(1);
+  return row ?? null;
+}
+
 /** An attachment as the cleanup and the delete paths need to see it. */
 export interface StoredAttachment {
   id: string;

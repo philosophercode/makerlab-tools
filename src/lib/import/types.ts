@@ -77,3 +77,24 @@ export interface SkippedRow {
   sourceRow: number | null;
   reason: "no_name" | "placeholder_name";
 }
+
+/**
+ * How far an import's rows are written, and a document read
+ * (`bulk_imports.progress`, import progress spec 2026-10-27 §4). Every field is
+ * optional: an import finished before progress was kept has `{}`.
+ */
+export interface ImportProgress {
+  /** Items to write. */
+  total?: number;
+  /** Items handled so far — written, or merged into nothing. */
+  done?: number;
+  /** The last source row a slice committed; a restarted run starts after it. */
+  lastRow?: number;
+  /** A document's parts, and how many have been read. */
+  chunks?: number;
+  chunksDone?: number;
+  /** Rows that made no item, and why — so nothing drops silently. */
+  skipped?: SkippedRow[];
+  /** ISO time the rows started being written. */
+  startedAt?: string;
+}
