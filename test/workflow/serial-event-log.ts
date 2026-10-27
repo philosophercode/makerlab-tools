@@ -3,7 +3,7 @@ import { getWorld } from "workflow/runtime";
 
 /**
  * The workflow tier's local world, with its event log kept append-only
- * (a setup file of `vitest.workflow.config.ts` only).
+ * (a setup file of `test/workflow/vitest.config.ts` only).
  *
  * The World contract (`@workflow/world`, `Storage`) is an append-only event
  * log, and replay depends on it: a workflow draws each step's correlation id

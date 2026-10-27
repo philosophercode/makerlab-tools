@@ -1,7 +1,7 @@
 # Every PR and every push to main: lint, typecheck, unit + workflow tests and
 # spec coverage. Vercel's build runs none of the tests, so this is the gate
 # (architecture review H1). The E2E suite runs too, as its own job (not yet a
-# required check; TESTING.md).
+# required check; docs/testing.md).
 name: CI
 
 on:

@@ -10,7 +10,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * - **unit** — everything the suite has always been: jsdom by default, MSW on,
  *   PGlite behind `// @vitest-environment node`. Unchanged except that it
  *   leaves `*.workflow.test.ts` to the second project.
- * - **workflow** — `vitest.workflow.config.ts`: `@workflow/vitest`, which runs
+ * - **workflow** — `test/workflow/vitest.config.ts`: `@workflow/vitest`, which runs
  *   `researchBatch` in process against a local world. Its own file because the
  *   plugin compiles and loads step code outside Vite's module graph, so it
  *   must not touch the tests that rely on `vi.mock` (2026-09-22 amendment).
@@ -41,14 +41,14 @@ export default defineConfig({
           // describe/it/expect/vi available without imports.
           globals: true,
           environment: "jsdom",
-          setupFiles: ["./vitest.setup.ts"],
+          setupFiles: ["./test/setup.ts"],
           // Playwright specs live in e2e/ and must not be collected by Vitest;
           // agent worktrees under .claude/ are whole copies of this repo;
           // workflow tests belong to the workflow project.
           exclude: ["**/node_modules/**", "**/dist/**", "e2e/**", ".claude/**", "**/*.workflow.test.ts"],
         },
       },
-      "./vitest.workflow.config.ts",
+      "./test/workflow/vitest.config.ts",
     ],
   },
 });

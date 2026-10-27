@@ -96,7 +96,7 @@ deployable. Note which phases can proceed in parallel.
 ## 10. Testing
 
 Which of the four layers (unit / integration / component / E2E — see
-`TESTING.md`) cover what, plus the specific cases that would otherwise be
+`docs/testing.md`) cover what, plus the specific cases that would otherwise be
 missed. Every external service is mocked (Article 3).
 
 Name the cases that would embarrass us in production.

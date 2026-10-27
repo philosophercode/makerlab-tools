@@ -16,10 +16,10 @@
 To sign, comment on your pull request:
 
 ```
-I have read the CLA in CLA.md and I agree to it.
+I have read the CLA in docs/legal/CLA.md and I agree to it.
 ```
 
-The maintainer records your GitHub username in [`docs/cla-signatures.md`](docs/cla-signatures.md).
+The maintainer records your GitHub username in [`docs/legal/cla-signatures.md`](cla-signatures.md).
 You sign once; it covers all your future contributions.
 
 ---

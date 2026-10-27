@@ -1,7 +1,7 @@
 # Licensing
 
 > **Draft — not legal advice.** This page explains the licence in plain language.
-> The binding text is [`LICENSE`](LICENSE) (GNU Affero General Public License,
+> The binding text is [`LICENSE`](../../LICENSE) (GNU Affero General Public License,
 > version 3). Where this page and `LICENSE` differ, `LICENSE` wins.
 
 MakerLAB Tools is **open source** under the

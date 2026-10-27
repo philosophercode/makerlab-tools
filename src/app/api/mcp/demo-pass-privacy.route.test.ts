@@ -65,7 +65,7 @@ async function listTools(headers: Record<string, string>): Promise<string[]> {
 }
 
 beforeEach(() => {
-  // `vitest.setup.ts` clears env stubs after every test.
+  // `test/setup.ts` clears env stubs after every test.
   vi.stubEnv("AUTH_SECRET", "mcp-demo-privacy-secret");
   vi.stubEnv("DATABASE_URL", "");
   resetAuthForTests();

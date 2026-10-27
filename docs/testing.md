@@ -2,9 +2,9 @@
 
 Practical runbook for the v5 test suite. For the full design rationale and the
 per-file coverage matrix, see the design doc:
-[`docs/specs/2026-05-29-v5-test-suite-design.md`](docs/specs/2026-05-29-v5-test-suite-design.md)
+[`docs/specs/2026-05-29-v5-test-suite-design.md`](specs/2026-05-29-v5-test-suite-design.md)
 (repo root). For harness internals (fixtures, mocks, render helper, the exact
-import paths), see [`test/README.md`](./test/README.md).
+import paths), see [`test/README.md`](../test/README.md).
 
 ## Overview
 
@@ -54,7 +54,7 @@ Playwright boots its own dev server (see E2E notes below), so no separate
   the registry (`test/ai/models-stub.ts`) — see "Stubbing the model" below.
   The node `server` lives in `test/msw/server.ts`; default handlers in
   `test/msw/handlers.ts`. Lifecycle (start / reset / stop) is managed in
-  `vitest.setup.ts`. **Unhandled outbound requests fail the test by design**
+  `test/setup.ts`. **Unhandled outbound requests fail the test by design**
   (`onUnhandledRequest: "error"`).
 - **The Notion mirror** (`src/lib/mirror/*`) is tested against a stateful
   in-memory Notion, `test/fakes/notion-fake.ts` (`createNotionFake`), which
@@ -178,7 +178,7 @@ providerOptions }` a stubbed model received. Never mock `@ai-sdk/gateway`
 directly. The workflow tier, which `vi.mock` cannot reach,
 stubs the Gateway's own HTTP boundary instead with `test/gateway/msw.ts`. The
 full verified snippet and both seams are in
-[`test/README.md`](./test/README.md#stubbing-the-model--two-seams-never-a-provider-mock).
+[`test/README.md`](../test/README.md#stubbing-the-model--two-seams-never-a-provider-mock).
 
 ## E2E notes
 
