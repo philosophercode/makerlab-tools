@@ -20,6 +20,11 @@ With nothing configured you get an in-process Postgres seeded with two demo tool
 **demo data** banner. Add `AI_GATEWAY_API_KEY` to `.env.local` to turn the assistant on
 ([`deploy.md`](deploy.md) Stage 1).
 
+> **Coming: one file.** The [lab config spec](specs/2026-10-25-lab-config-design.md)
+> moves everything in sections 2 and 3 into `lab/lab.config.ts` (plus your images in
+> `public/lab/` and your floor plan as `lab/floor-plan.json`), checked by
+> `npm run lab:check`. Until it is built, use the tables below.
+
 ## 2 · Rebrand with environment variables
 
 Copy [`.env.example`](../.env.example) to `.env.local`. These change the name, look and

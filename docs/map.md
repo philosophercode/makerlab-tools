@@ -4,6 +4,11 @@
 > lab's plan as an SVG and lights up where each tool is. The assistant uses the same data
 > to answer "where is the laser cutter?". Design: [floor map spec](specs/2026-09-25-floor-map-design.md).
 
+> **Coming: the plan as JSON.** The [lab config spec](specs/2026-10-25-lab-config-design.md)
+> (phase 2) stores the plan as `lab/floor-plan.json` against a published JSON Schema, so a
+> model's answer is the file itself, with no imports to edit, and `npm run lab:check`
+> names what is wrong with a trace. The steps below are today's.
+
 **There is no upload button.** A plan is a small TypeScript file of coordinates traced
 from a floor plan image, checked by the type system and the tests. A fork replaces the
 Cornell plan with its own in four steps. An AI model does the tracing; the prompt is
