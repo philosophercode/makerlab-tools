@@ -15,10 +15,13 @@ jobs:
   smoke:
     name: smoke test (production)
     # Only a finished, successful production deployment, or a manual run.
+    # With a second Vercel project on the repository (makerlab-demo), Vercel
+    # names the environment per project: "Production – makerlab-ai".
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Production')
+       (github.event.deployment.environment == 'Production' ||
+        github.event.deployment.environment == 'Production – makerlab-ai'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

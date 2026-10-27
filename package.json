@@ -112,6 +112,15 @@
   },
   "overrides": {
     "zod": "^4.6.7",
-    "devalue": "^5.9.3"
+    "devalue": "^5.9.3",
+    "@workflow/world-vercel": {
+      "undici": "^7.30.1"
+    },
+    "@workflow/world-local": {
+      "undici": "^7.30.1"
+    },
+    "@esbuild-kit/core-utils": {
+      "esbuild": "^0.25.12"
+    }
   }
 }
