@@ -1,7 +1,10 @@
+import { lab } from "./lab/config.ts";
+
 /**
  * Site-wide configuration for white-labeling.
- * Every field is env-driven with a sensible default, so the app can be
- * rebranded for any institution without code changes.
+ * Every field comes from the lab config (`lab/lab.config.ts`, lab config spec
+ * 2026-10-25), and the environment variable that named it before still
+ * overrides it, so one checkout can serve several deployments.
  *
  * Note: values referenced in client components must come from `NEXT_PUBLIC_*`
  * vars (inlined at build time). `audience` is only used server-side in the
@@ -20,8 +23,7 @@ export interface SiteConfig {
   audience: string;
   /**
    * Path to the institution's official logo in /public: one colour, vector
-   * (the Cornell Tech MakerLAB lockup: the Cornell seal, "CORNELL TECH",
-   * "MakerLAB"). `BrandLogo` draws it as a mask in the text colour (the
+   * (`brand.logo` in the lab config). `BrandLogo` draws it as a mask in the text colour (the
    * kiosk, the footer, About), so one file reads dark on light and light on
    * dark.
    */
@@ -33,10 +35,9 @@ export interface SiteConfig {
    */
   logoPng: string;
   /**
-   * Path to the wordmark alone in /public ("MakerLAB"), shown as a mask in the
-   * site header so it takes the theme's text colour. The lettering cropped
-   * from the official Cornell Tech MakerLAB lockup (owner decision,
-   * 2026-10-07: the header reads "MakerLAB AI", this mark plus "AI").
+   * Path to the wordmark alone in /public (`brand.wordmark`), shown as a mask
+   * in the site header so it takes the theme's text colour: the header reads
+   * this mark plus "AI" (owner decision, 2026-10-07).
    */
   wordmark: string;
   /**
@@ -65,25 +66,21 @@ export function pngTwin(path: string): string {
   return path.replace(/\.svg$/i, ".png");
 }
 
-const LOGO = process.env.NEXT_PUBLIC_LOGO ?? "/brand/cornell-tech-makerlab-logo.svg";
+const LOGO = process.env.NEXT_PUBLIC_LOGO ?? lab.brand.logo;
 
 export const siteConfig: SiteConfig = {
-  name: process.env.NEXT_PUBLIC_SITE_NAME ?? "MakerLAB Tools",
-  institution: process.env.NEXT_PUBLIC_INSTITUTION ?? "Cornell Tech",
-  tagline:
-    process.env.NEXT_PUBLIC_TAGLINE ??
-    "Your digital guide to making at Cornell Tech",
-  chatAssistantName:
-    process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLAB AI",
-  audience: process.env.AUDIENCE ?? "students who may be beginners",
+  name: process.env.NEXT_PUBLIC_SITE_NAME ?? lab.identity.siteName,
+  institution: process.env.NEXT_PUBLIC_INSTITUTION ?? lab.identity.institution,
+  tagline: process.env.NEXT_PUBLIC_TAGLINE ?? lab.identity.tagline,
+  chatAssistantName: process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? lab.identity.assistantName,
+  audience: process.env.AUDIENCE ?? lab.identity.audience,
   logo: LOGO,
   logoPng: pngTwin(LOGO),
-  wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/brand/makerlab-wordmark-official.svg",
-  labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 8AM-8PM",
-  sourceUrl:
-    process.env.NEXT_PUBLIC_SOURCE_URL || "https://github.com/philosophercode/makerlab-tools",
+  wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? lab.brand.wordmark,
+  labHours: process.env.NEXT_PUBLIC_LAB_HOURS || lab.place.hours,
+  sourceUrl: process.env.NEXT_PUBLIC_SOURCE_URL || lab.web.sourceUrl,
   colors: {
-    primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY ?? "#ff6b35",
-    primaryDark: process.env.NEXT_PUBLIC_COLOR_PRIMARY_DARK ?? "#cc4f1f",
+    primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY ?? lab.brand.colors.primary,
+    primaryDark: process.env.NEXT_PUBLIC_COLOR_PRIMARY_DARK ?? lab.brand.colors.primaryDark,
   },
 };

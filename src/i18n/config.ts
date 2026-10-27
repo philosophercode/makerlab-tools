@@ -1,3 +1,5 @@
+import { lab } from "../lib/lab/config.ts";
+
 // Locale configuration shared across server + client.
 // Cookie-based locale (no URL-prefix routing), so existing routes stay clean.
 
@@ -14,7 +16,7 @@ export interface LocaleOption {
   dir: "ltr" | "rtl";
 }
 
-// 12 languages common at Cornell Tech. Order = selector order.
+// 12 languages. Order = selector order.
 export const LOCALES: LocaleOption[] = [
   { code: "en", label: "English", englishName: "English", dir: "ltr" },
   { code: "zh-CN", label: "中文（简体）", englishName: "Simplified Chinese", dir: "ltr" },
@@ -30,7 +32,10 @@ export const LOCALES: LocaleOption[] = [
   { code: "he", label: "עברית", englishName: "Hebrew", dir: "rtl" },
 ];
 
-export const DEFAULT_LOCALE = "en";
+// The lab config's `locale.default`: the language a visitor without a cookie or a
+// matching Accept-Language sees. English stays the fallback underneath every
+// locale (`withEnglishFallback`), whatever this is.
+export const DEFAULT_LOCALE: string = lab.locale.default;
 
 export const LOCALE_CODES = LOCALES.map((l) => l.code);
 

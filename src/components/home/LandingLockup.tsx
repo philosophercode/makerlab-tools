@@ -44,7 +44,7 @@ export function LandingLockup({ observe = true }: { observe?: boolean }) {
       <span aria-hidden="true" className="brand-ai">
         AI
       </span>
-      <span className="sr-only">MakerLAB AI</span>
+      <span className="sr-only">{siteConfig.chatAssistantName}</span>
     </h1>
   );
 }

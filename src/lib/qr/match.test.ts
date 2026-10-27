@@ -53,10 +53,10 @@ describe("qrTarget", () => {
 });
 
 describe("ourQrHosts", () => {
-  it("is the configured site, Vercel's production domain and the live address", () => {
+  it("is the configured site, Vercel's production domain, the lab config's address and the legacy hosts", () => {
     expect(ourQrHosts({ NEXT_PUBLIC_SITE_URL: "https://tools.example.edu", VERCEL_PROJECT_PRODUCTION_URL: "makerlab.vercel.app" }).sort()).toEqual(
-      ["makerlab-ai.vercel.app", "makerlab.vercel.app", "tools.example.edu"].sort()
+      ["makerlab-ai.vercel.app", "makerlab.vercel.app", "tools.example.edu", "www.makerlabai.app"].sort()
     );
-    expect(ourQrHosts({})).toEqual(["makerlab-ai.vercel.app"]);
+    expect(ourQrHosts({}).sort()).toEqual(["makerlab-ai.vercel.app", "www.makerlabai.app"]);
   });
 });

@@ -16,7 +16,7 @@ vi.mock("next-intl/server", async () => {
 
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { getCatalogTools } from "../../lib/catalog";
-import { STUDIO_101 } from "../../lib/map/studio-101";
+import { SHIPPED_PLAN as STUDIO_101 } from "../../lib/map/plan";
 import { MapExplorer } from "./MapExplorer";
 import { MapGate } from "./MapGate";
 

@@ -1,7 +1,7 @@
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { getCatalogTools } from "../../lib/catalog";
 import { canSeeMap } from "../../lib/map/access";
-import { STUDIO_101 } from "../../lib/map/studio-101";
+import { LAB_PLAN } from "../../lib/map/plan";
 import type { MakerLabTool, ProjectToolRef } from "../catalog-types";
 import { ProjectWorkMap } from "./ProjectWorkMap";
 
@@ -18,12 +18,12 @@ import { ProjectWorkMap } from "./ProjectWorkMap";
  * published is left out, as the page's "Tools used" badges would 404 anyway.
  */
 export async function SignedInProjectWorkMap({ tools }: { tools: readonly ProjectToolRef[] }) {
-  if (tools.length === 0) return null;
+  if (tools.length === 0 || !LAB_PLAN) return null;
   const identity = await resolveIdentityFromHeaders();
   if (!canSeeMap(identity)) return null;
   const catalogue = await getCatalogTools();
   const byId = new Map(catalogue.map((tool) => [tool.id, tool] as const));
   const resolved = tools.map((ref) => byId.get(ref.id)).filter((tool): tool is MakerLabTool => Boolean(tool));
   if (resolved.length === 0) return null;
-  return <ProjectWorkMap plan={STUDIO_101} tools={resolved} />;
+  return <ProjectWorkMap plan={LAB_PLAN} tools={resolved} />;
 }

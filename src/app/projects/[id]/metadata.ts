@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getProject } from "../../../lib/projects";
+import { lab } from "../../../lib/lab/config";
 import { recordShareMetadata, shareDescription } from "../../../lib/share/metadata";
 import { siteConfig } from "../../../lib/site-config";
 
@@ -16,7 +17,7 @@ export async function projectPageMetadata(idOrSlug: string): Promise<Metadata> {
 
   const byline = project.author ? `A project by ${project.author}` : "A project";
   const description =
-    shareDescription(project.body) || shareDescription(`${byline}, made in the ${siteConfig.institution} MakerLAB.`);
+    shareDescription(project.body) || shareDescription(`${byline}, made in the ${siteConfig.institution} ${lab.identity.labName}.`);
 
   return recordShareMetadata({
     title: project.title,

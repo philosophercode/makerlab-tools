@@ -11,6 +11,7 @@ import {
   type SheetSetup,
 } from "./label-layout.ts";
 import { qrMatrix, qrPathData } from "./matrix.ts";
+import { lab } from "../lab/config.ts";
 
 /**
  * The print sheets: every label laid out by `layoutLabel` and packed by
@@ -136,13 +137,13 @@ export async function buildLabelSheetPdf(input: LabelSheetInput): Promise<Uint8A
 
   const doc = await PDFDocument.create();
   doc.setTitle(input.title ?? "QR labels");
-  doc.setCreator("MakerLAB Tools");
-  doc.setProducer("MakerLAB Tools");
+  doc.setCreator(lab.identity.siteName);
+  doc.setProducer(lab.identity.siteName);
   const fonts = await embedHelvetica(doc);
   const measure = helveticaMeasure(fonts);
   // A file that is not a PNG (a logo set to a JPEG, an HTML error page) is the missing-image case.
   const brandImage = input.brandPng ? await doc.embedPng(input.brandPng).catch(() => null) : null;
-  const brandText = input.brandText ?? "MakerLAB";
+  const brandText = input.brandText ?? lab.identity.labName;
 
   // To a thousandth of a point, so Letter is exactly 612 × 792 (a printer
   // matching paper by size should not see 612.0000000000001).

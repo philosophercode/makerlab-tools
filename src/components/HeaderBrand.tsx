@@ -24,7 +24,7 @@ export function HeaderBrand() {
   const concealed = pathname === "/" && landingOnScreen;
   const mask = `url(${siteConfig.wordmark})`;
   return (
-    <Link className="brand-lockup" href="/" aria-label="MakerLAB AI" data-concealed={concealed ? "" : undefined}>
+    <Link className="brand-lockup" href="/" aria-label={siteConfig.chatAssistantName} data-concealed={concealed ? "" : undefined}>
       <span
         aria-hidden="true"
         data-slot="brand-wordmark"

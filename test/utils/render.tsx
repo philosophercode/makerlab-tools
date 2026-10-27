@@ -5,7 +5,7 @@ import {
   type RenderOptions,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import enMessages from "../../messages/en.json";
+import { ENGLISH as enMessages } from "../../src/i18n/lab-tokens";
 import { ChatLauncherProvider } from "../../src/components/ChatLauncherContext";
 
 type Messages = typeof enMessages;

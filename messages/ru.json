@@ -58,13 +58,13 @@
       "unitsDown": "{count, plural, one {# единица не работает} few {# единицы не работают} many {# единиц не работают} other {# единицы не работают}}"
     },
     "search": {
-      "landmark": "Поиск инструментов и вопросы MakerLAB AI",
-      "label": "Найдите инструмент или задайте вопрос MakerLAB AI",
+      "landmark": "Поиск инструментов и вопросы {assistantName}",
+      "label": "Найдите инструмент или задайте вопрос {assistantName}",
       "categories": "Категории",
       "categoryCount": "{count, plural, one {# инструмент} few {# инструмента} many {# инструментов} other {# инструмента}}",
-      "assistant": "MakerLAB AI",
-      "ask": "Спросить MakerLAB AI: «{query}»",
-      "askNote": "Откроет чат с вашим вопросом. MakerLAB AI может ошибаться.",
+      "assistant": "{assistantName}",
+      "ask": "Спросить {assistantName}: «{query}»",
+      "askNote": "Откроет чат с вашим вопросом. {assistantName} может ошибаться.",
       "clear": "Очистить поиск",
       "noMatch": "Ни один инструмент или категория не подходит под «{query}».",
       "enterOpens": "Enter откроет {name}",
@@ -175,24 +175,20 @@
     "browseTools": "Просмотреть инструменты",
     "demoHeading": "{assistant} для вашего мейкерспейса",
     "demoBody": "Хотите узнать больше? Оставьте заявку, и мы с вами свяжемся.",
-    "demoCta": "Оставить заявку",
-    "photoPrintersAlt": "3D-принтеры в ряд перед красной стеной MakerLAB.",
-    "photoFloorAlt": "Открытое пространство MakerLAB: оранжевые стулья и верстаки.",
-    "photoPrintersCaption": "3D-принтеры перед стеной MakerLAB",
-    "photoFloorCaption": "Открытое пространство лаборатории"
+    "demoCta": "Оставить заявку"
   },
   "chat": {
-    "openAria": "Открыть MakerLAB AI",
-    "title": "MakerLAB AI",
+    "openAria": "Открыть {assistantName}",
+    "title": "{assistantName}",
     "newChatAria": "Начать новый чат",
     "newChatTitle": "Начать новый чат",
-    "closeAria": "Закрыть MakerLAB AI",
+    "closeAria": "Закрыть {assistantName}",
     "closeTitle": "Закрыть (диалог сохранится)",
     "greetingTool": "Спросите об этом инструменте — у меня есть его характеристики, материалы и ссылки на ресурсы.",
     "greetingGeneral": "Чем я могу помочь вам сегодня?",
-    "composerPlaceholder": "Спросите MakerLAB AI...",
-    "composerAria": "Спросите MakerLAB AI",
-    "aiNote": "MakerLAB AI может ошибаться. Всё, что касается безопасности, уточняйте у сотрудников.",
+    "composerPlaceholder": "Спросите {assistantName}...",
+    "composerAria": "Спросите {assistantName}",
+    "aiNote": "{assistantName} может ошибаться. Всё, что касается безопасности, уточняйте у сотрудников.",
     "aiNoteDismiss": "Закрыть примечание",
     "sendAria": "Отправить",
     "attachAria": "Прикрепить фото",
@@ -205,7 +201,7 @@
     "photoUnsupported": "Этот формат фото не поддерживается — попробуйте JPEG или PNG.",
     "photoTooLarge": "Фото слишком большое для загрузки — попробуйте фото поменьше или JPEG.",
     "toolRunningAria": "Инструмент выполняется",
-    "typingAria": "MakerLAB AI печатает",
+    "typingAria": "{assistantName} печатает",
     "readingManualsAria": "Чтение руководств",
     "reading": "Чтение: {titles}…",
     "error": "Что-то пошло не так. Попробуйте снова.",
@@ -231,16 +227,16 @@
     },
     "demoPassLeft": "Демо-пропуск · осталось {amount}",
     "demoPassUsedUp": "Демо-пропуск · исчерпан",
-    "demoPassSpent": "Вы израсходовали лимит ИИ этого демо-пропуска. Спасибо, что попробовали MakerLAB AI! Вы можете и дальше задавать несколько вопросов в час, как любой посетитель.",
-    "demoPassLimited": "Вы израсходовали лимит ИИ этого пропуска и лимит посетителей на этот час. Спасибо, что попробовали MakerLAB AI! Попробуйте немного позже.",
+    "demoPassSpent": "Вы израсходовали лимит ИИ этого демо-пропуска. Спасибо, что попробовали {assistantName}! Вы можете и дальше задавать несколько вопросов в час, как любой посетитель.",
+    "demoPassLimited": "Вы израсходовали лимит ИИ этого пропуска и лимит посетителей на этот час. Спасибо, что попробовали {assistantName}! Попробуйте немного позже.",
     "demoPassContactLead": "Хотите обсудить?",
-    "demoPassContactTeam": "Свяжитесь с командой MakerLAB"
+    "demoPassContactTeam": "Свяжитесь с командой {labName}"
   },
   "qr": {
     "arrivalLabel": "Отсканировано у этого станка",
     "arrivalEyebrow": "Отсканировано у станка",
     "arrivalTitle": "Спросить про {tool}",
-    "arrivalBody": "Вы отсканировали код на этом станке. MakerLAB AI ответит на вопросы о нём, поможет с настройкой или оформит заявку на обслуживание.",
+    "arrivalBody": "Вы отсканировали код на этом станке. {assistantName} ответит на вопросы о нём, поможет с настройкой или оформит заявку на обслуживание.",
     "arrivalSeed": "Я стою у {tool}, и у меня есть вопрос по этому станку.",
     "arrivalUnitLabel": "Отсканировано с этикетки этой единицы",
     "arrivalUnitOf": "Единица оборудования: {tool}",
@@ -254,7 +250,7 @@
   },
   "report": {
     "action": "Сообщить о проблеме",
-    "ask": "Спросить MakerLAB AI об этом станке",
+    "ask": "Спросить {assistantName} об этом станке",
     "eyebrow": "Сообщить о проблеме",
     "lede": "Сотрудники сразу увидят ваше сообщение.",
     "close": "Закрыть",
@@ -262,7 +258,7 @@
     "unitNotSure": "Не знаю",
     "unitFromLabel": "Выбран по наклейке, которую вы отсканировали.",
     "textLabel": "Расскажите, что не так с этим станком",
-    "textHint": "Пишите своими словами. MakerLAB AI превратит их в заявку для сотрудников.",
+    "textHint": "Пишите своими словами. {assistantName} превратит их в заявку для сотрудников.",
     "textPlaceholder": "Например: на середине печати филамент перестал подаваться, а экструдер щёлкает.",
     "photoAdd": "Добавить фото",
     "photoUploading": "Загрузка…",
@@ -384,9 +380,9 @@
     "home": "Назад в {site}"
   },
   "palette": {
-    "assistant": "MakerLAB AI",
-    "ask": "Спросить MakerLAB AI: «{query}»",
-    "askEmpty": "Спросить MakerLAB AI"
+    "assistant": "{assistantName}",
+    "ask": "Спросить {assistantName}: «{query}»",
+    "askEmpty": "Спросить {assistantName}"
   },
   "kiosk": {
     "onShiftLabel": "Сейчас на смене"

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getCatalogTool } from "../../../lib/catalog";
+import { lab } from "../../../lib/lab/config";
 import { recordShareMetadata, shareDescription } from "../../../lib/share/metadata";
 import { siteConfig } from "../../../lib/site-config";
 
@@ -22,8 +23,8 @@ export async function toolPageMetadata(idOrSlug: string): Promise<Metadata> {
     shareDescription(tool.description) ||
     shareDescription(
       tool.category
-        ? `${tool.category} at the ${siteConfig.institution} MakerLAB.`
-        : `Equipment at the ${siteConfig.institution} MakerLAB.`
+        ? `${tool.category} at the ${siteConfig.institution} ${lab.identity.labName}.`
+        : `Equipment at the ${siteConfig.institution} ${lab.identity.labName}.`
     );
 
   return recordShareMetadata({

@@ -1,4 +1,4 @@
-import en from "../../../messages/en.json";
+import { ENGLISH as en } from "../../i18n/lab-tokens";
 
 /**
  * The general opening chips (identity spec 2026-09-28 §4): one each for what

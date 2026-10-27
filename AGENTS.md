@@ -8,7 +8,7 @@ canonical entry point; `CLAUDE.md` points here.
 A digital inventory + discovery app for makerspace equipment: browse/search a
 tool gallery, view tool detail pages, chat with an AI assistant (tool-aware,
 can look up units and file maintenance tickets), and an MCP endpoint exposing
-the catalog to external agents. White-labelled via env vars.
+the catalog to external agents. White-labelled by one file, `lab/lab.config.ts` (env vars override its fields).
 
 Deployed at the Cornell Tech MakerLAB over ~100 machines, and the subject of an
 accepted ISAM 2026 demo paper.
@@ -124,7 +124,7 @@ backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 ste
   names one fails *silently and wrongly*; use the theme tokens.
 - **UI system**: tokens, primitives, `DataTable`, `ReviewCard`, admin
   navigation, public pages, chat. See `docs/architecture/ui-system.md`.
-- All branding strings come from `siteConfig` (`@/lib/site-config`).
+- All branding strings come from `siteConfig` (`@/lib/site-config`) or `lab` (`@/lib/lab/config`), both read from `lab/lab.config.ts`. Never write the lab's name, institution or building into `src/` or `messages/`: a message says `{labName}`, `{institution}`, `{siteName}`, `{assistantName}` or `{emailDomain}`, filled at load (`src/i18n/lab-tokens.ts`), and a test fails on a literal.
 - **Page titles name the page only** (`title: "Inventory"`): the root
   layout's template makes it "Inventory · MakerLAB Tools". Link previews
   (`src/lib/share/`): `metadataBase` is `siteUrl()` (`NEXT_PUBLIC_SITE_URL`,

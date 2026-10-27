@@ -1,3 +1,5 @@
+import { lab } from "../lab/config";
+
 /**
  * "When the documents are silent": the one rule for a machine question that
  * the machine's own documents do not answer (manual text spec amendment
@@ -27,4 +29,4 @@ The one rule for a question about a machine that its own documents do not answer
 - **Say so plainly, for that machine.** "The X1-Carbon's documents in the lab don't cover this", or that no searchable document is on file for it.
 - **Never use another machine's document instead**, not even a similar machine's. A passage is evidence only for the machine it belongs to.
 - **General guidance only if it is safe**, and only under its own line that starts "General guidance, not from the <machine>'s documents:". Never give settings, temperatures, power, speeds or other figures as general guidance.
-- **Safety goes to people.** For anything about safety, a first use, or a step that could hurt someone or damage the machine, send the student to MakerLAB staff or a SuperMaker instead of guessing.`;
+- **Safety goes to people.** For anything about safety, a first use, or a step that could hurt someone or damage the machine, send the student to ${lab.identity.labName} staff or a ${lab.assistant.helperTitle} instead of guessing.`;

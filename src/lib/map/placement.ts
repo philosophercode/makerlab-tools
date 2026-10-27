@@ -9,7 +9,9 @@ import type { FloorPlan, MapStation, MapZone } from "./types";
  *    The station's zone is the tool's zone.
  * 2. Otherwise `locations.room` + `locations.zone` → a **zone**, compared
  *    case- and space-insensitively ("Studio 101" / "studio  101").
- * 3. Otherwise the tool is **not on the map**, and the page says so rather
+ * 3. Otherwise `"room / zone"`, then `"room"`, in a zone's `matches` (lab
+ *    config spec §12.6): for an inventory that names places its own way.
+ * 4. Otherwise the tool is **not on the map**, and the page says so rather
  *    than guessing a region (Article 4). "Unknown / Unknown" lands here.
  */
 
@@ -34,18 +36,38 @@ function nameKey(room: string, zone: string): string {
   return `${normalizePlaceName(room)}\u0000${normalizePlaceName(zone)}`;
 }
 
+/**
+ * A `matches` entry as placement compares it: case and spacing ignored, and
+ * `"Room/Zone"` the same as `"Room / Zone"`.
+ */
+export function placeKey(name: string): string {
+  return name
+    .split("/")
+    .map((part) => normalizePlaceName(part))
+    .join(" / ");
+}
+
 export interface PlanIndex {
   plan: FloorPlan;
   zoneById: Map<string, MapZone>;
   zoneByName: Map<string, MapZone>;
+  /** Each zone's `matches`, by `placeKey`. The first zone to claim a name keeps it (`lab:check` fails on a second). */
+  zoneByMatch: Map<string, MapZone>;
   stationById: Map<string, MapStation>;
 }
 
 export function indexPlan(plan: FloorPlan): PlanIndex {
   const zoneById = new Map(plan.zones.map((z) => [z.id.toUpperCase(), z] as const));
   const zoneByName = new Map(plan.zones.map((z) => [nameKey(z.room, z.zone), z] as const));
+  const zoneByMatch = new Map<string, MapZone>();
+  for (const zone of plan.zones) {
+    for (const name of zone.matches ?? []) {
+      const key = placeKey(name);
+      if (!zoneByMatch.has(key)) zoneByMatch.set(key, zone);
+    }
+  }
   const stationById = new Map(plan.stations.map((s) => [s.id.toUpperCase(), s] as const));
-  return { plan, zoneById, zoneByName, stationById };
+  return { plan, zoneById, zoneByName, zoneByMatch, stationById };
 }
 
 export function placeTool(index: PlanIndex, tool: PlaceableTool): ToolPlace | null {
@@ -54,7 +76,10 @@ export function placeTool(index: PlanIndex, tool: PlaceableTool): ToolPlace | nu
     const zone = station ? index.zoneById.get(station.zoneId.toUpperCase()) : undefined;
     if (station && zone) return { zone, station };
   }
-  const zone = index.zoneByName.get(nameKey(tool.location, tool.zone));
+  const zone =
+    index.zoneByName.get(nameKey(tool.location, tool.zone)) ??
+    index.zoneByMatch.get(placeKey(`${tool.location} / ${tool.zone}`)) ??
+    index.zoneByMatch.get(placeKey(tool.location));
   return zone ? { zone, station: null } : null;
 }
 

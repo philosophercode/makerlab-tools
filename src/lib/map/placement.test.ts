@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { densityStep, indexPlan, mapHref, placeTool, placeTools, resolveHighlight } from "./placement";
 import { mapFactsFor } from "./locate";
-import { STUDIO_101 } from "./studio-101";
+import { SHIPPED_PLAN as STUDIO_101 } from "./plan";
 
 const index = indexPlan(STUDIO_101);
 
@@ -24,6 +24,38 @@ describe("placeTool", () => {
 
   it("never guesses: Unknown / Unknown is not on the map", () => {
     expect(placeTool(index, { mapId: null, location: "Unknown", zone: "Unknown" })).toBeNull();
+  });
+});
+
+describe("placeTool with a zone's matches (lab config spec §12.6)", () => {
+  // The shipped plan with matches, as a fork whose inventory names places its own way would write them.
+  const matched = indexPlan({
+    ...STUDIO_101,
+    zones: STUDIO_101.zones.map((zone) =>
+      zone.id === "Z3"
+        ? { ...zone, matches: ["Wood Shop"] }
+        : zone.id === "Z2"
+          ? { ...zone, matches: ["Digital Fabrication / Printers", "Studio 101 / 3D Printing Hub"] }
+          : zone
+    ),
+  });
+
+  it("tries the exact room and zone first", () => {
+    expect(placeTool(matched, { mapId: null, location: "Studio 101", zone: "Common Purpose Space" })?.zone.id).toBe("Z1");
+  });
+
+  it('then "room / zone" in a zone\'s matches, ignoring case and spacing', () => {
+    expect(placeTool(matched, { mapId: null, location: "digital  fabrication", zone: "PRINTERS" })?.zone.id).toBe("Z2");
+  });
+
+  it('then "room" alone, for every zone in that room', () => {
+    expect(placeTool(matched, { mapId: null, location: "Wood Shop", zone: "Bench 2" })?.zone.id).toBe("Z3");
+    expect(placeTool(matched, { mapId: null, location: "Wood Shop", zone: "Clamps" })?.zone.id).toBe("Z3");
+  });
+
+  it("still lets a map tag win, and still never guesses", () => {
+    expect(placeTool(matched, { mapId: "4A", location: "Wood Shop", zone: "Bench 2" })?.zone.id).toBe("Z4");
+    expect(placeTool(matched, { mapId: null, location: "Digital Fabrication", zone: "Lasers" })).toBeNull();
   });
 });
 

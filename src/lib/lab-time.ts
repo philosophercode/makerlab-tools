@@ -13,9 +13,10 @@
  * No `"server-only"` and no `@/` alias: `src/lib/data/*` imports this, and
  * `scripts/` loads those modules under plain Node.
  */
+import { lab } from "./lab/config.ts";
 
-/** Cornell Tech's timezone — the default when `LAB_TIMEZONE` is unset. */
-export const DEFAULT_LAB_TIMEZONE = "America/New_York";
+/** The lab config's timezone (`place.timezone`) — the default when `LAB_TIMEZONE` is unset. */
+export const DEFAULT_LAB_TIMEZONE = lab.place.timezone;
 
 /** The configured lab timezone, or the default. */
 export function labTimezone(): string {

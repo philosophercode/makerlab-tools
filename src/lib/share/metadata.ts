@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { siteConfig } from "../site-config";
+import { lab } from "../lab/config";
 
 /**
  * Shared pieces of the link-preview metadata (Open Graph, X cards).
@@ -22,7 +23,7 @@ export const SITE_SHARE_IMAGE = {
 } as const;
 
 /** What a preview shows in place of a page's own description. */
-export const SITE_DESCRIPTION = `${siteConfig.tagline}: the ${siteConfig.institution} MakerLAB's tools, manuals and ${siteConfig.chatAssistantName}.`;
+export const SITE_DESCRIPTION = `${siteConfig.tagline}: the ${siteConfig.institution} ${lab.identity.labName}'s tools, manuals and ${siteConfig.chatAssistantName}.`;
 
 /** How long a preview's description may be before it is cut (Google and most cards show ~160). */
 export const SHARE_DESCRIPTION_MAX = 160;

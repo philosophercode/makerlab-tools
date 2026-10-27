@@ -3,6 +3,7 @@ import "server-only";
 import { getCatalogTool } from "../catalog";
 import { findToolByNotionPageId } from "../data/catalog";
 import { isLegacyNotionId } from "../legacy-id";
+import { lab } from "../lab/config";
 import { dataUrlBytes, decodeQrCodes } from "../qr/decode";
 import { ourQrHosts, qrTarget, type QrTarget } from "../qr/match";
 import { unitForToken } from "../qr/urls";
@@ -51,14 +52,14 @@ export interface PhotoQrDeps {
 
 async function hintFor(photo: string, target: QrTarget, deps: Required<Pick<PhotoQrDeps, "findPublished" | "findLegacy">>): Promise<string | null> {
   const label = `QR code in photo ${inlineText(photo, 80)}`;
-  if (target.kind === "external") return `[${label}: links to an external site, not a MakerLAB tool]`;
+  if (target.kind === "external") return `[${label}: links to an external site, not a ${lab.identity.labName} tool]`;
   if (target.kind !== "tool") return null;
   let tool = await deps.findPublished(target.idOrSlug);
   if (!tool && isLegacyNotionId(target.idOrSlug)) {
     const legacy = await deps.findLegacy(target.idOrSlug);
     if (legacy) tool = await deps.findPublished(legacy.slug);
   }
-  if (!tool) return `[${label}: links to a MakerLAB tool page that is not published]`;
+  if (!tool) return `[${label}: links to a ${lab.identity.labName} tool page that is not published]`;
   const toolText = `tool ${tool.slug} (${inlineText(tool.name, 120)})`;
   // A unit's label: the unit is looked up among this tool's units only. A
   // token that names none of them (a retired unit's old sticker) still

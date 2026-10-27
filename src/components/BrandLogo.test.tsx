@@ -15,7 +15,7 @@ describe("BrandLogo", () => {
     expect(logo).not.toBeNull();
     expect(logo).toHaveAttribute("aria-hidden", "true");
     expect(logo).toHaveClass("brand-logo", "h-10");
-    expect(siteConfig.logo).toBe("/brand/cornell-tech-makerlab-logo.svg");
-    expect(logo.style.maskImage || logo.getAttribute("style")).toContain("/brand/cornell-tech-makerlab-logo.svg");
+    expect(siteConfig.logo).toBe("/lab/logo.svg");
+    expect(logo.style.maskImage || logo.getAttribute("style")).toContain("/lab/logo.svg");
   });
 });

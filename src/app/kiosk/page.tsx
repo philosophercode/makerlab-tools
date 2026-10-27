@@ -10,6 +10,7 @@ import { loadKioskSnapshot, withAskUrl } from "../../lib/kiosk/snapshot";
 import { loadOnShiftNames } from "../../lib/on-shift/read";
 import type { KioskSnapshot } from "../../lib/kiosk/types";
 import { labTimezone } from "../../lib/lab-time";
+import { lab } from "../../lib/lab/config";
 import { requestOrigin } from "../../lib/request-origin";
 import { siteConfig } from "../../lib/site-config";
 import { scheduleUsage } from "../../lib/usage/schedule";
@@ -17,7 +18,7 @@ import { kioskLocale, kioskMessages } from "./kiosk-locale";
 
 export const metadata: Metadata = {
   title: "Lab status",
-  description: `What is running in the ${siteConfig.institution} MakerLAB right now.`,
+  description: `What is running in the ${siteConfig.institution} ${lab.identity.labName} right now.`,
   robots: { index: false },
 };
 

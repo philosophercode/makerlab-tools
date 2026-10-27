@@ -114,7 +114,7 @@ export const QR_QUIET_MODULES = 2;
 
 /**
  * The brand image's aspect ratio: the lab's official logo, the Cornell Tech
- * MakerLAB lockup (`public/brand/cornell-tech-makerlab-logo.svg`, 277.68 ×
+ * MakerLAB lockup (`public/lab/logo.svg`, 277.68 ×
  * 76.13; its PNG is what the label draws). Until 2026-10-06 it was the
  * MakerLAB wordmark, 475 × 79.
  */

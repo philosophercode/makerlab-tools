@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STUDIO_101 } from "./studio-101";
+import { SHIPPED_PLAN as STUDIO_101 } from "./plan";
 import { planWork } from "./work-plan";
 
 const tool = (name: string, location: string, zone: string, mapId: string | null = null) => ({ name, location, zone, mapId });

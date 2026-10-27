@@ -1,7 +1,7 @@
 # Fork it for your lab
 
 > MakerLAB Tools was built for the Cornell Tech MakerLAB, but nothing in it is specific to
-> one lab that an environment variable or a short list of files cannot change. This page
+> one lab that one config file cannot change. This page
 > is the path from a fork to your own lab's site. Setting up each service is in
 > [`deploy.md`](deploy.md); this page says what to change on the way.
 
@@ -20,42 +20,57 @@ With nothing configured you get an in-process Postgres seeded with two demo tool
 **demo data** banner. Add `AI_GATEWAY_API_KEY` to `.env.local` to turn the assistant on
 ([`deploy.md`](deploy.md) Stage 1).
 
-> **Coming: one file.** The [lab config spec](specs/2026-10-25-lab-config-design.md)
-> moves everything in sections 2 and 3 into `lab/lab.config.ts` (plus your images in
-> `public/lab/` and your floor plan as `lab/floor-plan.json`), checked by
-> `npm run lab:check`. Until it is built, use the tables below.
+## 2 · Make it your lab's: one file
 
-## 2 · Rebrand with environment variables
+Everything that makes this deployment the Cornell Tech MakerLAB's lives in
+[`lab/lab.config.ts`](../lab/lab.config.ts): the names, logo, colours, hours, who may sign
+in, the people and links on About, what the assistant knows about the lab, and whether
+there is a floor map. Every field has a comment; [`lab/README.md`](../lab/README.md) is the
+five-minute tour.
 
-Copy [`.env.example`](../.env.example) to `.env.local`. These change the name, look and
-audience without touching code:
+1. Edit `lab/lab.config.ts`. The shipped file is the worked example: replace its values.
+2. Put your logo (an SVG and its PNG twin), wordmark and photos in `public/lab/`.
+3. Floor plan: trace yours into `lab/floor-plan.json` ([`map.md`](map.md) has the prompt
+   that has an AI do it), or set `map: false`.
+4. `npm run lab:check`: it validates the file and the plan, checks every image exists,
+   and prints what the header, About and the assistant will say.
+5. `npm run dev`, then `npm run test:all`.
 
-| Variable | What |
+An invalid file stops `npm run dev` and the build with every bad field named.
+
+**Keep secrets out of it.** The file is committed, and parts of it reach the browser. API
+keys, and the individual sign-in addresses (`AUTH_ALLOWED_EMAILS`,
+`AUTH_SUPER_ADMIN_EMAILS`), stay in environment variables; `lab:check` refuses a field
+that looks like a key.
+
+### Environment variables still win
+
+Each field below keeps its environment variable, which overrides the file when set, so
+one checkout can serve several deployments (a demo and the real lab, say):
+
+| Variable | Field |
 |---|---|
-| `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_INSTITUTION`, `NEXT_PUBLIC_TAGLINE` | Names in the header, titles and link previews |
-| `NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, `AUDIENCE` | The assistant's name and who it is talking to |
-| `NEXT_PUBLIC_LOGO`, `NEXT_PUBLIC_WORDMARK` | Your logo and wordmark, in `public/` |
-| `NEXT_PUBLIC_COLOR_PRIMARY`, `NEXT_PUBLIC_COLOR_PRIMARY_DARK` | Accent colours |
-| `NEXT_PUBLIC_LAB_HOURS` | The hours line in the header and on the kiosk |
-| `NEXT_PUBLIC_SITE_URL` | Your public address, for QR labels and link previews |
-| `AUTH_ALLOWED_EMAIL_DOMAIN`, `AUTH_ALLOWED_EMAILS` | Who may sign in (defaults to `cornell.edu`) |
-| `DEMO_PASS_CONTACT_EMAIL` | The address a spent demo pass offers (defaults to the original author's) |
+| `NEXT_PUBLIC_SITE_NAME`, `NEXT_PUBLIC_INSTITUTION`, `NEXT_PUBLIC_TAGLINE` | `identity.siteName`, `identity.institution`, `identity.tagline` |
+| `NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, `AUDIENCE` | `identity.assistantName`, `identity.audience` |
+| `NEXT_PUBLIC_LOGO`, `NEXT_PUBLIC_WORDMARK` | `brand.logo`, `brand.wordmark` |
+| `NEXT_PUBLIC_COLOR_PRIMARY`, `NEXT_PUBLIC_COLOR_PRIMARY_DARK` | `brand.colors` |
+| `NEXT_PUBLIC_SITE_URL` | `web.siteUrl` |
+| `NEXT_PUBLIC_SOURCE_URL` | `web.sourceUrl` |
+| `NEXT_PUBLIC_LAB_HOURS`, `LAB_TIMEZONE` | `place.hours`, `place.timezone` |
+| `AUTH_ALLOWED_EMAIL_DOMAIN` | `access.emailDomain` |
+| `EMAIL_FROM`, `EMAIL_REPLY_TO` | `email.from`, `email.replyTo` |
+| `DEMO_PASS_CONTACT_EMAIL` | `contact.demoEmail` |
 
-## 3 · Replace what is Cornell's
+## 3 · What else is Cornell's
 
 The licence covers the code, not Cornell's names, logos or photos
-([`LICENSING.md`](legal/LICENSING.md)). Before you put a fork online, replace:
+([`LICENSING.md`](legal/LICENSING.md)). The config holds almost all of them. Outside it:
 
 | Where | What is there now |
 |---|---|
-| `public/brand/` | The Cornell Tech MakerLAB logo and wordmark (point the variables above at your own files) |
-| `src/app/about/about-content.ts` | The lab's staff, their addresses, the official page and social links, photos of the lab |
-| `public/about/` | Those photos |
-| `messages/*.json` → `about`, `product` | The About and product pages' words, which describe the Cornell Tech lab |
-| `src/lib/ai/lab-context.ts` | "Where you are": what the assistant knows about the lab, its building, staff and hours |
-| `src/lib/ai/lab-companion.ts` | Who the assistant suggests asking |
-| `public/product/` | Screenshots and the walkthrough video of the Cornell site |
-| `src/lib/map/studio-101.ts` | The floor plan of Studio 101 ([`map.md`](map.md) has a prompt that traces yours) |
+| `public/brand/` | Old copies of the logo, kept one release for printed QR sheets; delete them in a fork |
+| `public/product/` | Screenshots and the walkthrough video of the Cornell site (`/product`; turn it off with `pages.product: false`) |
+| `messages/*.json` → `about.creditsBody`, `product.credits` | The original author's credit, which names the software's history |
 
 ## 4 · Your inventory
 
@@ -87,7 +102,7 @@ $20–40 a month and the AI about $10–15 at one lab's use (`/product`, "What i
 MakerLAB Tools is licensed under the AGPL-3.0. If you change it and let people use it
 over a network, you must offer them your version's source
 ([`LICENSING.md`](legal/LICENSING.md)). The simplest way is a public fork and a link to it
-from your site: set `NEXT_PUBLIC_SOURCE_URL` to your fork's address, and the footer's
+from your site: set `web.sourceUrl` in `lab/lab.config.ts` to your fork's address, and the footer's
 **Source code**, `/product`'s **Fork it for your lab** and the About page all point
 there.
 
