@@ -3,7 +3,7 @@ import type { PendingTool } from "../data/pending-tools";
 import type { ImportFormat, ImportSourceKind, ImportStatus } from "../db/schema/vocabulary";
 import type { PendingToolView } from "../intake/types";
 import { toPendingToolView } from "../intake/view";
-import type { ImportLink, LabDoc, NameSuggestion } from "./types";
+import type { ImportLink, ImportProgress, LabDoc, NameSuggestion } from "./types";
 
 /**
  * Bulk intake as a browser sees it (bulk intake spec §6). Client-safe: every
@@ -21,6 +21,8 @@ export interface ImportView {
   rowCount: number;
   itemCount: number;
   duplicateCount: number;
+  /** How far the rows are written, and a document read (import progress spec §4). */
+  progress: ImportProgress;
   createdByName: string | null;
   /** The importer's account has been removed; the name is the snapshot. */
   createdByRemoved: boolean;
@@ -61,6 +63,7 @@ export function toImportView(record: BulkImportRecord | BulkImportSummary, creat
     rowCount: record.rowCount,
     itemCount: record.itemCount,
     duplicateCount: record.duplicateCount,
+    progress: record.progress ?? {},
     createdByName: "createdByName" in record ? record.createdByName : createdByName,
     createdByRemoved: "createdByRemoved" in record ? record.createdByRemoved : false,
     createdAt: record.createdAt.toISOString(),

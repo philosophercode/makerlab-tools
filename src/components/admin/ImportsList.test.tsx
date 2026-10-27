@@ -25,6 +25,7 @@ function view(overrides: Partial<ImportView> = {}): ImportView {
     rowCount: 42,
     itemCount: 40,
     duplicateCount: 3,
+    progress: {},
     createdByName: "Niti",
     createdByRemoved: false,
     createdAt: "2026-09-24T12:00:00.000Z",

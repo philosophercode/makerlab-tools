@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { preparePhoto, type PreparedPhoto } from "../../lib/chat/downscale-image";
 import { isPhotoFile } from "../../lib/images/photo-rules";
-import { isImportFileName } from "../../lib/import/detect";
+import { extensionOf, isImportFileName } from "../../lib/import/detect";
+import { IMPORT_CHAT_TEXT_MAX_CHARS } from "../../lib/import/limits";
+import { uploadImportFile } from "../../lib/import/upload-import-file";
 import type { ChatT } from "./chat-text";
 
 /**
@@ -20,9 +22,14 @@ import type { ChatT } from "./chat-text";
  *   The preview is a local object URL, revoked when the photo is removed, sent
  *   or the chat unmounts — or the route's copy, for a photo the browser could
  *   not draw.
- * - A **list** (CSV, TSV, text or PDF) is uploaded private as kind `import`,
+ * - A **list** (CSV, TSV, text or PDF) is uploaded private as kind `import`
+ *   (`uploadImportFile`: straight to Blob above the function's body limit),
  *   staff only, and named to the model by its id so `start_import` can read
  *   it — the model never sees its contents (bulk intake spec §3.5).
+ * - **A text list with no Blob store** is read here and imported as text
+ *   (`POST /api/imports`, origin `chat`) — the page's fallback, so the chat
+ *   imports wherever the page does — and named to the model by its import id
+ *   (import progress spec §3.5). A PDF still needs the store.
  * - With no Blob store the route answers 503, and the visitor is told, in
  *   their language, that they can still send without a photo (Article 4).
  */
@@ -48,8 +55,11 @@ interface UploadedPhotoResponse {
 
 export interface PendingDocument {
   key: string;
-  attachmentId: string;
   name: string;
+  /** The uploaded file, for `start_import` to read. */
+  attachmentId?: string;
+  /** Or the import the chat already started from the file's text (no Blob store). */
+  importId?: string;
 }
 
 export function useChatAttachments(t: ChatT) {
@@ -101,21 +111,35 @@ export function useChatAttachments(t: ChatT) {
 
   /** Upload one list to import; staff only, so a student is told so rather than shown an error. */
   async function uploadDocument(file: File) {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("kind", "import");
-    const res = await fetch("/api/uploads", { method: "POST", body: form });
-    if (res.status === 503) throw new Error(t("uploadsUnavailable"));
-    if (res.status === 401 || res.status === 403) throw new Error(t("documentsStaffOnly"));
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      throw new Error(body?.error || t("uploadFailed"));
+    const uploaded = await uploadImportFile(file);
+    if (uploaded.ok) {
+      setDocuments((prev) => [
+        ...prev,
+        { key: `${uploaded.attachmentId}-${Date.now()}`, attachmentId: uploaded.attachmentId, name: uploaded.name || file.name },
+      ]);
+      return;
     }
-    const data = (await res.json()) as { attachmentId: string; name: string };
-    setDocuments((prev) => [
-      ...prev,
-      { key: `${data.attachmentId}-${Date.now()}`, attachmentId: data.attachmentId, name: data.name || file.name },
-    ]);
+    if (uploaded.status === 503) return importAsText(file);
+    if (uploaded.status === 401 || uploaded.status === 403) throw new Error(t("documentsStaffOnly"));
+    if (uploaded.status === 413 || uploaded.code === "file_too_large") throw new Error(t("listTooLarge"));
+    throw new Error(uploaded.error || t("uploadFailed"));
+  }
+
+  /** No Blob store: a text list is imported from its text, as the import page does. */
+  async function importAsText(file: File) {
+    if (extensionOf(file.name) === "pdf" || file.type === "application/pdf") throw new Error(t("listNeedsStorage"));
+    const text = await file.text();
+    if (text.length > IMPORT_CHAT_TEXT_MAX_CHARS) throw new Error(t("listTooLongForChat"));
+    const res = await fetch("/api/imports", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text, sourceName: file.name, origin: "chat" }),
+    });
+    if (res.status === 401 || res.status === 403) throw new Error(t("documentsStaffOnly"));
+    const body = (await res.json().catch(() => null)) as { import?: { id: string }; code?: string } | null;
+    if (!res.ok || !body?.import) throw new Error(body?.code === "too_large" ? t("listTooLongForChat") : t("uploadFailed"));
+    const importId = body.import.id;
+    setDocuments((prev) => [...prev, { key: `${importId}-${Date.now()}`, importId, name: file.name }]);
   }
 
   /**

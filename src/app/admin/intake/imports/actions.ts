@@ -8,6 +8,7 @@ import {
   IMPORTS_MERGE_ROW,
   IMPORTS_REMOVE_ROWS,
   IMPORTS_REQUEST_SUGGESTIONS,
+  IMPORTS_RESEARCH,
   IMPORTS_SET_HINTS,
 } from "../../../../lib/actions/imports";
 import { performAction } from "../../../../lib/actions/perform";
@@ -18,7 +19,7 @@ import { listPendingTools } from "../../../../lib/data/pending-tools";
 import { isUuid } from "../../../../lib/data/uuid";
 import { canActOnImport, IMPORT_PERMISSION } from "../../../../lib/import/access";
 import { toImportItemView, toImportView } from "../../../../lib/import/view";
-import type { ImportActionResult, LoadImportResult, RowsResult } from "./action-result";
+import type { ImportActionResult, LoadImportResult, ProgressResult, RowsResult } from "./action-result";
 
 /**
  * The import review page's endpoints (bulk intake spec §5, §8).
@@ -38,6 +39,18 @@ import type { ImportActionResult, LoadImportResult, RowsResult } from "./action-
 const SURFACE = "admin/intake/imports";
 
 const loadInput = z.strictObject({ importId: z.string().refine(isUuid) });
+
+const progressInput = z.strictObject({
+  importId: z.string().refine(isUuid),
+  since: z.string().datetime().optional(),
+});
+
+/**
+ * A poll answers the rows changed since the last one, with this much overlap:
+ * a slice's rows carry the time its transaction began, and it may commit a
+ * moment after a poll that read past it. A row sent twice is merged by id.
+ */
+const POLL_OVERLAP_MS = 30_000;
 
 /**
  * The import and its rows, fresh — the page's polling while a document or
@@ -61,6 +74,35 @@ export async function loadImport(input: unknown): Promise<LoadImportResult> {
     };
   } catch (err) {
     console.error(`[${SURFACE}] the read failed`, err);
+    return { ok: false, error: "failed" };
+  }
+}
+
+/**
+ * The import and the rows changed since `since` — the page's poll while rows
+ * are written or research runs (import progress spec §3.3). The first call
+ * sends no `since` and gets every row. Gated like {@link loadImport}.
+ */
+export async function loadImportProgress(input: unknown): Promise<ProgressResult> {
+  const gate = await authorizeAdminAction(IMPORT_PERMISSION);
+  if (!gate.ok) return gate;
+  const parsed = progressInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid_field" };
+  try {
+    const found = await getBulkImport(parsed.data.importId);
+    if (!found) return { ok: false, error: "not_found" };
+    if (!canActOnImport(gate.identity, found)) return { ok: false, error: "not_permitted" };
+    const now = Date.now();
+    const since = parsed.data.since ? new Date(parsed.data.since) : undefined;
+    const items = await listPendingTools({ importId: found.id, limit: null, updatedAfter: since });
+    return {
+      ok: true,
+      import: toImportView(found),
+      items: items.sort((a, b) => (a.sourceRow ?? 0) - (b.sourceRow ?? 0)).map(toImportItemView),
+      cursor: new Date(now - POLL_OVERLAP_MS).toISOString(),
+    };
+  } catch (err) {
+    console.error(`[${SURFACE}] the progress read failed`, err);
     return { ok: false, error: "failed" };
   }
 }
@@ -115,4 +157,14 @@ export async function ignoreImportSuggestions(input: unknown): Promise<RowsResul
  */
 export async function requestImportSuggestions(input: unknown): Promise<ImportActionResult<{ requested: number }>> {
   return performAction(IMPORTS_REQUEST_SUGGESTIONS, input, await resolveIdentityFromHeaders(), { surface: "gui" });
+}
+
+/**
+ * **Research** an import's rows — every row not yet researched, or the ones
+ * named — in starts of 25 (import progress spec §3.4); what the assistant's
+ * `research_import` card confirms into. The page's **Research selected** sends
+ * its chunks from the browser, showing each one go.
+ */
+export async function researchImport(input: unknown): Promise<ImportActionResult<{ queued: number; waiting: number; undecided: number; notResearchable: number }>> {
+  return performAction(IMPORTS_RESEARCH, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }

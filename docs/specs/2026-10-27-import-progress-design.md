@@ -1,10 +1,10 @@
 # Import Progress: Show the Batch Moving — Design Spec
 
 **Date:** 2026-10-27
-**Status:** Draft
+**Status:** Implemented (phases 1–3), with the as-built amendment below
 **Target:** the app (repository root)
 **Branch:** `claude/project-thread-bv63hi`
-**Spec PR:** #TBD · **Implementation PR:** #TBD
+**Spec PR:** #198 · **Implementation PR:** this branch's PR
 
 ## 1. Summary
 
@@ -345,3 +345,42 @@ Each phase leaves `main` deployable; 2 and 3 can proceed in parallel after 1.
 | 1 | Offer "Research every row once identified" as an opt-in at import time? | Not now; the chat's propose-and-confirm covers "keep it moving" without spending by default. Revisit after the demo import | Isaac |
 | 2 | Slice size | 25 rows (matches research chunks); tune after a 500-row test | Implementer |
 | 3 | Keep the Source panel open by default on desktop? | Open while identifying, collapsed once review starts | Isaac |
+
+## Amendment 2026-10-27 — as built
+
+Written by AI while building phases 1–3. Where the build differs from the text above:
+
+- **The first slice is written inline.** `writeRows` (`lib/import/service.ts`) writes the
+  first 25 rows in the request that starts or confirms the import, so the page opens on
+  rows already identified, then starts `importRows` for the rest. If the workflow cannot
+  start, the remaining slices are written inline; an import never waits on a run that
+  never began.
+- **The page's Research selected is unchanged.** It keeps its client-side queue of chunks
+  over `pending.research`. `imports.research` (`research_import`, spend, `tools.add`,
+  proposed, MCP never) is the assistant's door, wrapped by `researchImport` for parity;
+  both start research through the same `startResearch`.
+- **Counts are derived in the browser** from the merged rows (`lib/import/progress.ts`);
+  the progress read returns the import and the rows changed since its cursor (now − 30 s,
+  so a row committed during the read is not missed).
+- **Direct uploads use the browser for completion, not Blob's webhook.** The flow is
+  three calls to `POST /api/uploads/token`: `import.folder` (the caller's own prefix,
+  `uploads/import/<user id>/`), the SDK's token request (folder, type and size checked;
+  Blob enforces size and type in the token), and `import.complete` (the route `head`s
+  the blob, checks folder and size, and records the attachment once — a second
+  completion returns the first row). A webhook cannot reach a laptop and the page needs
+  the id at once. Only files over 4 MB take this path; smaller ones still go through
+  `POST /api/uploads`. A store that cannot sign (a private store linked by id alone, or
+  the local folder) answers 501 and the browser falls back to `POST /api/uploads`.
+  **Known gap:** a direct upload the browser never completes leaves a blob with no row;
+  the unclaimed sweep only deletes files that have a row.
+- **The chat's no-Blob fallback starts the import from the browser.** An attached text list
+  is read in the browser and sent to `POST /api/imports` with `origin: "chat"` (the
+  chat's auto-confirmed columns), and the message names it as `[Started imports:
+  import_id=... name=...]`. `start_import` gains `importId` to show that import's card,
+  for whoever may work it. The model never retypes a list's text. A PDF still needs the
+  store; a text list over 200,000 characters is sent to the import page.
+- **Paste cap:** 4 MB on the page (checked before sending) and on `POST /api/imports`
+  (`too_large`, with `limitBytes`).
+- **E2E** for the Waiting list was not added in this PR; the component and integration
+  tests cover the same transitions.
+

@@ -5,7 +5,7 @@ import { can } from "../../../lib/auth/permissions";
 import { DbUnavailableError } from "../../../lib/db/client";
 import { isUuid } from "../../../lib/data/uuid";
 import { IMPORT_PERMISSION } from "../../../lib/import/access";
-import { IMPORT_MAX_TEXT_BYTES } from "../../../lib/import/limits";
+import { IMPORT_MAX_PASTE_BYTES } from "../../../lib/import/limits";
 import { startImport, type StartImportError } from "../../../lib/import/service";
 import { importPath, toImportView, type ImportView } from "../../../lib/import/view";
 import { checkRateLimit } from "../../../lib/rate-limit";
@@ -32,9 +32,12 @@ export const maxDuration = 60;
 const bodySchema = z
   .strictObject({
     // The byte cap is checked after parsing; this bound only stops a body no textarea produced.
-    text: z.string().max(IMPORT_MAX_TEXT_BYTES + 1024).optional(),
+    text: z.string().max(IMPORT_MAX_PASTE_BYTES + 1024).optional(),
     attachmentId: z.string().refine(isUuid).optional(),
     sourceName: z.string().max(300).nullable().optional(),
+    // The chat's own fallback with no Blob store (import progress spec §3.5):
+    // started as the chat starts one, columns matched without a mapping step.
+    origin: z.literal("chat").optional(),
   })
   .refine((body) => (body.text === undefined) !== (body.attachmentId === undefined));
 
@@ -83,13 +86,20 @@ export async function POST(req: NextRequest) {
     return refuse(400, "invalid_body", "Send { text } or { attachmentId }.");
   }
 
+  // Text in a request body is at most 4 MB (Vercel refuses 4.5 MB before this
+  // runs), said here with our own code rather than the platform's (§3.5).
+  if (parsed.data.text !== undefined && new TextEncoder().encode(parsed.data.text).byteLength > IMPORT_MAX_PASTE_BYTES) {
+    return refuse(413, "too_large", "The list is too large to paste.", { limitBytes: IMPORT_MAX_PASTE_BYTES });
+  }
+
   try {
     const outcome = await startImport({
       userId: identity.userId,
       text: parsed.data.text,
       attachmentId: parsed.data.attachmentId,
       sourceName: parsed.data.sourceName ?? null,
-      origin: "page",
+      origin: parsed.data.origin ?? "page",
+      autoConfirm: parsed.data.origin === "chat",
     });
     if (!outcome.ok) {
       // The numbers the message needs: the count and limit, or the size and limit in pages.

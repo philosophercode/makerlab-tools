@@ -115,7 +115,8 @@ export const pendingTools = pgTable(
       DUPLICATE_RESOLUTION
     ),
     index("pending_tools_status_idx").on(t.status),
-    index("pending_tools_import_idx").on(t.importId),
+    // With `updated_at`: the import page asks for the rows changed since its last look (import progress spec §3.3).
+    index("pending_tools_import_idx").on(t.importId, t.updatedAt),
     check("pending_tools_quantity_check", sql`${t.quantity} between 1 and 50`),
     index("pending_tools_batch_idx").on(t.batchId),
     // The daily cron finds research a run abandoned by when it was requested.
