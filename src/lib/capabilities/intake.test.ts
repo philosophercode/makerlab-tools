@@ -68,6 +68,7 @@ import {
 import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES } from "../intake/limits";
 import type { IntakeTablePayload } from "../intake/types";
 import { toAiTools } from "./chat-adapter";
+import { startImport } from "../import/service";
 import { intake, splitCandidateNames } from "./intake";
 import { registerAll } from "./mcp-adapter";
 import type { CapabilityCtx, CapabilityTool, ToolCandidate } from "./types";
@@ -958,9 +959,31 @@ describe("start_import", () => {
     expect(many.error).toContain("That list has 1,001 items; one import takes at most 1,000.");
   });
 
-  it("accepts either a file or text, not both", () => {
+  it("accepts exactly one of a file, text or an import already started", () => {
     expect(startImportTool.inputSchema.safeParse({ text: "x", attachmentId: "y" }).success).toBe(false);
+    expect(startImportTool.inputSchema.safeParse({ text: "x", importId: "y" }).success).toBe(false);
+    expect(startImportTool.inputSchema.safeParse({ importId: "y" }).success).toBe(true);
     expect(startImportTool.inputSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("shows the card of an import the chat started itself, and only to whoever may work it (import progress spec §3.5)", async () => {
+    const tag = crypto.randomUUID().slice(0, 6);
+    const list = Array.from({ length: 16 }, (_, i) => `- Started import item ${tag} ${i}`).join("\n");
+    const started = await startImport({ userId: admin().userId!, text: list, sourceName: "list.txt", origin: "chat", autoConfirm: true });
+    if (!started.ok) throw new Error("the import did not start");
+
+    const writer = fakeWriter();
+    const shown = (await startImportTool.run({ importId: started.import.id }, ctx({ writer }))) as { card_rendered: boolean; importId: string; itemCount: number };
+    expect(shown).toMatchObject({ card_rendered: true, importId: started.import.id, itemCount: 16 });
+    expect(writer.write.mock.calls[0][0]).toMatchObject({ type: "data-import-card", data: { import: { id: started.import.id } } });
+    // Nothing new was imported.
+    const db = await getDb();
+    expect(await db.select().from(pendingTools).where(eq(pendingTools.importId, started.import.id))).toHaveLength(16);
+
+    const student: Identity = { role: "user", userId: crypto.randomUUID(), email: "s@cornell.edu", name: "S", rateLimitKey: "user:s" };
+    const refused = (await startImportTool.run({ importId: started.import.id }, ctx({ identity: student }))) as { card_rendered: boolean; error: string };
+    expect(refused).toMatchObject({ card_rendered: false });
+    expect(refused.error).toMatch(/could not be found/);
   });
 
   it("is in the prompt: long lists and attached documents go to start_import", () => {

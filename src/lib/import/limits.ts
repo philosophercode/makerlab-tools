@@ -121,3 +121,23 @@ export const IMPORT_POLL_IDLE_INTERVAL_MS = 10_000;
  * progress spec §3.2, §11 Q2): the page sees them arrive a slice at a time.
  */
 export const IMPORT_SLICE_SIZE = 25;
+
+/**
+ * Vercel refuses a function request body over 4.5 MB before our code runs
+ * (import progress spec §3.5), so the in-function paths stay under it:
+ *
+ * - a **pasted** list is at most this many bytes, on the page and the route;
+ * - a **file** up to this size goes through `POST /api/uploads`; a larger one
+ *   goes from the browser straight to Blob (`POST /api/uploads/token`), which
+ *   is what makes {@link IMPORT_MAX_TEXT_BYTES} and
+ *   {@link IMPORT_MAX_PDF_BYTES} real.
+ */
+export const IMPORT_MAX_PASTE_BYTES = 4 * 1024 * 1024;
+export const IMPORT_DIRECT_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+
+/**
+ * The most characters of a list the chat hands to an import as text — what
+ * `start_import` takes, and what the chat reads in the browser when there is
+ * no Blob store (§3.5). Above it the chat says to use the import page.
+ */
+export const IMPORT_CHAT_TEXT_MAX_CHARS = 200_000;

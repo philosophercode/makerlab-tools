@@ -6,8 +6,7 @@ import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
 import { withDemoActor } from "../../../lib/demo-admin/actor";
 import { can, type Permission } from "../../../lib/auth/permissions";
-import { extensionOf, isImportFileName } from "../../../lib/import/detect";
-import { IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "../../../lib/import/limits";
+import { importFileKind, importFileLimit, importStoredType } from "../../../lib/import/upload-policy";
 import { uploadImageType } from "../../../lib/images/upload-type";
 import { isHeif } from "../../../lib/images/heif";
 import { convertHeifPhoto, type ConvertedPhoto } from "../../../lib/images/convert-photo";
@@ -69,34 +68,9 @@ const DEFAULT_KIND: UploadKind = "chat";
 const MAX_IMAGE_BYTES = 18 * 1024 * 1024;
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
 
-/**
- * A list to import (bulk intake spec §8): CSV, TSV, plain text or Markdown up
- * to 5 MB, or a PDF up to 20 MB. Browsers label a CSV many ways (`text/csv`,
- * Excel's `application/vnd.ms-excel`, or nothing at all), so the file's
- * extension decides when its type is not a text type.
- */
-const IMPORT_TEXT_TYPES = new Set([
-  "text/csv",
-  "text/tab-separated-values",
-  "text/plain",
-  "text/markdown",
-  "text/x-markdown",
-  "application/csv",
-  "application/vnd.ms-excel",
-  // What a browser or a multipart round trip calls a file it has no type for
-  // (a `.tsv`, often); the extension has already said it is a list.
-  "application/octet-stream",
-]);
-
-/** What an import upload is — text or a PDF — or null when it is neither. */
-function importFileKind(type: string, name: string): "text" | "pdf" | null {
-  const extension = extensionOf(name);
-  if (type === "application/pdf") return "pdf";
-  if (extension === "pdf") return type ? null : "pdf";
-  if (!isImportFileName(name)) return null;
-  if (!type || IMPORT_TEXT_TYPES.has(type) || type.startsWith("text/")) return "text";
-  return null;
-}
+// A list to import (bulk intake spec §8): what it may be and how large is
+// `lib/import/upload-policy.ts`, shared with the direct-to-Blob door
+// (`/api/uploads/token`) a file over the function's body limit takes.
 
 /**
  * What each kind costs the caller: the blob's access, and the permission the
@@ -254,13 +228,7 @@ export async function POST(req: NextRequest) {
   }
 
   const maxBytes =
-    importFile === "text"
-      ? IMPORT_MAX_TEXT_BYTES
-      : importFile === "pdf"
-        ? IMPORT_MAX_PDF_BYTES
-        : isImage
-          ? MAX_IMAGE_BYTES
-          : MAX_PDF_BYTES;
+    importFile ? importFileLimit(importFile) : isImage ? MAX_IMAGE_BYTES : MAX_PDF_BYTES;
   if (file.size > maxBytes) {
     return Response.json(
       { code: "file_too_large", error: `File too large (max ${Math.round(maxBytes / (1024 * 1024))}MB)` },
@@ -332,7 +300,7 @@ export async function POST(req: NextRequest) {
       publicUrl: access === "public" ? stored.url : null,
       // An import file's type is what it was read as, so the reader later
       // needs no second guess (a CSV labelled as Excel, or unlabelled).
-      contentType: importFile === "pdf" ? "application/pdf" : importFile === "text" ? "text/plain" : storedType,
+      contentType: importFile ? importStoredType(importFile) : storedType,
       // What was stored: a converted HEIC is a smaller JPEG named `.jpg`.
       sizeBytes: upload.size,
       originalFilename: upload.name || "upload",

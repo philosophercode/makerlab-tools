@@ -355,6 +355,9 @@
     "proposalFailed": "That did not save: {reason}",
     "startingImport": "Importing the list…",
     "documentsStaffOnly": "Only lab staff can import a list of equipment.",
+    "listTooLarge": "That list is too large — at most 5 MB of text or a 20 MB PDF.",
+    "listNeedsStorage": "File uploads are unavailable here, so a PDF cannot be read. Paste the list on the Import a list page instead.",
+    "listTooLongForChat": "That list is too long for the chat. Use the Import a list page instead.",
     "removeDocumentAria": "Remove {name}",
     "importListMessage": "Import this list of equipment.",
     "importCard": {
@@ -1746,7 +1749,7 @@
         "or": "or",
         "pasteLabel": "Paste a list",
         "pastePlaceholder": "Paste spreadsheet cells, or one item per line",
-        "pasteHint": "Cells copied from a spreadsheet keep their columns. A plain list is read one item a line; a document is read by the assistant.",
+        "pasteHint": "Up to 4 MB. Cells copied from a spreadsheet keep their columns. A plain list is read one item a line; a document is read by the assistant.",
         "submit": "Import",
         "importing": "Importing…"
       },
@@ -1913,6 +1916,7 @@
       "errors": {
         "empty": "The list is empty.",
         "too_large": "That is too large — at most 5 MB of text or a 20 MB PDF.",
+        "paste_too_large": "That paste is too large — at most 4 MB. Save it as a CSV or text file and choose the file instead.",
         "too_many_items": "This list has {count, number} items; the limit is {limit, number} items per import. Split it into parts and import each.",
         "document_too_long": "This document is about {pages, number} pages of text; the limit is about {limitPages, number} pages ({limitChars, number} characters). Split it into parts and import each.",
         "file_not_found": "The uploaded file could not be found. Choose it again.",

@@ -27,3 +27,14 @@
   assert:
     - kind: not_called_tool
       value: start_import
+
+# The chat imported a list itself (no Blob store; import progress spec §3.5):
+# start_import only shows that import's card.
+- id: bulk-import-started-import
+  prompt: "Import this list of equipment.\n\n[Started imports: import_id=0b6a0d4e-2f1c-4c55-9a8e-1d2c3b4a5f60 name=makerspace-inventory.csv]"
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: start_import
+    - kind: not_called_tool
+      value: identify_tools
