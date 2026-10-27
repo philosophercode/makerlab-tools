@@ -90,9 +90,20 @@ async function inventoryLines(plan: FloorPlan): Promise<string[]> {
   const { count, eq } = await import("drizzle-orm");
   const { locations, tools } = await import("../src/lib/db/schema/index.ts");
   const { inventoryReport } = await import("../src/lib/lab/check.ts");
-  // No database configured: the in-memory one, seeded with the demo inventory.
-  const target = process.env.DATABASE_URL || process.env.PGLITE_DATA_DIR ? resolveImportTarget() : resolveImportTarget({ dryRun: true });
-  const opened = await openImportTarget(target);
+  const configured = Boolean(process.env.DATABASE_URL || process.env.PGLITE_DATA_DIR);
+  let opened: { db: Awaited<ReturnType<typeof openImportTarget>>["db"]; close(): Promise<void> };
+  let described: string;
+  if (configured) {
+    const target = resolveImportTarget();
+    opened = await openImportTarget(target);
+    described = describeImportTarget(target);
+  } else {
+    // No database configured: an in-memory one, seeded with the demo inventory.
+    const { createPgliteDb } = await import("../src/lib/db/pglite.ts");
+    const { seedDemo } = await import("../src/lib/db/demo-seed.ts");
+    opened = { db: await createPgliteDb({ seed: seedDemo }), close: async () => {} };
+    described = "the demo inventory, in memory (set DATABASE_URL or PGLITE_DATA_DIR for yours)";
+  }
   try {
     const rows: InventoryLocation[] = await opened.db
       .select({ room: locations.room, zone: locations.zone, mapTag: locations.mapTag, tools: count(tools.id) })
@@ -100,7 +111,7 @@ async function inventoryLines(plan: FloorPlan): Promise<string[]> {
       .leftJoin(tools, eq(tools.locationId, locations.id))
       .groupBy(locations.id)
       .orderBy(locations.room, locations.zone);
-    return [`Database: ${describeImportTarget(target)}`, ...inventoryReport(plan, rows)];
+    return [`Database: ${described}`, ...inventoryReport(plan, rows)];
   } finally {
     await opened.close();
   }

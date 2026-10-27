@@ -127,6 +127,18 @@ describe("polygonsOverlap", () => {
     expect(polygonsOverlap(square(0, 0), square(10, 0))).toBe(false);
     expect(polygonsOverlap(square(0, 0), square(10, 10))).toBe(false);
   });
+  it("is false for an L-shaped zone around a square it only touches", () => {
+    // The L's vertex average, (1.67, 1.67), lies in the square, not in the L.
+    const ell: MapPoint[] = [
+      [0, 0],
+      [4, 0],
+      [4, 1],
+      [1, 1],
+      [1, 4],
+      [0, 4],
+    ];
+    expect(polygonsOverlap(ell, square(1, 1, 3))).toBe(false);
+  });
   it("is true for crossing, nested and identical zones", () => {
     expect(polygonsOverlap(square(0, 0), square(5, 5))).toBe(true);
     expect(polygonsOverlap(square(0, 0, 20), square(5, 5, 5))).toBe(true);

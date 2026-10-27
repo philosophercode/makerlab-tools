@@ -227,8 +227,8 @@ function strictlyInside([px, py]: MapPoint, polygon: readonly MapPoint[]): boole
 /**
  * Whether two zones share any area. Zones that only touch, along a shared
  * wall or at a corner, do not overlap: two edges must properly cross, or a
- * point of one (a vertex, an edge's midpoint, or the vertices' average) lie
- * strictly inside the other.
+ * point of one (a vertex, an edge's midpoint, or the vertices' average when
+ * it lies inside its own zone) lie strictly inside the other.
  */
 export function polygonsOverlap(a: readonly MapPoint[], b: readonly MapPoint[]): boolean {
   for (const [p1, p2] of edges(a)) {
@@ -242,11 +242,16 @@ export function polygonsOverlap(a: readonly MapPoint[], b: readonly MapPoint[]):
   }
   const probes = (polygon: readonly MapPoint[]): MapPoint[] => [
     ...edges(polygon).flatMap(([p, q]) => [p, [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2] as const]),
-    // The vertices' average, so a zone drawn twice on the same outline is caught.
-    [polygon.reduce((sum, p) => sum + p[0], 0) / polygon.length, polygon.reduce((sum, p) => sum + p[1], 0) / polygon.length],
+    // The vertices' average, so a zone drawn twice on the same outline is
+    // caught; only when it lies inside its own zone (a concave one's may not).
+    ...[average(polygon)].filter((p) => !onBoundary(p, polygon) && strictlyInside(p, polygon)),
   ];
   const strictly = (p: MapPoint, polygon: readonly MapPoint[]) => !onBoundary(p, polygon) && strictlyInside(p, polygon);
   return probes(a).some((p) => strictly(p, b)) || probes(b).some((p) => strictly(p, a));
+}
+
+function average(polygon: readonly MapPoint[]): MapPoint {
+  return [polygon.reduce((sum, p) => sum + p[0], 0) / polygon.length, polygon.reduce((sum, p) => sum + p[1], 0) / polygon.length];
 }
 
 /** The parsed plan as the app's type: the schema and `types.ts` describe one shape. */
