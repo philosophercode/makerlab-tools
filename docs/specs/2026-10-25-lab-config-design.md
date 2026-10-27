@@ -403,8 +403,10 @@ mapping:
   zone's `matches`.
 - The prompt in `docs/map.md` asks the model for `matches` too, given the inventory's
   location list.
-- No database change and no new column. The shipped plan carries `matches` for the demo
-  CSV's location names, so the demo shows its tools on the same map.
+- No database change and no new column. The shipped Cornell plan carries no `matches`:
+  the demo CSV uses the plan's real zone names, so the demo's tools land on the same map
+  and the real lab's plan holds no demo vocabulary. `matches` is for forks whose
+  inventory names places differently from their drawing.
 
 The schema, the geometry fixture and the placement tests cover each step of the order.
 
