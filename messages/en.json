@@ -1766,6 +1766,7 @@
       "status": {
         "mapping": "Choose the columns",
         "parsing": "Reading…",
+        "identifying": "Identifying rows…",
         "ready": "Ready to review",
         "failed": "Could not be read"
       },
@@ -1972,7 +1973,56 @@
       "columnDuplicates": "Possible duplicates",
       "columnBy": "By",
       "columnCreated": "Started",
-      "backToImports": "Back to imports"
+      "backToImports": "Back to imports",
+      "progress": {
+        "line": {
+          "reading": "Reading your list…",
+          "readingParts": "Reading part {done, number} of {parts, number}…",
+          "identifying": "Identifying rows: {done, number} of {total, number} items written. You can leave this page; it carries on.",
+          "review": "{items, plural, one {# item} other {# items}} to review · {duplicates, plural, =0 {no possible duplicates} one {# possible duplicate} other {# possible duplicates}}{skipped, plural, =0 {} one { · # row skipped} other { · # rows skipped}}",
+          "researching": "Researching: {running, number} running, {queued, number} queued, {ready, plural, one {# ready for approval} other {# ready for approval}}.",
+          "done": "{ready, plural, =0 {Nothing waiting for approval} one {# ready for approval} other {# ready for approval}}{failed, plural, =0 {} one { · # failed} other { · # failed}}{approved, plural, =0 {} other { · # approved}}."
+        },
+        "stage": {
+          "reading": "Reading the list",
+          "identifying": "Identifying rows",
+          "review": "Ready to review",
+          "researching": "Researching",
+          "done": "Research finished",
+          "mapping": "Choose the columns",
+          "failed": "Could not be read"
+        },
+        "percent": "{percent, number} percent",
+        "stepsLabel": "Stages",
+        "step": {
+          "read": "Read {rows, plural, one {# row} other {# rows}}",
+          "identified": "Identified {done, number} of {total, number}{skipped, plural, =0 {} other {, # skipped}}",
+          "researching": "Researching {count, number}",
+          "ready": "Ready for approval {count, number}{failed, plural, =0 {} other {, # failed}}"
+        },
+        "source": {
+          "title": "The list as sent · {rows, plural, one {# row} other {# rows}}",
+          "waiting": "Waiting · {count, number}",
+          "done": "Done · {count, number}",
+          "hidden": "{count, plural, one {# more row is} other {# more rows are}} not shown here; the table below has every item."
+        },
+        "row": {
+          "waiting": "Waiting",
+          "identified": "Identified",
+          "queued": "Queued for research",
+          "researching": "Researching",
+          "researched": "Ready for approval",
+          "failed": "Research failed",
+          "approved": "Approved",
+          "discarded": "Removed",
+          "ignored": "Not an item",
+          "skipped": {
+            "no_name": "Skipped: no name",
+            "placeholder_name": "Skipped: not a name"
+          }
+        },
+        "reconnecting": "Reconnecting…"
+      }
     },
     "mcpTokenDeprecated": "MCP_TOKEN is still set. It is deprecated: MCP callers using it now get the public, read-only tools only. Create personal access tokens on /account/tokens, then unset MCP_TOKEN.",
     "backupNotice": {

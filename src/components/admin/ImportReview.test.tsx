@@ -25,6 +25,7 @@ const IMPORT: ImportView = {
   rowCount: 4,
   itemCount: 4,
   duplicateCount: 1,
+  progress: {},
   createdByName: "Niti",
   createdByRemoved: false,
   createdAt: "2026-09-24T00:00:00.000Z",
@@ -72,6 +73,7 @@ function actions(over: Partial<ImportActions> = {}): ImportActions {
   const ok = async () => ({ ok: true as const, items: [] });
   return {
     load: vi.fn(async () => ({ ok: true as const, import: IMPORT, items: ROWS })),
+    progress: vi.fn(async () => ({ ok: true as const, import: IMPORT, items: [], cursor: "2026-10-27T00:00:00.000Z" })),
     confirmColumns: vi.fn(async () => ({ ok: true as const, import: IMPORT, items: ROWS })),
     updateRow: vi.fn(ok),
     setHints: vi.fn(async (input) => ({ ok: true as const, items: ROWS.filter((r) => input.ids.includes(r.id)).map((r) => ({ ...r, locationHint: input.locationHint ?? null })) })),

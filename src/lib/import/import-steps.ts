@@ -1,4 +1,4 @@
-import { addImportItems, failBulkImport, getBulkImport } from "../data/bulk-imports.ts";
+import { addImportItems, failBulkImport, getBulkImport, recordChunkRead } from "../data/bulk-imports.ts";
 import { chunkDocument } from "./extract-output.ts";
 import { extractInventoryItems } from "./extract.ts";
 import { normalizeImportItems } from "./items.ts";
@@ -42,6 +42,8 @@ export async function extractImportChunk(importId: string, index: number): Promi
       signal: AbortSignal.timeout(EXTRACT_STEP_TIMEOUT_MS),
       logLabel: `import ${importId}`,
     });
+    // "Reading part 3 of 8" on the page (import progress spec §3.2).
+    await recordChunkRead(importId, chunks.length);
     return run.items;
   } catch (error) {
     throw classifyImportError(error, `Reading part ${index + 1} of the document`);
@@ -69,13 +71,14 @@ export async function writeImportItems(
     return { status: "failed", itemCount: 0 };
   }
   const numbered = raws.map((raw, index) => ({ ...raw, sourceRow: index + 1 }));
-  const { items } = normalizeImportItems(numbered);
+  const { items, skipped } = normalizeImportItems(numbered);
   // More than one import takes: refused with the count, never cut (amendment 2026-09-24).
   if (items.length > IMPORT_MAX_ITEMS) {
     await failBulkImport(importId, tooManyItemsReason(items.length));
     return { status: "failed", itemCount: 0 };
   }
-  const written = await addImportItems(importId, { items, rowCount: raws.length });
+  // A slice at a time, each its own transaction, so the page sees the rows arrive.
+  const written = await addImportItems(importId, { items, rowCount: raws.length, skipped });
   if (!written.ok) return { status: "failed", itemCount: 0 };
   return { status: written.itemCount > 0 ? "ready" : "failed", itemCount: written.itemCount };
 }

@@ -248,9 +248,11 @@ export type ImportFormat = (typeof IMPORT_FORMAT)[number];
 /**
  * Where an import is (§4.1, amended): a table waiting for its column matches to
  * be confirmed (`mapping`), a document a model is reading (`parsing`), its rows
- * created as pending items (`ready`), or nothing usable found (`failed`).
+ * being written in slices in the background (`identifying`, import progress
+ * spec 2026-10-27), its rows created as pending items (`ready`), or nothing
+ * usable found (`failed`).
  */
-export const IMPORT_STATUS = ["mapping", "parsing", "ready", "failed"] as const;
+export const IMPORT_STATUS = ["mapping", "parsing", "identifying", "ready", "failed"] as const;
 export type ImportStatus = (typeof IMPORT_STATUS)[number];
 
 /**

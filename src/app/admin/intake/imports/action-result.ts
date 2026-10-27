@@ -28,6 +28,9 @@ export type RowsResult = ImportActionResult<{ items: ImportItemView[] }>;
 
 export type LoadImportResult = ImportActionResult<{ import: ImportView; items: ImportItemView[] }>;
 
+/** A progress poll: the import, the rows changed since `since`, and what to send as `since` next. */
+export type ProgressResult = ImportActionResult<{ import: ImportView; items: ImportItemView[]; cursor: string }>;
+
 export interface RowPatch {
   name?: string;
   brand?: string | null;
@@ -40,6 +43,7 @@ export interface RowPatch {
 /** The actions the page hands the island — passed as props, never imported by it. */
 export interface ImportActions {
   load: (input: { importId: string }) => Promise<LoadImportResult>;
+  progress: (input: { importId: string; since?: string }) => Promise<ProgressResult>;
   confirmColumns: (input: { importId: string; columnMap: ColumnMap }) => Promise<LoadImportResult>;
   updateRow: (input: { importId: string; id: string; patch: RowPatch }) => Promise<RowsResult>;
   setHints: (input: { importId: string; ids: string[]; categoryHint?: string | null; locationHint?: string | null }) => Promise<RowsResult>;

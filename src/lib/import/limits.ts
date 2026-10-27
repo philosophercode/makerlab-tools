@@ -109,5 +109,15 @@ export const SETUP_ALLOWANCE_DEFAULT_DAYS = 7;
 export const SETUP_ALLOWANCE_MAX_ITEMS = 2000;
 export const SETUP_ALLOWANCE_MAX_DAYS = 30;
 
-/** How often the import page asks again while a document is being read. */
+/** How often the import page asks again while something runs — a document read, rows written, research. */
 export const IMPORT_POLL_INTERVAL_MS = 3_000;
+
+/** After this long with nothing changed, the page asks less often (import progress spec §3.3). */
+export const IMPORT_POLL_IDLE_AFTER_MS = 60_000;
+export const IMPORT_POLL_IDLE_INTERVAL_MS = 10_000;
+
+/**
+ * Rows written per transaction while an import is `identifying` (import
+ * progress spec §3.2, §11 Q2): the page sees them arrive a slice at a time.
+ */
+export const IMPORT_SLICE_SIZE = 25;

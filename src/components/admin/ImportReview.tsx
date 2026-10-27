@@ -8,6 +8,8 @@ import type { ImportActions, RowPatch } from "../../app/admin/intake/imports/act
 import type { ColumnMap } from "../../lib/import/columns";
 import {
   IMPORT_MAX_ITEMS,
+  IMPORT_POLL_IDLE_AFTER_MS,
+  IMPORT_POLL_IDLE_INTERVAL_MS,
   IMPORT_POLL_INTERVAL_MS,
   IMPORT_RESEARCH_CHUNK,
   IMPORT_VIRTUALIZE_ABOVE,
@@ -15,11 +17,14 @@ import {
   SUGGEST_MAX_ITEMS,
 } from "../../lib/import/limits";
 import type { TablePreview } from "../../lib/import/preview";
+import { importCounts, importIsMoving, importStage, mergeItems } from "../../lib/import/progress";
+import type { SourceRowsView } from "../../lib/import/rows";
 import { postResearch, queueResearchInChunks, type ChunkProgress, type ResearchPost } from "../../lib/import/research-queue";
 import type { ImportItemView, ImportView } from "../../lib/import/view";
 import { ADMIN_INTAKE_PATH } from "../../lib/intake/types";
 import { AdminPageHeader } from "./AdminPageHeader";
 import { ImportMapping } from "./ImportMapping";
+import { ImportProgress } from "./ImportProgress";
 import { ImportTable } from "./ImportTable";
 import { IMPORT_FILTERS, isLive, researchPlan, visibleRows, type ImportFilter } from "./import-table";
 import { Button } from "@/components/ui/button";
@@ -38,6 +43,11 @@ import { usePoll } from "./use-poll";
  *   Continue creates the rows.
  * - **Reading your list…** (`parsing`): a model is reading the document; the
  *   page asks again every few seconds.
+ * - **Identifying** (`identifying`) and after: the progress bar, the stage
+ *   line and the list as sent, each row ticked off as it is identified, then
+ *   as research moves it on (import progress spec 2026-10-27). While anything
+ *   moves, the page asks for the rows changed since its last look — every 3
+ *   seconds, every 10 after a quiet minute — and stops when nothing does.
  * - **Failed**: "No equipment found in this document", with the first lines,
  *   or the reason it could not be read.
  * - **The review table** (`ready`): search, filters (all, duplicates, needs a
@@ -57,6 +67,8 @@ export interface ImportReviewProps {
   preview: TablePreview | null;
   /** The first lines of the source, shown when nothing was found in it. */
   sourceHead: string[] | null;
+  /** The list as it was sent, for the progress panel; null for a document. */
+  sourceRows?: SourceRowsView | null;
   categories: string[];
   locations: string[];
   actions: ImportActions;
@@ -79,6 +91,7 @@ export function ImportReview({
   initialItems,
   preview,
   sourceHead,
+  sourceRows = null,
   categories,
   locations,
   actions,
@@ -108,24 +121,46 @@ export function ImportReview({
   const live = items.filter(isLive);
   const locked = busy !== null;
 
-  // Poll while a document is being read, or suggestions are arriving.
-  const polling = view.status === "parsing" || suggestUntil !== null;
-  const load = actions.load;
+  // Poll while something moves — a document read, rows written, research —
+  // or suggestions are arriving: only the rows changed since the last look.
+  const counts = useMemo(() => importCounts(view, items), [view, items]);
+  const moving = importIsMoving(importStage(view, counts));
+  const polling = moving || suggestUntil !== null;
+  const cursor = useRef<string | undefined>(undefined);
+  const lastChange = useRef(0);
+  const [slow, setSlow] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const loadProgress = actions.progress;
   usePoll(
     async () => {
       try {
-        const result = await load({ importId: view.id });
+        const result = await loadProgress({ importId: view.id, since: cursor.current });
         if (result.ok) {
+          cursor.current = result.cursor;
+          setReconnecting(false);
           setView(result.import);
-          setItems(result.items);
+          const now = Date.now();
+          if (result.items.length > 0 || lastChange.current === 0) lastChange.current = now;
+          if (result.items.length > 0) setItems((current) => mergeItems(current, result.items));
+          setSlow(now - lastChange.current > IMPORT_POLL_IDLE_AFTER_MS);
+        } else {
+          setReconnecting(true);
         }
       } catch {
-        // A dropped poll is retried on the next tick.
+        // A dropped poll is retried on the next tick; the cursor catches up.
+        setReconnecting(true);
       }
       if (suggestUntil !== null && Date.now() > suggestUntil) setSuggestUntil(null);
     },
-    IMPORT_POLL_INTERVAL_MS,
+    slow ? IMPORT_POLL_IDLE_INTERVAL_MS : IMPORT_POLL_INTERVAL_MS,
     polling
+  );
+
+  const progressPanel = (
+    <>
+      <ImportProgress view={view} items={items} source={sourceRows} />
+      {reconnecting && polling ? <ReviewNote tone="warn">{t("progress.reconnecting")}</ReviewNote> : null}
+    </>
   );
 
   // Progressive rendering: more rows as the end of the table comes into view.
@@ -179,6 +214,9 @@ export function ImportReview({
       }
       setView(result.import);
       setItems(result.items);
+      // The rows keep arriving; ask for them from now on.
+      lastChange.current = Date.now();
+      setSlow(false);
     } catch {
       setMappingError("failed");
     } finally {
@@ -275,6 +313,9 @@ export function ImportReview({
         setView(fresh.import);
         setItems(fresh.items);
       }
+      // Research runs on in the background; the page follows it.
+      lastChange.current = Date.now();
+      setSlow(false);
     } catch {
       say({ tone: "error", text: t("errors.failed", { remaining: 0, limit: 0 }) });
     } finally {
@@ -289,7 +330,7 @@ export function ImportReview({
       item
       title={view.sourceName ?? t(`source.${view.sourceKind}`)}
       facts={
-        view.status === "ready"
+        view.status === "ready" || view.status === "identifying"
           ? [t("summary", { items: live.length, duplicates: live.filter((item) => item.duplicateOf !== null).length })]
           : [t(`status.${view.status}`)]
       }
@@ -314,9 +355,7 @@ export function ImportReview({
     return (
       <section className="flex flex-col gap-4">
         {header}
-        <ReviewNote role="status" tone="ink">
-          {t("parsing")}
-        </ReviewNote>
+        {progressPanel}
       </section>
     );
   }
@@ -365,6 +404,8 @@ export function ImportReview({
   return (
     <section className="flex flex-col gap-4">
       {header}
+
+      {progressPanel}
 
       <div className="ui flex flex-col gap-2">
         <FilterBar

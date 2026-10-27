@@ -7,7 +7,9 @@ import type { ImportItem } from "../import/types";
 import type { ResearchResult } from "../research/result";
 import {
   addImportItems,
+  beginImportRows,
   chargeSuggestionAllowance,
+  countImportItemsByStatus,
   createBulkImport,
   failBulkImport,
   getBulkImport,
@@ -15,6 +17,7 @@ import {
   mergeImportRows,
   setImportHints,
   setNameSuggestion,
+  writeImportSlice,
 } from "./bulk-imports";
 import {
   approvePendingAsUnit,
@@ -127,6 +130,78 @@ async function researched(id: string, result = research()) {
   await markResearching(id, { db });
   expect(await completeResearch(id, result, { db })).toBe(true);
 }
+
+describe("an import's rows, a slice at a time (import progress spec §3.2)", () => {
+  const sixty = Array.from({ length: 60 }, (_, i) => item(`Clamp model ${i + 1}`, { sourceRow: i + 2 }));
+
+  it("begins as identifying with the total, then writes 25, 25 and 10, moving progress with each", async () => {
+    const created = await newImport("mapping");
+    const begun = await beginImportRows(created.id, { items: sixty, rowCount: 61, skipped: [{ sourceRow: 62, reason: "no_name" }] }, { db });
+    expect(begun).toEqual({ ok: true, status: "identifying", total: 60 });
+    expect(await getBulkImport(created.id, { db })).toMatchObject({
+      status: "identifying",
+      rowCount: 61,
+      progress: { total: 60, done: 0, lastRow: 0, skipped: [{ sourceRow: 62, reason: "no_name" }] },
+    });
+
+    const sizes: number[] = [];
+    for (;;) {
+      const slice = await writeImportSlice(created.id, sixty, { db });
+      if (!slice.ok) throw new Error(slice.reason);
+      sizes.push(slice.written.length);
+      const found = await getBulkImport(created.id, { db });
+      expect(found?.progress.done).toBe(slice.done);
+      expect(found?.itemCount).toBe(slice.done);
+      if (slice.finished) break;
+      expect(found?.status).toBe("identifying");
+    }
+    expect(sizes).toEqual([25, 25, 10]);
+    expect(await getBulkImport(created.id, { db })).toMatchObject({ status: "ready", itemCount: 60, progress: { done: 60, lastRow: 61 } });
+    expect(await countImportItemsByStatus(created.id, { db })).toEqual({ identified: 60 });
+  });
+
+  it("flags a row in a later slice that repeats a row of an earlier, committed slice", async () => {
+    const created = await newImport();
+    const items = [...sixty.slice(0, 29), item("Clamp model 3", { sourceRow: 99 })];
+    await addImportItems(created.id, { items, rowCount: items.length }, { db });
+    const rows = await listPendingTools({ importId: created.id }, { db });
+    const byRow = new Map(rows.map((row) => [row.sourceRow, row]));
+    expect(byRow.get(99)?.duplicateOf).toMatchObject({ kind: "pending", id: byRow.get(4)?.id });
+    expect(await getBulkImport(created.id, { db })).toMatchObject({ status: "ready", duplicateCount: 1 });
+  });
+
+  it("resumes where the last slice stopped: begun again, nothing is written twice", async () => {
+    const created = await newImport();
+    await beginImportRows(created.id, { items: sixty, rowCount: 60 }, { db });
+    await writeImportSlice(created.id, sixty, { db });
+    // A retried step begins again and carries on from progress.done.
+    expect(await beginImportRows(created.id, { items: sixty, rowCount: 60 }, { db })).toEqual({ ok: true, status: "identifying", total: 60 });
+    const written = await addImportItems(created.id, { items: sixty, rowCount: 60 }, { db });
+    expect(written).toMatchObject({ ok: true, itemCount: 60 });
+    const rows = await listPendingTools({ importId: created.id, limit: null }, { db });
+    expect(rows).toHaveLength(60);
+    expect(new Set(rows.map((row) => row.sourceRow)).size).toBe(60);
+  });
+
+  it("writes nothing into an import that is no longer identifying", async () => {
+    const created = await newImport();
+    await beginImportRows(created.id, { items: sixty, rowCount: 60 }, { db });
+    expect(await failBulkImport(created.id, "stopped", { db })).toBe(true);
+    expect(await writeImportSlice(created.id, sixty, { db })).toEqual({ ok: false, reason: "not_editable" });
+    expect(await listPendingTools({ importId: created.id }, { db })).toHaveLength(0);
+  });
+
+  it("answers the rows changed after a time, for the page's poll", async () => {
+    const created = await newImport();
+    await addImportItems(created.id, { items: sixty.slice(0, 3), rowCount: 3 }, { db });
+    const [first] = await listPendingTools({ importId: created.id }, { db });
+    const later = new Date(Date.now() + 60_000);
+    expect(await listPendingTools({ importId: created.id, updatedAfter: later }, { db })).toHaveLength(0);
+    const before = new Date(Date.now() - 60_000);
+    expect(await listPendingTools({ importId: created.id, updatedAfter: before }, { db })).toHaveLength(3);
+    expect(first).toBeDefined();
+  });
+});
 
 describe("an import's rows", () => {
   it("become identified pending items in the import's batch, with import_id and source row", async () => {

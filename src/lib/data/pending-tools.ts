@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { rawRows } from "../db/raw.ts";
 import { getDb } from "../db/client.ts";
 import {
@@ -407,6 +407,8 @@ export async function listPendingTools(
     ids?: string[];
     /** Only the items of this bulk import. */
     importId?: string;
+    /** Only the items changed after this time — the import page's poll (import progress spec §3.3). */
+    updatedAfter?: Date;
     /** At most this many rows; 500 when omitted, and no cap at all when null. */
     limit?: number | null;
   } = {},
@@ -422,6 +424,7 @@ export async function listPendingTools(
     if (!isUuid(query.importId)) return [];
     filters.push(eq(pendingTools.importId, query.importId));
   }
+  if (query.updatedAfter !== undefined) filters.push(gt(pendingTools.updatedAt, query.updatedAfter));
   let ids: string[] | null = null;
   if (query.ids) {
     ids = [...new Set(query.ids.filter(isUuid))];
