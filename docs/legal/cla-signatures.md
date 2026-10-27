@@ -1,6 +1,6 @@
 # CLA signatures
 
-People who have agreed to the [Contributor License Agreement](../CLA.md). One line per
+People who have agreed to the [Contributor License Agreement](CLA.md). One line per
 person; the link is the pull-request comment where they agreed.
 
 | GitHub user | Date | Agreed in |

@@ -6,7 +6,7 @@ import { isIP } from "node:net";
  *
  * `src/lib/web/guarded-fetch.ts` resolves hosts through
  * `globalThis[Symbol.for("makerlab.web.resolveHost")]` when it is a function.
- * `vitest.setup.ts` calls {@link resetResolver} before and after every test, so
+ * `test/setup.ts` calls {@link resetResolver} before and after every test, so
  * the default is always in place:
  *
  * - `localhost` → `127.0.0.1` (and so refused, as it should be);

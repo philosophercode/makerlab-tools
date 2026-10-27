@@ -38,15 +38,18 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *   replay then handed one item's step result to another (`refreshBatch`
  *   and `researchBatch` run three items at once). That flaked CI under load.
  *
- * The same aliases and `vitest.setup.ts` as the unit project, so MSW runs with
+ * The same aliases and `test/setup.ts` as the unit project, so MSW runs with
  * `onUnhandledRequest: "error"` here too and no test reaches the network.
  */
 export default defineProject({
+  // This file lives in test/workflow/, but the plugin scans the project root
+  // and every path below is root-relative, so pin the root to the repo.
+  root: r("../.."),
   plugins: [workflow()],
   resolve: {
     alias: {
-      "@": r("./src"),
-      "server-only": r("./test/mocks/server-only.ts"),
+      "@": r("../../src"),
+      "server-only": r("../mocks/server-only.ts"),
     },
   },
   test: {
@@ -54,6 +57,6 @@ export default defineProject({
     globals: true,
     environment: "node",
     include: ["src/**/*.workflow.test.ts"],
-    setupFiles: ["./vitest.setup.ts", "./test/workflow/serial-event-log.ts"],
+    setupFiles: ["./test/setup.ts", "./test/workflow/serial-event-log.ts"],
   },
 });

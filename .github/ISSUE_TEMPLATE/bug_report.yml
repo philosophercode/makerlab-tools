@@ -27,4 +27,4 @@ body:
       label: Browser and device
   - type: markdown
     attributes:
-      value: Security problems go through private reporting, not an issue. See SECURITY.md.
+      value: Security problems go through private reporting, not an issue. See .github/SECURITY.md.

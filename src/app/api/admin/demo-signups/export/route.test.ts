@@ -31,7 +31,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  // `vitest.setup.ts` clears env stubs after every test, so each one sets its own.
+  // `test/setup.ts` clears env stubs after every test, so each one sets its own.
   vi.stubEnv("AUTH_SECRET", "demo-signups-export-secret");
   vi.stubEnv("DATABASE_URL", "");
   resetAuthForTests();

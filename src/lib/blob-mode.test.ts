@@ -1,7 +1,7 @@
 import { blobCredentials, blobMode, hasPrivateBlobStore } from "./blob-mode";
 
 /**
- * The one rule for which Blob store a process uses. vitest.setup.ts sets
+ * The one rule for which Blob store a process uses. test/setup.ts sets
  * `BLOB_LOCAL_DISABLE=1` for the suite, so every row states it explicitly.
  */
 function env(vars: {

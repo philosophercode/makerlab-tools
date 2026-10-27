@@ -22,7 +22,7 @@ open in a PR, say so and stop — planning against a moving spec wastes the plan
 3. **Decompose into tasks**, grouped by the spec's phases. Each task states:
    - the files it creates or changes
    - what "done" means, concretely
-   - its tests, and which layer they belong to (`TESTING.md`)
+   - its tests, and which layer they belong to (`docs/testing.md`)
    - what it depends on, and what can run in parallel with it
 
 4. **Flag the risky ones.** Which tasks are likely to be harder than they look,

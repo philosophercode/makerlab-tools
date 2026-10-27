@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
-import { server } from "./test/msw/server";
-import { resetResolver } from "./test/web/resolver";
+import { server } from "./msw/server";
+import { resetResolver } from "./web/resolver";
 
 // ── Blob: "none" unless a test opts in ─────────────────────────────
 //
