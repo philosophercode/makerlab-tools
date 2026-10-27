@@ -3,12 +3,13 @@
  * directives: the tool page (server), the `/map` explorer (client) and the
  * tests all import it.
  *
- * The lab's own zone plan ("Latest MakerLAB zone plan", Studio 101, TATA
- * Innovation Center) has two levels, and so does this:
+ * The lab's plan (`lab/floor-plan.json`, checked by `schema.ts`) has two
+ * levels:
  *
  * - **Zones** — the numbered areas (1 Common Purpose Space … 5 Electronics
  *   Lab). A zone is placed by `locations.room` + `locations.zone`, which the
- *   import already carries with exactly these names.
+ *   import already carries with exactly these names, or by one of the zone's
+ *   `matches`.
  * - **Stations** — the lettered labels inside a zone (`1C` Vinyl Cutting
  *   Station, `4A` Trotec Laser Machine). A station's `id` **is** the
  *   `locations.map_tag` it stands for: the printed label on the floor map.
@@ -31,6 +32,13 @@ export interface MapZone {
   polygon: readonly MapPoint[];
   /** Where the zone's number and count are drawn. */
   labelAt: MapPoint;
+  /**
+   * Other inventory place names that mean this zone (lab config spec §12.6):
+   * `"Room"` (every location in that room) or `"Room / Zone"`, compared case-
+   * and space-insensitively. For an inventory that names places differently
+   * from the drawing; tried after the exact room and zone.
+   */
+  matches?: readonly string[];
 }
 
 export interface MapStation {
@@ -44,11 +52,11 @@ export interface MapStation {
 }
 
 export interface FloorPlan {
-  /** Stable id, e.g. `studio-101`. */
+  /** Stable id, e.g. `main-floor`. */
   id: string;
   /** Bumped whenever the drawing changes; shown on the page and stored with the asset. */
   version: string;
-  /** What the plan draws: "Studio 101, TATA Innovation Center". */
+  /** What the plan draws, e.g. "Room 101, Engineering Building". */
   title: string;
   /** Where the drawing came from, said on the page (e.g. "Traced from …"). */
   source: string;

@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ABOUT_LINKS } from "../app/about/about-content";
+import { lab } from "../lib/lab/config";
 import { siteConfig } from "../lib/site-config";
 import { BrandLogo } from "./BrandLogo";
 import { FooterReportButton } from "./FooterReportButton";
 
-const LINKS = [
+const PRODUCT_LINKS = [
   { key: "product", href: "/product" },
   { key: "quickStart", href: "/product/quick-start" },
+] as const;
+
+/** The product pages only when the lab config keeps them (`pages.product`). */
+const LINKS = [
+  ...(lab.pages.product ? PRODUCT_LINKS : []),
   { key: "about", href: "/about" },
   { key: "mcp", href: "/mcp" },
 ] as const;
@@ -52,10 +57,15 @@ export function SiteFooter() {
           </ul>
         </nav>
         <p>
-          {siteConfig.name} ·{" "}
-          <a href={ABOUT_LINKS.official} className="hover:text-foreground">
-            {t("official")}
-          </a>
+          {siteConfig.name}
+          {lab.links.official ? (
+            <>
+              {" · "}
+              <a href={lab.links.official.href} className="hover:text-foreground">
+                {t("official")}
+              </a>
+            </>
+          ) : null}
         </p>
       </div>
     </footer>

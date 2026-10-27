@@ -86,3 +86,6 @@ docs/private/
 
 # Office temp/lock files
 ~$*
+
+# lab:map-preview output (lab config spec §5.2): the plan drawn over its source image.
+/lab/.preview.html

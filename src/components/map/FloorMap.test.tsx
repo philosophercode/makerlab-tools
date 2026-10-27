@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { FloorMap, type FloorMapLabels } from "./FloorMap";
-import { STUDIO_101 } from "../../lib/map/studio-101";
+import { SHIPPED_PLAN as STUDIO_101 } from "../../lib/map/plan";
 import { indexPlan, mapHref, resolveHighlight } from "../../lib/map/placement";
 
 const labels: FloorMapLabels = {

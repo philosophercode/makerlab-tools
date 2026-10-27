@@ -20,14 +20,20 @@
  * No `server-only`: pages and routes import it, and nothing here is secret.
  */
 
+import { lab } from "../lab/config.ts";
+
 /** How long a pass lasts from sign-up. */
 export const DEMO_PASS_DAYS = 14;
 
 /** The budget when `DEMO_PASS_BUDGET_USD` is unset or unusable. */
 export const DEFAULT_DEMO_PASS_BUDGET_USD = 0.5;
 
-/** The thank-you's contact address when `DEMO_PASS_CONTACT_EMAIL` is unset or unusable (owner decision 2026-10-09). */
-export const DEFAULT_DEMO_PASS_CONTACT_EMAIL = "ies22@cornell.edu";
+/**
+ * The thank-you's contact address when `DEMO_PASS_CONTACT_EMAIL` is unset or
+ * unusable: `contact.demoEmail` in the lab config (owner decision 2026-10-09);
+ * null there means About's contacts.
+ */
+export const DEFAULT_DEMO_PASS_CONTACT_EMAIL: string | null = lab.contact.demoEmail;
 
 /** New passes a day when `DEMO_PASS_DAILY_LIMIT` is unset or unusable: a busy conference, about $100 at the default budget. */
 export const DEFAULT_DEMO_PASS_DAILY_LIMIT = 200;

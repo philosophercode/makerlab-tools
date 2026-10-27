@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import en from "../../../messages/en.json";
+import { ENGLISH as en } from "../../i18n/lab-tokens";
 import { baseOpenGraph } from "../../lib/share/metadata";
 import { OG_IMAGE, PRODUCT_HREF, QUICK_START_HREF } from "./product-content";
 

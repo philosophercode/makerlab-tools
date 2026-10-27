@@ -1,4 +1,5 @@
 import { ROLES as STORED_ROLES, type Role as StoredRole } from "../db/schema/vocabulary";
+import { lab } from "../lab/config.ts";
 
 /**
  * The role vocabulary and the domain rule (data platform design spec §3.4).
@@ -59,12 +60,12 @@ export function storedRoleOr(value: string | null | undefined): (typeof IDENTITY
   return isRole(value) ? value : "anonymous";
 }
 
-/** The institution's Google Workspace domain, when nothing overrides it. */
-const DEFAULT_EMAIL_DOMAIN = "cornell.edu";
+/** The institution's Google Workspace domain, when nothing overrides it: `access.emailDomain` in the lab config. */
+const DEFAULT_EMAIL_DOMAIN = lab.access.emailDomain;
 
 /**
  * The email domain sign-in is restricted to. Configurable so the app stays
- * white-labelled (Article 6) — the default is the Cornell Tech deployment's.
+ * white-labelled (Article 6) — the default is the lab config's.
  */
 export function allowedEmailDomain(): string {
   const configured = (process.env.AUTH_ALLOWED_EMAIL_DOMAIN || "").trim();

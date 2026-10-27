@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "description": "Path to this schema, for editors",
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Stable id, e.g. main-floor"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Bumped whenever the drawing changes, e.g. 2026-07-24.1"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the plan draws: \"Room 101, Engineering Building\""
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Where the drawing came from, shown on the page: \"Traced from …\""
+    },
+    "placeholder": {
+      "type": "boolean",
+      "description": "True while the drawing is not traced from the lab's own plan"
+    },
+    "viewBox": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "w": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "h": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "additionalProperties": false,
+      "description": "The drawing's coordinate box; every point lies inside it"
+    },
+    "outline": {
+      "minItems": 3,
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "number"
+          }
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2,
+        "description": "[x, y] in the plan's own units, the same units as viewBox"
+      },
+      "description": "The building's outline"
+    },
+    "walls": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[x, y] in the plan's own units, the same units as viewBox"
+          },
+          {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "[x, y] in the plan's own units, the same units as viewBox"
+          }
+        ],
+        "items": false,
+        "minItems": 2,
+        "maxItems": 2
+      },
+      "description": "Interior walls, as [from, to] segments"
+    },
+    "zones": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Stable id within the plan: Z1, Z2, …"
+          },
+          "number": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The number printed for the zone on the lab's plan"
+          },
+          "room": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The inventory's room for this zone (locations.room), exactly as it spells it"
+          },
+          "zone": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The inventory's zone name (locations.zone), exactly as it spells it"
+          },
+          "polygon": {
+            "minItems": 3,
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "[x, y] in the plan's own units, the same units as viewBox"
+            },
+            "description": "The zone's outline, in order"
+          },
+          "labelAt": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "Where the zone's number and tool count are drawn; inside the polygon"
+          },
+          "matches": {
+            "description": "Other inventory place names that mean this zone, \"Room\" or \"Room / Zone\", compared ignoring case and spacing",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "room",
+          "zone",
+          "polygon",
+          "labelAt"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "stations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The label printed on the plan (1A, 4B); also the tool's locations.map_tag"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The legend's words for it: \"Vinyl Cutting Station\""
+          },
+          "zoneId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The id of the zone it stands in"
+          },
+          "marks": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "[x, y] in the plan's own units, the same units as viewBox"
+            },
+            "description": "Where its label sits; a station drawn in two places has two"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "zoneId",
+          "marks"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "title",
+    "source",
+    "placeholder",
+    "viewBox",
+    "outline",
+    "walls",
+    "zones",
+    "stations"
+  ],
+  "additionalProperties": false,
+  "title": "Floor plan",
+  "description": "One floor of a makerspace, traced from its plan: zones (numbered areas) and stations (lettered labels inside a zone). See docs/map.md."
+}

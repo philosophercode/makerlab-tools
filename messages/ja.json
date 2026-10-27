@@ -58,13 +58,13 @@
       "unitsDown": "{count}台が使用停止中"
     },
     "search": {
-      "landmark": "ツールを検索して MakerLAB AI に質問",
-      "label": "ツールを検索、または MakerLAB AI に質問",
+      "landmark": "ツールを検索して {assistantName} に質問",
+      "label": "ツールを検索、または {assistantName} に質問",
       "categories": "カテゴリ",
       "categoryCount": "{count}件のツール",
-      "assistant": "MakerLAB AI",
-      "ask": "MakerLAB AI に質問：「{query}」",
-      "askNote": "質問を入れてチャットを開きます。MakerLAB AI は間違えることがあります。",
+      "assistant": "{assistantName}",
+      "ask": "{assistantName} に質問：「{query}」",
+      "askNote": "質問を入れてチャットを開きます。{assistantName} は間違えることがあります。",
       "clear": "検索をクリア",
       "noMatch": "「{query}」に一致するツールやカテゴリはありません。",
       "enterOpens": "Enter で「{name}」を開きます",
@@ -175,24 +175,20 @@
     "browseTools": "ツールを閲覧",
     "demoHeading": "{assistant} をあなたのメイカースペースに",
     "demoBody": "詳しく知りたい方はご登録ください。こちらからご連絡します。",
-    "demoCta": "登録する",
-    "photoPrintersAlt": "MakerLAB の赤い壁の前に並ぶ 3D プリンター。",
-    "photoFloorAlt": "オレンジ色の椅子とワークベンチが並ぶ、MakerLAB のオープンなフロア。",
-    "photoPrintersCaption": "MakerLAB の壁の前の 3D プリンター",
-    "photoFloorCaption": "ラボのオープンなフロア"
+    "demoCta": "登録する"
   },
   "chat": {
-    "openAria": "MakerLAB AI を開く",
-    "title": "MakerLAB AI",
+    "openAria": "{assistantName} を開く",
+    "title": "{assistantName}",
     "newChatAria": "新しいチャットを開始",
     "newChatTitle": "新しいチャットを開始",
-    "closeAria": "MakerLAB AI を閉じる",
+    "closeAria": "{assistantName} を閉じる",
     "closeTitle": "閉じる（会話は保持されます）",
     "greetingTool": "このツールについて質問してください。仕様、素材、リソースリンクを把握しています。",
     "greetingGeneral": "本日はどのようなご用件でしょうか？",
-    "composerPlaceholder": "MakerLAB AI に質問...",
-    "composerAria": "MakerLAB AI に質問",
-    "aiNote": "MakerLAB AI は間違えることがあります。安全に関わることは必ずスタッフに確認してください。",
+    "composerPlaceholder": "{assistantName} に質問...",
+    "composerAria": "{assistantName} に質問",
+    "aiNote": "{assistantName} は間違えることがあります。安全に関わることは必ずスタッフに確認してください。",
     "aiNoteDismiss": "お知らせを閉じる",
     "sendAria": "送信",
     "attachAria": "写真を添付",
@@ -205,7 +201,7 @@
     "photoUnsupported": "この写真の形式には対応していません。JPEG または PNG をお試しください。",
     "photoTooLarge": "写真が大きすぎてアップロードできません。小さい写真または JPEG をお試しください。",
     "toolRunningAria": "ツール実行中",
-    "typingAria": "MakerLAB AI が入力中です",
+    "typingAria": "{assistantName} が入力中です",
     "readingManualsAria": "マニュアルを読み込み中",
     "reading": "読み込み中：{titles}…",
     "error": "問題が発生しました。もう一度お試しください。",
@@ -231,16 +227,16 @@
     },
     "demoPassLeft": "デモパス · 残り {amount}",
     "demoPassUsedUp": "デモパス · 使い切りました",
-    "demoPassSpent": "このデモパスの AI 利用枠を使い切りました。MakerLAB AI をお試しいただきありがとうございます！一般の来訪者と同じく、1 時間に数回まで質問を続けられます。",
-    "demoPassLimited": "このデモパスの AI 利用枠と、この 1 時間の来訪者上限を使い切りました。MakerLAB AI をお試しいただきありがとうございます！しばらくしてからもう一度お試しください。",
+    "demoPassSpent": "このデモパスの AI 利用枠を使い切りました。{assistantName} をお試しいただきありがとうございます！一般の来訪者と同じく、1 時間に数回まで質問を続けられます。",
+    "demoPassLimited": "このデモパスの AI 利用枠と、この 1 時間の来訪者上限を使い切りました。{assistantName} をお試しいただきありがとうございます！しばらくしてからもう一度お試しください。",
     "demoPassContactLead": "お話ししませんか？",
-    "demoPassContactTeam": "MakerLAB チームに連絡する"
+    "demoPassContactTeam": "{labName} チームに連絡する"
   },
   "qr": {
     "arrivalLabel": "この機械から読み取りました",
     "arrivalEyebrow": "機械の前で読み取り",
     "arrivalTitle": "{tool} について質問する",
-    "arrivalBody": "この機械のコードを読み取りました。MakerLAB AI が機械に関する質問に答えたり、セットアップを案内したり、メンテナンス報告を登録したりできます。",
+    "arrivalBody": "この機械のコードを読み取りました。{assistantName} が機械に関する質問に答えたり、セットアップを案内したり、メンテナンス報告を登録したりできます。",
     "arrivalSeed": "{tool} の前にいます。この機械について質問があります。",
     "arrivalUnitLabel": "このユニットのラベルから読み取り",
     "arrivalUnitOf": "{tool} のユニット",
@@ -254,7 +250,7 @@
   },
   "report": {
     "action": "問題を報告",
-    "ask": "このマシンについて MakerLAB AI に聞く",
+    "ask": "このマシンについて {assistantName} に聞く",
     "eyebrow": "問題を報告",
     "lede": "報告はすぐにスタッフに届きます。",
     "close": "閉じる",
@@ -262,7 +258,7 @@
     "unitNotSure": "わからない",
     "unitFromLabel": "スキャンしたラベルから選ばれています。",
     "textLabel": "このマシンのどこがおかしいか教えてください",
-    "textHint": "ふだんの言葉で大丈夫です。MakerLAB AI がスタッフ向けのチケットにまとめます。",
+    "textHint": "ふだんの言葉で大丈夫です。{assistantName} がスタッフ向けのチケットにまとめます。",
     "textPlaceholder": "例：印刷の途中でフィラメントが送られなくなり、エクストルーダーがカチカチ鳴っている。",
     "photoAdd": "写真を追加",
     "photoUploading": "アップロード中…",
@@ -384,9 +380,9 @@
     "home": "{site}に戻る"
   },
   "palette": {
-    "assistant": "MakerLAB AI",
-    "ask": "MakerLAB AI に質問：「{query}」",
-    "askEmpty": "MakerLAB AI に質問"
+    "assistant": "{assistantName}",
+    "ask": "{assistantName} に質問：「{query}」",
+    "askEmpty": "{assistantName} に質問"
   },
   "kiosk": {
     "onShiftLabel": "現在シフト中"

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import en from "../../../messages/en.json";
+import { ENGLISH as en } from "../../i18n/lab-tokens";
 import { kioskLocale, kioskMessages } from "./kiosk-locale";
 
 /** The kiosk's language: the default unless `?lang=` names a supported locale (kiosk spec §6). */

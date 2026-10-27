@@ -4,15 +4,13 @@
 > lab's plan as an SVG and lights up where each tool is. The assistant uses the same data
 > to answer "where is the laser cutter?". Design: [floor map spec](specs/2026-09-25-floor-map-design.md).
 
-> **Coming: the plan as JSON.** The [lab config spec](specs/2026-10-25-lab-config-design.md)
-> (phase 2) stores the plan as `lab/floor-plan.json` against a published JSON Schema, so a
-> model's answer is the file itself, with no imports to edit, and `npm run lab:check`
-> names what is wrong with a trace. The steps below are today's.
+**There is no upload button.** A plan is one JSON file, `lab/floor-plan.json`, of
+coordinates traced from a floor plan image and checked against a published JSON Schema
+(`lab/floor-plan.schema.json`). An AI model does the tracing (the prompt is below), and
+`npm run lab:check` names anything wrong with the result. No code changes.
 
-**There is no upload button.** A plan is a small TypeScript file of coordinates traced
-from a floor plan image, checked by the type system and the tests. A fork replaces the
-Cornell plan with its own in four steps. An AI model does the tracing; the prompt is
-below.
+A lab with no plan sets `map: false` in `lab/lab.config.ts`: `/map` answers 404, the nav
+and the tool pages' thumbnails go, and the assistant says the lab has no map.
 
 ## How a tool lands on the map
 
@@ -20,7 +18,9 @@ A plan has two levels:
 
 - **Zones**: numbered areas ("4 · Laser Machine Room"). A tool is placed in a zone when its
   location's **room and zone** match the zone's `room` and `zone`, ignoring case and
-  spaces.
+  spaces, or match one of the zone's **`matches`**: other names for it, written
+  `"Room"` (every location in that room) or `"Room / Zone"`. `matches` is for an
+  inventory that names places differently from the drawing; tried after the exact names.
 - **Stations**: lettered spots inside a zone ("4A · Trotec Laser Machine"). A tool is
   placed on a station when its location's **map tag** (`locations.map_tag`) equals the
   station's `id`.
@@ -38,30 +38,35 @@ are not already, with a legend naming each one.
 
 ## 2 · Have a model trace it
 
-Give a vision-capable model (Claude, ChatGPT, Gemini) the image, the file
-[`src/lib/map/types.ts`](../src/lib/map/types.ts), the example
-[`src/lib/map/studio-101.ts`](../src/lib/map/studio-101.ts), and this prompt:
+Give a vision-capable model (Claude, ChatGPT, Gemini) the image, the schema
+[`lab/floor-plan.schema.json`](../lab/floor-plan.schema.json), the example
+[`lab/floor-plan.json`](../lab/floor-plan.json), and this prompt. Paste the place names
+your inventory uses where it says so: `npm run lab:check -- --inventory` lists them.
 
 ````text
-Trace the attached floor plan into a TypeScript file for MakerLAB Tools.
+Trace the attached floor plan into a JSON floor plan for MakerLAB Tools.
 
-Output one file, `src/lib/map/<plan-id>.ts`, in exactly the shape of the attached
-`studio-101.ts`: `import "server-only";`, `import type { FloorPlan } from "./types";`,
-one exported `const` of type `FloorPlan`, and `export const FLOOR_PLANS = [<that const>];`.
-Follow `types.ts` exactly; add no fields.
+Answer with one JSON object and nothing else, valid against the attached JSON Schema
+(floor-plan.schema.json), in the shape of the attached example (floor-plan.json). Its
+first key is "$schema": "./floor-plan.schema.json". Add no fields the schema lacks.
 
 Coordinates:
 - Scale the image so it is 2000 units wide; use those units for every point, so a
-  point can be checked against the image by eye. Round to whole numbers.
-- `viewBox` frames the outline with about 30 units of margin.
+  point can be checked against the image by eye. Round to whole numbers. Points are
+  [x, y] arrays.
+- `viewBox` frames the outline with about 30 units of margin; every point lies inside it.
 - `outline` is the building's outer boundary, clockwise, as few points as keep its shape.
 - `walls` are interior walls as [start, end] segments. Doors can be ignored.
 
 Zones (one per numbered area):
 - `id` "Z1", "Z2", … ; `number` is the number printed on the plan.
-- `room` and `zone` are the room name and the area name. Use these exact strings,
-  which must match what the lab's inventory uses: <PASTE YOUR ROOM / ZONE NAMES>.
-- `polygon` follows the area's edges, clockwise, never crossing another zone.
+- `room` and `zone` are the room name and the area name, in the inventory's words.
+  The inventory's places are: <PASTE THE ROOM / ZONE NAMES FROM lab:check --inventory>.
+- Where the inventory's names for a zone differ from the plan's, list them in the
+  zone's `matches`: "Room" for every place in that room, or "Room / Zone" for one.
+  Never list a name under two zones.
+- `polygon` follows the area's edges, clockwise, never overlapping another zone
+  (zones may share an edge).
 - `labelAt` is a point well inside the polygon.
 
 Stations (one per lettered label):
@@ -71,30 +76,38 @@ Stations (one per lettered label):
 - `marks` is where the label is printed; a station shown twice has two marks.
 
 Metadata: `id` "<plan-id>", `version` "<today's date>.1", `title` "<room, building>",
-`source` "Traced from <the image's name and date>", `placeholder: false`.
+`source` "Traced from <the image's name and date>", `placeholder` false.
 
-Draw no furniture or machines. If anything on the plan is unclear, list it as
-comments at the top of the file rather than guessing.
+Draw no furniture or machines. If anything on the plan is unclear, say so after the
+JSON object rather than guessing.
 ````
 
-## 3 · Put it in the app
+## 3 · Check it
 
-1. Save the file as `src/lib/map/<plan-id>.ts`.
-2. Point the three imports at it: `src/lib/map/locate.ts` (`FLOOR_PLANS`),
-   `src/components/map/MapGate.tsx` and `src/components/map/SignedInProjectWorkMap.tsx`
-   (the plan constant).
-3. Update the plan's tests (`src/lib/map/placement.test.ts` checks the zone names;
-   `FloorMap`, `MapExplorer`, `MapGate` and `work-plan` tests import the plan), then
-   `npm test`.
-4. Run `npm run dev`, sign in, open `/map`, and compare it with the image. Fix points by
-   hand; they are in the image's own scale.
+1. Save the answer as `lab/floor-plan.json` (and `map: true` in `lab/lab.config.ts`).
+2. `npm run lab:check`. It fails on what would break the map, one line each with the
+   field's path: a station in a zone that does not exist, a zone label outside its zone,
+   overlapping zones, a point outside the `viewBox`, a duplicate id or name. It warns,
+   without failing, about a station label printed outside its own zone, which a printed
+   plan sometimes does on purpose. Fix by hand, or paste the lines back to the model.
+3. `npm run lab:map-preview -- --image plan.png --image-width 2000` writes
+   `lab/.preview.html` (not committed): the plan drawn over the image at half opacity.
+   Open it and compare. `--image-width` is the image's width in the plan's units (2000
+   if the model followed the prompt).
+4. `npm run dev`, sign in, open `/map`.
 
 ## 4 · Match the inventory to it
 
-Make each tool's location use a zone's room and zone names (the tool editor's Location
-field, or intake). For a station, set its location's map tag to the station's `id`.
-Then a tool page shows its thumbnail, `/map?highlight=4A` lights the station, and the
+`npm run lab:check -- --inventory` reads the database (`DATABASE_URL`, else
+`PGLITE_DATA_DIR`) and lists every location that lands nowhere on the plan, with the
+`matches` line that would place it, and the zones no tool uses. Either add those lines to
+the plan, or change the locations (the tool editor's Location field, or intake) to the
+zones' names. For a station, set its location's map tag to the station's `id`. Then a
+tool page shows its thumbnail, `/map?highlight=4A` lights the station, and the
 assistant's `get_tool_details` answer carries the zone and station in words.
+
+After changing `src/lib/map/schema.ts`, run `npm run lab:schema` to regenerate the
+published schema; a test fails while it is stale.
 
 ## Who sees it
 

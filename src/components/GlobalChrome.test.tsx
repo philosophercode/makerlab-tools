@@ -56,8 +56,8 @@ describe("GlobalChrome", () => {
     const wordmark = brand.querySelector('[data-slot="brand-wordmark"]') as HTMLElement;
     expect(wordmark).not.toBeNull();
     expect(wordmark).toHaveAttribute("aria-hidden", "true");
-    expect(siteConfig.wordmark).toBe("/brand/makerlab-wordmark-official.svg");
-    expect(wordmark.style.maskImage || wordmark.getAttribute("style")).toContain("/brand/makerlab-wordmark-official.svg");
+    expect(siteConfig.wordmark).toBe("/lab/wordmark.svg");
+    expect(wordmark.style.maskImage || wordmark.getAttribute("style")).toContain("/lab/wordmark.svg");
   });
 
   it("renders PrimaryNav with its links", () => {

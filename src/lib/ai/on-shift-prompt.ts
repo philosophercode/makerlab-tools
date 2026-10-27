@@ -1,4 +1,5 @@
 import { inlineText } from "../web/fence";
+import { lab } from "../lab/config";
 
 /** The heading the companion rules point at (`lab-companion.ts`). */
 export const ON_SHIFT_HEADING = "On shift now";
@@ -23,7 +24,7 @@ export function onShiftSection(names: readonly string[]): string {
   const list = names.map((name) => `- ${inlineText(name, 40)}`).join("\n");
   return `## ${ON_SHIFT_HEADING}
 
-These MakerLAB staff marked themselves on shift at the lab right now:
+These ${lab.identity.labName} staff marked themselves on shift at the lab right now:
 
 ${list}
 

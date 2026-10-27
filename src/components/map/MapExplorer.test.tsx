@@ -28,7 +28,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-import { STUDIO_101 } from "../../lib/map/studio-101";
+import { SHIPPED_PLAN as STUDIO_101 } from "../../lib/map/plan";
 import { MapExplorer } from "./MapExplorer";
 import { mapPlaceUrl } from "./map-url";
 

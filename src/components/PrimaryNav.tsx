@@ -9,6 +9,7 @@ import { ADMIN_HREF, AdminLink } from "./AdminLink";
 import { ProfileMenu } from "./ProfileMenu";
 import { FROSTED } from "./system/frosted";
 import { useNavMenu } from "./use-nav-menu";
+import { lab } from "../lib/lab/config";
 import { siteConfig } from "../lib/site-config";
 import {
   DEV_SIGN_IN_ENDPOINT,
@@ -19,12 +20,15 @@ import {
 } from "../lib/auth/sign-in-client";
 import { loadSharedIdentity } from "../lib/auth/identity-store";
 
-const LINKS = [
+const ALL_LINKS = [
   { href: "/", key: "tools", match: (path: string) => path === "/" || path.startsWith("/tools") },
   { href: "/map", key: "map", match: (path: string) => path.startsWith("/map") },
   { href: "/projects", key: "projects", match: (path: string) => path.startsWith("/projects") },
   { href: "/about", key: "about", match: (path: string) => path.startsWith("/about") },
 ] as const;
+
+/** No MAP for a lab without a map (lab config `map: false`, spec §5.5). */
+const LINKS = ALL_LINKS.filter((link) => link.key !== "map" || lab.map);
 
 /** How long a sign-in notice stays before it fades. Long enough to read twice. */
 export const SIGN_IN_NOTICE_MS = 6000;

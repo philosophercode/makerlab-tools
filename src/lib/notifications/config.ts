@@ -1,3 +1,5 @@
+import { lab } from "../lab/config.ts";
+
 /**
  * Email configuration, read from the environment (email notifications spec §8
  * "Environment variables"). Read on every call, never cached at module load,
@@ -24,15 +26,16 @@ type Env = Record<string, string | undefined>;
 
 /**
  * The sending configuration, or null when the app cannot send: no
- * `RESEND_API_KEY`, or no `EMAIL_FROM` to send it from. Null is a normal
+ * `RESEND_API_KEY`, or no sender (`EMAIL_FROM`, else `email.from` in the
+ * lab config) to send it from. Null is a normal
  * state (local, CI, a preview without the integration): every delivery is
  * then recorded as `not_configured` and nothing reaches the network.
  */
 export function emailConfig(env: Env = process.env): EmailConfig | null {
   const apiKey = (env.RESEND_API_KEY ?? "").trim();
-  const from = (env.EMAIL_FROM ?? "").trim();
+  const from = (env.EMAIL_FROM ?? "").trim() || (lab.email.from ?? "");
   if (!apiKey || !from) return null;
-  const replyTo = (env.EMAIL_REPLY_TO ?? "").trim() || null;
+  const replyTo = (env.EMAIL_REPLY_TO ?? "").trim() || lab.email.replyTo;
   const baseUrl = ((env.RESEND_API_BASE_URL ?? "").trim() || DEFAULT_RESEND_API_BASE_URL).replace(/\/+$/, "");
   return { apiKey, from, replyTo, baseUrl };
 }

@@ -4,6 +4,7 @@ import { getCatalogTool } from "../catalog";
 import { describeDbError } from "../db/describe-error";
 import type { Identity } from "../auth/identity";
 import { isDemoTraffic } from "../demo-admin/config";
+import { siteConfig } from "../site-config";
 import { fileProblemTicket } from "./file-ticket";
 import {
   QUICK_REPORT_MIN_OPEN_MS,
@@ -91,11 +92,11 @@ type UnitSource = "chosen" | "only" | "guessed" | null;
 export function describeQuickReport(text: string, triage: Triage | null, unitSource: UnitSource): string {
   const notes = ["Sent with the quick report form."];
   if (triage) {
-    notes.push(`MakerLAB AI suggested the title, the category (${REPORT_CATEGORY_LABEL[triage.category]}) and the priority.`);
+    notes.push(`${siteConfig.chatAssistantName} suggested the title, the category (${REPORT_CATEGORY_LABEL[triage.category]}) and the priority.`);
   } else {
-    notes.push("MakerLAB AI was not available, so the title is the start of the report and the priority is Medium.");
+    notes.push(`${siteConfig.chatAssistantName} was not available, so the title is the start of the report and the priority is Medium.`);
   }
-  if (unitSource === "guessed") notes.push("MakerLAB AI picked the unit from the report.");
+  if (unitSource === "guessed") notes.push(`${siteConfig.chatAssistantName} picked the unit from the report.`);
   return `${text}\n\n${notes.join(" ")}`;
 }
 

@@ -1,5 +1,6 @@
 import type { SkillBullet, SkillDraft, SkillSections, SkillSource, RemovedItem } from "./format.ts";
 import type { SkillInputs } from "./inputs.ts";
+import { lab as labConfig } from "../lab/config.ts";
 
 /**
  * The checked draft and the lab's own facts, made one skill (tool skills spec
@@ -17,7 +18,7 @@ import type { SkillInputs } from "./inputs.ts";
  */
 
 const COMPANION_LINE =
-  "Ask a SuperMaker or other lab staff before your first use, whenever anything looks unsafe or broken, and for anything this guide does not cover.";
+  `Ask a ${labConfig.assistant.helperTitle} or other lab staff before your first use, whenever anything looks unsafe or broken, and for anything this guide does not cover.`;
 
 export function composeSkillSections(
   inputs: SkillInputs,
@@ -39,7 +40,7 @@ export function composeSkillSections(
     lab(
       tool.trainingRequired
         ? "Training: the lab requires training before you use this machine. Ask staff for it before your first use."
-        : "Training: the lab does not require training for this machine. Ask a SuperMaker to show you the first time."
+        : `Training: the lab does not require training for this machine. Ask a ${labConfig.assistant.helperTitle} to show you the first time.`
     ),
     lab(
       tool.ppe.length > 0

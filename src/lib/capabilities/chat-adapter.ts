@@ -10,6 +10,7 @@ import { fenceUntrusted } from "../web/fence";
 import { languageNameForLocale } from "../../i18n/config";
 import { newTurnState, readsOutsideContent } from "../chat/taint";
 import { siteConfig } from "../site-config";
+import { lab } from "../lab/config";
 import { LAB_CONTEXT } from "../ai/lab-context";
 import { LAB_COMPANION } from "../ai/lab-companion";
 import { labNotesSection, toolLabNotesLines } from "../ai/lab-notes-prompt";
@@ -180,7 +181,7 @@ export function composeChat(
 // ── Prompt sections (parity with the original chat route) ───────────
 
 function introSection(): string {
-  return `You are ${siteConfig.chatAssistantName}, a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLAB. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise and accurate. Ground every answer in the catalog, the lab context and each machine's own documents provided below; when a machine's documents do not answer, follow "${MANUAL_SILENCE_HEADING}". If the user asks about a tool that isn't in the catalog, say so honestly.`;
+  return `You are ${siteConfig.chatAssistantName}, a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} ${lab.identity.labName}. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise and accurate. Ground every answer in the catalog, the lab context and each machine's own documents provided below; when a machine's documents do not answer, follow "${MANUAL_SILENCE_HEADING}". If the user asks about a tool that isn't in the catalog, say so honestly.`;
 }
 
 function languageSection(locale: string): string {

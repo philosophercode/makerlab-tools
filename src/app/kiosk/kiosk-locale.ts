@@ -1,4 +1,5 @@
 import { DEFAULT_LOCALE, getLocaleOption, isSupportedLocale, type LocaleOption } from "../../i18n/config";
+import { ENGLISH, withLabTokens } from "../../i18n/lab-tokens";
 import { withEnglishFallback, type Messages } from "../../i18n/messages";
 
 /**
@@ -13,10 +14,10 @@ export function kioskLocale(lang: string | string[] | undefined): LocaleOption {
 
 /** The `kiosk` namespace in `code`, English underneath (Article 6). */
 export async function kioskMessages(code: string): Promise<Messages> {
-  const english = (await import("../../../messages/en.json")).default as Messages;
+  const english = ENGLISH as unknown as Messages;
   const messages =
-    code === DEFAULT_LOCALE
+    code === "en"
       ? english
-      : withEnglishFallback(english, (await import(`../../../messages/${code}.json`)).default as Messages);
+      : withEnglishFallback(english, withLabTokens((await import(`../../../messages/${code}.json`)).default as Messages));
   return { kiosk: messages.kiosk };
 }

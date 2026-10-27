@@ -1,8 +1,9 @@
+import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { getCatalogTools } from "../../lib/catalog";
 import { canSeeMap } from "../../lib/map/access";
-import { STUDIO_101 } from "../../lib/map/studio-101";
+import { LAB_PLAN } from "../../lib/map/plan";
 import { EmptyState } from "../system/EmptyState";
 import { PublicPage } from "../system/PublicPage";
 import { MapExplorer } from "./MapExplorer";
@@ -14,6 +15,8 @@ import { MapExplorer } from "./MapExplorer";
  * no plan data in its HTML or RSC payload.
  */
 export async function MapGate() {
+  // A lab with no map (lab config `map: false`) has no /map page (lab config spec §5.5).
+  if (!LAB_PLAN) notFound();
   const identity = await resolveIdentityFromHeaders();
   if (!canSeeMap(identity)) {
     const t = await getTranslations("map");
@@ -24,5 +27,5 @@ export async function MapGate() {
     );
   }
   const tools = await getCatalogTools();
-  return <MapExplorer plan={STUDIO_101} tools={tools} />;
+  return <MapExplorer plan={LAB_PLAN} tools={tools} />;
 }

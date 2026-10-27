@@ -34,13 +34,26 @@ function hostOf(url: string): string | null {
 }
 
 /**
+ * Hosts labels were printed for before the current address: this deployment's
+ * history, not branding, so a list in code (lab config spec §3.3). A fork's
+ * own past hosts go here too.
+ */
+export const LEGACY_QR_HOSTS: readonly string[] = ["https://makerlab-ai.vercel.app"];
+
+/**
  * The hosts a code of ours can name: the configured site (`qrSiteUrl`, the
- * same origin every label encodes), Vercel's production domain, and the live
- * deployment's own address — so a label printed before a domain change still
+ * same origin every label encodes), the lab config's `web.siteUrl`, Vercel's
+ * production domain, and the hosts this deployment's labels were printed for
+ * before (`LEGACY_QR_HOSTS`) — so a label printed before a domain change still
  * resolves.
  */
 export function ourQrHosts(env: Record<string, string | undefined> = process.env): string[] {
-  const hosts = [qrSiteUrl(env), DEFAULT_SITE_URL, env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : ""]
+  const hosts = [
+    qrSiteUrl(env),
+    DEFAULT_SITE_URL,
+    ...LEGACY_QR_HOSTS,
+    env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : "",
+  ]
     .map((url) => (url ? hostOf(url.includes("://") ? url : `https://${url}`) : null))
     .filter((host): host is string => Boolean(host));
   return Array.from(new Set(hosts));

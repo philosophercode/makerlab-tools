@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "../../components/system/EmptyState";
 import { PublicPage } from "../../components/system/PublicPage";
+import { lab } from "../../lib/lab/config";
 import { siteConfig } from "../../lib/site-config";
 import { getPublishedProjects } from "../../lib/projects";
 
 export const metadata = {
   title: "Projects",
-  description: `Builds, experiments and course outcomes from the ${siteConfig.institution} MakerLAB community.`,
+  description: `Builds, experiments and course outcomes from the ${siteConfig.institution} ${lab.identity.labName} community.`,
 };
 
 /**
