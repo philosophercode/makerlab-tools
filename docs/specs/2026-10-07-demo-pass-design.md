@@ -431,3 +431,27 @@ the sign-up "the full demo" implied the site was a lesser one.
 
 **Status.** Accepted by the owner (Isaac Steinberg), 2026-10-11; built in the same PR,
 as the original spec was.
+
+### 2026-10-27 — The demo identity fills in nothing
+
+**What changed.** The `/demo` form fills in name and email only for a person who is
+actually signed in (`isSignedIn`). With `DEMO_ADMIN` on, the visitor's identity is the
+demo identity (demo admin spec 2026-10-11 §3), which carries the placeholder name
+"Demo visitor"; the form had treated every non-anonymous identity as an account and
+put that placeholder in the Name field. The demo identity is nobody (`hasNoSession`),
+so the fields now start empty for it, exactly as for an anonymous visitor. Clarifies
+"a signed-in person's name and email" in the 2026-10-11 amendment; nothing else
+changes.
+
+**Checked elsewhere.** The other places a name is shown or prefilled already skip the
+demo identity: the profile menu and the project form use `isSignedIn`, and `/account`
+and the admin overview's ticket assignee require a `userId`, which the demo identity
+does not have. The admin overview's on-shift panel still says the demo identity
+would be shown as "Demo V."; that labels the demo identity to the person using it,
+fills no field, and the shift itself is refused without a `userId`, so it stays.
+
+**Why.** Reported by the owner on the live demo, 2026-10-27: visitors saw
+"Demo visitor" in the Name field of the interest form.
+
+**Status.** Accepted by the owner (Isaac Steinberg), 2026-10-27, by asking for the fix;
+built in the same PR.
