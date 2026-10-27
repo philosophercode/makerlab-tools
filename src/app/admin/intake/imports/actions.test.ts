@@ -11,6 +11,12 @@ vi.mock("workflow/api", () => ({ start: wf.start }));
 vi.mock("../../../../workflows/suggest-names", () => ({
   suggestNames: Object.assign(async () => ({ suggested: 0, failed: 0 }), { workflowId: "suggest-names" }),
 }));
+vi.mock("../../../../workflows/research-batch", () => ({
+  researchBatch: Object.assign(async () => ({}), { workflowId: "research-batch" }),
+}));
+vi.mock("../../../../workflows/import-rows", () => ({
+  importRows: Object.assign(async () => ({ slices: 0, done: 0 }), { workflowId: "import-rows" }),
+}));
 vi.mock("../../../../workflows/import-document", () => ({
   importDocument: Object.assign(async () => ({ items: 0, failedChunks: 0 }), { workflowId: "import-document" }),
 }));
@@ -21,11 +27,15 @@ import { setNameSuggestion } from "../../../../lib/data/bulk-imports";
 import { countResearchRequestedSince, getPendingTool } from "../../../../lib/data/pending-tools";
 import { resetDbForTests } from "../../../../lib/db/client";
 import { startImport } from "../../../../lib/import/service";
+import { IMPORTS_RESEARCH } from "../../../../lib/actions/imports";
+import { performAction } from "../../../../lib/actions/perform";
+import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
 import {
   acceptImportSuggestions,
   confirmImportColumns,
   ignoreImportSuggestions,
   loadImport,
+  loadImportProgress,
   mergeImportRow,
   removeImportRows,
   requestImportSuggestions,
@@ -67,7 +77,16 @@ const tag = () => crypto.randomUUID().slice(0, 6);
 
 /** A ready import of `lines`, owned by `owner`. */
 async function listImport(owner: SignedInSession, lines: string[]) {
-  const started = await startImport({ userId: owner.user.id, text: lines.join("\n"), origin: "page", startRun: async () => ({ runId: "x" }) });
+  const started = await startImport({
+    userId: owner.user.id,
+    text: lines.join("\n"),
+    origin: "page",
+    startRun: async () => ({ runId: "x" }),
+    // Every row written here: the background writer has its own workflow test.
+    startRows: async () => {
+      throw new Error("written in the request in this test");
+    },
+  });
   if (!started.ok) throw new Error(started.error);
   const loaded = await loadImport({ importId: started.import.id });
   if (!loaded.ok) throw new Error(loaded.error);
@@ -179,5 +198,60 @@ describe("Suggest names", () => {
     await chargeSuggestionAllowance({ userId: owner.user.id, ledgerRows: 100, limit: 100, since: new Date(0) });
     expect(await requestImportSuggestions({ importId, ids: [items[0].id] })).toEqual({ ok: false, error: "daily_limit", remaining: 0 });
     expect(wf.start).not.toHaveBeenCalled();
+  });
+});
+
+describe("the progress poll (import progress spec §3.3)", () => {
+  it("answers every row first, then only the rows changed since the cursor", async () => {
+    const owner = await as("admin");
+    const { importId } = await listImport(owner, [`Drill ${tag()}`, `Saw ${tag()}`]);
+    const first = await loadImportProgress({ importId });
+    if (!first.ok) throw new Error(first.error);
+    expect(first.items).toHaveLength(2);
+    expect(first.import).toMatchObject({ status: "ready", progress: { total: 2, done: 2 } });
+
+    // A cursor past the overlap: nothing has changed since.
+    const later = new Date(Date.now() + 120_000).toISOString();
+    const next = await loadImportProgress({ importId, since: later });
+    expect(next.ok && next.items).toEqual([]);
+  });
+
+  it("refuses a student and a malformed cursor", async () => {
+    const owner = await as("admin");
+    const { importId } = await listImport(owner, [`Lathe ${tag()}`]);
+    expect(await loadImportProgress({ importId, since: "yesterday" })).toEqual({ ok: false, error: "invalid_field" });
+    await as("user");
+    expect(await loadImportProgress({ importId })).toEqual({ ok: false, error: "not_permitted" });
+  });
+});
+
+describe("imports.research (import progress spec §3.4)", () => {
+  it("researches every row not yet researched, in one start per 25, charged to the person", async () => {
+    const owner = await as("admin");
+    const names = Array.from({ length: 30 }, (_, i) => `Bench grinder ${tag()} no.${i + 1}`);
+    const { importId } = await listImport(owner, names);
+    const result = await performAction(IMPORTS_RESEARCH, { importId }, await resolveIdentityFromHeaders(), { surface: "gui" });
+        expect(result).toMatchObject({ ok: true, queued: 30, waiting: 0, undecided: 0 });
+    expect(await countResearchRequestedSince(owner.user.id, new Date(Date.now() - 60_000))).toBe(30);
+    // Two research runs: 25, then 5.
+    expect(wf.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("leaves a row with an undecided possible duplicate waiting, and says so when nothing else is left", async () => {
+    const owner = await as("admin");
+    const name = `Spindle sander ${tag()}`;
+    const { importId } = await listImport(owner, [name, name]);
+    const result = await performAction(IMPORTS_RESEARCH, { importId }, await resolveIdentityFromHeaders(), { surface: "gui" });
+    expect(result).toMatchObject({ ok: true, queued: 1, undecided: 1 });
+    const again = await performAction(IMPORTS_RESEARCH, { importId }, await resolveIdentityFromHeaders(), { surface: "gui" });
+    expect(again).toMatchObject({ ok: false, error: "unresolved_duplicate" });
+  });
+
+  it("refuses a student", async () => {
+    const owner = await as("admin");
+    const { importId } = await listImport(owner, [`Jointer ${tag()}`]);
+    await as("user");
+    const result = await performAction(IMPORTS_RESEARCH, { importId }, await resolveIdentityFromHeaders(), { surface: "gui" });
+    expect(result).toMatchObject({ ok: false, error: "not_permitted" });
   });
 });

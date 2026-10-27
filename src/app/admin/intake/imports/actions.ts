@@ -8,6 +8,7 @@ import {
   IMPORTS_MERGE_ROW,
   IMPORTS_REMOVE_ROWS,
   IMPORTS_REQUEST_SUGGESTIONS,
+  IMPORTS_RESEARCH,
   IMPORTS_SET_HINTS,
 } from "../../../../lib/actions/imports";
 import { performAction } from "../../../../lib/actions/perform";
@@ -156,4 +157,14 @@ export async function ignoreImportSuggestions(input: unknown): Promise<RowsResul
  */
 export async function requestImportSuggestions(input: unknown): Promise<ImportActionResult<{ requested: number }>> {
   return performAction(IMPORTS_REQUEST_SUGGESTIONS, input, await resolveIdentityFromHeaders(), { surface: "gui" });
+}
+
+/**
+ * **Research** an import's rows — every row not yet researched, or the ones
+ * named — in starts of 25 (import progress spec §3.4); what the assistant's
+ * `research_import` card confirms into. The page's **Research selected** sends
+ * its chunks from the browser, showing each one go.
+ */
+export async function researchImport(input: unknown): Promise<ImportActionResult<{ queued: number; waiting: number; undecided: number; notResearchable: number }>> {
+  return performAction(IMPORTS_RESEARCH, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }

@@ -19,7 +19,11 @@ export type ImportActionError =
   | "not_editable"
   | "too_many_items"
   | "daily_limit"
-  | "start_failed";
+  | "start_failed"
+  | "unresolved_duplicate"
+  | "not_researchable"
+  | "image_retry_running"
+  | "failed";
 
 export type ImportActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: ImportActionError; remaining?: number };
 

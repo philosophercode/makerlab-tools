@@ -1,6 +1,6 @@
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 
-import { fireEvent, render, screen, userEvent, waitFor, within } from "../../../test/utils/render";
+import { act, fireEvent, render, screen, userEvent, waitFor, within } from "../../../test/utils/render";
 import type { ImportActions } from "../../app/admin/intake/imports/action-result";
 import type { ResearchPost } from "../../lib/import/research-queue";
 import type { ImportItemView, ImportView } from "../../lib/import/view";
@@ -223,14 +223,37 @@ describe("ImportReview", () => {
 });
 
 describe("ImportCard (the chat hand-off)", () => {
+  const never = vi.fn(() => new Promise<never>(() => {}));
+
   it("says how many items were found, the duplicates, and links to the review", () => {
-    render(<ImportCard payload={{ kind: "import-card", import: { ...IMPORT, itemCount: 42, duplicateCount: 3 }, href: "/admin/intake/imports/imp-1" }} />);
+    render(<ImportCard load={never} payload={{ kind: "import-card", import: { ...IMPORT, itemCount: 42, duplicateCount: 3 }, href: "/admin/intake/imports/imp-1" }} />);
     expect(screen.getByText("42 items found (3 possible duplicates)")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review import" })).toHaveAttribute("href", "/admin/intake/imports/imp-1");
   });
 
   it("asks for the columns when the table's name column was not plain", () => {
-    render(<ImportCard payload={{ kind: "import-card", import: { ...IMPORT, status: "mapping" }, href: "/x" }} />);
+    render(<ImportCard load={never} payload={{ kind: "import-card", import: { ...IMPORT, status: "mapping" }, href: "/x" }} />);
     expect(screen.getByText("Match the columns to create the rows.")).toBeInTheDocument();
+  });
+
+  it("follows the import live: rows identified, then research running", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const identifying = { ...IMPORT, status: "identifying" as const, progress: { total: 4, done: 2 } };
+      const load = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true, import: identifying, items: [ROWS[0], ROWS[1]], cursor: "c1" })
+        .mockResolvedValueOnce({ ok: true, import: IMPORT, items: [{ ...ROWS[0], status: "researching" }, ROWS[2], ROWS[3]], cursor: "c2" })
+        .mockResolvedValue({ ok: true, import: IMPORT, items: [], cursor: "c3" });
+      render(<ImportCard load={load} payload={{ kind: "import-card", import: identifying, href: "/x" }} />);
+      expect(await screen.findByText("Identifying rows: 2 of 4 items written. You can leave this page; it carries on.")).toBeInTheDocument();
+      expect(load).toHaveBeenCalledWith({ importId: "imp-1", since: undefined });
+
+      await act(async () => vi.advanceTimersByTimeAsync(3_100));
+      expect(load).toHaveBeenLastCalledWith({ importId: "imp-1", since: "c1" });
+      expect(screen.getByRole("status")).toHaveTextContent("Researching: 1 running, 0 queued, 0 ready for approval.");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -10,13 +10,16 @@ import { discardPendingTool, listPendingTools, updatePendingTool, type PendingTo
 import { researchLimitFor } from "../data/research-allowances";
 import { isUuid } from "../data/uuid";
 import { canActOnImport, IMPORT_PERMISSION } from "../import/access";
+import { hasUnresolvedDuplicate, isResearchable } from "../intake/access";
 import { isPlaceholderItemName } from "../intake/item-name";
+import { researchStarted, startResearch } from "../intake/research-start";
 import { suggestLedgerRows } from "../import/allowance";
 import { IMPORT_FIELDS } from "../import/columns";
-import { IMPORT_MAX_ITEMS, IMPORT_MAX_QUANTITY, SUGGEST_MAX_ITEMS } from "../import/limits";
+import { IMPORT_MAX_ITEMS, IMPORT_MAX_QUANTITY, IMPORT_RESEARCH_CHUNK, SUGGEST_MAX_ITEMS } from "../import/limits";
 import { confirmImportMapping } from "../import/service";
 import { importPath, toImportItemView, toImportView, type ImportItemView, type ImportView } from "../import/view";
 import { suggestNames as suggestNamesWorkflow } from "../../workflows/suggest-names";
+import { allowanceLeft } from "./allowance";
 import { defineAction, toolShape, type ActionContext, type ActionPreview, type ActionPreviewRow } from "./define";
 
 /**
@@ -445,5 +448,132 @@ export const IMPORTS_REQUEST_SUGGESTIONS = defineAction<{ importId: string; ids:
       return { ok: false, error: "start_failed" };
     }
     return { ok: true, value: { requested: rows.length }, committed: true };
+  },
+});
+
+// ── imports.research ────────────────────────────────────────────────
+
+/**
+ * What a Research press over an import's rows would send (import progress
+ * spec §3.4): the rows named — or, with none named, every row not yet
+ * researched — that research can take and whose possible duplicate is
+ * decided. The rest are counted, never silently dropped.
+ */
+export function importResearchPlan(
+  rows: readonly PendingTool[],
+  named: ReadonlySet<string> | null
+): { send: string[]; undecided: string[]; notResearchable: string[] } {
+  const send: string[] = [];
+  const undecided: string[] = [];
+  const notResearchable: string[] = [];
+  for (const row of rows) {
+    if (named ? !named.has(row.id) : row.status !== "identified") continue;
+    if (row.status === "discarded" || row.status === "approved") continue;
+    if (!isResearchable(row)) notResearchable.push(row.id);
+    else if (
+      hasUnresolvedDuplicate({
+        duplicateOfToolId: row.duplicateOf?.kind === "tool" ? row.duplicateOf.id : null,
+        duplicateOfPendingId: row.duplicateOf?.kind === "pending" ? row.duplicateOf.id : null,
+        duplicateResolution: row.duplicateResolution,
+      })
+    )
+      undecided.push(row.id);
+    else send.push(row.id);
+  }
+  return { send, undecided, notResearchable };
+}
+
+async function researchPlanFor(importId: string, ids: readonly string[] | undefined) {
+  const rows = await listPendingTools({ importId, limit: null });
+  rows.sort((a, b) => (a.sourceRow ?? 0) - (b.sourceRow ?? 0));
+  return importResearchPlan(rows, ids ? new Set(ids) : null);
+}
+
+/**
+ * **Research** an import from the chat (import progress spec §3.4): the rows
+ * the plan sends go to the one research start the intake page uses
+ * (`startResearch`), {@link IMPORT_RESEARCH_CHUNK} at a time, one after the
+ * other — the research route's own per-request ceiling. A `daily_limit` with
+ * some left sends exactly that many and stops; what was not sent is counted
+ * as waiting. Each item costs one from today's allowance, so for the
+ * assistant it is a card the person confirms.
+ */
+export const IMPORTS_RESEARCH = defineAction<
+  { importId: string; ids?: string[] },
+  { queued: number; waiting: number; undecided: number; notResearchable: number },
+  ImportRefusal
+>({
+  id: "imports.research",
+  toolName: "research_import",
+  description:
+    "Research the rows of an imported list: every row not yet researched, or only the rows named. Each costs one item from today's research allowance; rows with an undecided possible duplicate wait. Proposes the research; nothing starts until the person confirms it on the card.",
+  permission: IMPORT_PERMISSION,
+  risk: "spend",
+  input: z.strictObject({ importId: id, ids: ids.optional() }),
+  invalidInput: "invalid_field",
+  subject: (input) => ({ type: "import", id: input.importId }),
+  check: (input, ctx) => importRefusal(input.importId, ctx) as Promise<ImportRefusal | null>,
+  tool: toolShape(
+    z.strictObject({
+      import_id: IMPORT_ID,
+      row_ids: z
+        .array(z.string().min(1).max(64))
+        .min(1)
+        .max(IMPORT_MAX_ITEMS)
+        .optional()
+        .describe("Only these rows, from list_imports; leave out to research every row not yet researched"),
+    }),
+    (args) => ({ ok: true, inputs: [{ importId: args.import_id, ...(args.row_ids ? { ids: args.row_ids } : {}) }] })
+  ),
+  preview: async (input, ctx) => {
+    const found = await getBulkImport(input.importId);
+    if (!found) return null;
+    const plan = await researchPlanFor(input.importId, input.ids);
+    if (plan.send.length === 0) return null;
+    const file = found.sourceName ?? "pasted list";
+    return {
+      summary: { key: "imports_research", values: { file, count: plan.send.length, left: await allowanceLeft(ctx) } },
+      rows: [
+        { field: "rows", before: null, after: String(plan.send.length) },
+        ...(plan.undecided.length > 0 ? [{ field: "undecided", before: null, after: String(plan.undecided.length) }] : []),
+      ],
+      subjectName: file,
+      link: importPath(input.importId),
+    };
+  },
+  run: async (input, ctx) => {
+    const userId = ctx.identity.userId;
+    if (!userId) return { ok: false, error: "not_signed_in" };
+    const plan = await researchPlanFor(input.importId, input.ids);
+    if (plan.send.length === 0) return { ok: false, error: plan.undecided.length > 0 ? "unresolved_duplicate" : "not_researchable" };
+
+    let queued = 0;
+    let sent = 0;
+    for (let at = 0; at < plan.send.length; at += IMPORT_RESEARCH_CHUNK) {
+      let chunk = plan.send.slice(at, at + IMPORT_RESEARCH_CHUNK);
+      let answer = await startResearch({ ...ctx.identity, userId }, { ids: chunk });
+      const left = answer.body && "remaining" in answer.body ? answer.body.remaining : undefined;
+      if (!researchStarted(answer) && answer.body.code === "daily_limit" && left && left > 0) {
+        // Exactly what is left today, then stop: the rest wait (bulk intake §5 step 4).
+        chunk = chunk.slice(0, left);
+        answer = await startResearch({ ...ctx.identity, userId }, { ids: chunk });
+      }
+      if (!researchStarted(answer)) {
+        if (sent === 0) {
+          const code = answer.body.code;
+          const error = code === "sign_in_required" ? "not_signed_in" : code === "rate_limited" || code === "invalid_body" || code === "forbidden" ? "failed" : code;
+          return { ok: false, error: error as ImportRefusal, ...(answer.body.remaining !== undefined ? { remaining: answer.body.remaining } : {}) };
+        }
+        break;
+      }
+      queued += answer.body.queued.length + answer.body.readyAsUnit.length;
+      sent += chunk.length;
+      if (chunk.length < Math.min(IMPORT_RESEARCH_CHUNK, plan.send.length - at)) break;
+    }
+    return {
+      ok: true,
+      value: { queued, waiting: plan.send.length - sent, undecided: plan.undecided.length, notResearchable: plan.notResearchable.length },
+      committed: true,
+    };
   },
 });

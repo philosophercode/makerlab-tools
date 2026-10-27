@@ -92,6 +92,7 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/admin/inventory/actions.ts#loadToolForEditor": "Not a write: the editor panel's read",
   "src/app/admin/refresh/actions.ts#loadRefreshPickerTools": "Not a write: the Refresh research picker's tool list, read when it opens",
   "src/app/admin/intake/imports/actions.ts#loadImport": "Not a write: the import review's read (its polling)",
+  "src/app/admin/intake/imports/actions.ts#loadImportProgress": "Not a write: the import's progress poll — the rows changed since the last (import progress spec §3.3)",
 
   // ── Not user actions (§4.8 "out of scope") ───────────────────────────
   "src/app/api/auth/[...all]/route.ts#POST": "Not a user action: sign-in and sign-out (§2)",
