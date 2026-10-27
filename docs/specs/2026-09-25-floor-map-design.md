@@ -404,3 +404,158 @@ laptop, all of it is visible.
   place panel, the Places list, Escape and Back. **Tested** in
   `e2e/map.spec.ts` (the map's position at 1440 × 900, 1280 × 800 and
   390 × 844) and the existing `MapExplorer.test.tsx`.
+
+## Amendment — Places first, the map on top (2026-10-27)
+
+**Status:** Draft, for the owner's review. **Spec PR:** this one. **Implementation PR:**
+opens after it merges (Article 1).
+
+The owner (2026-10-27), after standing up a second deployment with its own inventory:
+the map, the tools and the units are coupled too tightly. A lab with a different layout,
+or with no traced plan yet, gets a `/map` where every tool is "Not on the map" and the
+Places list names rooms it does not have. This amendment makes **places a database
+fact** and the **drawing an optional layer** over them.
+
+### A.1 What is coupled today
+
+- `tools.location_id` → one `locations` row (`room`, `zone`, `map_tag`). Units have no
+  place of their own.
+- `placeTool` (§5.1) joins a location to the plan by **text**: `map_tag` equal to a
+  station id, else `room + zone` equal to a zone's names.
+- The **Places** list on `/map` is built from the plan's zones and stations, not from
+  `locations`. A location the plan does not draw has no entry; its tools fall into
+  **Not on the map**.
+- Renaming a zone in the plan, or importing a list whose locations are spelled
+  differently ("Wood Shop" against "Machining Shop"), unplaces tools silently.
+- Approving an imported item matches its location hint against **existing** locations
+  only (`matchLocation` in `src/lib/intake/approval-draft.ts`). On an empty database
+  nothing matches, so imported tools are approved with no location and the hint is lost.
+
+### A.2 The model
+
+Three layers, each usable without the one above it:
+
+1. **Places** (`locations`): where things are, in the lab's own words. Always present.
+2. **Links**: a place may name **one** zone or station of the current plan
+   (`locations.map_place`). Optional.
+3. **The drawing** (`FloorPlan`, from `lab/floor-plan.json` under the lab-config spec, or
+   `map: null`). Optional.
+
+`map_tag` stays the **printed label** (QR sheets, the Notion import, the legend). It is
+no longer the join key.
+
+### A.3 Data model
+
+Migration (next free number, e.g. `0035_places_first.sql`):
+
+```sql
+ALTER TABLE locations ADD COLUMN map_place text;          -- a zone id (Z4) or station id (4A) on the current plan
+ALTER TABLE units ADD COLUMN location_id uuid REFERENCES locations(id) ON DELETE SET NULL;
+CREATE INDEX units_location_idx ON units (location_id);
+```
+
+- `map_place` is **not** a foreign key: the plan is a file, not a table. `npm run
+  lab:check -- --inventory` (lab-config §5.2) reports every `map_place` the plan does
+  not have, and those places render as "not drawn" (A.4), never as an error.
+- `units.location_id` null means "where its tool is". Set only when one unit lives
+  elsewhere (a printer in another room).
+- **Backfill** (`npm run map:link`, dry run by default, `--write` to apply): for every
+  location with `map_place` null, take the station its `map_tag` names, else the zone
+  its `room + zone` names. That reproduces today's placement exactly, so the backfill
+  is behavior-preserving. It is a script, not SQL, because the plan is not in the
+  database. It runs once per deployment and again after a new plan.
+
+### A.4 Placement (replaces §5.1)
+
+`placeThing({ unitLocation, toolLocation })`:
+
+1. The unit's location if it has one, else the tool's location. None → **No place**.
+2. That location's `map_place` names a station or zone on the plan → there.
+3. Otherwise the place is **not drawn**. It is still a place: listed under its room with
+   its tools, just not lit on the drawing.
+
+No name matching remains. A location's room and zone are free text again, so an import
+in any lab's vocabulary keeps its places.
+
+### A.5 `/map` and the Places list
+
+- **Places come from `locations`**, grouped by room, each with its tool count. Places
+  linked to the plan show the zone or station badge (`4A`) and highlight it; places not
+  drawn say so in words.
+- **No place** replaces **Not on the map** for tools with no location at all. Places not
+  drawn are listed under their rooms, not in a bucket.
+- **With `map: null`**, `/map` still answers: the Places list without a drawing. This
+  supersedes lab-config §5.5's "`/map` answers 404" for that case. Nav keeps the item
+  (renamed **Places** only if the owner wants, A.10).
+- Counts are **tools**, as now. A tool whose units sit in two places appears in both,
+  with "2 of 4 units here".
+- `get_tool_details.map` keeps its shape. It gains `place: { room, zone }` from the
+  database whether or not the place is drawn, so the assistant can say "in the Wood
+  Shop" for a lab with no plan.
+
+### A.6 Admin: places
+
+`/admin/inventory/locations` (behind `tools.edit`), the §6.5 picker made concrete:
+
+- A table of places: room, zone, map label, link, tool count. Add, rename, merge two
+  places (moves their tools and units, then deletes one), delete an empty place.
+- **Link to the map**: the full `FloorMap` in a sheet. Clicking a zone or station sets
+  `map_place`. **Unlink** clears it. With `map: null` the column is hidden.
+- The tool editor's location field and a new unit location field pick from these
+  places, with "Add a place" inline.
+- New action ids `locations.create`, `locations.update`, `locations.merge`,
+  `locations.delete`, `locations.link` in `src/lib/actions/`, so the assistant can
+  propose them (Assistant–GUI parity), each confirmed on a card.
+
+### A.7 Intake
+
+Approving an imported or chat-added item whose location hint matches no place
+**creates** the place (`findOrCreateLocation`) instead of dropping the hint. A hint
+`"Room / Zone"` splits on the slash; a one-part hint becomes the zone, in the room the
+lab config names as its default (`identity.room`, falling back to the hint itself; see
+A.10, question 1). The approval sheet shows "New place: Wood Shop" so the reviewer can
+pick an existing one instead.
+
+### A.8 Security
+
+- Visibility is unchanged: the drawing stays signed-in only (§8, `src/lib/map/access.ts`).
+  The Places list follows the same rule, because a place list is the plan in words.
+- Place names reach the assistant through `get_tool_details`, already public for tools.
+- Merge and delete are staff actions with revision tokens, logged like other inventory
+  edits.
+
+### A.9 Build order
+
+1. Migration, `map:link` backfill, `placeThing`, Places from `locations` on `/map` and
+   the tool page, `map: null` keeps `/map`. Behavior-preserving after the backfill.
+2. `/admin/inventory/locations`: list, add, rename, merge, delete, link picker; the five
+   actions.
+3. Unit locations: the field, the per-unit placement, "2 of 4 units here".
+4. Intake creates unmatched places (A.7).
+
+Lab-config phase 2 (the plan as `lab/floor-plan.json`) is independent of this and can
+land before or after. Whichever lands second updates `lab:check --inventory` to read
+`map_place`.
+
+### A.10 Open questions (owner)
+
+1. A one-part location hint ("Wood Shop"): store it as the **zone** inside a default
+   room, or as both room and zone?
+2. Rename the nav item **MAP** to **PLACES** when a lab has no drawing?
+3. Should units be counted on the map (a zone with 6 printers reads "6") rather than
+   tools ("1 tool")?
+
+### A.11 Testing
+
+- `placement.test.ts`: unit override, tool location, linked station, linked zone, not
+  drawn, no place; a renamed zone keeps its tools.
+- `map:link`: on a fixture inventory, the backfill reproduces the old `placeTool`
+  output for every tool, including the `Unknown / Unknown` ones.
+- `MapExplorer.test.tsx`: places not on the plan listed under their room; `map: null`
+  renders the list with no drawing.
+- Locations admin: merge moves tools and units; delete refuses a place in use; link
+  writes `map_place`; every action refused without `tools.edit` and in read-only demo
+  mode (`DEMO_ADMIN=view`).
+- Intake: an unmatched hint creates one place, and a second item with the same hint
+  reuses it.
+- `e2e/map.spec.ts`: a database place that is not drawn shows in the Places list.
