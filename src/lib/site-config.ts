@@ -50,7 +50,7 @@ export interface SiteConfig {
    * footer, `/product` and About (identity spec amendment "Source code and
    * forking", 2026-10-21). A fork sets `NEXT_PUBLIC_SOURCE_URL` to its own
    * repository: that link is how a modified network deployment offers its
-   * source under the AGPL-3.0 (§13, `LICENSING.md`).
+   * source under the AGPL-3.0 (§13, `docs/legal/LICENSING.md`).
    */
   sourceUrl: string;
   /** Brand colors — injected as CSS variables at the root layout. */

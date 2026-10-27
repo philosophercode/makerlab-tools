@@ -37,7 +37,7 @@ before the move still show paths with the old `v5/` prefix.
 | `docs/v5-plan.md` | The original v5 plan (historical — Notion era); §9 is the early long-term vision |
 | `docs/specs/` | Per-feature design specs |
 | `docs/architecture/` | The app in detail, area by area (index below) |
-| `TESTING.md` | Test suite runbook |
+| [`docs/testing.md`](docs/testing.md) | Test suite runbook |
 | `docs/assistant.md` | What the assistant can do, by role |
 | `docs/mcp.md` | User guide: connecting Claude, ChatGPT, Codex and other MCP clients (sign in with Google by default; tokens as the fallback) |
 | `docs/MakerLab_design/DESIGN.md` | The "Architectural Brutalism + Blueprint Archive" design system |
@@ -74,7 +74,7 @@ Read the file for the area you are changing before you change it.
 | [`docs/architecture/starter-answers.md`](docs/architecture/starter-answers.md) | **Starter answers.** `starter_answers`: pre-run, graded and cached answers to the starter questions |
 | [`docs/architecture/tool-skills.md`](docs/architecture/tool-skills.md) | **Tool skills.** `tool_skills`: each tool's cited operating guide, written by AI after research (the lab setting, the archive run's tail, Write skill, `npm run tools:skills`), checked by the numbers guard, read by `get_tool_skill` and by the chat on the tool's page |
 | [`docs/architecture/key-files.md`](docs/architecture/key-files.md) | **Key files.** Where things live, file by file |
-| [`docs/architecture/testing.md`](docs/architecture/testing.md) | **Testing.** The test suite's seams and rules (runbook: `TESTING.md`) |
+| [`docs/architecture/testing.md`](docs/architecture/testing.md) | **Testing.** The test suite's seams and rules (runbook: `docs/testing.md`) |
 | [`docs/architecture/ui-system.md`](docs/architecture/ui-system.md) | **UI system.** Tailwind 4 + shadcn primitives, `DataTable`, `ReviewCard`, admin navigation, public pages, chat UI |
 
 ## Commands
@@ -143,7 +143,7 @@ backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 ste
 ## Testing
 
 `npm run test:all` must pass before any merge; it needs no credentials and no
-network. Runbook: `TESTING.md`. The two model-stubbing seams, the E2E servers
+network. Runbook: `docs/testing.md`. The two model-stubbing seams, the E2E servers
 and the rules: `docs/architecture/testing.md`.
 
 ## Gotchas

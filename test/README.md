@@ -9,7 +9,7 @@ your `*.test.ts(x)` files and import from here.
 | Path | What it is |
 |---|---|
 | `vitest.config.ts` | jsdom env, `@/`→`src/`, `server-only`→stub, globals on, `e2e/` excluded |
-| `vitest.setup.ts` | jest-dom matchers, MSW lifecycle, per-test env/mocks cleanup |
+| `setup.ts` | jest-dom matchers, MSW lifecycle, per-test env/mocks cleanup |
 | `test/msw/server.ts` | the MSW node `server` (lifecycle managed in setup) |
 | `test/msw/handlers.ts` | default Notion + Upstash handlers, `DB_IDS` sentinels |
 | `test/fixtures/notion.ts` | raw `NotionPage` fixtures + `notionQueryResponse(...)` |
@@ -441,5 +441,5 @@ endpoint fails the test as an unhandled request, by design.
 `png.ts` builders from plain `node:http` (Playwright cannot use MSW), reached
 through `AI_GATEWAY_BASE_URL` by the intake scenario's own app server
 (port 3103, with a local Blob folder so the image stage can clean and store).
-See `TESTING.md`'s E2E notes and the file's own
+See `docs/testing.md`'s E2E notes and the file's own
 doc comment for the request classification it uses.

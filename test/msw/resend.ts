@@ -12,7 +12,7 @@ import type { SetupServer } from "msw/node";
  * counted again in {@link ResendFake.delivered}. That is what lets a test
  * assert "exactly one email per recipient" across retries and replays.
  *
- * Registered with `server.use`, so `vitest.setup.ts`'s `resetHandlers`
+ * Registered with `server.use`, so `test/setup.ts`'s `resetHandlers`
  * removes it after each test. MSW reaches workflow step code too, which
  * `vi.mock` does not.
  */

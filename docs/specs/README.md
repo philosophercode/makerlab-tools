@@ -28,7 +28,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 
 | Spec | Notes |
 |---|---|
-| [v5 Test Suite](2026-05-29-v5-test-suite-design.md) | Four offline layers; runbook in `TESTING.md` |
+| [v5 Test Suite](2026-05-29-v5-test-suite-design.md) | Four offline layers; runbook in `docs/testing.md` |
 | [Student Projects Gallery](2026-07-29-projects-gallery-design.md) | Storage moved from Notion to Postgres (data platform phase 3); moderation at `/admin/projects` |
 | [Agent Eval Harness](2026-07-29-agent-eval-harness-design.md) | `npm run eval`; real, paid, never in CI |
 | [QR Codes on Machines](2026-07-29-qr-codes-design.md) | `npm run qr:labels`; amendment 2026-09-29 "QR labels in the app": print sheets at `/admin/inventory/qr`, a QR dialog on each tool page, `get_tool_qr_code`, `/api/qr/[slug]`; amendment 2026-10-06 "Unit labels and reporting from a unit": a label per unit (`?unit=<token>`), Report a problem with this unit on arrival, unit codes in chat photos; amendment 2026-10-07: the arrival notice's Report opens the quick report form, not the chat |

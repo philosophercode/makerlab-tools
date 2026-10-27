@@ -44,7 +44,7 @@ audience without touching code:
 ## 3 · Replace what is Cornell's
 
 The licence covers the code, not Cornell's names, logos or photos
-([`LICENSING.md`](../LICENSING.md)). Before you put a fork online, replace:
+([`LICENSING.md`](legal/LICENSING.md)). Before you put a fork online, replace:
 
 | Where | What is there now |
 |---|---|
@@ -86,7 +86,7 @@ $20–40 a month and the AI about $10–15 at one lab's use (`/product`, "What i
 
 MakerLAB Tools is licensed under the AGPL-3.0. If you change it and let people use it
 over a network, you must offer them your version's source
-([`LICENSING.md`](../LICENSING.md)). The simplest way is a public fork and a link to it
+([`LICENSING.md`](legal/LICENSING.md)). The simplest way is a public fork and a link to it
 from your site: set `NEXT_PUBLIC_SOURCE_URL` to your fork's address, and the footer's
 **Source code**, `/product`'s **Fork it for your lab** and the About page all point
 there.
@@ -95,4 +95,4 @@ there.
 
 Improvements that would help other labs are welcome as pull requests. Every feature
 starts with a spec ([`constitution.md`](constitution.md), Article 1), `npm run test:all`
-must pass, and outside contributors sign the [CLA](../CLA.md) once.
+must pass, and outside contributors sign the [CLA](legal/CLA.md) once.
