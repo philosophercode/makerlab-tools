@@ -166,6 +166,9 @@ const nextConfig: NextConfig = {
       { source: "/admin/settings/notion", destination: "/admin/mirror", permanent: false },
       { source: "/admin/inventory/add", destination: "/admin/intake", permanent: false },
       { source: "/admin/checklist", destination: "/admin/maintenance/checklist", permanent: false },
+      // The interest form moved from `/demo` to `/interest` (demo pass spec,
+      // amendment 2026-10-27), so links shared before the move still land.
+      { source: "/demo", destination: "/interest", permanent: false },
     ];
   },
 };

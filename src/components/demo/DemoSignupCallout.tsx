@@ -41,7 +41,7 @@ export function DemoSignupCallout({ variant = "box" }: { variant?: "box" | "inli
           <span>{text}</span>
         </p>
         <Button asChild variant="default" className="shrink-0">
-          <Link href="/demo">{t("cta")}</Link>
+          <Link href="/interest">{t("cta")}</Link>
         </Button>
       </aside>
     );
@@ -55,7 +55,7 @@ export function DemoSignupCallout({ variant = "box" }: { variant?: "box" | "inli
           <span>{text}</span>
         </p>
         <Button asChild variant="default" className="w-full sm:w-auto">
-          <Link href="/demo">{t("cta")}</Link>
+          <Link href="/interest">{t("cta")}</Link>
         </Button>
       </div>
     </aside>

@@ -14,7 +14,7 @@ import type { Messages } from "./messages";
  * - **Admin** (`app/admin/layout.tsx`) adds the `admin` namespace.
  * - **Account** (`app/account`, `app/oauth`, `app/mcp` layouts) adds
  *   `account`.
- * - **Demo** (`app/demo`) adds `demoPass`, the sign-up form's words.
+ * - **Demo** (`app/interest`) adds `demoPass`, the sign-up form's words.
  *
  * A nested scope adds to the one above it (`MessagesScope`), leaving out what
  * the public set already sent. A client component that starts using a new
@@ -72,7 +72,7 @@ export const ADMIN_CLIENT_MESSAGES = ["admin"] as const;
 // strings, like the rest of it on the admin overview (on-shift spec 2026-10-07).
 export const ACCOUNT_CLIENT_MESSAGES = ["account", "admin.onShift"] as const;
 
-/** The demo pass sign-up form (`app/demo`, demo pass spec 2026-10-07 §6). */
+/** The demo pass sign-up form (`app/interest`, demo pass spec 2026-10-07 §6). */
 export const DEMO_CLIENT_MESSAGES = ["demoPass"] as const;
 
 export type ClientMessagesScope = "admin" | "account" | "demo";

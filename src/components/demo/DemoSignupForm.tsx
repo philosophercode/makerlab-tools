@@ -18,7 +18,7 @@ import { settleSignupNudge } from "./signup-nudge-store";
 import { submitDemoSignup, type DemoSignupOutcome, type DemoSignupPayload } from "./submit-demo-signup";
 
 /**
- * The sign-up form on `/demo` (demo pass spec 2026-10-07 §5.1, §6; amendment
+ * The sign-up form on `/interest` (demo pass spec 2026-10-07 §5.1, §6; amendment
  * 2026-10-11): name, email and institution, then three optional questions, and
  * one **Submit**. Asking to be contacted is what the form is for, so there is
  * no consent box: the privacy line says so and the form sends `consent: true`.

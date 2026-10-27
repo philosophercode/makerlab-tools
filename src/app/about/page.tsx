@@ -145,7 +145,7 @@ export default function AboutPage() {
           </Prose>
           <div>
             <Button asChild variant="default">
-              <Link href="/demo">{t("demoCta")}</Link>
+              <Link href="/interest">{t("demoCta")}</Link>
             </Button>
           </div>
         </PageSection>

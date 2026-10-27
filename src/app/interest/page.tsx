@@ -12,7 +12,7 @@ export const metadata = {
 };
 
 /**
- * `/demo` (demo pass spec 2026-10-07 §5.1, §6; amendment 2026-10-11): the
+ * `/interest` (demo pass spec 2026-10-07 §5.1, §6; amendment 2026-10-11): the
  * sign-up for people interested in bringing the assistant to their own
  * makerspace. The site is the demo, so the page says nothing about a pass;
  * submitting still issues one (§5.2), which raises the visitor's chat

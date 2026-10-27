@@ -61,7 +61,7 @@ describe("/about", () => {
     const { unmount } = render(<AboutPage />);
     const signup = section("Bring MakerLAB AI to your makerspace");
     expect(signup).toHaveTextContent("Interested in learning more? Sign up and we'll be in touch.");
-    expect(within(signup).getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/demo");
+    expect(within(signup).getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/interest");
     unmount();
 
     vi.stubEnv("DEMO_PASS", "off");
