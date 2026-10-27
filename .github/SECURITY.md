@@ -15,7 +15,7 @@ disclose it.
 
 - The code in this repository.
 - The Cornell Tech MakerLAB deployment at <https://www.makerlabai.app>. Test against your
-  own copy where you can ([`docs/fork.md`](docs/fork.md) runs one locally with no keys).
+  own copy where you can ([`docs/fork.md`](../docs/fork.md) runs one locally with no keys).
   Do not run load tests, spam the assistant (every chat turn is a paid model call), or
   read or change other people's data.
 

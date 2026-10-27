@@ -204,7 +204,7 @@ The test suite needs **no credentials and makes no network calls**.
 | [`docs/specs/`](docs/specs/README.md) | Design specs and what is built against each. |
 | [`docs/MakerLab_design/DESIGN.md`](docs/MakerLab_design/DESIGN.md) | The design system. |
 | [`AGENTS.md`](AGENTS.md), [`docs/architecture/`](docs/architecture/) | Conventions, then the app in detail area by area, for people and AI assistants alike. |
-| [`TESTING.md`](TESTING.md) | Test suite runbook. |
+| [`docs/testing.md`](docs/testing.md) | Test suite runbook. |
 | [`.env.example`](.env.example) | Every environment variable, with what it does. |
 | [`evals/README.md`](evals/README.md) | The agent eval harness. |
 
@@ -217,18 +217,18 @@ Dated specs in `docs/specs/` written before the move refer to paths under `v5/`.
 
 ## Contributing
 
-[`CONTRIBUTING.md`](CONTRIBUTING.md) has the setup and the checklist. In short: every feature starts with a spec that merges **before** the implementation
+[`CONTRIBUTING.md`](.github/CONTRIBUTING.md) has the setup and the checklist. In short: every feature starts with a spec that merges **before** the implementation
 ([`docs/constitution.md`](docs/constitution.md), Article 1). Use
 [`docs/specs/TEMPLATE.md`](docs/specs/TEMPLATE.md), or `/spec` in Claude Code.
 `npm run test:all` must pass before any merge. Outside contributors sign the
-[Contributor License Agreement](CLA.md) once, before their first pull request merges.
-Report security problems privately, as [`SECURITY.md`](SECURITY.md) describes.
+[Contributor License Agreement](docs/legal/CLA.md) once, before their first pull request merges.
+Report security problems privately, as [`SECURITY.md`](.github/SECURITY.md) describes.
 
 ## License
 
 Open source under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`).
 You may use, change and host it for any purpose; if you let others use a changed version
 over a network, you must offer them its source. Names, logos, product photos and project
-photos are not covered. [`LICENSING.md`](LICENSING.md) explains it in plain language.
+photos are not covered. [`LICENSING.md`](docs/legal/LICENSING.md) explains it in plain language.
 
 Copyright (C) 2026 Isaac Steinberg.

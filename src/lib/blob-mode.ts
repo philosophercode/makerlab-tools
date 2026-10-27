@@ -11,7 +11,7 @@
  * - `"none"` — anything else. A deploy without a linked store keeps failing
  *   loudly (`blob_not_configured`, 503); it never falls back to a disk that
  *   would vanish with the function instance. The test suites set
- *   `BLOB_LOCAL_DISABLE=1` (vitest.setup.ts) so "no token" still means "none"
+ *   `BLOB_LOCAL_DISABLE=1` (test/setup.ts) so "no token" still means "none"
  *   there unless a test opts in.
  *
  * One test-only exception: `BLOB_LOCAL_DIR` (an explicit folder) also allows

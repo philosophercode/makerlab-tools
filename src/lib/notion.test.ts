@@ -53,7 +53,7 @@ function _page(
 }
 
 // Stub all 8 Notion env vars so notion.ts routes its requests at the DB_IDS
-// sentinels the default MSW handlers expect. Auto-undone by vitest.setup.ts.
+// sentinels the default MSW handlers expect. Auto-undone by test/setup.ts.
 function stubNotionEnv() {
   vi.stubEnv("NOTION_API_KEY", "secret_test");
   vi.stubEnv("NOTION_DB_TOOLS", DB_IDS.tools);

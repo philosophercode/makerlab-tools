@@ -8,7 +8,7 @@ import type { NotionFake } from "../fakes/notion-fake.ts";
  * Every method on `${base}/*` goes to `fake.handle`, which answers exactly as
  * the E2E stub server does, so a push tested here and a push clicked through
  * in Playwright meet the same Notion. Registered with `server.use`, so the
- * shared `afterEach(resetHandlers)` in `vitest.setup.ts` removes it; call this
+ * shared `afterEach(resetHandlers)` in `test/setup.ts` removes it; call this
  * in a `beforeEach` (or in the test) rather than once per file.
  *
  * The request body is passed as text and parsed by the fake; the headers are

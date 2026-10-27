@@ -238,7 +238,7 @@ locale — it replies in whatever language the student writes in.
 
 ## 9. Testing
 
-Four layers, all offline. See [`TESTING.md`](../TESTING.md) for the runbook.
+Four layers, all offline. See [`docs/testing.md`](testing.md) for the runbook.
 
 | Layer | Tool | Covers |
 |---|---|---|

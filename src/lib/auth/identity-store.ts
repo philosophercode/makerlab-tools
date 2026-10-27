@@ -29,7 +29,7 @@ interface SharedIdentityState {
 
 /**
  * Kept on `globalThis` under this key so the test setup can forget it between
- * tests (`vitest.setup.ts`) without importing this module — importing it there
+ * tests (`test/setup.ts`) without importing this module — importing it there
  * would bind the real `fetchIdentity` before a test file mocks it.
  */
 export const SHARED_IDENTITY_KEY = "__makerlab_shared_identity__";
