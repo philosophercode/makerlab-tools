@@ -1,7 +1,7 @@
 # Lab Config — Design Spec
 
 **Date:** 2026-10-25
-**Status:** Approved for planning (owner, 2026-10-25)
+**Status:** Approved for planning (owner, 2026-10-25); §12 amendment proposed 2026-10-27
 **Target:** the app (repository root)
 **Branch:** `claude/project-thread-kmp718`
 **Spec PR:** #189 · **Implementation PR:** opens after this merges (Article 1)
@@ -324,3 +324,97 @@ The owner took the recommended answer to each open question:
 3. **`/product` for forks:** stays on (`pages.product: true`); a fork turns it off if it
    wants.
 4. **Phase 3** (in-app tracing): no spec yet; wait until a second lab asks.
+
+## 12. Amendment (2026-10-27): the rest of the lab-specific settings
+
+The owner asked that the sign-in rules live in the config and asked what else belongs
+there. An audit of `main` after #188–#191 found these, not covered by §3.3. They join
+phase 1; nothing else in this spec changes except where a line below says so.
+
+### 12.1 New fields
+
+| Today | Field | Env override (still wins) |
+|---|---|---|
+| `roles.ts` `DEFAULT_EMAIL_DOMAIN` (already in §3.3) | `access.emailDomain` | `AUTH_ALLOWED_EMAIL_DOMAIN` |
+| `EMAIL_FROM`, `EMAIL_REPLY_TO` (no default today: mail is off without them) | `email.from`, `email.replyTo` (both `string \| null`) | `EMAIL_FROM`, `EMAIL_REPLY_TO` |
+| `src/i18n/config.ts` `DEFAULT_LOCALE = "en"` | `locale.default` (one of the supported locales) | — |
+| the About page's lab prose in `messages/*.json` (`about.title`, `lede`, `labBody`, `historyBody`, `where`, `hours`, `hoursNote`, `officialLink`, `communityBody`, `thanksBody`) | `about.*`, each a `LocalizedText` | — |
+| about 25 "MakerLAB" literals in `src/` (page metadata, QR label brand text and PDF creator, the share card, the chat system prompt, photo-QR and quick-report notes, the header's `aria-label`) | `identity.labName`, `identity.siteName`, `identity.assistantName` | as §4 |
+| 82 "MakerLAB" strings per locale in `messages/*.json` (mostly "MakerLAB AI") | lab tokens, §12.2 | — |
+
+`LocalizedText` is `string | { en: string } & Partial<Record<Locale, string>>`: a plain
+string for a lab that writes in one language, or per-locale text that falls back to
+`en`. The shipped Cornell file carries today's twelve translations, so About reads the
+same in every locale. This replaces §6's "not translated" for the About prose only:
+the live site already translates it, and dropping eleven translations would be a
+visible regression. People's titles and photo captions stay untranslated (§11 Q2).
+
+The original author's credit (`about.creditsBody`) stays in `messages/` with the lab's
+name as a token (§3.3, "kept as is"); it is the one message key the guard test (§10)
+allows to say "Cornell", because it is the author's degree, not the lab.
+
+### 12.2 Lab tokens in messages
+
+Messages say `{labName}`, `{assistantName}`, `{siteName}` and `{institution}` where they
+name the lab. `src/i18n/messages.ts` fills them **once, when the messages load**, from
+`resolveLab()`, so no `t()` call changes and client components get filled strings. Every
+module that reads a message file goes through that loader (today four import the JSON
+directly: `i18n/request.ts`, `kiosk/kiosk-locale.ts`, `product/metadata.ts`,
+`starters/general.ts`). A test
+fails if a message file uses a lab token the loader does not fill, or if a file outside
+the loader and tests imports `messages/*.json`.
+
+### 12.3 Sign-in: what stays out of the file
+
+`access` holds the **domain rule only**. The individual addresses stay env-only:
+`AUTH_ALLOWED_EMAILS` (named exceptions to the domain) and `AUTH_SUPER_ADMIN_EMAILS`
+(the bootstrap super admins). The repository is public and personal addresses were
+removed from it on 2026-10-22; committing them in the config would put them back. The
+schema has no field for either, and `lab/README.md` names the two env vars next to
+`access.emailDomain` so a fork finds them in the same place.
+
+### 12.4 Stays in env, deliberately
+
+Secrets and keys (auth, Google, AI gateway, Resend, Blob, Upstash, cron, revalidate,
+Notion), `DATABASE_URL`, model choices (`MODEL_*`), rate limits and budgets, and the
+demo switches (`DEMO_ADMIN_*`, `DEMO_PASS_*` on/off). They differ per deployment of the
+same lab, not per lab, or they are secret.
+
+### 12.6 Looser coupling between the plan and the inventory
+
+Today a tool lands on the map only when its location's `(room, zone)` strings equal a
+zone's `room` and `zone` exactly, or its `map_tag` equals a station id
+(`src/lib/map/placement.ts`). An inventory that names places its own way ("Wood Shop",
+"Digital Fabrication", as the demo CSV does) lands entirely under "Not on the map".
+
+The owner's decision (2026-10-27): **one plan and one set of zones for the lab and the
+demo, only the tools differ, and no database change.** So the plan takes on the
+mapping:
+
+- Each zone gains an optional **`matches: string[]`**: other location names that mean
+  this zone, written `"Room"` or `"Room / Zone"`, compared case- and space-insensitively.
+  `"Wood Shop"` matches every location in the room Wood Shop; `"Wood Shop / Bench 2"`
+  matches one.
+- Placement tries, in order: `map_tag` → station; exact `(room, zone)` → zone;
+  `"room / zone"` in a zone's `matches`; `"room"` in a zone's `matches`. The first hit
+  wins; nothing matched still lists the tool under the map (unchanged).
+- `lab:check` fails when two zones claim the same `matches` entry, and
+  `lab:check --inventory` prints, for each unmatched location, the line to paste into a
+  zone's `matches`.
+- The prompt in `docs/map.md` asks the model for `matches` too, given the inventory's
+  location list.
+- No database change and no new column. The shipped Cornell plan carries no `matches`:
+  the demo CSV uses the plan's real zone names, so the demo's tools land on the same map
+  and the real lab's plan holds no demo vocabulary. `matches` is for forks whose
+  inventory names places differently from their drawing.
+
+The schema, the geometry fixture and the placement tests cover each step of the order.
+
+### 12.5 Testing additions
+
+- The guard (§10) also forbids "MakerLAB" in `src/` string literals and in `messages/`
+  values, outside comments and tests; message files use the tokens instead.
+- Precedence tests for `email.from` and `email.replyTo`; a `locale.default` outside the
+  supported list fails the schema.
+- About renders the fixture lab's `about.*` text in English and falls back to `en` for a
+  locale the fixture does not give.
