@@ -380,6 +380,34 @@ Notion), `DATABASE_URL`, model choices (`MODEL_*`), rate limits and budgets, and
 demo switches (`DEMO_ADMIN_*`, `DEMO_PASS_*` on/off). They differ per deployment of the
 same lab, not per lab, or they are secret.
 
+### 12.6 Looser coupling between the plan and the inventory
+
+Today a tool lands on the map only when its location's `(room, zone)` strings equal a
+zone's `room` and `zone` exactly, or its `map_tag` equals a station id
+(`src/lib/map/placement.ts`). An inventory that names places its own way ("Wood Shop",
+"Digital Fabrication", as the demo CSV does) lands entirely under "Not on the map".
+
+The owner's decision (2026-10-27): **one plan and one set of zones for the lab and the
+demo, only the tools differ, and no database change.** So the plan takes on the
+mapping:
+
+- Each zone gains an optional **`matches: string[]`**: other location names that mean
+  this zone, written `"Room"` or `"Room / Zone"`, compared case- and space-insensitively.
+  `"Wood Shop"` matches every location in the room Wood Shop; `"Wood Shop / Bench 2"`
+  matches one.
+- Placement tries, in order: `map_tag` → station; exact `(room, zone)` → zone;
+  `"room / zone"` in a zone's `matches`; `"room"` in a zone's `matches`. The first hit
+  wins; nothing matched still lists the tool under the map (unchanged).
+- `lab:check` fails when two zones claim the same `matches` entry, and
+  `lab:check --inventory` prints, for each unmatched location, the line to paste into a
+  zone's `matches`.
+- The prompt in `docs/map.md` asks the model for `matches` too, given the inventory's
+  location list.
+- No database change and no new column. The shipped plan carries `matches` for the demo
+  CSV's location names, so the demo shows its tools on the same map.
+
+The schema, the geometry fixture and the placement tests cover each step of the order.
+
 ### 12.5 Testing additions
 
 - The guard (§10) also forbids "MakerLAB" in `src/` string literals and in `messages/`
