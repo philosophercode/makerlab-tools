@@ -13,19 +13,22 @@ import {
   IMPORT_DOCUMENT_MAX_CHARS,
   IMPORT_DOCUMENT_MAX_PAGES,
   IMPORT_MAX_ITEMS,
+  IMPORT_MAX_PASTE_BYTES,
   IMPORT_MAX_PDF_BYTES,
   IMPORT_MAX_TEXT_BYTES,
 } from "../../lib/import/limits";
+import { uploadImportFile, type ImportUploadDeps } from "../../lib/import/upload-import-file";
 
 /**
  * **Import a list** (bulk intake spec §5 step 1): choose a file or paste.
  *
- * A file goes through the one upload route (`POST /api/uploads`, kind
- * `import`: private Blob, its type and size checks), then `POST /api/imports`
+ * A file is uploaded private (`uploadImportFile`: through `POST /api/uploads`,
+ * kind `import`, or — above the function's 4.5 MB body limit — from the
+ * browser straight to Blob; import progress spec §3.5), then `POST /api/imports`
  * with the attachment id. When the deployment has no Blob store, a text file
  * is read in the browser and sent as text instead — the import still works, it
  * just keeps no copy of the file; a PDF needs the store and says so. A paste is
- * sent as text. Either way the page moves to the import, where a table's
+ * sent as text, up to 4 MB (`IMPORT_MAX_PASTE_BYTES`), checked here before it is sent. Either way the page moves to the import, where a table's
  * columns are confirmed and everything is reviewed before research.
  */
 
@@ -45,7 +48,7 @@ interface ImportResponse extends RefusalNumbers {
   code?: string;
 }
 
-export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) {
+export function ImportLauncher({ fetcher = fetch, upload }: { fetcher?: typeof fetch; upload?: ImportUploadDeps["upload"] }) {
   const t = useTranslations("admin.import");
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
@@ -80,11 +83,8 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
       setError({ code: "too_large" });
       return;
     }
-    const form = new FormData();
-    form.append("file", chosen);
-    form.append("kind", "import");
-    const upload = await fetcher("/api/uploads", { method: "POST", body: form });
-    if (upload.status === 503) {
+    const uploaded = await uploadImportFile(chosen, { fetcher, upload });
+    if (!uploaded.ok && uploaded.status === 503) {
       // No Blob store: a text file can still be imported as its text.
       if (isPdf) {
         setError({ code: "blob_unavailable" });
@@ -93,9 +93,8 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
       await send({ text: await chosen.text(), sourceName: chosen.name });
       return;
     }
-    const uploaded = (await upload.json().catch(() => ({}))) as { attachmentId?: string; code?: string };
-    if (!upload.ok || !uploaded.attachmentId) {
-      setError({ code: uploaded.code ?? (upload.status === 400 ? "unsupported_file" : "failed") });
+    if (!uploaded.ok) {
+      setError({ code: uploadErrorCode(uploaded.status, uploaded.code) });
       return;
     }
     await send({ attachmentId: uploaded.attachmentId, sourceName: chosen.name });
@@ -108,7 +107,10 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
     setBusy(true);
     try {
       if (file) await importFile(file);
-      else if (text.trim()) await send({ text });
+      else if (text.trim()) {
+        if (new TextEncoder().encode(text).byteLength > IMPORT_MAX_PASTE_BYTES) setError({ code: "paste_too_large" });
+        else await send({ text });
+      }
     } catch {
       setError({ code: "failed" });
     } finally {
@@ -161,4 +163,13 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
       </div>
     </form>
   );
+}
+
+/** The launcher's word for an upload the routes refused. */
+function uploadErrorCode(status: number, code: string | undefined): string {
+  // The platform's own refusal of a body over its limit carries no code of ours.
+  if (status === 413 || code === "file_too_large") return "too_large";
+  if (code === "unsupported_file") return "unsupported_file";
+  if (code) return code;
+  return status === 400 ? "unsupported_file" : "failed";
 }

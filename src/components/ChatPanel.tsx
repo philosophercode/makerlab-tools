@@ -331,11 +331,19 @@ export function ChatPanel() {
       const hint = attachments.photos.map((p) => `attachment_id=${p.attachmentId} name=${p.name}`).join("; ");
       outgoing = `${outgoing}\n\n[Attached photos: ${hint}]`;
     }
-    if (attachments.documents.length > 0) {
+    const files = attachments.documents.filter((d) => d.attachmentId);
+    const started = attachments.documents.filter((d) => d.importId);
+    if (files.length > 0) {
       // Only the id and the name: the model hands the file to `start_import`
       // and never reads it (bulk intake spec §3.5).
-      const hint = attachments.documents.map((d) => `attachment_id=${d.attachmentId} name=${d.name}`).join("; ");
+      const hint = files.map((d) => `attachment_id=${d.attachmentId} name=${d.name}`).join("; ");
       outgoing = `${outgoing}\n\n[Attached documents: ${hint}]`;
+    }
+    if (started.length > 0) {
+      // A list the chat imported itself, with no Blob store to keep the file
+      // (import progress spec §3.5): the model shows its card by id.
+      const hint = started.map((d) => `import_id=${d.importId} name=${d.name}`).join("; ");
+      outgoing = `${outgoing}\n\n[Started imports: ${hint}]`;
     }
     send(outgoing, toVisionFileParts(attachments.photos));
     setDraft("");

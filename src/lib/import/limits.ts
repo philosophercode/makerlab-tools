@@ -109,5 +109,35 @@ export const SETUP_ALLOWANCE_DEFAULT_DAYS = 7;
 export const SETUP_ALLOWANCE_MAX_ITEMS = 2000;
 export const SETUP_ALLOWANCE_MAX_DAYS = 30;
 
-/** How often the import page asks again while a document is being read. */
+/** How often the import page asks again while something runs — a document read, rows written, research. */
 export const IMPORT_POLL_INTERVAL_MS = 3_000;
+
+/** After this long with nothing changed, the page asks less often (import progress spec §3.3). */
+export const IMPORT_POLL_IDLE_AFTER_MS = 60_000;
+export const IMPORT_POLL_IDLE_INTERVAL_MS = 10_000;
+
+/**
+ * Rows written per transaction while an import is `identifying` (import
+ * progress spec §3.2, §11 Q2): the page sees them arrive a slice at a time.
+ */
+export const IMPORT_SLICE_SIZE = 25;
+
+/**
+ * Vercel refuses a function request body over 4.5 MB before our code runs
+ * (import progress spec §3.5), so the in-function paths stay under it:
+ *
+ * - a **pasted** list is at most this many bytes, on the page and the route;
+ * - a **file** up to this size goes through `POST /api/uploads`; a larger one
+ *   goes from the browser straight to Blob (`POST /api/uploads/token`), which
+ *   is what makes {@link IMPORT_MAX_TEXT_BYTES} and
+ *   {@link IMPORT_MAX_PDF_BYTES} real.
+ */
+export const IMPORT_MAX_PASTE_BYTES = 4 * 1024 * 1024;
+export const IMPORT_DIRECT_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+
+/**
+ * The most characters of a list the chat hands to an import as text — what
+ * `start_import` takes, and what the chat reads in the browser when there is
+ * no Blob store (§3.5). Above it the chat says to use the import page.
+ */
+export const IMPORT_CHAT_TEXT_MAX_CHARS = 200_000;

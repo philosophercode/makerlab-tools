@@ -27,6 +27,7 @@ import { personLabel } from "./person-label";
 const STATUS_TONE: Record<ImportStatus, StatusTone> = {
   mapping: "active",
   parsing: "idle",
+  identifying: "idle",
   ready: "active",
   failed: "bad",
 };

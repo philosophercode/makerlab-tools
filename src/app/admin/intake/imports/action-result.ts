@@ -19,7 +19,11 @@ export type ImportActionError =
   | "not_editable"
   | "too_many_items"
   | "daily_limit"
-  | "start_failed";
+  | "start_failed"
+  | "unresolved_duplicate"
+  | "not_researchable"
+  | "image_retry_running"
+  | "failed";
 
 export type ImportActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: ImportActionError; remaining?: number };
 
@@ -27,6 +31,9 @@ export type ImportActionResult<T = object> = ({ ok: true } & T) | { ok: false; e
 export type RowsResult = ImportActionResult<{ items: ImportItemView[] }>;
 
 export type LoadImportResult = ImportActionResult<{ import: ImportView; items: ImportItemView[] }>;
+
+/** A progress poll: the import, the rows changed since `since`, and what to send as `since` next. */
+export type ProgressResult = ImportActionResult<{ import: ImportView; items: ImportItemView[]; cursor: string }>;
 
 export interface RowPatch {
   name?: string;
@@ -40,6 +47,7 @@ export interface RowPatch {
 /** The actions the page hands the island — passed as props, never imported by it. */
 export interface ImportActions {
   load: (input: { importId: string }) => Promise<LoadImportResult>;
+  progress: (input: { importId: string; since?: string }) => Promise<ProgressResult>;
   confirmColumns: (input: { importId: string; columnMap: ColumnMap }) => Promise<LoadImportResult>;
   updateRow: (input: { importId: string; id: string; patch: RowPatch }) => Promise<RowsResult>;
   setHints: (input: { importId: string; ids: string[]; categoryHint?: string | null; locationHint?: string | null }) => Promise<RowsResult>;

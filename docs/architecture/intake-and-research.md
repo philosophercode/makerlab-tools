@@ -292,8 +292,20 @@ researched or published on its own (Article 5). See the spec's 2026-09-24 amendm
 - **Setup allowances**: `researchLimitFor` (`data/research-allowances.ts`) = 100 + running
   grants, used by research, refresh and Find a different image; granted on `/admin/users`
   (`users.manage`), audited `allowance.granted`.
-- **Uploads**: kind `import` on `POST /api/uploads` (private, `tools.add`). The chat's
-  paperclip takes list files and names them to the model as `[Attached documents: …]`.
+- **Uploads**: kind `import` on `POST /api/uploads` (private, `tools.add`); a file over
+  4 MB goes from the browser straight to Blob through `POST /api/uploads/token`
+  (`lib/import/upload-import-file.ts`, the one client path for the page and the chat;
+  rules in `lib/import/upload-policy.ts`). Pastes are capped at 4 MB. The chat's
+  paperclip takes list files and names them to the model as `[Attached documents: …]`;
+  with no Blob store it imports a text list from the browser (`origin: "chat"`) and
+  names it as `[Started imports: …]`, which `start_import` shows by `importId`.
+- **Progress** (import progress spec, migration `0035`): a table or list is written a
+  slice of 25 rows at a time while the import is `identifying` (`writeImportSlice`;
+  first slice inline, the rest by workflow `import-rows.ts`, resumable from
+  `progress.done`). The page and the chat's card poll `loadImportProgress` (rows changed
+  since a cursor) and render `ImportProgress`: a segmented bar, the stage line, and the
+  list as sent with each row's state. The assistant researches an import with
+  `research_import` (`imports.research`, proposed, confirmed on a card).
 
 ## Taxonomy v2 (`categories` tree, `category_proposals`; taxonomy v2 spec, migration `0023`)
 

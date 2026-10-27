@@ -87,6 +87,9 @@ const RISK_TONE: Record<ActionProposalCardPayload["risk"], StatusTone> = {
   destructive: "bad",
 };
 
+/** Fired on `window` after a proposal is confirmed (import progress spec §3.4). */
+export const ACTION_CONFIRMED_EVENT = "makerlab:action-confirmed";
+
 export function ActionProposalCard({ payload }: { payload: ActionProposalCardPayload }) {
   const t = useTranslations("actions");
   const te = useTranslations("admin.errors");
@@ -183,7 +186,12 @@ export function ActionProposalCard({ payload }: { payload: ActionProposalCardPay
         ),
       }));
       // The page behind the chat shows the change too (a People row, a ticket).
-      if (body.results.some((outcome) => outcome.status === "confirmed")) router.refresh();
+      if (body.results.some((outcome) => outcome.status === "confirmed")) {
+        router.refresh();
+        // `router.refresh()` keeps mounted cards' state, so a card that follows
+        // something live (the import card) hears it here and asks again.
+        window.dispatchEvent(new Event(ACTION_CONFIRMED_EVENT));
+      }
     } catch {
       setRequestError(true);
       setRows((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, { status: "open" as RowStatus }])) }));

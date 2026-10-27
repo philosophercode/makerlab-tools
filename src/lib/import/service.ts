@@ -3,11 +3,12 @@ import "server-only";
 import { start } from "workflow/api";
 import { findAttachmentsByIds } from "../data/attachments";
 import {
-  addImportItems,
+  beginImportRows,
   createBulkImport,
   failBulkImport,
   getBulkImport,
   setImportWorkflowRun,
+  writeImportSlice,
   type BulkImportRecord,
 } from "../data/bulk-imports";
 import type { ImportSourceKind } from "../db/schema/vocabulary";
@@ -15,13 +16,15 @@ import type { Db } from "../db/types";
 import { extractManual } from "../manuals/extract";
 import { readStoredFile } from "../manuals/stored-bytes";
 import { importDocument } from "../../workflows/import-document";
+import { importRows } from "../../workflows/import-rows";
 import { columnMapProblem, hasNameColumn, type ColumnMap, type ColumnMapProblem } from "./columns";
 import { classifySource, extensionOf, isImportFileName } from "./detect";
 import { chunkDocument } from "./extract-output";
-import { normalizeImportItems, tableToRawItems } from "./items";
+import { normalizeImportItems } from "./items";
 import { documentTooLong, IMPORT_MAX_ITEMS, IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "./limits";
 import { parseLineList } from "./line-list";
 import { buildTablePreview, readImportTable } from "./preview";
+import { readImportRows, type ImportRowsRead } from "./rows";
 import { stripBom } from "./table";
 
 /**
@@ -41,8 +44,11 @@ import { stripBom } from "./table";
  *    matches — or, from the chat, takes the suggested ones when they name the
  *    name column; a plain list becomes rows at once; a document is `parsing`
  *    while `importDocument` reads it.
- * 3. **Rows** are made only by `addImportItems`: identified pending items, the
- *    duplicate check on each (inventory, waiting items, earlier rows).
+ * 3. **Rows** are written a slice at a time (import progress spec 2026-10-27
+ *    §3.2): the import becomes `identifying`, the first slice is written here,
+ *    and `importRows` writes the rest in the background — or, when it cannot
+ *    start, they are written here too. Identified pending items, the duplicate
+ *    check on each (inventory, waiting items, earlier rows).
  *
  * Refusals are codes the page and the chat word (`admin.import.errors.*`).
  * Nothing here researches or publishes (Article 5).
@@ -73,7 +79,12 @@ export interface StartImportInput {
   db?: Db;
   /** For tests: the document workflow's starter. */
   startRun?: (importId: string, chunkCount: number) => Promise<{ runId: string }>;
+  /** For tests: the background row writer's starter. */
+  startRows?: RowsStarter;
 }
+
+/** Starts `importRows` for an import already `identifying`. */
+export type RowsStarter = (importId: string) => Promise<{ runId: string }>;
 
 /**
  * A refusal carries the numbers its message needs: `too_many_items` the count
@@ -111,7 +122,7 @@ export async function startImport(input: StartImportInput): Promise<StartImportO
     );
     if (input.autoConfirm) {
       const suggested = buildTablePreview(table).suggested;
-      if (hasNameColumn(suggested)) await confirmImportMapping(created.id, suggested, { db });
+      if (hasNameColumn(suggested)) await confirmImportMapping(created.id, suggested, { db, startRows: input.startRows });
     }
     return { ok: true, import: (await getBulkImport(created.id, { db })) ?? created };
   }
@@ -123,7 +134,8 @@ export async function startImport(input: StartImportInput): Promise<StartImportO
       { createdBy: input.userId, sourceKind, format: "list", sourceName, sourceText: text, sourceAttachmentId: attachmentId, status: "parsing" },
       { db }
     );
-    await addImportItems(created.id, { items, rowCount: items.length }, { db });
+    const read = readImportRows(created);
+    if (read) await writeRows(created.id, read, { db, startRows: input.startRows });
     return { ok: true, import: (await getBulkImport(created.id, { db })) ?? created };
   }
 
@@ -159,12 +171,14 @@ export type ConfirmMappingOutcome =
 /**
  * The mapping step's **Continue** (§5 step 1): the table is read again from the
  * import's own text, the map checked against it (a name column, each field
- * once, as wide as the table), and every row validated into a pending item.
+ * once, as wide as the table), and every row validated. Then the rows are
+ * written a slice at a time ({@link writeRows}); the answer comes after the
+ * first slice, with the counts so far — the page shows the rest arrive.
  */
 export async function confirmImportMapping(
   importId: string,
   map: ColumnMap,
-  options: { db?: Db } = {}
+  options: { db?: Db; startRows?: RowsStarter } = {}
 ): Promise<ConfirmMappingOutcome> {
   const found = await getBulkImport(importId, options);
   if (!found) return { ok: false, error: "not_found" };
@@ -174,11 +188,52 @@ export async function confirmImportMapping(
   const problem = columnMapProblem(map, table.headers.length);
   if (problem) return { ok: false, error: problem };
 
-  const { items } = normalizeImportItems(tableToRawItems(table, map));
-  if (items.length > IMPORT_MAX_ITEMS) return { ok: false, error: "too_many_items" };
-  const written = await addImportItems(importId, { items, rowCount: table.rows.length, columnMap: map }, options);
+  const read = readImportRows(found, map);
+  if (!read) return { ok: false, error: "not_editable" };
+  if (read.items.length > IMPORT_MAX_ITEMS) return { ok: false, error: "too_many_items" };
+  const written = await writeRows(importId, read, { ...options, columnMap: map });
   if (!written.ok) return { ok: false, error: written.reason };
-  return { ok: true, itemCount: written.itemCount, duplicateCount: written.duplicateCount };
+  const fresh = await getBulkImport(importId, options);
+  return { ok: true, itemCount: fresh?.itemCount ?? 0, duplicateCount: fresh?.duplicateCount ?? 0 };
+}
+
+/**
+ * Write an import's rows (import progress spec §3.2): begun (`identifying`,
+ * or `failed` with `no_items`), the first slice here, and — when there is
+ * more — the rest by `importRows` in the background. When the workflow cannot
+ * start, the rest are written here too, a slice at a time: slower to answer,
+ * never lost.
+ */
+async function writeRows(
+  importId: string,
+  read: ImportRowsRead,
+  options: { db?: Db; startRows?: RowsStarter; columnMap?: ColumnMap }
+): Promise<{ ok: true } | { ok: false; reason: "not_found" | "not_editable" }> {
+  const { db } = options;
+  const begun = await beginImportRows(importId, { ...read, columnMap: options.columnMap ?? null }, { db });
+  if (!begun.ok) return begun;
+  if (begun.status !== "identifying") return { ok: true };
+
+  const first = await writeImportSlice(importId, read.items, { db });
+  if (!first.ok) return first;
+  if (first.finished) return { ok: true };
+
+  try {
+    const run = options.startRows ? await options.startRows(importId) : await start(importRows, [importId]);
+    try {
+      await setImportWorkflowRun(importId, run.runId, { db });
+    } catch (error) {
+      console.error(`[import] run ${run.runId} started but its id was not stored:`, error);
+    }
+    return { ok: true };
+  } catch (error) {
+    console.error(`[import] could not start writing import ${importId} in the background; writing here:`, error instanceof Error ? error.message : error);
+  }
+  for (;;) {
+    const slice = await writeImportSlice(importId, read.items, { db });
+    if (!slice.ok) return slice;
+    if (slice.finished) return { ok: true };
+  }
 }
 
 function tooManyItems(count: number): StartImportRefusal {
