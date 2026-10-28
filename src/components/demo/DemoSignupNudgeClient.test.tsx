@@ -40,7 +40,7 @@ describe("DemoSignupNudgeClient", () => {
 
     act(() => vi.advanceTimersByTime(1000));
     expect(notice()).toHaveTextContent(WORDS.text);
-    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/demo");
+    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/interest");
     // Announced without taking focus.
     expect(notice()?.parentElement).toHaveAttribute("aria-live", "polite");
     expect(document.activeElement).toBe(document.body);
@@ -77,7 +77,7 @@ describe("DemoSignupNudgeClient", () => {
     expect(notice()).not.toBeInTheDocument();
   });
 
-  it.each(["/demo", "/admin/users", "/kiosk", "/account/tokens", "/oauth/consent"])("is not drawn on %s", (path) => {
+  it.each(["/interest", "/admin/users", "/kiosk", "/account/tokens", "/oauth/consent"])("is not drawn on %s", (path) => {
     pathnameMock.mockReturnValue(path);
     render(<DemoSignupNudgeClient {...WORDS} />);
     act(() => vi.advanceTimersByTime(SIGNUP_NUDGE_DELAY_MS));

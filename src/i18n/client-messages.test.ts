@@ -68,7 +68,7 @@ function routeScope(rel: string): Scope {
   if (/^app\/kiosk(\/|$)/.test(rel)) return "kiosk";
   if (/^app\/admin(\/|$)/.test(rel)) return "admin";
   if (/^app\/(account|oauth|mcp)(\/|$)/.test(rel)) return "account";
-  if (/^app\/demo(\/|$)/.test(rel)) return "demo";
+  if (/^app\/interest(\/|$)/.test(rel)) return "demo";
   return "public";
 }
 

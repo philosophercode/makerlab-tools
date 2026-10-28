@@ -10,6 +10,7 @@ import { DEMO_SIGNUP_ROLES } from "../../lib/db/schema/vocabulary";
 import { DEMO_SIGNUP_LIMITS, parseDemoSignup, type DemoSignupField, type DemoSignupFieldError } from "../../lib/demo-pass/signup";
 import { Field, errorId, hintId } from "../system/Field";
 import { useSharedIdentity } from "../../lib/auth/identity-store";
+import { isSignedIn } from "../../lib/auth/sign-in-client";
 import { siteConfig } from "../../lib/site-config";
 import { Prose } from "../system/PublicPage";
 import { DemoSignupThanks } from "./DemoSignupThanks";
@@ -17,7 +18,7 @@ import { settleSignupNudge } from "./signup-nudge-store";
 import { submitDemoSignup, type DemoSignupOutcome, type DemoSignupPayload } from "./submit-demo-signup";
 
 /**
- * The sign-up form on `/demo` (demo pass spec 2026-10-07 §5.1, §6; amendment
+ * The sign-up form on `/interest` (demo pass spec 2026-10-07 §5.1, §6; amendment
  * 2026-10-11): name, email and institution, then three optional questions, and
  * one **Submit**. Asking to be contacted is what the form is for, so there is
  * no consent box: the privacy line says so and the form sends `consent: true`.
@@ -62,9 +63,10 @@ export function DemoSignupForm() {
   // Prefill from the signed-in account once it is known (the header has
   // already asked who this is). Derived, not copied into state: a field shows
   // the account's value until the person edits it, and an edit — even to
-  // empty — is theirs from then on.
+  // empty — is theirs from then on. The demo identity is nobody, so its
+  // placeholder name never lands here (amendment 2026-10-27).
   const identity = useSharedIdentity();
-  const account = identity && identity.role !== "anonymous" ? identity : null;
+  const account = isSignedIn(identity) ? identity : null;
   const [edited, setEdited] = useState({ name: false, email: false });
   const filled: DemoSignupPayload = {
     ...values,

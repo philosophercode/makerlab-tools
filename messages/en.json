@@ -2900,7 +2900,7 @@
       "factSpent": "{amount} spent",
       "download": "Download CSV",
       "tableLabel": "Demo sign-ups",
-      "empty": "Nobody has signed up for a demo pass yet. The form is at /demo.",
+      "empty": "Nobody has signed up for a demo pass yet. The form is at /interest.",
       "columnSignedUp": "Signed up",
       "columnName": "Visitor",
       "columnInstitution": "Institution",

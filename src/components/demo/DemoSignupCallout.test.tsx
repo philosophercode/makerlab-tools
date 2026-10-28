@@ -11,7 +11,7 @@ describe("DemoSignupCallout", () => {
     const callout = screen.getByRole("complementary", { name: "MakerLAB AI for your makerspace" });
     expect(callout).toHaveTextContent("Interested in bringing MakerLAB AI to your makerspace?");
     expect(callout).not.toHaveTextContent(/pass/i);
-    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/demo");
+    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/interest");
   });
 
   it("on the home page is one small line, the same link, no box", () => {
@@ -20,7 +20,7 @@ describe("DemoSignupCallout", () => {
     expect(callout).toHaveAttribute("data-variant", "inline");
     // No card: the boxed look's bordered plate is not drawn.
     expect(callout.querySelector(".bg-card")).toBeNull();
-    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/demo");
+    expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute("href", "/interest");
   });
 
   it("is gone when DEMO_PASS is off", () => {

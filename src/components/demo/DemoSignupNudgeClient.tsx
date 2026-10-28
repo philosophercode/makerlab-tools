@@ -14,7 +14,7 @@ import { settleSignupNudge, useSignupNudge } from "./signup-nudge-store";
 /** Pages that never draw the notice: the sign-up itself, and the staff and screen surfaces. */
 function hiddenOn(pathname: string): boolean {
   if (isKioskPath(pathname)) return true;
-  return ["/demo", "/admin", "/account", "/oauth"].some((root) => pathname === root || pathname.startsWith(`${root}/`));
+  return ["/interest", "/admin", "/account", "/oauth"].some((root) => pathname === root || pathname.startsWith(`${root}/`));
 }
 
 /**
@@ -28,7 +28,7 @@ function hiddenOn(pathname: string): boolean {
  * no focus and traps nothing. It is announced politely through a live region
  * that is always in the page, and it steps aside while a dialog is open or
  * while that callout is showing (both sit low on a phone). Never shown to a
- * signed-in member, on `/demo`, the admin, account and OAuth pages, or the kiosk.
+ * signed-in member, on `/interest`, the admin, account and OAuth pages, or the kiosk.
  */
 export function DemoSignupNudgeClient({ label, text, cta, dismiss }: { label: string; text: string; cta: string; dismiss: string }) {
   const pathname = usePathname() || "/";
@@ -58,7 +58,7 @@ export function DemoSignupNudgeClient({ label, text, cta, dismiss }: { label: st
           </div>
           <div>
             <Button asChild size="sm" variant="default">
-              <Link href="/demo" onClick={() => settleSignupNudge("dismissed")}>
+              <Link href="/interest" onClick={() => settleSignupNudge("dismissed")}>
                 {cta}
               </Link>
             </Button>

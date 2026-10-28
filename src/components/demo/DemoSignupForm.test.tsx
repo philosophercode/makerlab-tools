@@ -92,6 +92,14 @@ describe("DemoSignupForm", () => {
     expect(screen.getByRole("textbox", { name: /^Email/ })).toHaveValue("grace@cornell.edu");
   });
 
+  it("leaves name and email empty for the demo identity, which is nobody", async () => {
+    publishIdentity({ role: "demo_admin", name: "Demo visitor", email: null });
+    render(<DemoSignupForm />);
+    await waitFor(() => expect(screen.getByRole("textbox", { name: /^Name/ })).toHaveValue(""));
+    expect(screen.queryByDisplayValue("Demo visitor")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /^Email/ })).toHaveValue("");
+  });
+
   it("asks the phone for the right keyboards and the browser for its saved details", () => {
     render(<DemoSignupForm />);
     expect(screen.getByRole("textbox", { name: /^Name/ })).toHaveAttribute("autocomplete", "name");

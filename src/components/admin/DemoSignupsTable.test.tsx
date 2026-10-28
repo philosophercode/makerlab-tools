@@ -36,6 +36,6 @@ describe("DemoSignupsTable", () => {
 
   it("says plainly when nobody has signed up", () => {
     render(<DemoSignupsTable rows={[]} budgetUsd={0.5} />);
-    expect(screen.getByText("Nobody has signed up for a demo pass yet. The form is at /demo.")).toBeInTheDocument();
+    expect(screen.getByText("Nobody has signed up for a demo pass yet. The form is at /interest.")).toBeInTheDocument();
   });
 });
