@@ -291,6 +291,38 @@ describe("ChatFab", () => {
     expect(composer).toHaveFocus();
   });
 
+  it("keeps the status line while the assistant's message draws nothing yet", async () => {
+    const user = userEvent.setup();
+    // The attached manuals' links arrive first on a tool page; they draw
+    // nothing, and the status line used to vanish with them.
+    useChatReturn = baseReturn({
+      messages: [
+        userMsg("u1", "hello"),
+        { id: "a1", role: "assistant" as const, parts: [{ type: "data-manual-links", data: { kind: "manual-links", links: [] } }] },
+      ],
+      status: "streaming",
+    });
+    render(<ChatFab />);
+
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+
+    expect(screen.getByLabelText("MakerLAB AI is typing")).toBeInTheDocument();
+    expect(screen.getByText("Working on it…")).toBeInTheDocument();
+  });
+
+  it("drops the status line once the answer is being written", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [userMsg("u1", "hello"), assistantMsg("a1", "Hi there")],
+      status: "streaming",
+    });
+    render(<ChatFab />);
+
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+
+    expect(screen.queryByLabelText("MakerLAB AI is typing")).not.toBeInTheDocument();
+  });
+
   it("surfaces the actual error message when useChat returns an error", async () => {
     const user = userEvent.setup();
     useChatReturn = baseReturn({

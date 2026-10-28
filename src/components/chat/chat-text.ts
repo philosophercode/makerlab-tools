@@ -1,4 +1,6 @@
+import type { UIMessage } from "ai";
 import type { useTranslations } from "next-intl";
+import { SUGGEST_REPLIES_PART } from "../../lib/chat/suggested-replies";
 
 /**
  * The chat's words about itself — what a running tool is doing, whether an
@@ -32,6 +34,39 @@ export function toolStatusLabel(partType: string, t: ChatT, input?: unknown): st
   if (partType === "tool-get_tool_skill") return t("readingToolSkill");
   if (partType === "tool-make_illustration") return t("drawingIllustration");
   return t("working");
+}
+
+const TOOL_RUNNING = new Set(["input-streaming", "input-available"]);
+
+/**
+ * Whether a running turn needs the chat's own status line under the
+ * conversation: true until the latest message ends in something that shows
+ * progress by itself — prose arriving, or a tool's running status line.
+ *
+ * The assistant's message exists from its first part, and many of those draw
+ * nothing: the attached manuals' links, a step's start, a finished tool call,
+ * the suggested replies. Keyed on the message's role alone, the status line
+ * went away at the first of them and the turn showed only the send button's
+ * spinner — on a tool page with attached manuals, for the whole wait. Read
+ * from the end, so the line comes back between steps (a search finished, the
+ * answer not yet begun) and never covers an answer already being written.
+ */
+export function turnNeedsStatus(message: UIMessage | undefined): boolean {
+  if (!message || message.role !== "assistant") return true;
+  for (let i = message.parts.length - 1; i >= 0; i -= 1) {
+    const part = message.parts[i]!;
+    if (part.type === "step-start" || part.type === SUGGEST_REPLIES_PART) continue;
+    if (part.type === "text") return !part.text.trim();
+    if (part.type.startsWith("tool-")) return !TOOL_RUNNING.has((part as { state?: string }).state ?? "");
+    return true;
+  }
+  return true;
+}
+
+/** Whether the latest message already holds an answer or a tool call of this turn. */
+export function turnHasOutput(message: UIMessage | undefined): boolean {
+  if (!message || message.role !== "assistant") return false;
+  return message.parts.some((part) => (part.type === "text" && part.text.trim() !== "") || part.type.startsWith("tool-"));
 }
 
 /**
