@@ -1,3 +1,5 @@
+import { lab } from "../lab/config.ts";
+
 /**
  * The public origin a printed code points at. A label outlives any preview
  * deployment and any laptop, so this is the production site, never the
@@ -8,7 +10,8 @@
  * Server-side (it reads `VERCEL_PROJECT_PRODUCTION_URL`, which the browser
  * never sees): pages compute it and hand the resulting URLs down.
  */
-export const DEFAULT_SITE_URL = "https://makerlab-ai.vercel.app";
+/** The lab config's `web.siteUrl`. */
+export const DEFAULT_SITE_URL = lab.web.siteUrl.replace(/\/+$/, "");
 
 export function qrSiteUrl(env: Record<string, string | undefined> = process.env): string {
   const explicit = env.NEXT_PUBLIC_SITE_URL?.trim();

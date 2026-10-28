@@ -38,7 +38,7 @@ describe("/product/quick-start", () => {
     expect(ask).toHaveTextContent("“How do I start a print with the AMS?”");
     const intake = screen.getByRole("listitem", { name: "Add a tool from a photo" });
     expect(intake).toHaveTextContent("Staff");
-    expect(intake).toHaveTextContent("Cornell Google account");
+    expect(intake).toHaveTextContent("cornell.edu Google account");
     expect(intake).toHaveTextContent("Admin → Intake");
     expect(screen.getByRole("listitem", { name: "Set up the lab screen" })).toHaveTextContent("Guided Access");
     expect(screen.getByRole("listitem", { name: "Connect Claude or ChatGPT" })).toHaveTextContent("/mcp");

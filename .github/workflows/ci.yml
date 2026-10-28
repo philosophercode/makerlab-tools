@@ -64,7 +64,7 @@ jobs:
           cache: npm
       - run: npm install -g npm@11.6.2
       - run: npm ci
-      - run: npx vitest run --shard=${{ matrix.shard }}/4 --testTimeout=30000
+      - run: npx vitest run --shard=${{ matrix.shard }}/4 --testTimeout=30000 --hookTimeout=30000
 
   # Playwright against a production build with the demo database and local stubs
   # (playwright.config.ts): no network beyond the runner. Not a required check

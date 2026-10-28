@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { siteConfig } from "../site-config";
+import { lab } from "../lab/config";
 import { siteUrl } from "./site-url";
 
 /**
@@ -88,7 +89,7 @@ export async function renderSiteCard(): Promise<ImageResponse> {
             // eslint-disable-next-line @next/next/no-img-element -- drawn by next/og, not a page
             <img src={logo} {...CARD_LOGO_SIZE} alt="" style={{ ...CARD_LOGO_SIZE, objectFit: "contain", objectPosition: "left center" }} />
           ) : (
-            <div style={{ display: "flex", fontFamily: "Display", fontSize: 72, fontWeight: 700 }}>MakerLAB</div>
+            <div style={{ display: "flex", fontFamily: "Display", fontSize: 72, fontWeight: 700 }}>{lab.identity.labName}</div>
           )}
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div

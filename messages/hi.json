@@ -58,13 +58,13 @@
       "unitsDown": "{count, plural, one {# यूनिट बंद है} other {# यूनिट बंद हैं}}"
     },
     "search": {
-      "landmark": "उपकरण खोजें और MakerLAB AI से पूछें",
-      "label": "उपकरण खोजें, या MakerLAB AI से सवाल पूछें",
+      "landmark": "उपकरण खोजें और {assistantName} से पूछें",
+      "label": "उपकरण खोजें, या {assistantName} से सवाल पूछें",
       "categories": "श्रेणियाँ",
       "categoryCount": "{count, plural, one {# उपकरण} other {# उपकरण}}",
-      "assistant": "MakerLAB AI",
-      "ask": "MakerLAB AI से पूछें: “{query}”",
-      "askNote": "आपके सवाल के साथ चैट खोलता है। MakerLAB AI गलती कर सकता है।",
+      "assistant": "{assistantName}",
+      "ask": "{assistantName} से पूछें: “{query}”",
+      "askNote": "आपके सवाल के साथ चैट खोलता है। {assistantName} गलती कर सकता है।",
       "clear": "खोज साफ़ करें",
       "noMatch": "“{query}” से कोई उपकरण या श्रेणी मेल नहीं खाती।",
       "enterOpens": "Enter दबाने पर {name} खुलेगा",
@@ -175,24 +175,20 @@
     "browseTools": "उपकरण ब्राउज़ करें",
     "demoHeading": "{assistant} को अपने मेकरस्पेस में लाएँ",
     "demoBody": "और जानना चाहते हैं? साइन अप करें, हम आपसे संपर्क करेंगे।",
-    "demoCta": "साइन अप करें",
-    "photoPrintersAlt": "MakerLAB की लाल दीवार के सामने कतार में लगे 3D प्रिंटर।",
-    "photoFloorAlt": "MakerLAB का खुला फ़्लोर, नारंगी कुर्सियों और वर्कबेंच के साथ।",
-    "photoPrintersCaption": "MakerLAB की दीवार के सामने 3D प्रिंटर",
-    "photoFloorCaption": "लैब का खुला फ़्लोर"
+    "demoCta": "साइन अप करें"
   },
   "chat": {
-    "openAria": "MakerLAB AI खोलें",
-    "title": "MakerLAB AI",
+    "openAria": "{assistantName} खोलें",
+    "title": "{assistantName}",
     "newChatAria": "नई चैट शुरू करें",
     "newChatTitle": "नई चैट शुरू करें",
-    "closeAria": "MakerLAB AI बंद करें",
+    "closeAria": "{assistantName} बंद करें",
     "closeTitle": "बंद करें (बातचीत सुरक्षित रहेगी)",
     "greetingTool": "इस उपकरण के बारे में पूछें — मेरे पास इसके स्पेक्स, सामग्री और संसाधन लिंक हैं।",
     "greetingGeneral": "आज मैं आपकी कैसे मदद कर सकता हूँ?",
-    "composerPlaceholder": "MakerLAB AI से पूछें...",
-    "composerAria": "MakerLAB AI से पूछें",
-    "aiNote": "MakerLAB AI से गलतियाँ हो सकती हैं। सुरक्षा से जुड़ी हर बात स्टाफ़ से पक्की करें।",
+    "composerPlaceholder": "{assistantName} से पूछें...",
+    "composerAria": "{assistantName} से पूछें",
+    "aiNote": "{assistantName} से गलतियाँ हो सकती हैं। सुरक्षा से जुड़ी हर बात स्टाफ़ से पक्की करें।",
     "aiNoteDismiss": "सूचना बंद करें",
     "sendAria": "भेजें",
     "attachAria": "फ़ोटो संलग्न करें",
@@ -205,7 +201,7 @@
     "photoUnsupported": "यह फ़ोटो फ़ॉर्मैट समर्थित नहीं है — JPEG या PNG आज़माएँ।",
     "photoTooLarge": "यह फ़ोटो अपलोड करने के लिए बहुत बड़ी है — छोटी फ़ोटो या JPEG आज़माएँ।",
     "toolRunningAria": "उपकरण चल रहा है",
-    "typingAria": "MakerLAB AI टाइप कर रहा है",
+    "typingAria": "{assistantName} टाइप कर रहा है",
     "readingManualsAria": "मैनुअल पढ़ रहा है",
     "reading": "पढ़ रहा है: {titles}…",
     "error": "कुछ गड़बड़ हो गई। फिर से प्रयास करें।",
@@ -231,16 +227,16 @@
     },
     "demoPassLeft": "डेमो पास · {amount} बाकी",
     "demoPassUsedUp": "डेमो पास · ख़त्म",
-    "demoPassSpent": "आपने इस डेमो पास का AI भत्ता इस्तेमाल कर लिया है। MakerLAB AI आज़माने के लिए धन्यवाद! किसी भी आगंतुक की तरह आप हर घंटे कुछ सवाल पूछते रह सकते हैं।",
-    "demoPassLimited": "आपने इस पास का AI भत्ता और इस घंटे की आगंतुक सीमा, दोनों इस्तेमाल कर लिए हैं। MakerLAB AI आज़माने के लिए धन्यवाद! कृपया थोड़ी देर बाद फिर कोशिश करें।",
+    "demoPassSpent": "आपने इस डेमो पास का AI भत्ता इस्तेमाल कर लिया है। {assistantName} आज़माने के लिए धन्यवाद! किसी भी आगंतुक की तरह आप हर घंटे कुछ सवाल पूछते रह सकते हैं।",
+    "demoPassLimited": "आपने इस पास का AI भत्ता और इस घंटे की आगंतुक सीमा, दोनों इस्तेमाल कर लिए हैं। {assistantName} आज़माने के लिए धन्यवाद! कृपया थोड़ी देर बाद फिर कोशिश करें।",
     "demoPassContactLead": "इस बारे में बात करना चाहेंगे?",
-    "demoPassContactTeam": "MakerLAB टीम से संपर्क करें"
+    "demoPassContactTeam": "{labName} टीम से संपर्क करें"
   },
   "qr": {
     "arrivalLabel": "इस मशीन से स्कैन किया गया",
     "arrivalEyebrow": "मशीन पर स्कैन किया गया",
     "arrivalTitle": "{tool} के बारे में पूछें",
-    "arrivalBody": "आपने इस मशीन पर लगा कोड स्कैन किया है। MakerLAB AI इसके बारे में सवालों के जवाब दे सकता है, सेटअप में मदद कर सकता है, या रखरखाव रिपोर्ट दर्ज कर सकता है।",
+    "arrivalBody": "आपने इस मशीन पर लगा कोड स्कैन किया है। {assistantName} इसके बारे में सवालों के जवाब दे सकता है, सेटअप में मदद कर सकता है, या रखरखाव रिपोर्ट दर्ज कर सकता है।",
     "arrivalSeed": "मैं {tool} के पास खड़ा हूँ और मेरा इसके बारे में एक सवाल है।",
     "arrivalUnitLabel": "इस इकाई के लेबल से स्कैन किया गया",
     "arrivalUnitOf": "{tool} की एक इकाई",
@@ -254,7 +250,7 @@
   },
   "report": {
     "action": "समस्या की रिपोर्ट करें",
-    "ask": "इस मशीन के बारे में MakerLAB AI से पूछें",
+    "ask": "इस मशीन के बारे में {assistantName} से पूछें",
     "eyebrow": "समस्या की रिपोर्ट करें",
     "lede": "स्टाफ़ आपकी रिपोर्ट तुरंत देखता है।",
     "close": "बंद करें",
@@ -262,7 +258,7 @@
     "unitNotSure": "पक्का नहीं पता",
     "unitFromLabel": "आपके स्कैन किए गए लेबल से चुनी गई।",
     "textLabel": "बताइए इस मशीन में क्या गड़बड़ है",
-    "textHint": "अपने शब्दों में लिखना काफ़ी है। MakerLAB AI इसे स्टाफ़ के लिए एक टिकट बना देता है।",
+    "textHint": "अपने शब्दों में लिखना काफ़ी है। {assistantName} इसे स्टाफ़ के लिए एक टिकट बना देता है।",
     "textPlaceholder": "उदाहरण: प्रिंट के बीच में फ़िलामेंट आगे बढ़ना बंद हो गया और एक्सट्रूडर क्लिक कर रहा है।",
     "photoAdd": "फ़ोटो जोड़ें",
     "photoUploading": "अपलोड हो रहा है…",
@@ -384,9 +380,9 @@
     "home": "{site} पर वापस जाएँ"
   },
   "palette": {
-    "assistant": "MakerLAB AI",
-    "ask": "MakerLAB AI से पूछें: “{query}”",
-    "askEmpty": "MakerLAB AI से पूछें"
+    "assistant": "{assistantName}",
+    "ask": "{assistantName} से पूछें: “{query}”",
+    "askEmpty": "{assistantName} से पूछें"
   },
   "kiosk": {
     "onShiftLabel": "अभी शिफ़्ट पर"

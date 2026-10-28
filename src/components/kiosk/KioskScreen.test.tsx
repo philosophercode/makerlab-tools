@@ -112,7 +112,7 @@ describe("KioskScreen — what is on screen", () => {
     const logo = container.querySelector('[data-kiosk] header [data-slot="brand-logo"]') as HTMLElement;
     expect(logo).not.toBeNull();
     expect(logo).toHaveAttribute("aria-hidden", "true");
-    expect(logo.style.maskImage || logo.getAttribute("style")).toContain("/brand/cornell-tech-makerlab-logo.svg");
+    expect(logo.style.maskImage || logo.getAttribute("style")).toContain("/lab/logo.svg");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("MakerLAB Tools");
   });
 

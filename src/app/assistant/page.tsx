@@ -6,6 +6,7 @@ import { ACTIONS } from "../../lib/actions/registry";
 import { buildAssistantCapabilities, pageRoleOf } from "../../lib/assistant/capabilities-page";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { CAPABILITIES } from "../../lib/capabilities";
+import { siteConfig } from "../../lib/site-config";
 
 /**
  * `/assistant` — what MakerLAB AI can and can't do, by role (parity spec
@@ -19,8 +20,8 @@ import { CAPABILITIES } from "../../lib/capabilities";
  */
 
 export const metadata = {
-  title: "What MakerLAB AI can do",
-  description: "What MakerLAB AI can read, file and propose for each role, what an outside AI connected over MCP may do, and what it never does.",
+  title: `What ${siteConfig.chatAssistantName} can do`,
+  description: `What ${siteConfig.chatAssistantName} can read, file and propose for each role, what an outside AI connected over MCP may do, and what it never does.`,
 };
 
 export default async function AssistantPage() {

@@ -7,6 +7,8 @@ import {
 } from "./src/lib/auth/dev-sign-in-build-check";
 import { blobImagePatterns } from "./src/lib/images/remote-patterns";
 import { ALL_TOOLS_PATH, FORMER_LIST_PATH } from "./src/lib/gallery-links";
+import { labConfigIssues } from "./src/lib/lab/schema";
+import labFile from "./lab/lab.config";
 
 // Development-only sign-in (auth spec amendment 2026-09-24) must never be
 // configured on a deployment. The route refuses outside `next dev` regardless;
@@ -15,6 +17,14 @@ const devSignInVerdict = devSignInBuildVerdict(process.env);
 if (devSignInVerdict === "fail") throw new Error(DEV_SIGN_IN_BUILD_MESSAGE);
 if (devSignInVerdict === "warn") {
   console.warn(`[dev-sign-in] ${DEV_SIGN_IN_BUILD_MESSAGE} (Inert in this production build.)`);
+}
+
+// The lab config (lab config spec 2026-10-25 §5.5): an invalid file stops
+// `next dev` and the build with every bad field named, never a half-branded
+// site. `npm run lab:check` says the same, and more.
+const labIssues = labConfigIssues(labFile);
+if (labIssues.length > 0) {
+  throw new Error(`lab/lab.config.ts is not valid (run npm run lab:check):\n${labIssues.map((issue) => `  ${issue}`).join("\n")}`);
 }
 
 // A deployment build with no Blob store id has no remote image host at all, so
@@ -102,8 +112,8 @@ const nextConfig: NextConfig = {
         pathname: "/tool-images/**",
       },
       {
-        // Photos of the lab on the About page (src/app/about/about-content.ts).
-        pathname: "/about/**",
+        // Photos of the lab on the About page (lab/lab.config.ts `photos`).
+        pathname: "/lab/**",
       },
       {
         // Photos for the demo seed's sample project (src/lib/db/demo-seed.ts).

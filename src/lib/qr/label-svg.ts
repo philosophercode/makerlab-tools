@@ -1,5 +1,6 @@
 import { PT_PER_MM, QR_QUIET_MODULES, estimateTextWidth, type LabelLayout } from "./label-layout.ts";
 import { qrMatrix, qrPathData } from "./matrix.ts";
+import { lab } from "../lab/config.ts";
 
 /**
  * One label as an SVG whose user unit is the millimetre and whose `width` /
@@ -62,7 +63,7 @@ export function labelSvgBody(layout: LabelLayout, qrText: string, options: Label
       );
     } else {
       // The name, as tall as the box allows and never wider than it (estimated: no fonts here).
-      const text = options.brandText ?? "MakerLAB";
+      const text = options.brandText ?? lab.identity.labName;
       const size = Math.min(height * 0.95, width / Math.max(estimateTextWidth(text, 1, true), 1e-6));
       const anchor = layout.orientation === "side" ? "start" : "middle";
       const tx = anchor === "middle" ? x + width / 2 : x;

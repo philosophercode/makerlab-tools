@@ -14,6 +14,7 @@ import {
   user,
 } from "./schema/index.ts";
 import type { ResearchResult } from "../research/result.ts";
+import { lab } from "../lab/config.ts";
 import { flattenTree } from "../taxonomy/tree.ts";
 import type { Db } from "./types.ts";
 import { seedDemoUsage } from "../usage/demo-usage.ts";
@@ -70,25 +71,28 @@ export const DEMO_WAITING_PROJECT_SLUG = "resin-dice-tower";
  * them; a deployment that set a real `AUTH_SECRET` also set `DATABASE_URL`,
  * and these rows are not in that database.
  */
+/** On the lab's sign-in domain, so the demo accounts pass the same check a real one does. */
+const DEMO_EMAIL_DOMAIN = lab.access.emailDomain;
+
 export const DEMO_ACCOUNTS = {
   user: {
     id: "demo-user-casey",
     name: "Casey Rivera",
-    email: "casey@cornell.edu",
+    email: `casey@${DEMO_EMAIL_DOMAIN}`,
     role: "user",
     sessionToken: "demo-session-user",
   },
   admin: {
     id: "demo-user-niti",
     name: "Niti Parikh",
-    email: "niti@cornell.edu",
+    email: `niti@${DEMO_EMAIL_DOMAIN}`,
     role: "admin",
     sessionToken: "demo-session-admin",
   },
   superAdmin: {
     id: "demo-user-isaac",
     name: "Isaac Steinberg",
-    email: "isaac@cornell.edu",
+    email: `isaac@${DEMO_EMAIL_DOMAIN}`,
     role: "super_admin",
     sessionToken: "demo-session-super-admin",
   },
@@ -104,7 +108,7 @@ export const DEMO_ACCOUNTS = {
   promotable: {
     id: "demo-user-pat",
     name: "Pat Promotable",
-    email: "pat@cornell.edu",
+    email: `pat@${DEMO_EMAIL_DOMAIN}`,
     role: "user",
     sessionToken: "demo-session-promotable",
   },
@@ -116,7 +120,7 @@ export const DEMO_ACCOUNTS = {
   removable: {
     id: "demo-user-robin",
     name: "Robin Removable",
-    email: "robin@cornell.edu",
+    email: `robin@${DEMO_EMAIL_DOMAIN}`,
     role: "user",
     sessionToken: "demo-session-removable",
   },

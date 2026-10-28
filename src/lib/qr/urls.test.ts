@@ -64,7 +64,7 @@ describe("qrSiteUrl", () => {
     expect(qrSiteUrl({ NEXT_PUBLIC_SITE_URL: "https://tools.example.edu/", VERCEL_PROJECT_PRODUCTION_URL: "x.vercel.app" })).toBe("https://tools.example.edu");
     expect(qrSiteUrl({ VERCEL_PROJECT_PRODUCTION_URL: "makerlab.example.app" })).toBe("https://makerlab.example.app");
     expect(qrSiteUrl({})).toBe(DEFAULT_SITE_URL);
-    expect(DEFAULT_SITE_URL).toBe("https://makerlab-ai.vercel.app");
+    expect(DEFAULT_SITE_URL).toBe("https://www.makerlabai.app");
   });
 });
 

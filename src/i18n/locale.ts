@@ -14,7 +14,7 @@ import {
  * Priority:
  *   1. `NEXT_LOCALE` cookie (explicit user choice)
  *   2. `Accept-Language` header (first-visit detection)
- *   3. Default (`en`)
+ *   3. The lab config's `locale.default`
  */
 export async function resolveLocale(): Promise<string> {
   const cookieStore = await cookies();

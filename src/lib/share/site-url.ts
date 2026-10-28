@@ -1,3 +1,5 @@
+import { lab } from "../lab/config.ts";
+
 /**
  * The public origin link previews resolve against (`metadataBase`).
  *
@@ -6,9 +8,10 @@
  * resolved against this. `NEXT_PUBLIC_SITE_URL` names it outright (a custom
  * domain); on Vercel the project's production domain is used, previews
  * included, so a preview's card points at images that exist in production;
- * anywhere else, the live deployment.
+ * anywhere else, the lab config's `web.siteUrl`.
  */
-export const DEFAULT_SITE_URL = "https://makerlab-ai.vercel.app";
+/** The lab config's `web.siteUrl`. */
+export const DEFAULT_SITE_URL = lab.web.siteUrl.replace(/\/+$/, "");
 
 export function siteUrl(env: Record<string, string | undefined> = process.env): URL {
   const explicit = (env.NEXT_PUBLIC_SITE_URL || "").trim();

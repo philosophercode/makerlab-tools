@@ -58,13 +58,13 @@
       "unitsDown": "{count, plural, one {# unidad fuera de servicio} other {# unidades fuera de servicio}}"
     },
     "search": {
-      "landmark": "Buscar herramientas y preguntar a MakerLAB AI",
-      "label": "Busca herramientas o hazle una pregunta a MakerLAB AI",
+      "landmark": "Buscar herramientas y preguntar a {assistantName}",
+      "label": "Busca herramientas o hazle una pregunta a {assistantName}",
       "categories": "Categorías",
       "categoryCount": "{count, plural, one {# herramienta} other {# herramientas}}",
-      "assistant": "MakerLAB AI",
-      "ask": "Preguntar a MakerLAB AI: “{query}”",
-      "askNote": "Abre el chat con tu pregunta. MakerLAB AI puede equivocarse.",
+      "assistant": "{assistantName}",
+      "ask": "Preguntar a {assistantName}: “{query}”",
+      "askNote": "Abre el chat con tu pregunta. {assistantName} puede equivocarse.",
       "clear": "Borrar la búsqueda",
       "noMatch": "Ninguna herramienta ni categoría coincide con “{query}”.",
       "enterOpens": "Intro abre {name}",
@@ -175,24 +175,20 @@
     "browseTools": "Explorar herramientas",
     "demoHeading": "Lleva {assistant} a tu makerspace",
     "demoBody": "¿Quieres saber más? Regístrate y nos pondremos en contacto.",
-    "demoCta": "Regístrate",
-    "photoPrintersAlt": "Impresoras 3D alineadas frente a la pared roja del MakerLAB.",
-    "photoFloorAlt": "El espacio abierto del MakerLAB, con sillas naranjas y mesas de trabajo.",
-    "photoPrintersCaption": "Impresoras 3D frente a la pared del MakerLAB",
-    "photoFloorCaption": "El espacio abierto del laboratorio"
+    "demoCta": "Regístrate"
   },
   "chat": {
-    "openAria": "Abrir MakerLAB AI",
-    "title": "MakerLAB AI",
+    "openAria": "Abrir {assistantName}",
+    "title": "{assistantName}",
     "newChatAria": "Iniciar nuevo chat",
     "newChatTitle": "Iniciar nuevo chat",
-    "closeAria": "Cerrar MakerLAB AI",
+    "closeAria": "Cerrar {assistantName}",
     "closeTitle": "Cerrar (conserva la conversación)",
     "greetingTool": "Pregúntame sobre esta herramienta: tengo sus especificaciones, materiales y enlaces a recursos.",
     "greetingGeneral": "¿En qué puedo ayudarte hoy?",
-    "composerPlaceholder": "Pregunta a MakerLAB AI...",
-    "composerAria": "Pregunta a MakerLAB AI",
-    "aiNote": "MakerLAB AI puede equivocarse. Consulta con el personal todo lo relacionado con la seguridad.",
+    "composerPlaceholder": "Pregunta a {assistantName}...",
+    "composerAria": "Pregunta a {assistantName}",
+    "aiNote": "{assistantName} puede equivocarse. Consulta con el personal todo lo relacionado con la seguridad.",
     "aiNoteDismiss": "Cerrar aviso",
     "sendAria": "Enviar",
     "attachAria": "Adjuntar fotos",
@@ -205,7 +201,7 @@
     "photoUnsupported": "Este formato de foto no es compatible: prueba con un JPEG o PNG.",
     "photoTooLarge": "Esta foto es demasiado grande para subirla: prueba con una más pequeña o con un JPEG.",
     "toolRunningAria": "Herramienta en ejecución",
-    "typingAria": "MakerLAB AI está escribiendo",
+    "typingAria": "{assistantName} está escribiendo",
     "readingManualsAria": "Leyendo manuales",
     "reading": "Leyendo: {titles}…",
     "error": "Algo salió mal. Inténtalo de nuevo.",
@@ -231,16 +227,16 @@
     },
     "demoPassLeft": "Pase de demostración · quedan {amount}",
     "demoPassUsedUp": "Pase de demostración · agotado",
-    "demoPassSpent": "Has usado la asignación de IA de este pase de demostración. ¡Gracias por probar MakerLAB AI! Puedes seguir haciendo algunas preguntas por hora, como cualquier visitante.",
-    "demoPassLimited": "Has usado la asignación de IA de este pase y el límite de visitantes de esta hora. ¡Gracias por probar MakerLAB AI! Inténtalo de nuevo dentro de un rato.",
+    "demoPassSpent": "Has usado la asignación de IA de este pase de demostración. ¡Gracias por probar {assistantName}! Puedes seguir haciendo algunas preguntas por hora, como cualquier visitante.",
+    "demoPassLimited": "Has usado la asignación de IA de este pase y el límite de visitantes de esta hora. ¡Gracias por probar {assistantName}! Inténtalo de nuevo dentro de un rato.",
     "demoPassContactLead": "¿Quieres hablar de ello?",
-    "demoPassContactTeam": "Contacta con el equipo de MakerLAB"
+    "demoPassContactTeam": "Contacta con el equipo de {labName}"
   },
   "qr": {
     "arrivalLabel": "Escaneado desde esta máquina",
     "arrivalEyebrow": "Escaneado en la máquina",
     "arrivalTitle": "Pregunta sobre la {tool}",
-    "arrivalBody": "Escaneaste el código de esta máquina. MakerLAB AI puede responder preguntas sobre ella, guiarte en la configuración o registrar un aviso de mantenimiento.",
+    "arrivalBody": "Escaneaste el código de esta máquina. {assistantName} puede responder preguntas sobre ella, guiarte en la configuración o registrar un aviso de mantenimiento.",
     "arrivalSeed": "Estoy frente a la {tool} y tengo una pregunta sobre ella.",
     "arrivalUnitLabel": "Escaneado desde la etiqueta de esta unidad",
     "arrivalUnitOf": "Unidad de {tool}",
@@ -254,7 +250,7 @@
   },
   "report": {
     "action": "Reportar un problema",
-    "ask": "Preguntar a MakerLAB AI sobre esta máquina",
+    "ask": "Preguntar a {assistantName} sobre esta máquina",
     "eyebrow": "Reportar un problema",
     "lede": "El personal ve tu reporte enseguida.",
     "close": "Cerrar",
@@ -262,7 +258,7 @@
     "unitNotSure": "No estoy seguro",
     "unitFromLabel": "Elegida desde la etiqueta que escaneaste.",
     "textLabel": "Cuéntanos qué le pasa a esta máquina",
-    "textHint": "Con tus propias palabras está bien. MakerLAB AI las convierte en un ticket para el personal.",
+    "textHint": "Con tus propias palabras está bien. {assistantName} las convierte en un ticket para el personal.",
     "textPlaceholder": "Por ejemplo: el filamento dejó de avanzar a mitad de la impresión y el extrusor hace clic.",
     "photoAdd": "Añadir una foto",
     "photoUploading": "Subiendo…",
@@ -384,9 +380,9 @@
     "home": "Volver a {site}"
   },
   "palette": {
-    "assistant": "MakerLAB AI",
-    "ask": "Preguntar a MakerLAB AI: “{query}”",
-    "askEmpty": "Preguntar a MakerLAB AI"
+    "assistant": "{assistantName}",
+    "ask": "Preguntar a {assistantName}: “{query}”",
+    "askEmpty": "Preguntar a {assistantName}"
   },
   "kiosk": {
     "onShiftLabel": "De turno ahora"

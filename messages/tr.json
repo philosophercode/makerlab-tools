@@ -58,13 +58,13 @@
       "unitsDown": "{count, plural, one {# ünite hizmet dışı} other {# ünite hizmet dışı}}"
     },
     "search": {
-      "landmark": "Araç arayın ve MakerLAB AI'ya sorun",
-      "label": "Araç arayın veya MakerLAB AI'ya bir soru sorun",
+      "landmark": "Araç arayın ve {assistantName}'ya sorun",
+      "label": "Araç arayın veya {assistantName}'ya bir soru sorun",
       "categories": "Kategoriler",
       "categoryCount": "{count, plural, one {# araç} other {# araç}}",
-      "assistant": "MakerLAB AI",
-      "ask": "MakerLAB AI'ya sor: “{query}”",
-      "askNote": "Sohbeti sorunuzla açar. MakerLAB AI hata yapabilir.",
+      "assistant": "{assistantName}",
+      "ask": "{assistantName}'ya sor: “{query}”",
+      "askNote": "Sohbeti sorunuzla açar. {assistantName} hata yapabilir.",
       "clear": "Aramayı temizle",
       "noMatch": "“{query}” ile eşleşen araç veya kategori yok.",
       "enterOpens": "Enter, {name} sayfasını açar",
@@ -175,24 +175,20 @@
     "browseTools": "Araçlara göz at",
     "demoHeading": "{assistant} maker alanınıza gelsin",
     "demoBody": "Daha fazla bilgi mi istiyorsunuz? Kaydolun, sizinle iletişime geçelim.",
-    "demoCta": "Kaydolun",
-    "photoPrintersAlt": "MakerLAB'in kırmızı duvarının önünde sıralanmış 3D yazıcılar.",
-    "photoFloorAlt": "MakerLAB'in açık alanı: turuncu sandalyeler ve çalışma tezgâhları.",
-    "photoPrintersCaption": "MakerLAB duvarının önünde 3D yazıcılar",
-    "photoFloorCaption": "Laboratuvarın açık alanı"
+    "demoCta": "Kaydolun"
   },
   "chat": {
-    "openAria": "MakerLAB AI'yı aç",
-    "title": "MakerLAB AI",
+    "openAria": "{assistantName}'yı aç",
+    "title": "{assistantName}",
     "newChatAria": "Yeni sohbet başlat",
     "newChatTitle": "Yeni sohbet başlat",
-    "closeAria": "MakerLAB AI'yı kapat",
+    "closeAria": "{assistantName}'yı kapat",
     "closeTitle": "Kapat (sohbeti korur)",
     "greetingTool": "Bu araç hakkında soru sorun — özelliklerine, malzemelerine ve kaynak bağlantılarına sahibim.",
     "greetingGeneral": "Bugün size nasıl yardımcı olabilirim?",
-    "composerPlaceholder": "MakerLAB AI'ya sorun...",
-    "composerAria": "MakerLAB AI'ya sorun",
-    "aiNote": "MakerLAB AI hata yapabilir. Güvenlikle ilgili her şeyi ekiple teyit edin.",
+    "composerPlaceholder": "{assistantName}'ya sorun...",
+    "composerAria": "{assistantName}'ya sorun",
+    "aiNote": "{assistantName} hata yapabilir. Güvenlikle ilgili her şeyi ekiple teyit edin.",
     "aiNoteDismiss": "Notu kapat",
     "sendAria": "Gönder",
     "attachAria": "Fotoğraf ekle",
@@ -205,7 +201,7 @@
     "photoUnsupported": "Bu fotoğraf biçimi desteklenmiyor — JPEG veya PNG deneyin.",
     "photoTooLarge": "Bu fotoğraf yüklemek için çok büyük — daha küçük bir fotoğraf veya JPEG deneyin.",
     "toolRunningAria": "Araç çalışıyor",
-    "typingAria": "MakerLAB AI yazıyor",
+    "typingAria": "{assistantName} yazıyor",
     "readingManualsAria": "Kılavuzlar okunuyor",
     "reading": "Okunuyor: {titles}…",
     "error": "Bir şeyler ters gitti. Tekrar deneyin.",
@@ -231,16 +227,16 @@
     },
     "demoPassLeft": "Demo kartı · {amount} kaldı",
     "demoPassUsedUp": "Demo kartı · bitti",
-    "demoPassSpent": "Bu demo kartının yapay zekâ hakkını kullandınız. MakerLAB AI'yi denediğiniz için teşekkürler! Her ziyaretçi gibi saatte birkaç soru sormaya devam edebilirsiniz.",
-    "demoPassLimited": "Bu kartın yapay zekâ hakkını ve bu saatin ziyaretçi sınırını kullandınız. MakerLAB AI'yi denediğiniz için teşekkürler! Lütfen biraz sonra tekrar deneyin.",
+    "demoPassSpent": "Bu demo kartının yapay zekâ hakkını kullandınız. {assistantName}'yi denediğiniz için teşekkürler! Her ziyaretçi gibi saatte birkaç soru sormaya devam edebilirsiniz.",
+    "demoPassLimited": "Bu kartın yapay zekâ hakkını ve bu saatin ziyaretçi sınırını kullandınız. {assistantName}'yi denediğiniz için teşekkürler! Lütfen biraz sonra tekrar deneyin.",
     "demoPassContactLead": "Konuşmak ister misiniz?",
-    "demoPassContactTeam": "MakerLAB ekibiyle iletişime geçin"
+    "demoPassContactTeam": "{labName} ekibiyle iletişime geçin"
   },
   "qr": {
     "arrivalLabel": "Bu makineden tarandı",
     "arrivalEyebrow": "Makinenin başında tarandı",
     "arrivalTitle": "{tool} hakkında soru sor",
-    "arrivalBody": "Bu makinedeki kodu taradınız. MakerLAB AI makineyle ilgili sorularınızı yanıtlayabilir, kurulumda yol gösterebilir veya bakım kaydı açabilir.",
+    "arrivalBody": "Bu makinedeki kodu taradınız. {assistantName} makineyle ilgili sorularınızı yanıtlayabilir, kurulumda yol gösterebilir veya bakım kaydı açabilir.",
     "arrivalSeed": "{tool} başındayım ve bu makineyle ilgili bir sorum var.",
     "arrivalUnitLabel": "Bu birimin etiketinden tarandı",
     "arrivalUnitOf": "{tool} birimi",
@@ -254,7 +250,7 @@
   },
   "report": {
     "action": "Sorun bildir",
-    "ask": "Bu makineyi MakerLAB AI'ya sor",
+    "ask": "Bu makineyi {assistantName}'ya sor",
     "eyebrow": "Sorun bildir",
     "lede": "Ekip bildiriminizi hemen görür.",
     "close": "Kapat",
@@ -262,7 +258,7 @@
     "unitNotSure": "Emin değilim",
     "unitFromLabel": "Taradığınız etiketten seçildi.",
     "textLabel": "Bu makinede neyin yanlış olduğunu anlatın",
-    "textHint": "Kendi kelimelerinizle yazmanız yeterli. MakerLAB AI bunu ekip için bir kayda dönüştürür.",
+    "textHint": "Kendi kelimelerinizle yazmanız yeterli. {assistantName} bunu ekip için bir kayda dönüştürür.",
     "textPlaceholder": "Örneğin: baskının ortasında filament beslemesi durdu ve ekstrüder tıkırdıyor.",
     "photoAdd": "Fotoğraf ekle",
     "photoUploading": "Yükleniyor…",
@@ -384,9 +380,9 @@
     "home": "{site} sayfasına dön"
   },
   "palette": {
-    "assistant": "MakerLAB AI",
-    "ask": "MakerLAB AI'ya sor: “{query}”",
-    "askEmpty": "MakerLAB AI'ya sor"
+    "assistant": "{assistantName}",
+    "ask": "{assistantName}'ya sor: “{query}”",
+    "askEmpty": "{assistantName}'ya sor"
   },
   "kiosk": {
     "onShiftLabel": "Şu an vardiyada"

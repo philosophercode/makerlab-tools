@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { ProductHero } from "../../components/product/ProductHero";
 import { ProductSection } from "../../components/product/ProductSection";
 import { WalkthroughVideo } from "../../components/product/WalkthroughVideo";
 import { siteConfig } from "../../lib/site-config";
+import { lab } from "../../lib/lab/config";
 import { productMetadata } from "./metadata";
 import { QUICK_START_HREF, TRY_IT_HREF } from "./product-content";
 
@@ -26,6 +28,8 @@ const PRIVACY = ["signIn", "usage", "permissions", "safety"] as const;
  * every locale. Linked from the About page and the footer, not the main nav.
  */
 export default function ProductPage() {
+  // A lab may turn the product pages off (lab config `pages.product`).
+  if (!lab.pages.product) notFound();
   const t = useTranslations("product");
   return (
     <main data-slot="product-page" className="ui mx-auto flex w-full max-w-[1264px] min-w-0 flex-col px-4 pb-20 sm:px-8">

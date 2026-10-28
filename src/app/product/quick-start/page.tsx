@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { PageSection, PublicPage } from "../../../components/system/PublicPage";
 import { ProductShot } from "../../../components/product/ProductShot";
 import { productMetadata } from "../metadata";
+import { lab } from "../../../lib/lab/config";
 import { PRODUCT_HREF, QUICK_START_STEPS, SHOTS, THINGS_TO_TRY } from "../product-content";
 
 export const metadata: Metadata = productMetadata("quickStart");
@@ -16,6 +18,8 @@ export const metadata: Metadata = productMetadata("quickStart");
  * numbering is the document's, not decoration.
  */
 export default function QuickStartPage() {
+  // A lab may turn the product pages off (lab config `pages.product`).
+  if (!lab.pages.product) notFound();
   const t = useTranslations("product");
   return (
     <PublicPage

@@ -1,5 +1,5 @@
 import { indexPlan, mapHref, placeId, placeTool, type PlaceableTool, type ToolPlace } from "./placement";
-import { FLOOR_PLANS } from "./studio-101";
+import { FLOOR_PLANS } from "./plan";
 import type { FloorPlan } from "./types";
 
 /**

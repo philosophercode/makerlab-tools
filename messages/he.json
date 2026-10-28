@@ -58,13 +58,13 @@
       "unitsDown": "{count, plural, one {יחידה אחת מושבתת} two {# יחידות מושבתות} other {# יחידות מושבתות}}"
     },
     "search": {
-      "landmark": "חיפוש כלים ושאלות ל-MakerLAB AI",
-      "label": "חפשו כלי, או שאלו את MakerLAB AI",
+      "landmark": "חיפוש כלים ושאלות ל-{assistantName}",
+      "label": "חפשו כלי, או שאלו את {assistantName}",
       "categories": "קטגוריות",
       "categoryCount": "{count, plural, one {כלי אחד} two {# כלים} other {# כלים}}",
-      "assistant": "MakerLAB AI",
-      "ask": "שאלו את MakerLAB AI: “{query}”",
-      "askNote": "פותח את הצ׳אט עם השאלה שלכם. MakerLAB AI עלול לטעות.",
+      "assistant": "{assistantName}",
+      "ask": "שאלו את {assistantName}: “{query}”",
+      "askNote": "פותח את הצ׳אט עם השאלה שלכם. {assistantName} עלול לטעות.",
       "clear": "ניקוי החיפוש",
       "noMatch": "אין כלי או קטגוריה שתואמים ל-“{query}”.",
       "enterOpens": "מקש Enter יפתח את {name}",
@@ -175,24 +175,20 @@
     "browseTools": "עיון בכלים",
     "demoHeading": "הביאו את {assistant} למייקרספייס שלכם",
     "demoBody": "רוצים לשמוע עוד? הירשמו ונחזור אליכם.",
-    "demoCta": "הרשמה",
-    "photoPrintersAlt": "מדפסות תלת־ממד בשורה מול הקיר האדום של MakerLAB.",
-    "photoFloorAlt": "החלל הפתוח של MakerLAB, עם כיסאות כתומים ושולחנות עבודה.",
-    "photoPrintersCaption": "מדפסות תלת־ממד מול הקיר של MakerLAB",
-    "photoFloorCaption": "החלל הפתוח של המעבדה"
+    "demoCta": "הרשמה"
   },
   "chat": {
-    "openAria": "פתיחת MakerLAB AI",
-    "title": "MakerLAB AI",
+    "openAria": "פתיחת {assistantName}",
+    "title": "{assistantName}",
     "newChatAria": "התחלת צ'אט חדש",
     "newChatTitle": "התחלת צ'אט חדש",
-    "closeAria": "סגירת MakerLAB AI",
+    "closeAria": "סגירת {assistantName}",
     "closeTitle": "סגירה (השיחה נשמרת)",
     "greetingTool": "שאלו על הכלי הזה — יש לי את המפרטים, החומרים וקישורי המשאבים שלו.",
     "greetingGeneral": "כיצד אוכל לעזור לך היום?",
-    "composerPlaceholder": "שאלו את MakerLAB AI...",
-    "composerAria": "שאלו את MakerLAB AI",
-    "aiNote": "MakerLAB AI עלול לטעות. בדקו עם הצוות כל דבר שקשור לבטיחות.",
+    "composerPlaceholder": "שאלו את {assistantName}...",
+    "composerAria": "שאלו את {assistantName}",
+    "aiNote": "{assistantName} עלול לטעות. בדקו עם הצוות כל דבר שקשור לבטיחות.",
     "aiNoteDismiss": "סגירת ההערה",
     "sendAria": "שליחה",
     "attachAria": "צירוף תמונות",
@@ -205,7 +201,7 @@
     "photoUnsupported": "פורמט התמונה הזה אינו נתמך — אפשר לנסות JPEG או PNG.",
     "photoTooLarge": "התמונה גדולה מדי להעלאה — אפשר לנסות תמונה קטנה יותר או JPEG.",
     "toolRunningAria": "הכלי פועל",
-    "typingAria": "MakerLAB AI מקליד",
+    "typingAria": "{assistantName} מקליד",
     "readingManualsAria": "קורא מדריכים",
     "reading": "קורא: {titles}…",
     "error": "משהו השתבש. נסו שוב.",
@@ -231,16 +227,16 @@
     },
     "demoPassLeft": "כרטיס הדגמה · נותרו {amount}",
     "demoPassUsedUp": "כרטיס הדגמה · נוצל",
-    "demoPassSpent": "ניצלתם את מכסת ה-AI של כרטיס ההדגמה. תודה שניסיתם את MakerLAB AI! אפשר להמשיך לשאול כמה שאלות בשעה, כמו כל מבקר.",
-    "demoPassLimited": "ניצלתם את מכסת ה-AI של הכרטיס ואת מגבלת המבקרים לשעה הזו. תודה שניסיתם את MakerLAB AI! נסו שוב בעוד זמן קצר.",
+    "demoPassSpent": "ניצלתם את מכסת ה-AI של כרטיס ההדגמה. תודה שניסיתם את {assistantName}! אפשר להמשיך לשאול כמה שאלות בשעה, כמו כל מבקר.",
+    "demoPassLimited": "ניצלתם את מכסת ה-AI של הכרטיס ואת מגבלת המבקרים לשעה הזו. תודה שניסיתם את {assistantName}! נסו שוב בעוד זמן קצר.",
     "demoPassContactLead": "רוצים לדבר על זה?",
-    "demoPassContactTeam": "פנו לצוות MakerLAB"
+    "demoPassContactTeam": "פנו לצוות {labName}"
   },
   "qr": {
     "arrivalLabel": "נסרק מהמכונה הזו",
     "arrivalEyebrow": "נסרק ליד המכונה",
     "arrivalTitle": "שאל על {tool}",
-    "arrivalBody": "סרקת את הקוד שעל המכונה הזו. MakerLAB AI יכול לענות על שאלות לגביה, להדריך אותך בהתקנה או לפתוח דיווח תחזוקה.",
+    "arrivalBody": "סרקת את הקוד שעל המכונה הזו. {assistantName} יכול לענות על שאלות לגביה, להדריך אותך בהתקנה או לפתוח דיווח תחזוקה.",
     "arrivalSeed": "אני עומד ליד {tool} ויש לי שאלה עליה.",
     "arrivalUnitLabel": "נסרק מהתווית של היחידה הזו",
     "arrivalUnitOf": "יחידה של {tool}",
@@ -254,7 +250,7 @@
   },
   "report": {
     "action": "דיווח על תקלה",
-    "ask": "לשאול את MakerLAB AI על המכונה הזו",
+    "ask": "לשאול את {assistantName} על המכונה הזו",
     "eyebrow": "דיווח על תקלה",
     "lede": "הצוות רואה את הדיווח שלך מיד.",
     "close": "סגירה",
@@ -262,7 +258,7 @@
     "unitNotSure": "לא בטוח",
     "unitFromLabel": "נבחרה לפי התווית שסרקת.",
     "textLabel": "ספרו לנו מה לא בסדר במכונה הזו",
-    "textHint": "אפשר לכתוב במילים פשוטות. MakerLAB AI הופך אותן לקריאת שירות לצוות.",
+    "textHint": "אפשר לכתוב במילים פשוטות. {assistantName} הופך אותן לקריאת שירות לצוות.",
     "textPlaceholder": "לדוגמה: הפילמנט הפסיק להיכנס באמצע ההדפסה והמזרק מתקתק.",
     "photoAdd": "הוספת תמונה",
     "photoUploading": "מעלה…",
@@ -384,9 +380,9 @@
     "home": "חזרה אל {site}"
   },
   "palette": {
-    "assistant": "MakerLAB AI",
-    "ask": "שאלו את MakerLAB AI: “{query}”",
-    "askEmpty": "שאלו את MakerLAB AI"
+    "assistant": "{assistantName}",
+    "ask": "שאלו את {assistantName}: “{query}”",
+    "askEmpty": "שאלו את {assistantName}"
   },
   "kiosk": {
     "onShiftLabel": "במשמרת עכשיו"
