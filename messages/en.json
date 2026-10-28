@@ -3995,6 +3995,7 @@
       "tools_restore": "Restore an archived tool",
       "units_add": "Add a unit to a tool",
       "units_edit": "Change a unit's label, status or condition",
+      "units_rename": "Rename many units at once, to make their labels consistent",
       "units_retire": "Retire a unit",
       "units_delete": "Delete a unit",
       "resources_add": "Add a link (manual, SOP, video) to a tool",

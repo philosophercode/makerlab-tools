@@ -1,6 +1,7 @@
 import type { ApprovalFields, ApprovalImageChoice } from "../data/pending-tools";
 import type { CategoryOption, LocationOption } from "../data/taxonomy";
 import type { ResearchImages, ResearchResult } from "../research/result";
+import { matchCategory } from "../research/taxonomy-match";
 import { distinctDisplayName } from "../tool-name-choice";
 import { displayNameFrom } from "../tool-names";
 import { trainingAtApproval } from "./training";
@@ -21,6 +22,8 @@ export interface DraftItem {
   name: string;
   locationHint: string | null;
   serialNumber: string | null;
+  /** The category the imported list or the person gave, if any — the last fallback (assistant cleanup spec §2). */
+  categoryHint?: string | null;
 }
 
 
@@ -88,8 +91,8 @@ export function initialDraft(
     name: research ? initialName(item, research, takenNames) : item.name,
     officialName: research?.canonicalName.trim() ?? "",
     description: research ? proposedDescription(research) : "",
-    category: research ? proposedCategory(research, categories) : "",
-    proposeCategory: research ? categoryProposalOf(research) !== null : false,
+    category: research ? suggestedCategory(research, item.categoryHint ?? null, categories) : "",
+    proposeCategory: research ? proposalStillNew(research, categories) : false,
     locationId: matchLocation(item.locationHint, locations),
     materials: (research?.materials ?? []).join(", "),
     ppeRequired: (research?.ppeRequired ?? []).join(", "),
@@ -118,10 +121,22 @@ export function proposedDescription(research: ResearchResult): string {
  * The category research chose, if the lab still has it (and it is not
  * retired — `categories` holds live ones only); otherwise none. Never a new
  * one: a new category is a proposal ({@link categoryProposalOf}).
+ *
+ * Research's answer is matched again against the categories that exist *now*
+ * (assistant cleanup spec §2): an item researched while the lab had no tree —
+ * the demo lab before its seed — kept research's slug or name but no id. Its
+ * slug, its name, or the name of the category it proposed, when one of those
+ * is a live category, is the choice; otherwise none, as before.
  */
-function proposedCategory(research: ResearchResult, categories: CategoryOption[]): string {
-  const existing = research.category.existingId;
-  if (existing && categories.some((category) => category.id === existing)) return existing;
+export function proposedCategory(research: ResearchResult, categories: CategoryOption[]): string {
+  const { existingId, slug, name, group, proposal } = research.category;
+  if (existingId && categories.some((category) => category.id === existingId)) return existingId;
+  const again = matchCategory({ slug: slug ?? undefined, name, group }, categories).existingId;
+  if (again) return again;
+  if (proposal?.name.trim()) {
+    const parent = proposal.parentSlug ? categories.find((category) => category.slug === proposal.parentSlug) : undefined;
+    return matchCategory({ name: proposal.name, group: parent?.name ?? null }, categories).existingId ?? "";
+  }
   return "";
 }
 
@@ -137,6 +152,30 @@ export function categoryProposalOf(
   if (proposal?.name.trim()) return proposal;
   if (!slug && existingId === null && name.trim()) return { name: name.trim(), parentSlug: group, description: null, reason: null };
   return null;
+}
+
+/**
+ * Research proposed a new category the lab still does not have. A proposal
+ * whose name is now a live category — research run on a lab with no tree yet,
+ * which the default tree has since filled (assistant cleanup spec §2) — is
+ * not new any more, and is not filed again.
+ */
+function proposalStillNew(research: ResearchResult, categories: CategoryOption[]): boolean {
+  const proposal = categoryProposalOf(research);
+  if (!proposal) return false;
+  const wanted = proposal.name.trim().toLowerCase();
+  return !categories.some((category) => category.name.trim().toLowerCase() === wanted);
+}
+
+/**
+ * {@link proposedCategory}, or else the live category the item's own hint names
+ * exactly (an imported list's "category" column: "3D Printing"). A hint is
+ * the person's word, so it only ever picks a category by its exact name.
+ */
+export function suggestedCategory(research: ResearchResult, hint: string | null, categories: CategoryOption[]): string {
+  const chosen = proposedCategory(research, categories);
+  if (chosen || !hint?.trim()) return chosen;
+  return matchCategory({ name: hint, group: null }, categories).existingId ?? "";
 }
 
 /** A location whose room or zone is the hint, ignoring case. */

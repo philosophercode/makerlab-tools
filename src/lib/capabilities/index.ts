@@ -14,6 +14,7 @@ import { reports } from "./reports";
 import { staff } from "./staff";
 import { adminReads } from "./admin-reads";
 import { catalogReads } from "./catalog-reads";
+import { cleanup } from "./cleanup";
 import { actions } from "./actions";
 import { insights } from "./insights";
 import type { Capability } from "./types";
@@ -68,6 +69,10 @@ import type { Capability } from "./types";
  *  - `admin-reads` — `find_people` (chat only), `list_corrections`,
  *                    `list_project_queue`: the reads the action tools resolve
  *                    names with.
+ *  - `cleanup`     — `list_uncategorized_tools`, `list_unit_labels`,
+ *                    `review_approval_queue` and the triage playbook: the
+ *                    reads that turn "help me clean up" into batches of
+ *                    cards (chat only; assistant cleanup spec 2026-10-28).
  *  - `actions`     — one proposing tool per registered action, generated from
  *                    `lib/actions/registry.ts` (assistant–GUI parity spec
  *                    §3.4), and an MCP twin for each `mcp: "propose"` action
@@ -101,12 +106,13 @@ export const CAPABILITIES: Capability[] = [
   staff,
   adminReads,
   catalogReads,
+  cleanup,
   actions,
   insights,
 ];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, skills, qr, toolCards, illustrations, suggestedReplies, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
+export { catalog, units, web, manuals, skills, qr, toolCards, illustrations, suggestedReplies, maintenance, intake, flags, reports, staff, adminReads, catalogReads, cleanup, actions, insights };
 
 // Re-export the surface adapters so consumers import from one place.
 export {
