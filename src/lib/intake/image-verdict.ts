@@ -39,16 +39,19 @@ export function imageVerdict(images: ResearchImages | null | undefined, uploads:
     return { verdict: "none", reasons: ["no photo"] };
   }
 
+  // A cropped copy keeps its backdrop (`cleanNote` says why it was not cut);
+  // only "cut" (or an older copy with no kind) and "cropped_and_cut" removed it.
+  const backgroundCut = Boolean(images?.cleaned) && images?.cleaned?.kind !== "cropped";
   const problems: string[] = [];
   if (first.composite) problems.push("banner, collage or busy scene");
   if (first.view && first.view !== "front" && first.view !== "three_quarter") problems.push(`${first.view.replace("_", " ")} view, not the front`);
   if (!first.view) problems.push("view not judged (researched before views were)");
   if (Math.min(first.width, first.height) < MIN_IMAGE_SIDE) problems.push(`small (${first.width}×${first.height})`);
-  if (first.background === "busy" && !images?.cleaned) problems.push("busy background, not cleaned");
+  if (first.background === "busy" && !backgroundCut) problems.push("busy background, not cleaned");
   if (problems.length > 0) return { verdict: "check", reasons: problems };
 
   const good = [`${first.view === "three_quarter" ? "three-quarter" : "front"} view of the whole product`];
-  if (images?.cleaned) good.push("background cleaned");
+  if (backgroundCut) good.push("background cleaned");
   else if (first.background === "transparent" || first.background === "plain") good.push(`${first.background} background`);
   return { verdict: "good", reasons: good };
 }

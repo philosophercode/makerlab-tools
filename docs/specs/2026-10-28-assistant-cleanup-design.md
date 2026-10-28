@@ -51,7 +51,7 @@ confirms, the same cards as `research_import`.
 |---|---|---|
 | `list_uncategorized_tools` | `tools.edit` | Tools not archived with no category: id, slug, name, official name, state, and `suggested_category` — a live category's slug from research or the import hint, never research's free text |
 | `list_unit_labels` | `tools.edit` | Units not retired, grouped by tool (optionally some tools): id, label, status |
-| `review_approval_queue` | `tools.approve` | Researched items: confidence, whether a card can approve it (`approvalRefusal`), the category approval would give it, a photo verdict (§4). Names fenced; reading it taints the turn |
+| `review_approval_queue` | `tools.approve` | Researched items: confidence, whether a card can approve it (`approvalRefusal`), the category approval would give it, a photo verdict (§4). Pages of 100 (`offset`, `next_offset`), `only: ready | needs_a_look` across the whole queue; `total` and `ready_to_approve` count every item. Names fenced; reading it taints the turn |
 
 The capability's prompt fragment (staff with `tools.edit`) is the playbook: read first;
 several cards in one reply, one per distinct change and ≤ 20 rows each (one
@@ -67,7 +67,8 @@ of the whole product, each with its view, composite flag and measured background
 `intake/image-verdict.ts` turns that stored judgement into a verdict in code:
 
 - **good** — rank 1 (or its cleaned copy) is a front or three-quarter view, not a
-  composite, short side ≥ 400 px, and not a busy background left uncleaned;
+  composite, short side ≥ 400 px, and not a busy background left uncut (a `cropped`
+  copy keeps its backdrop, so it does not count as cut);
 - **check** — anything else, with the reasons (an uploaded photo nobody judged; a row
   ranked before views were recorded);
 - **none** — no photo (or research rejected every picture it found).

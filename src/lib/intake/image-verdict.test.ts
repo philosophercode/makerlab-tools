@@ -17,9 +17,9 @@ const candidate = (over: Partial<ImageCandidate> = {}): ImageCandidate => ({
   ...over,
 });
 
-const images = (first: ImageCandidate | null, cleaned = false): ResearchImages => ({
+const images = (first: ImageCandidate | null, cleaned = false, kind?: "cut" | "cropped" | "cropped_and_cut"): ResearchImages => ({
   candidates: first ? [first] : [],
-  cleaned: cleaned ? { attachmentId: "a1", fromUrl: first?.url ?? "" } : null,
+  cleaned: cleaned ? { attachmentId: "a1", fromUrl: first?.url ?? "", ...(kind ? { kind } : {}) } : null,
 });
 
 describe("imageVerdict", () => {
@@ -34,6 +34,9 @@ describe("imageVerdict", () => {
     expect(imageVerdict(images(candidate({ width: 300, height: 300 })))).toMatchObject({ verdict: "check", reasons: ["small (300×300)"] });
     expect(imageVerdict(images(candidate({ background: "busy" })))).toMatchObject({ verdict: "check", reasons: ["busy background, not cleaned"] });
     expect(imageVerdict(images(candidate({ view: undefined })))).toMatchObject({ verdict: "check" });
+    // A crop whose backdrop could not be cut still has the busy background.
+    expect(imageVerdict(images(candidate({ background: "busy" }), true, "cropped"))).toMatchObject({ verdict: "check", reasons: ["busy background, not cleaned"] });
+    expect(imageVerdict(images(candidate({ background: "busy" }), true, "cropped_and_cut"))).toMatchObject({ verdict: "good" });
   });
 
   it("says when there is no photo, or only an uploaded one nobody judged", () => {

@@ -102,6 +102,14 @@ describe("review_approval_queue", () => {
     expect(result.items).toMatch(/Bambu Lab H2D[\s\S]*card can approve: yes · category on approval: 3D Printing › FDM Printers[\s\S]*photo: good/);
     expect(result.items).toMatch(/Hakko FX-888D[\s\S]*card can approve: no \(low confidence[\s\S]*photo: check — banner/);
     expect(tool("review_approval_queue").requiredPermission).toBe("tools.approve");
+
+    // The filter reaches every item, not a first page.
+    const ready = (await tool("review_approval_queue").run({ only: "ready" }, {})) as { shown: number; next_offset: number | null; items: string };
+    expect(ready.shown).toBe(result.ready_to_approve);
+    expect(ready.items).toContain("Bambu Lab H2D");
+    expect(ready.items).not.toContain("Hakko FX-888D");
+    const later = (await tool("review_approval_queue").run({ offset: result.total }, {})) as { shown: number; next_offset: number | null };
+    expect(later).toMatchObject({ shown: 0, next_offset: null });
   });
 });
 

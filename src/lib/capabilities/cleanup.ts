@@ -103,10 +103,18 @@ const listUnitLabelsTool: CapabilityTool<{ tool_ids?: string[] }, UnitLabelsResu
 // ── review_approval_queue ───────────────────────────────────────────
 
 interface ReviewQueueResult {
+  /** Every item waiting, not only the ones shown. */
   total: number;
+  /** Of all of them: a card can approve it and its photo is good. */
   ready_to_approve: number;
+  offset: number;
+  shown: number;
+  /** Pass as `offset` for the next page; null when this page is the last. */
+  next_offset: number | null;
   items: string;
 }
+
+const QUEUE_PAGE = 100;
 
 /** Why an item cannot be approved from a card, in words. */
 const BLOCKED: Record<string, string> = {
@@ -115,34 +123,45 @@ const BLOCKED: Record<string, string> = {
   low_confidence: "low confidence: needs the reviewer's own note on its page",
 };
 
-const reviewApprovalQueueTool: CapabilityTool<Record<string, never>, ReviewQueueResult> = {
+const reviewApprovalQueueTool: CapabilityTool<{ offset?: number; only?: "ready" | "needs_a_look" }, ReviewQueueResult> = {
   name: "review_approval_queue",
   description:
-    "Triage the items waiting for approval (researched intake and import items): each one's id, name, research confidence, whether a card can approve it, the category approval would give it, and a photo verdict — good (research's vision check found a clean front or three-quarter photo of the whole product), check (with reasons: a banner, a back view, small, busy background, an uploaded photo nobody judged) or none. Names are fenced as untrusted text. Staff who approve equipment only. Approve the ready ones with approve_pending_items; list the rest for the person.",
-  inputSchema: z.strictObject({}),
+    "Triage the items waiting for approval (researched intake and import items): each one's id, name, research confidence, whether a card can approve it, the category approval would give it, and a photo verdict — good (research's vision check found a clean front or three-quarter photo of the whole product), check (with reasons: a banner, a back view, small, busy background, an uploaded photo nobody judged) or none. Names are fenced as untrusted text. Pages of 100: total counts every item, next_offset reads the next page; only narrows to the ready items or the ones that need a look. Staff who approve equipment only. Approve the ready ones with approve_pending_items; list the rest for the person.",
+  inputSchema: z.strictObject({
+    offset: z.number().int().min(0).max(10_000).optional().describe("Skip this many items (next_offset from the last page); 0 when left out"),
+    only: z.enum(["ready", "needs_a_look"]).optional().describe("ready: a card can approve it and its photo is good; needs_a_look: everything else; all when left out"),
+  }),
   kind: "read",
   chatOnly: true,
   requiredPermission: "tools.approve",
-  run: async () => {
-    const [items, categories] = await Promise.all([listPendingTools({ statuses: ["researched"], limit: MAX_SHOWN }), listCategoriesForChoosing()]);
+  run: async (input) => {
+    const [items, categories] = await Promise.all([listPendingTools({ statuses: ["researched"], limit: null }), listCategoriesForChoosing()]);
     const labelOf = new Map(categories.map((category) => [category.id, category.group ? `${category.group} › ${category.name}` : category.name]));
-    let ready = 0;
-    const lines = items.map((item) => {
+    // Every item is judged (cheap: stored data only), so the counts cover the
+    // whole queue and a filter reaches items past any page (Codex review on #204).
+    const judged = items.map((item) => {
       const refusal = approvalRefusal(item);
       const photo = imageVerdict(item.research?.images, item.photos);
+      return { item, refusal, photo, ready: !refusal && photo.verdict === "good" };
+    });
+    const wanted = input.only ? judged.filter((entry) => entry.ready === (input.only === "ready")) : judged;
+    const offset = input.offset ?? 0;
+    const page = wanted.slice(offset, offset + QUEUE_PAGE);
+    const lines = page.map(({ item, refusal, photo }) => {
       const categoryId = item.research ? suggestedCategory(item.research, item.categoryHint, categories) : "";
-      const approvable = !refusal;
-      if (approvable && photo.verdict === "good") ready += 1;
       return [
         `- id: ${item.id} · ${oneLine(item.name, 120)} · confidence: ${item.research?.confidence.level ?? "?"}`,
-        `  card can approve: ${approvable ? "yes" : `no (${BLOCKED[refusal ?? ""] ?? refusal})`} · category on approval: ${categoryId ? labelOf.get(categoryId) : "(none)"}`,
+        `  card can approve: ${!refusal ? "yes" : `no (${BLOCKED[refusal] ?? refusal})`} · category on approval: ${categoryId ? labelOf.get(categoryId) : "(none)"}`,
         `  photo: ${photo.verdict} — ${photo.reasons.join("; ")}`,
         `  review page: /admin/intake/${item.id}`,
       ].join("\n");
     });
     return {
       total: items.length,
-      ready_to_approve: ready,
+      ready_to_approve: judged.filter((entry) => entry.ready).length,
+      offset,
+      shown: page.length,
+      next_offset: offset + page.length < wanted.length ? offset + page.length : null,
       items: fenceUntrusted("items waiting for approval (names from imported lists and research)", lines.join("\n") || "(none waiting)", OTHERS_TEXT_NOTE),
     };
   },
