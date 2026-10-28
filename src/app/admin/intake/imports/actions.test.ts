@@ -74,7 +74,13 @@ async function as(role: "user" | "admin" | "super_admin"): Promise<SignedInSessi
   return session;
 }
 
-const tag = () => crypto.randomUUID().slice(0, 6);
+/**
+ * Six random letters to keep names apart between tests. Letters only: a tag
+ * that mixes letters and digits ("a3f9c2") reads as a part number, so every
+ * row sharing it would be flagged a duplicate of the others — at random.
+ */
+const tag = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => String.fromCharCode(97 + (byte % 26))).join("");
 
 /** A ready import of `lines`, owned by `owner`. */
 async function listImport(owner: SignedInSession, lines: string[]) {
@@ -93,6 +99,15 @@ async function listImport(owner: SignedInSession, lines: string[]) {
   if (!loaded.ok) throw new Error(loaded.error);
   return { importId: started.import.id, items: loaded.items };
 }
+
+// The first sign-in and import pay for PGlite's migrations and the auth
+// instance; done here, so no single test's 5 s budget carries them.
+beforeAll(async () => {
+  vi.stubEnv("DATABASE_URL", "");
+  vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
+  resetAuthForTests();
+  await listImport(await as("admin"), [`Warm-up ${tag()}`]);
+}, 60_000);
 
 describe("who may act on an import", () => {
   it("refuses a student and an anonymous caller", async () => {
@@ -229,7 +244,10 @@ describe("the progress poll (import progress spec §3.3)", () => {
 describe("imports.research (import progress spec §3.4)", () => {
   it("researches every row not yet researched, in one start per 25, charged to the person", async () => {
     const owner = await as("admin");
-    const names = Array.from({ length: 30 }, (_, i) => `Bench grinder ${tag()} no.${i + 1}`);
+    // A noun no other test imports: "Bench grinder <tag> no.3" was, at random,
+    // similar enough to another test's "Bench grinder <tag>" to wait as a
+    // possible duplicate.
+    const names = Array.from({ length: 30 }, (_, i) => `Pipe threader ${tag()} no.${i + 1}`);
     const { importId } = await listImport(owner, names);
     const result = await performAction(IMPORTS_RESEARCH, { importId }, await resolveIdentityFromHeaders(), { surface: "gui" });
         expect(result).toMatchObject({ ok: true, queued: 30, waiting: 0, undecided: 0 });
