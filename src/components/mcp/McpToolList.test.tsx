@@ -50,6 +50,9 @@ it("groups every tool under Anyone, Signed-in lab members and Staff", () => {
     "list_maintenance_due",
     "update_ticket",
     "propose_change",
+    // Review reads for auditing copy and photos.
+    "get_intake_item",
+    "view_tool_photo",
     // Assistant–GUI parity phase 7: the id reads and the proposing tools.
     ...ADMIN_READS_FOR_PROPOSALS,
     ...MCP_PROPOSING_TOOLS,
@@ -67,8 +70,8 @@ it("says read or write for each tool", () => {
 it.each([
   ["anonymous", 7, "report_issue"],
   ["user", 10, "update_ticket"],
-  ["admin", 46, "get_usage_summary"],
-  ["super_admin", 48, null],
+  ["admin", 48, "get_usage_summary"],
+  ["super_admin", 50, null],
 ] as const)("marks the tools a %s viewer can use", (role, count, notUsable) => {
   renderAs(role);
   expect(screen.getAllByText("You can use this")).toHaveLength(count);
