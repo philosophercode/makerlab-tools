@@ -40,6 +40,13 @@ MCP callers act as a person, with that person's role and never more
   the parity spec's phase 2 `staff.ts`'s `update_ticket` is MCP only** (the one direct MCP write,
   §11 answer 4); the chat's `update_ticket` is the generated proposing tool, and the typed-yes
   rule is gone. Reporter names, never emails.
+- **Review reads, MCP only** (2026-10-29): `get_intake_item` (an intake item's research draft:
+  names, description, category, ranked photo candidates with the ranking's verdicts) and
+  `view_tool_photo` (a published tool's photo or an item's candidate or cleaned copy, answered as
+  an MCP **image part** through `CapabilityTool.toMcpContent`, downscaled to 768 px) in
+  `capabilities/review-reads.ts`, on `tools.approve`. Only URLs the app recorded are fetched, through
+  `web/guarded-fetch.ts`. For auditing copy and photos from an assistant; nothing is written.
+  `get_tool_details` also carries `image_url` (absolute).
 - **Rate limits**: `mcp` 30/min per IP, `mcpSignedIn` 60/min per token or person, `mcpWrite`
   10/min per identity before each write call.
 - **Sign in with Google is the default way to connect** (amendment 2026-09-24): the page and

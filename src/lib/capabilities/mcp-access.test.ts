@@ -37,6 +37,9 @@ const ADMIN_TOOLS = [
   "list_maintenance_due",
   "update_ticket",
   "propose_change",
+  // Review reads for auditing copy and photos (MCP only).
+  "get_intake_item",
+  "view_tool_photo",
   // The reads MCP proposals resolve ids with (assistant–GUI parity phase 7).
   ...ADMIN_READS_FOR_PROPOSALS,
   // One proposing tool per `mcp: "propose"` action, in registry order. Never
@@ -55,7 +58,7 @@ describe("the MCP tool list by identity", () => {
 
   it("offers a student reports, their own reports list, and no staff tool", () => {
     expect(names("user")).toEqual(USER_TOOLS);
-    for (const staffTool of ["create_tool", "list_intake_queue", "list_open_tickets", "list_maintenance_due", "update_ticket", "propose_change"]) {
+    for (const staffTool of ["create_tool", "list_intake_queue", "list_open_tickets", "list_maintenance_due", "update_ticket", "propose_change", "get_intake_item", "view_tool_photo"]) {
       expect(names("user")).not.toContain(staffTool);
     }
   });
@@ -66,7 +69,7 @@ describe("the MCP tool list by identity", () => {
   });
 
   it("gives a read-only token its role's reads and no writes", () => {
-    expect(names("admin", true)).toEqual([...PUBLIC_READS, "list_my_reports", "list_intake_queue", "list_open_tickets", "list_maintenance_due", ...ADMIN_READS_FOR_PROPOSALS]);
+    expect(names("admin", true)).toEqual([...PUBLIC_READS, "list_my_reports", "list_intake_queue", "list_open_tickets", "list_maintenance_due", "get_intake_item", "view_tool_photo", ...ADMIN_READS_FOR_PROPOSALS]);
     expect(names("user", true)).toEqual([...PUBLIC_READS, "list_my_reports"]);
   });
 
