@@ -146,6 +146,8 @@
 | `evals/manual-questions.eval.ts` / `evals/manual-questions.ts` | `npm run eval:manual-questions` — retrieval recall and the paid end-to-end check over the stored questions; one report per run |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |
 | `src/lib/capabilities/manuals.ts` / `src/lib/chat/tool-manuals.ts` | `search_manual` and its prompt (outline of the focused tool's searchable manuals); what the chat route loads to decide what is searched and what is attached |
+| `src/lib/chat/focused-tool-context.ts` | The chat route's per-tool reads on a tool page (manual outlines, resources, tool skill), cached per tool (`TOOL_CHAT_CACHE`, tag `catalog`) so later turns skip Postgres |
+| `src/lib/chat/turn-cache-log.ts` | The `[chat] prompt cache:` log line: per step, input tokens and how many the provider's cache served |
 | `src/app/admin/research/page.tsx` + `actions.ts` | **Manuals** (`tools.edit`): the state strip, the library table (`listManualLibrary`) and Re-process (`reprocessLibraryManual`) |
 | `scripts/index-manuals.ts` | `npm run manuals:index` — the manual-text and passages backfill (tokens and cost printed) |
 | `scripts/push-local-to-hosted.ts` / `src/lib/push-hosted/*` | `npm run data:push` — copy the local database and files up to a hosted deployment: `tables` (plan from the schema), `rows` (redact, rewrite URLs), `files` (local files, uploads, reuse), `copy` (one transaction), `migrations` (the schema check), `target-env` (the `--to` file), `run` |

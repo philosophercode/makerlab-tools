@@ -1,6 +1,6 @@
 import type { ToolSkillForPrompt } from "../capabilities/types";
 import { getDb } from "../db/client";
-import { readCurrentSkill } from "../skills/read";
+import { readCurrentSkill, type ReadableSkill } from "../skills/read";
 import { SKILL_PROMPT_MAX_CHARS } from "../skills/limits";
 import { renderSkillCompact } from "../skills/render";
 
@@ -8,8 +8,9 @@ import { renderSkillCompact } from "../skills/render";
  * The focused tool's skill for the chat's prompt on its page (tool skills spec
  * 2026-10-07 §5.6; the owner: "assistant should load it in chat if on tool").
  *
- * One indexed query per turn on a tool page, like the manual outlines beside
- * it. The skill is re-rendered compactly from its stored sections within
+ * One indexed query, like the manual outlines beside it; the chat route reads
+ * it through the per-tool cache (`focused-tool-context.ts`), the starter
+ * answers through {@link loadToolSkillForChat}. The skill is re-rendered compactly from its stored sections within
  * {@link SKILL_PROMPT_MAX_CHARS}; a row whose sections no longer parse gives
  * its stored markdown, cut to the budget. Only the current (`ready`) skill:
  * a tool whose latest attempt failed keeps its last good skill, and a tool
@@ -21,14 +22,27 @@ export async function loadToolSkillForChat(
   maxChars: number = SKILL_PROMPT_MAX_CHARS
 ): Promise<ToolSkillForPrompt | null> {
   try {
-    const skill = await readCurrentSkill(await getDb(), tool.id);
-    if (!skill) return null;
-    const text = skill.sections
-      ? renderSkillCompact({ toolName: tool.name, version: skill.version, generatedAt: skill.generatedAt }, skill.sections, skill.sources, maxChars)
-      : skill.content.slice(0, maxChars);
-    return { toolName: tool.name, version: skill.version, generatedAt: skill.generatedAt, text };
+    return toolSkillForPrompt(tool, await readCurrentSkill(await getDb(), tool.id), maxChars);
   } catch (err) {
-    console.warn(`[chat] could not read the tool skill; answering without it: ${err instanceof Error ? err.name : "error"}`);
-    return null;
+    return noToolSkill(err);
   }
+}
+
+/** A stored skill as the prompt carries it, within `maxChars`; null for none. */
+export function toolSkillForPrompt(
+  tool: { name: string },
+  skill: ReadableSkill | null,
+  maxChars: number = SKILL_PROMPT_MAX_CHARS
+): ToolSkillForPrompt | null {
+  if (!skill) return null;
+  const text = skill.sections
+    ? renderSkillCompact({ toolName: tool.name, version: skill.version, generatedAt: skill.generatedAt }, skill.sections, skill.sources, maxChars)
+    : skill.content.slice(0, maxChars);
+  return { toolName: tool.name, version: skill.version, generatedAt: skill.generatedAt, text };
+}
+
+/** No skill, after a failed read: the turn answers without it. */
+export function noToolSkill(err: unknown): null {
+  console.warn(`[chat] could not read the tool skill; answering without it: ${err instanceof Error ? err.name : "error"}`);
+  return null;
 }
