@@ -11,7 +11,7 @@ import { readToolRevision } from "../data/tools";
 import { createPgliteDb } from "../db/pglite";
 import { attachments, tools } from "../db/schema/index";
 import type { Db } from "../db/types";
-import { attachPhotos, removePhoto, reorderPhotos } from "./photo-edits";
+import { attachPhotos, removePhoto, reorderPhotos, setCoverPhoto } from "./photo-edits";
 
 /**
  * The Photos section of the editor.
@@ -185,5 +185,43 @@ describe("removePhoto", () => {
     expect(result).toEqual({ ok: false, error: "not_found" });
     expect(await order(otherToolId)).toEqual([theirs]);
     expect(await readToolRevision(toolId, { db })).toBe(before);
+  });
+});
+
+describe("setCoverPhoto (photo options spec 2026-10-29 §3.2)", () => {
+  it("puts the new photo first and releases the old cover when replacing", async () => {
+    const [oldCover, second] = [await upload(), await upload()];
+    await attachPhotos(await context(), [oldCover, second]);
+    await stageToolForward();
+    const found = await upload();
+
+    const result = await setCoverPhoto(await context(), found, { replace: true });
+
+    expect(result).toMatchObject({ ok: true, replacedId: oldCover, order: [found, second] });
+    expect(await order()).toEqual([found, second]);
+  });
+
+  it("keeps the old cover as the second photo when not replacing", async () => {
+    const oldCover = await upload();
+    await attachPhotos(await context(), [oldCover]);
+    await stageToolForward();
+    const found = await upload();
+
+    const result = await setCoverPhoto(await context(), found, { replace: false });
+
+    expect(result).toMatchObject({ ok: true, replacedId: null });
+    expect(await order()).toEqual([found, oldCover]);
+  });
+
+  it("writes nothing for a photo another tool already owns", async () => {
+    const theirs = await upload();
+    await attachPhotos(await context(otherToolId), [theirs]);
+    const before = await readToolRevision(toolId, { db });
+
+    const result = await setCoverPhoto(await context(), theirs, { replace: true });
+
+    expect(result).toEqual({ ok: false, error: "not_found" });
+    expect(await readToolRevision(toolId, { db })).toBe(before);
+    expect(await order(otherToolId)).toEqual([theirs]);
   });
 });

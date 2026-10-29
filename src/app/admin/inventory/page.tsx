@@ -25,6 +25,7 @@ import {
   unpublish,
 } from "./actions";
 import { attachPhotos, removePhoto, reorderPhotos } from "./photo-actions";
+import { findPhotoOptions, loadPhotoOptions, pickPhotoOption } from "./photo-option-actions";
 import { addResource, editResource, removeResource, reprocessManual } from "./resource-actions";
 import { addUnit, deleteUnit, editUnit, retireUnit } from "./unit-actions";
 import { queueToolRefresh } from "../refresh/actions";
@@ -76,6 +77,9 @@ const EDITOR_ACTIONS: ToolEditorActions = {
   attachPhotos,
   reorderPhotos,
   removePhoto,
+  findPhotoOptions,
+  loadPhotoOptions,
+  pickPhotoOption,
 };
 
 export const metadata = {

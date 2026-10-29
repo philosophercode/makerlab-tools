@@ -25,6 +25,7 @@ import * as shifts from "./shifts";
 import * as units from "./units";
 import { endpointsInSource, type GuiEndpoint } from "./parity";
 import * as people from "./people";
+import * as photoOptions from "./photo-options";
 import * as peopleAllowance from "./people-allowance";
 import * as peopleRoster from "./people-roster";
 import * as projects from "./projects";
@@ -64,6 +65,7 @@ const DEFINITION_MODULES = [
   catalog,
   units,
   resources,
+  photoOptions,
   manuals,
   intake,
   imports,

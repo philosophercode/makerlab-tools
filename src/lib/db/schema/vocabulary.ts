@@ -222,6 +222,15 @@ export type RefreshStatus = (typeof REFRESH_STATUS)[number];
 export const OPEN_REFRESH_STATUS = ["queued", "researching", "proposed"] as const satisfies readonly RefreshStatus[];
 
 /**
+ * Where a tool's **photo options** search is (photo options spec 2026-10-29;
+ * migration `0036`): looking in the background, ready with its pictures, or
+ * failed with a reason. At most one `searching` per tool (the partial unique
+ * index); a pick does not change the status — the options stay on offer.
+ */
+export const PHOTO_SEARCH_STATUS = ["searching", "ready", "failed"] as const;
+export type PhotoSearchStatus = (typeof PHOTO_SEARCH_STATUS)[number];
+
+/**
  * What a chat proposal is about (spec §12.2): a catalogue tool, or a pending
  * item on its preliminary page.
  */

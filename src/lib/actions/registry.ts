@@ -32,6 +32,7 @@ import { MIRROR_DISCONNECT, MIRROR_SET_PAUSED, MIRROR_SYNC_NOW } from "./mirror"
 import { PEOPLE_SET_NAME, PEOPLE_SET_ROLE, PEOPLE_SET_TITLE } from "./people";
 import { PEOPLE_GRANT_ALLOWANCE } from "./people-allowance";
 import { PEOPLE_ADD, PEOPLE_REMOVE, PEOPLE_UNBLOCK_EMAIL } from "./people-roster";
+import { PHOTOS_FIND_OPTIONS, PHOTOS_USE_OPTION } from "./photo-options";
 import { PROJECTS_SET_PUBLISHED } from "./projects";
 import { REFRESH_QUEUE } from "./refresh";
 import { RESOURCES_ADD, RESOURCES_EDIT, RESOURCES_REMOVE } from "./resources";
@@ -90,6 +91,8 @@ const DEFINITIONS = [
   RESOURCES_ADD,
   RESOURCES_EDIT,
   RESOURCES_REMOVE,
+  PHOTOS_FIND_OPTIONS,
+  PHOTOS_USE_OPTION,
   // Phase 5: intake, imports, and the spend actions (§4.2, §4.3, §4.5).
   PENDING_APPROVE,
   PENDING_ADD_UNIT,

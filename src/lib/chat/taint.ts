@@ -49,6 +49,8 @@ export const OUTSIDE_CONTENT_TOOLS: readonly string[] = [
   "get_record",
   // A tool skill: AI-written from manuals and web research (tool skills spec 2026-10-07 §5.5).
   "get_tool_skill",
+  // Photo options: pictures, hosts and ranking reasons from the web (photo options spec 2026-10-29).
+  "get_photo_options",
 ];
 
 /** One turn's taint. Created by the route; mutated only by the helpers here. */

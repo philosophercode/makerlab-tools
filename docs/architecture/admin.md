@@ -214,7 +214,12 @@ Phase 5 extends both. The shape it sets:
   stays usable for everything else.** `POST /api/uploads` answers 503, the
   Photos and Resources sections show that sentence, and reordering, removal and
   every text field keep working — a deployment with no Blob store is still one
-  where a wrong description is worth fixing (Article 4).
+  where a wrong description is worth fixing (Article 4). **Photo options** (under
+  the Photos list; photo options spec 2026-10-29) still search with no store, and
+  **Use as cover** then answers `photo_unavailable` — nothing is written.
+- **Photo options** — the Photos section's **Find photo options**: candidate cover
+  pictures for the tool found in the background, picked as tiles, used as the cover
+  with the background removed. See `intake-and-research.md` "Photo options".
 - **Two things cannot be undone, so they cannot be done.** An address in
   `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or removed (nor blocked), and the
   last `super_admin` cannot be demoted or removed; nobody removes themselves.

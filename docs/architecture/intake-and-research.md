@@ -259,6 +259,29 @@ Existing tools researched again, **blind**, with every change a proposal a perso
   (`propose`, `citations`, `decide`, `blind-input`) have fixture tests shaped like the Aug 29
   reconciliation; `fixtures.test-helpers.ts` holds the shared fixtures.
 
+## Photo options (`tool_photo_searches`; photo options spec 2026-10-29, migration `0036`)
+
+Better cover pictures for a **catalogue** tool, on request — the tool-side sibling of intake's
+**Find a different image**. See `docs/specs/2026-10-29-photo-options-design.md`.
+
+- **Find photo options** (the editor's Photos section; `photos.find_options`, the assistant's
+  `find_photo_options`): `tools.edit`, one item of the daily research allowance, one search running
+  per tool (a row `searching` for ten minutes is closed as failed). `lib/photo-options/request.ts`
+  → `src/workflows/photo-options.ts` → `research/photo-options-steps.ts`: the tool's own web links
+  read for their pictures, one Exa search, both told `PHOTO_PREFERENCE` (the maker's own marketing
+  photo on a plain background, not a shop's) plus the note; pictures already offered by the last
+  three searches and the current photos' `source_url`s left out (`photo-options/candidates.ts`);
+  then research's own probe and `rankCandidates` (`maxShown` 6). URLs only — nothing stored.
+- **Brand**: `brandFromLinks` — the name's first word(s), only when one of the tool's resource links
+  is on that host. It drives the "Manufacturer" tag and the maker-first order.
+- **Use as cover** (`photos.use_option`, `use_photo_option`): `lib/photo-options/pick.ts` — only a URL
+  the search recorded; `storeResearchImage` (guarded download, cleaned with `pickHints` unless
+  **Remove the background** is off), then `setCoverPhoto` (`inventory/photo-edits.ts`) at the
+  panel's revision: the new photo first, the old cover released unless **Replace the current
+  cover** is off. A failed download is `photo_unavailable`, nothing written.
+- **Reads**: the editor polls `loadPhotoOptions` every 4 s while a search runs; the assistant reads
+  `get_photo_options` (`tools.edit`, fenced, taints the turn).
+
 ## Bulk intake (`bulk_imports`, `research_allowances`; bulk intake spec, migration `0013`)
 
 Importing a list — a CSV/TSV file, pasted cells, a plain list, a document or a PDF — as

@@ -184,10 +184,12 @@ describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
     // actions are GUI only (amendment 2026-10-07 "Tool skills").
     // Import progress added research_import, proposed, for both staff roles
     // (amendment 2026-10-27).
-    expect(offered("super_admin").actionTools).toHaveLength(43);
-    expect(offered("admin").actionTools).toHaveLength(39);
-    expect(offered("super_admin").chatTools).toBe(70);
-    expect(offered("admin").chatTools).toBe(65);
+    // Photo options added find_photo_options and use_photo_option, proposed,
+    // and the read get_photo_options, for both staff roles (amendment 2026-10-29).
+    expect(offered("super_admin").actionTools).toHaveLength(45);
+    expect(offered("admin").actionTools).toHaveLength(41);
+    expect(offered("super_admin").chatTools).toBe(73);
+    expect(offered("admin").chatTools).toBe(68);
     expect(offered("user").chatTools).toBe(14);
   });
 });

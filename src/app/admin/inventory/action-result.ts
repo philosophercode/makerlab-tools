@@ -39,7 +39,11 @@ export const INVENTORY_PATH = "/admin/inventory";
  * changed this tool while the panel was open and *nothing was written*, so the
  * panel keeps the unsaved edits and offers a reload (§5.3(4)).
  */
-export type InventoryActionError = AdminGateError | InventoryWriteError;
+export type InventoryActionError =
+  | AdminGateError
+  | InventoryWriteError
+  // A photo option that could not be downloaded when picked: nothing was written (photo options spec 2026-10-29 §4).
+  | "photo_unavailable";
 
 /** A change that landed with less than the full guarantee behind it. */
 export type InventoryActionWarning = InventoryWriteWarning;
