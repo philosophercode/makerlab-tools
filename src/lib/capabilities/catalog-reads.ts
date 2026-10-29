@@ -91,7 +91,7 @@ const getToolUnitsTool: CapabilityTool<{ tool: string }, ToolUnitsResult> = {
 interface PhotoOptionsResult {
   found: boolean;
   tool?: { id: string; slug: string; name: string; editor: string };
-  search?: { status: "searching" | "ready" | "failed" | "stalled"; requested_at: string; error: string | null };
+  search?: { search_id: string; status: "searching" | "ready" | "failed" | "stalled"; requested_at: string; error: string | null };
   options?: string;
 }
 
@@ -104,7 +104,7 @@ interface PhotoOptionsResult {
 const getPhotoOptionsTool: CapabilityTool<{ tool: string }, PhotoOptionsResult> = {
   name: "get_photo_options",
   description:
-    "Get a tool's latest photo options — candidate cover photos find_photo_options found: each numbered, with where it is from, whether it is the manufacturer's own, its background and view, and the ranking's one-line reason — and whether the search is still running. Staff who edit the catalogue only. Use the number with use_photo_option; the person can also pick in the tool editor's Photos section.",
+    "Get a tool's latest photo options — candidate cover photos find_photo_options found: each numbered, with where it is from, whether it is the manufacturer's own, its background and view, and the ranking's one-line reason — and whether the search is still running. Staff who edit the catalogue only. Use the number and the search_id with use_photo_option; the person can also pick in the tool editor's Photos section.",
   inputSchema: z.strictObject({ tool: z.string().min(1).max(200).describe("The tool's id or slug, from search_tools") }),
   kind: "read",
   requiredPermission: "tools.edit",
@@ -128,7 +128,7 @@ const getPhotoOptionsTool: CapabilityTool<{ tool: string }, PhotoOptionsResult> 
     return {
       found: true,
       tool: summary,
-      search: { status, requested_at: search.requestedAt, error: search.error },
+      search: { search_id: search.id, status, requested_at: search.requestedAt, error: search.error },
       options: fenceUntrusted("photo options (pictures found on the web, ranked by a model)", lines.join("\n") || "(none)"),
     };
   },

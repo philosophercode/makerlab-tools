@@ -1,7 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
-import { latestPhotoSearch } from "../data/photo-searches";
+import { getPhotoSearch } from "../data/photo-searches";
 import { getDb } from "../db/client";
 import { listAttachmentsForOwner } from "../data/attachments";
 import type { CoverPayload } from "../inventory/photo-edits";
@@ -109,7 +109,7 @@ export const PHOTOS_USE_OPTION = defineAction<UseInput, InventoryValue<CoverPayl
   id: "photos.use_option",
   toolName: "use_photo_option",
   description:
-    "Make one of a tool's photo options (from get_photo_options, by its number) the tool's cover photo. By default its background is removed the way intake cleans a product photo, and the old cover is removed; say so to keep either. Proposes the change; nothing changes until the person confirms it on the card.",
+    "Make one of a tool's photo options (from get_photo_options, by its number and that list's search_id) the tool's cover photo. By default its background is removed the way intake cleans a product photo, and the old cover is removed; say so to keep either. Proposes the change; nothing changes until the person confirms it on the card.",
   permission: "tools.edit",
   risk: "catalog",
   input: toolRevisionInput.extend({
@@ -123,14 +123,17 @@ export const PHOTOS_USE_OPTION = defineAction<UseInput, InventoryValue<CoverPayl
   tool: toolShape(
     z.strictObject({
       tool_id: TOOL_REF,
+      search_id: z.string().min(1).max(64).describe("The search_id get_photo_options returned with the list the number is from"),
       option: z.number().int().min(1).max(PHOTO_OPTIONS_MAX).describe("The option's number, as get_photo_options lists it"),
       remove_background: z.boolean().optional().describe("false to keep the picture's own background (default true)"),
       replace_cover: z.boolean().optional().describe("false to keep the current cover as a second photo (default true)"),
     }),
     async (args) => {
       const ref = await revisionInputFor(args.tool_id);
-      const search = await latestPhotoSearch(ref.toolId);
-      const option = search?.status === "ready" ? search.options[args.option - 1] : undefined;
+      // The number is read against the list it came from, never a newer search's
+      // — a search that finished in between would otherwise swap the picture.
+      const search = await getPhotoSearch(args.search_id);
+      const option = search?.toolId === ref.toolId && search.status === "ready" ? search.options[args.option - 1] : undefined;
       if (!search || !option) return { ok: false, error: "photo_options_not_ready" };
       return {
         ok: true,
@@ -150,8 +153,8 @@ export const PHOTOS_USE_OPTION = defineAction<UseInput, InventoryValue<CoverPayl
     if (!input.expectedRevision) return null;
     const tool = await toolRef(input.toolId);
     if (!tool) return null;
-    const search = await latestPhotoSearch(tool.id);
-    const index = search?.id === input.searchId ? search.options.findIndex((option) => option.url === input.url) : -1;
+    const search = await getPhotoSearch(input.searchId);
+    const index = search?.toolId === tool.id ? search.options.findIndex((option) => option.url === input.url) : -1;
     if (!search || index < 0) return null;
     const photos = await listAttachmentsForOwner(await getDb(), { ownerType: "tool", ownerId: tool.id });
     const cover = photos[0] ? (photos[0].originalFilename ?? "photo") : null;

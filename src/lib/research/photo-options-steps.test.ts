@@ -2,7 +2,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import { nextCacheMock } from "../../../test/mocks/next-cache";
 import { makeProductPng } from "../../../test/gateway/png";
@@ -22,6 +22,8 @@ vi.mock("@/lib/ai/models", async (importOriginal) =>
 );
 
 import { recordedCalls, resetModelStubs, scriptedModel, setLanguageModel, textModel } from "../../../test/ai/models-stub";
+import { PHOTOS_USE_OPTION } from "../actions/photo-options";
+import type { ActionContext } from "../actions/define";
 import { pickPhotoOption } from "../photo-options/pick";
 import { markPhotoSearchFailed, searchPhotoOptions } from "./photo-options-steps";
 
@@ -226,5 +228,36 @@ describe("pickPhotoOption", () => {
     const searchId = await readyOptions();
     const result = await pickPhotoOption(await context(), { searchId, url: PAGE_URL, removeBackground: true, replaceCover: true }, { store: null });
     expect(result).toEqual({ ok: false, error: "photo_unavailable" });
+  });
+});
+
+describe("use_photo_option", () => {
+  const ctx = {} as ActionContext;
+  const option = (url: string) => ({ url, pageUrl: PAGE, source: "twitter" as const, width: 1200, height: 900, contentType: "image/png" as const, reason: "front" });
+
+  it("reads the number against the list it came from, not a newer search", async () => {
+    const first = await begin();
+    await finishPhotoSearch(first, [option(PAGE_URL)]);
+    const second = await begin();
+    await finishPhotoSearch(second, [option(EXA_URL)]);
+
+    const result = await PHOTOS_USE_OPTION.tool!.toInputs({ tool_id: toolId, search_id: first, option: 1 }, ctx);
+
+    expect(result).toMatchObject({ ok: true, inputs: [{ searchId: first, url: PAGE_URL }] });
+  });
+
+  it("refuses a search of another tool, or a number it did not list", async () => {
+    const searchId = await begin();
+    await finishPhotoSearch(searchId, [option(PAGE_URL)]);
+    const [other] = await (await getDb()).select({ id: tools.id }).from(tools).where(ne(tools.id, toolId)).limit(1);
+
+    expect(await PHOTOS_USE_OPTION.tool!.toInputs({ tool_id: other.id, search_id: searchId, option: 1 }, ctx)).toEqual({
+      ok: false,
+      error: "photo_options_not_ready",
+    });
+    expect(await PHOTOS_USE_OPTION.tool!.toInputs({ tool_id: toolId, search_id: searchId, option: 2 }, ctx)).toEqual({
+      ok: false,
+      error: "photo_options_not_ready",
+    });
   });
 });

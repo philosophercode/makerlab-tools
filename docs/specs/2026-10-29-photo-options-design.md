@@ -101,7 +101,8 @@ mirror is told.
   read, exempt as such).
 - **The assistant**: `find_photo_options` (spend; a card), `get_photo_options` (read, `tools.edit`;
   fenced as outside content and tainting the turn), `use_photo_option` (catalog; a card, by option
-  number).
+  number and the `search_id` `get_photo_options` returns with the list, so a search finishing in
+  between is refused rather than resolving the number against the newer list).
 
 ## 4. Data model
 

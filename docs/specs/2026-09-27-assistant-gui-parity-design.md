@@ -1941,8 +1941,8 @@ which is: two registered actions, run by the tool editor's one-line server actio
 | `photos.use_option` | `use_photo_option` | catalog | `tools.edit` | propose | propose |
 
 `photos.find_options` costs one research item and changes no photo (refusals `photo_search_running`,
-`daily_limit`, `start_failed`). `photos.use_option` takes an option by number from the tool's latest
-search, downloads and (by default) cleans it, and makes it the cover at the tool's revision, removing
+`daily_limit`, `start_failed`). `photos.use_option` takes an option by number together with the
+`search_id` of the list it came from (so a newer search never swaps the picture), downloads and (by default) cleans it, and makes it the cover at the tool's revision, removing
 the old cover unless told not to (refusal `photo_unavailable` when the picture cannot be downloaded;
 `photo_options_not_ready` when there is no such option). The read `get_photo_options` (`tools.edit`)
 lists the options, fenced as outside content; it taints the turn. The editor's poll
