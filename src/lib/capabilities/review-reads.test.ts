@@ -5,10 +5,14 @@ import type { ViewPhotoResult } from "./review-reads";
 const mocks = vi.hoisted(() => ({
   getCatalogTool: vi.fn(),
   guardedFetch: vi.fn(),
+  read: vi.fn(),
+  mode: vi.fn(() => "vercel"),
 }));
 
 vi.mock("../catalog", () => ({ getCatalogTool: mocks.getCatalogTool }));
 vi.mock("../web/guarded-fetch", () => ({ guardedFetch: mocks.guardedFetch }));
+vi.mock("../blob", () => ({ getBlobStore: () => ({ read: mocks.read }), isBlobConfigured: () => true }));
+vi.mock("../blob-mode", () => ({ blobMode: mocks.mode }));
 
 const { reviewReadTools } = await import("./review-reads");
 
@@ -33,6 +37,9 @@ function catalogTool(imageSrc: string): Partial<MakerLabTool> {
 beforeEach(() => {
   mocks.getCatalogTool.mockReset();
   mocks.guardedFetch.mockReset();
+  mocks.read.mockReset();
+  mocks.mode.mockReturnValue("vercel");
+  vi.stubEnv("AUTH_BASE_URL", "http://localhost:3000");
 });
 
 describe("view_tool_photo", () => {
@@ -56,6 +63,16 @@ describe("view_tool_photo", () => {
     expect(result).toEqual({ found: false, message: "Form 4 has no photo." });
     expect(mocks.guardedFetch).not.toHaveBeenCalled();
     expect(view.toMcpContent!(result).map((p) => p.type)).toEqual(["text"]);
+  });
+
+  it("reads a local disk-store photo from the store, never through the guarded reader", async () => {
+    mocks.mode.mockReturnValue("local");
+    mocks.getCatalogTool.mockResolvedValue(catalogTool("http://localhost:3000/api/dev-blob/uploads/tool/form%204.png"));
+    mocks.read.mockResolvedValue({ body: await png(), contentType: "image/png" });
+
+    expect(await view.run({ tool: "form-4" }, {})).toMatchObject({ found: true, width: 4, height: 3 });
+    expect(mocks.read).toHaveBeenCalledWith("uploads/tool/form 4.png", "public");
+    expect(mocks.guardedFetch).not.toHaveBeenCalled();
   });
 
   it("says so when the download fails", async () => {

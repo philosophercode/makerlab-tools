@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { getBlobStore, isBlobConfigured } from "../blob";
+import { localBlobOrigin } from "../blob-local";
+import { blobMode } from "../blob-mode";
 import { getCatalogTool } from "../catalog";
 import { findAttachmentsByIds } from "../data/attachments";
 import { getPendingTool, type PendingTool } from "../data/pending-tools";
@@ -178,16 +180,34 @@ async function fetchPhoto(url: string): Promise<Uint8Array | null> {
   return fetched.ok ? fetched.bytes : null;
 }
 
+/**
+ * A published photo's bytes. In local development a disk-store photo's URL is
+ * the dev server's own `/api/dev-blob/…`, which the guarded reader refuses as
+ * loopback, so it is read from the store instead; every other URL goes
+ * through the guarded reader.
+ */
+async function readPublishedPhoto(url: string): Promise<Uint8Array | null> {
+  const devPrefix = `${localBlobOrigin()}/api/dev-blob/`;
+  if (blobMode() === "local" && url.startsWith(devPrefix)) {
+    const pathname = url.slice(devPrefix.length).split("/").map(decodeURIComponent).join("/");
+    const blob = await getBlobStore().read(pathname, "public");
+    return blob ? toBytes(blob.body) : null;
+  }
+  return fetchPhoto(url);
+}
+
+async function toBytes(body: ReadableStream<Uint8Array> | Uint8Array): Promise<Uint8Array> {
+  return body instanceof Uint8Array ? body : new Uint8Array(await new Response(body).arrayBuffer());
+}
+
 /** A private cleaned copy's bytes, read from the store; null when it is gone. */
 async function readCleaned(item: PendingTool, attachmentId: string): Promise<Uint8Array | null> {
   if (!isBlobConfigured()) return null;
   const [attachment] = await findAttachmentsByIds([attachmentId]);
   if (!attachment || attachment.ownerId !== item.id) return null;
-  if (attachment.publicUrl) return fetchPhoto(attachment.publicUrl);
+  if (attachment.publicUrl) return readPublishedPhoto(attachment.publicUrl);
   const blob = await getBlobStore().read(attachment.blobPathname, "private");
-  if (!blob) return null;
-  if (blob.body instanceof Uint8Array) return blob.body;
-  return new Uint8Array(await new Response(blob.body).arrayBuffer());
+  return blob ? toBytes(blob.body) : null;
 }
 
 async function asImage(
@@ -223,7 +243,7 @@ const viewToolPhotoTool: CapabilityTool<ViewPhotoInput, ViewPhotoResult> = {
       if (!found) return { found: false, message: `Tool not found: ${tool}` };
       const url = absoluteImageUrl(found.imageSrc);
       if (!url) return { found: false, message: `${found.name} has no photo.` };
-      return asImage(await fetchPhoto(url), found.name, url);
+      return asImage(await readPublishedPhoto(url), found.name, url);
     }
     if (intake_item && !tool) {
       const item = await getPendingTool(intake_item.trim());
