@@ -28,10 +28,16 @@ confirms, the same cards as `research_import`.
 
 ## 2. The default tree on an empty lab
 
-- `ensureDefaultTaxonomy()` (`src/lib/taxonomy/seed.ts`) writes `TAXONOMY_TREE` when the
+- `ensureDefaultTaxonomy()` (`src/lib/taxonomy/seed.ts`) writes `STARTER_TREE` when the
   `categories` table has **no rows at all** — live or retired. Any row means somebody has a
   taxonomy, and it is never touched. One transaction, parents first, a slug that exists
   already is skipped; remembered per process once rows exist.
+- `STARTER_TREE` (`tree.ts`) is the short list the owner asked for: the nine top-level
+  categories of the full tree, with subcategories only under 3D Printing (FDM Printers;
+  Resin Printers & Post-Processing) — 11 rows instead of 47. Same slugs and descriptions,
+  so research's answers and `taxonomy:migrate` still match. Staff add subcategories on
+  `/admin/taxonomy`, or accept research's proposals, as a category grows. The full tree
+  stays what `taxonomy:migrate` writes.
 - `listCategoriesForChoosing()` seeds, then lists. It replaces `listCategories()` where a
   category is chosen: research's search and read steps, approval's draft (page and
   `approve_pending_items`), the import review, the tool editor, `list_categories`,

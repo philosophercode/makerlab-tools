@@ -3,19 +3,22 @@ import { getDb } from "../db/client.ts";
 import { categories } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { listCategories, type CategoryOption } from "../data/taxonomy.ts";
-import { flattenTree, TAXONOMY_TREE, type TaxonomyNode } from "./tree.ts";
+import { flattenTree, STARTER_TREE, type TaxonomyNode } from "./tree.ts";
 
 /**
  * The default category tree on a lab that has none (assistant cleanup spec
  * 2026-10-28 §2).
  *
- * `TAXONOMY_TREE` used to reach a database only through
+ * The full tree (`TAXONOMY_TREE`) used to reach a database only through
  * `npm run taxonomy:migrate` (or the built-in demo seed). A lab created after
  * that — the demo deployment on its own Neon database, a fresh fork — had an
  * empty `categories` table, so research had no slug to answer with, approval
  * saved every tool uncategorized and filed its guess as a proposal, and the
  * assistant had nothing `recategorize_tool` could name.
  *
+ * - **The short list, not the full tree**: {@link STARTER_TREE}, nine
+ *   categories and two subcategories. The owner asked for a small default;
+ *   staff add subcategories as the catalogue grows.
  * - **Only an empty table is seeded.** Any category row at all, live or
  *   retired, means somebody has a taxonomy: it is never touched. A lab that
  *   retired every category keeps that choice.
@@ -50,7 +53,7 @@ export async function ensureDefaultTaxonomy(
     if (any) return 0;
     const ids = new Map<string, string>();
     let count = 0;
-    for (const node of flattenTree(options.tree ?? TAXONOMY_TREE)) {
+    for (const node of flattenTree(options.tree ?? STARTER_TREE)) {
       const parentId = node.parentSlug ? (ids.get(node.parentSlug) ?? null) : null;
       if (node.parentSlug && !parentId) continue;
       const [row] = await tx
