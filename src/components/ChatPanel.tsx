@@ -26,6 +26,7 @@ import { useDictation } from "./chat/use-dictation";
 import { newMessageId, useStarterAnswers, type StarterScope } from "./chat/use-starter-answers";
 import { usePageSelectionReader, type PageSelection } from "./chat/page-selection";
 import { useDemoPass } from "./chat/use-demo-pass";
+import { useDockedChat } from "./chat/use-docked-chat";
 import { DemoPassIndicator, DemoPassSpentNotice } from "./chat/DemoPassStatus";
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
@@ -374,10 +375,15 @@ export function ChatPanel() {
   }
 
   const showLoader = isLoading && messages[messages.length - 1]?.role !== "assistant";
+  // Beside the page (sm and up) the sheet is non-modal: no scrim, no scroll
+  // lock, no focus trap, so the page behind keeps scrolling and stays usable,
+  // and a click on it does not close the chat. Full-screen on a phone it
+  // stays modal — the page is not visible behind it anyway.
+  const docked = useDockedChat();
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={(next) => (next ? open() : close())}>
+      <Sheet open={isOpen} onOpenChange={(next) => (next ? open() : close())} modal={!docked}>
         <SheetContent
           ref={sheetRef}
           id="makerlab-chat-sheet"
@@ -386,6 +392,7 @@ export function ChatPanel() {
           aria-describedby={undefined}
           onOpenAutoFocus={focusOnOpen}
           onCloseAutoFocus={returnFocusOnClose}
+          onInteractOutside={docked ? (event) => event.preventDefault() : undefined}
           className={cn(FROSTED, "w-full gap-0 overflow-hidden border-0 p-0 sm:w-[440px] sm:border-s")}
         >
           <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
