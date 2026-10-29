@@ -1192,7 +1192,9 @@ person can quote; the page checks stay as the stricter measure of citation preci
 - **Earlier passages are reused.** "Searching manuals" adds: passages a search returned earlier
   in this conversation are still the model's to answer and cite from, and a follow-up they cover
   is answered without searching again. Citing stays as it was: only a `ref` a search returned in
-  this conversation.
+  this conversation. The chat resolves such a citation too: each message reads the passages of
+  every earlier turn beside its own (`src/components/chat/use-earlier-passages.ts`), so a
+  follow-up's `#cite-<ref>` is a link and is listed under its Sources.
 - **Cache hits are logged.** Each turn logs `[chat] prompt cache:` with each step's input tokens
   and how many the provider's cache served (`src/lib/chat/turn-cache-log.ts`), counts only.
 
