@@ -17,10 +17,10 @@ import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./ai-elements/conversation";
 import { Message, MessageContent } from "./ai-elements/message";
 import { Suggestion, Suggestions } from "./ai-elements/suggestion";
-import { Loader } from "./ai-elements/loader";
+import { Tool, ToolHeader } from "./ai-elements/tool";
 import { ChatMessage, preloadChatResponse } from "./chat/ChatMessage";
 import { ChatComposer } from "./chat/ChatComposer";
-import { parseCeiling } from "./chat/chat-text";
+import { parseCeiling, turnHasOutput, turnNeedsStatus } from "./chat/chat-text";
 import { useChatAttachments } from "./chat/use-chat-attachments";
 import { useDictation } from "./chat/use-dictation";
 import { newMessageId, useStarterAnswers, type StarterScope } from "./chat/use-starter-answers";
@@ -376,7 +376,12 @@ export function ChatPanel() {
     if (target?.isConnected) target.focus();
   }
 
-  const showLoader = isLoading && messages[messages.length - 1]?.role !== "assistant";
+  // One status line for the whole wait (see turnNeedsStatus): the attached
+  // manuals' titles before the model has said or called anything, then
+  // "Working on it…" whenever nothing else on screen shows the turn moving.
+  const latestMessage = messages[messages.length - 1];
+  const showLoader = isLoading && turnNeedsStatus(latestMessage);
+  const loaderReading = readingManuals && readingManuals.length > 0 && !turnHasOutput(latestMessage) ? readingManuals : null;
 
   return (
     <>
@@ -456,14 +461,12 @@ export function ChatPanel() {
                   {showLoader ? (
                     <Message from="assistant">
                       <MessageContent>
-                        {readingManuals && readingManuals.length > 0 ? (
-                          <p aria-label={t("readingManualsAria")} className="flex items-center gap-2 font-mono text-label text-muted-foreground">
-                            <Loader size={12} className="text-primary-ink" />
-                            {t("reading", { titles: readingManuals.join(", ") })}
-                          </p>
-                        ) : (
-                          <Loader role="img" aria-label={t("typingAria")} className="text-muted-foreground" />
-                        )}
+                        <Tool aria-label={loaderReading ? t("readingManualsAria") : t("typingAria")}>
+                          <ToolHeader
+                            title={loaderReading ? t("reading", { titles: loaderReading.join(", ") }) : t("working")}
+                            state="input-available"
+                          />
+                        </Tool>
                       </MessageContent>
                     </Message>
                   ) : null}
