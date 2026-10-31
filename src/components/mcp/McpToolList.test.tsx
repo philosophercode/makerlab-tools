@@ -50,6 +50,9 @@ it("groups every tool under Anyone, Signed-in lab members and Staff", () => {
     "list_maintenance_due",
     "update_ticket",
     "propose_change",
+    // Review reads for auditing copy and photos.
+    "get_intake_item",
+    "view_tool_photo",
     // Assistant–GUI parity phase 7: the id reads and the proposing tools.
     ...ADMIN_READS_FOR_PROPOSALS,
     ...MCP_PROPOSING_TOOLS,

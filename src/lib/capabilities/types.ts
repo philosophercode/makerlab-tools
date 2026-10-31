@@ -131,6 +131,11 @@ export interface CurationContext {
  */
 export type CapabilityKind = "read" | "write";
 
+/** One part of an MCP tool result (`CapabilityTool.toMcpContent`). */
+export type McpContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string };
+
 /**
  * A single tool defined once as data + behavior.
  *
@@ -174,6 +179,12 @@ export interface CapabilityTool<I = unknown, R = unknown> {
    * `kind: "write"` tool is treated this way over MCP (MCP access spec §3.2).
    */
   requiresSignIn?: boolean;
+  /**
+   * Optional, MCP only. How the result reaches an MCP client when pretty JSON
+   * text is not enough — `view_tool_photo` answers with the picture itself as
+   * an image part beside a short text part. Absent: one JSON text part.
+   */
+  toMcpContent?: (result: R) => McpContentPart[];
   /** Pure-ish: data in, structured data out. */
   run: (input: I, ctx: CapabilityCtx) => Promise<R>;
 }

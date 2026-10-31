@@ -241,6 +241,7 @@ describe("tools/list by identity", () => {
       [
         ...PUBLIC_READS,
         "create_tool",
+        "get_intake_item",
         "list_intake_queue",
         "list_my_reports",
         "list_open_tickets",
@@ -249,6 +250,7 @@ describe("tools/list by identity", () => {
         "report_correction",
         "report_issue",
         "update_ticket",
+        "view_tool_photo",
         ...ADMIN_READS_FOR_PROPOSALS,
         ...MCP_PROPOSING_TOOLS,
       ].sort()
@@ -258,7 +260,7 @@ describe("tools/list by identity", () => {
   it("gives a read-only token no write tool", async () => {
     const admin = await bearerFor("admin", { readOnly: true });
     expect(await toolNames(admin.headers)).toEqual(
-      [...PUBLIC_READS, "list_intake_queue", "list_my_reports", "list_open_tickets", "list_maintenance_due", ...ADMIN_READS_FOR_PROPOSALS].sort()
+      [...PUBLIC_READS, "get_intake_item", "list_intake_queue", "list_my_reports", "list_open_tickets", "list_maintenance_due", "view_tool_photo", ...ADMIN_READS_FOR_PROPOSALS].sort()
     );
   });
 });
@@ -689,6 +691,28 @@ describe("staff tools", () => {
       expect.arrayContaining(["Prusa MK4S", "Glowforge Pro"])
     );
     expect(parsed.open[0].review_page).toMatch(/^\/admin\/intake\//);
+  });
+
+  it("get_intake_item hands back an item's research draft, read-only", async () => {
+    const admin = await bearerFor("admin");
+    const parsed = JSON.parse(resultText((await callTool("get_intake_item", { id: "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a01" }, admin.headers)).json));
+    expect(parsed).toMatchObject({ found: true, name: "Prusa MK4S", review_page: "/admin/intake/6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a01" });
+    expect(parsed.research).toMatchObject({ official_name: "Original Prusa MK4S", confidence: "high" });
+    expect(parsed.research.photos.candidates).toEqual(expect.any(Array));
+
+    const identified = JSON.parse(resultText((await callTool("get_intake_item", { id: "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a03" }, admin.headers)).json));
+    expect(identified).toMatchObject({ found: true, name: "Glowforge Pro", research: null });
+
+    const missing = JSON.parse(resultText((await callTool("get_intake_item", { id: "not-an-id" }, admin.headers)).json));
+    expect(missing.found).toBe(false);
+  });
+
+  it("never lets a student read the intake queue's drafts or photos", async () => {
+    const student = await bearerFor("user");
+    for (const name of ["get_intake_item", "view_tool_photo"]) {
+      const { json } = await callTool(name, { id: "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a01", intake_item: "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a01" }, student.headers);
+      expect(json.error || json.result?.isError).toBeTruthy();
+    }
   });
 
   it("propose_change stores a proposal and changes nothing", async () => {

@@ -244,7 +244,7 @@ and marks the ones your account can use.
 
 | Tool | No account | Student | Staff (SuperMaker, Director) | Try asking |
 |---|---|---|---|---|
-| `list_tools`, `search_tools`, `get_tool_details` | ✓ (units by name, serials as their last four: `•••• 9831`) | ✓ (units by name, serials as their last four: `•••• 9831`) | ✓ (also drafts and archived tools, marked; whole unit serials) | "What can cut acrylic?" |
+| `list_tools`, `search_tools`, `get_tool_details` (with the photo's URL) | ✓ (units by name, serials as their last four: `•••• 9831`) | ✓ (units by name, serials as their last four: `•••• 9831`) | ✓ (also drafts and archived tools, marked; whole unit serials) | "What can cut acrylic?" |
 | `get_unit_details` | ✓ (serial's last four only) | ✓ (serial's last four only) | ✓ (whole serial) | "Is Prusa #2 working?" |
 | `get_maintenance_history` | ✓ (no names) | ✓ (no names) | ✓ (reporter names) | "Has the Trotec been repaired lately?" |
 | `search_manual` (one named machine; several only to compare) | ✓ (public manuals) | ✓ (public manuals) | ✓ (staff SOPs too) | "How do I replace the Form 4 resin tank?" |
@@ -254,6 +254,7 @@ and marks the ones your account can use.
 | `list_my_reports` | — | ✓ | ✓ | "What happened to the tickets I filed?" |
 | `create_tool` | — | — | ✓ (draft only) | "Add a draft for our new drill press" |
 | `list_intake_queue` | — | — | ✓ | "What's waiting in intake?" |
+| `get_intake_item`, `view_tool_photo` (an item's research draft; a tool's or a candidate's photo, as an image) | — | — | ✓ | "Is the photo on the Form 4 the right machine?" |
 | `list_open_tickets` | — | — | ✓ | "What maintenance is open, worst first?" |
 | `list_maintenance_due` | — | — | ✓ | "What recurring maintenance is due today?" |
 | `update_ticket` | — | — | ✓ | "Mark the Trotec focus ticket resolved" |

@@ -11,6 +11,7 @@ import { canSeeMap } from "../map/access";
 import { unitsForViewer } from "../unit-serials";
 import { LAB_NOTES_MARK } from "../ai/lab-notes-prompt";
 import { hasLabNotes, labNoteLines } from "../lab-notes/lines";
+import { siteUrl } from "../share/site-url";
 import type {
   Capability,
   CapabilityCtx,
@@ -76,6 +77,8 @@ interface ToolDetailsResult {
   status?: MakerLabTool["status"];
   description?: string;
   short_description?: string;
+  /** The tool's photo, absolute; null when it has none. */
+  image_url?: string | null;
   materials?: string[];
   ppe?: string[];
   tags?: string[];
@@ -288,6 +291,7 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
       status: tool.status,
       description: tool.description,
       short_description: tool.shortDescription,
+      image_url: absoluteImageUrl(tool.imageSrc),
       materials: tool.materials,
       ppe: tool.ppe,
       tags: tool.tags,
@@ -304,6 +308,16 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
     };
   },
 };
+
+/**
+ * The tool's photo as an absolute URL, or null when it has none. A bundled
+ * photo is a site path (`/tools/…`), resolved against the public origin so an
+ * MCP client can open it.
+ */
+export function absoluteImageUrl(imageSrc: string): string | null {
+  if (!imageSrc) return null;
+  return new URL(imageSrc, siteUrl()).toString();
+}
 
 /**
  * "A skill is available" (tool skills spec 2026-10-07 §5.5): one indexed
