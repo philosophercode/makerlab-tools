@@ -5,7 +5,8 @@ import type {
 import type { NewResource, ResourcePatch } from "../../lib/data/resources";
 import type { ToolPatch } from "../../lib/data/tools";
 import type { NewUnit, UnitPatch } from "../../lib/data/units";
-import type { PhotoCountPayload, PhotoOrderPayload } from "../../lib/inventory/photo-edits";
+import type { FindPhotoOptionsResult, LoadPhotoOptionsResult } from "../../app/admin/inventory/photo-option-result";
+import type { CoverPayload, PhotoCountPayload, PhotoOrderPayload } from "../../lib/inventory/photo-edits";
 import type {
   ResourceCreatePayload,
   ResourceWritePayload,
@@ -85,4 +86,13 @@ export interface ToolEditorActions {
   removePhoto: (
     input: ToolWriteArgs & { attachmentId: string }
   ) => Promise<InventoryActionResult<PhotoOrderPayload>>;
+
+  /** Photo options (photo options spec 2026-10-29): start a search — no revision, it changes no photo. */
+  findPhotoOptions: (input: { toolId: string; note?: string | null }) => Promise<FindPhotoOptionsResult>;
+  /** The tool's latest search, polled while it runs. */
+  loadPhotoOptions: (idOrSlug: string) => Promise<LoadPhotoOptionsResult>;
+  /** Make one option the cover, at the panel's revision. */
+  pickPhotoOption: (
+    input: ToolWriteArgs & { searchId: string; url: string; removeBackground?: boolean; replaceCover?: boolean }
+  ) => Promise<InventoryActionResult<CoverPayload>>;
 }

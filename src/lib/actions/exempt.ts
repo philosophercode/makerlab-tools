@@ -92,6 +92,7 @@ export const EXEMPT: Readonly<Record<string, string>> = {
 
   // ── Reads that happen to be server actions ───────────────────────────
   "src/app/admin/inventory/actions.ts#loadToolForEditor": "Not a write: the editor panel's read",
+  "src/app/admin/inventory/photo-option-actions.ts#loadPhotoOptions": "Not a write: the Photos section's poll of the tool's latest photo search (photo options spec 2026-10-29)",
   "src/app/admin/refresh/actions.ts#loadRefreshPickerTools": "Not a write: the Refresh research picker's tool list, read when it opens",
   "src/app/admin/intake/imports/actions.ts#loadImport": "Not a write: the import review's read (its polling)",
   "src/app/admin/intake/imports/actions.ts#loadImportProgress": "Not a write: the import's progress poll — the rows changed since the last (import progress spec §3.3)",

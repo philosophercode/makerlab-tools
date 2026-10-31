@@ -140,6 +140,7 @@ export const ACTION_AREAS: Readonly<Record<string, AreaId>> = {
   manuals: "catalog",
   pending: "intake",
   imports: "intake",
+  photos: "catalog",
   refresh: "intake",
   mirror: "mirror",
   taxonomy: "taxonomy",

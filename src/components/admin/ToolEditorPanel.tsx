@@ -12,6 +12,7 @@ import type {
   ToolEditorPayload,
 } from "../../app/admin/inventory/action-result";
 import { PhotoEditor } from "./PhotoEditor";
+import { PhotoOptions } from "./PhotoOptions";
 import { ResourcesEditor } from "./ResourcesEditor";
 import { ToolFieldsForm } from "./ToolFieldsForm";
 import { ToolStateControls } from "./ToolStateControls";
@@ -457,6 +458,18 @@ export function ToolEditorPanel({
             void run((token) => actions.removePhoto({ ...args(tool.id, token), attachmentId }), {
               refresh: true,
             })
+          }
+        />
+        {/* Better pictures found on request, picked here (photo options spec 2026-10-29). */}
+        <PhotoOptions
+          toolId={tool.id}
+          name={tool.name}
+          hasCover={editor.photos.length > 0}
+          pending={pending}
+          load={actions.loadPhotoOptions}
+          onFind={(note) => actions.findPhotoOptions({ toolId: tool.id, note })}
+          onPick={(choice) =>
+            run((token) => actions.pickPhotoOption({ ...args(tool.id, token), ...choice }), { refresh: true })
           }
         />
       </section>

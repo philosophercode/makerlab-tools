@@ -33,6 +33,7 @@ import {
   unpublish,
 } from "../../admin/inventory/actions";
 import { attachPhotos, removePhoto, reorderPhotos } from "../../admin/inventory/photo-actions";
+import { findPhotoOptions, loadPhotoOptions, pickPhotoOption } from "../../admin/inventory/photo-option-actions";
 import {
   addResource,
   editResource,
@@ -69,6 +70,9 @@ const EDITOR_ACTIONS: ToolEditorActions = {
   attachPhotos,
   reorderPhotos,
   removePhoto,
+  findPhotoOptions,
+  loadPhotoOptions,
+  pickPhotoOption,
 };
 
 interface ToolDetailPageProps {

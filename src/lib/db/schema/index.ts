@@ -38,3 +38,4 @@ export * from "./illustrations.ts";
 export * from "./tool-skills.ts";
 export * from "./staff-shifts.ts";
 export * from "./demo-signups.ts";
+export * from "./photo-searches.ts";
