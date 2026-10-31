@@ -5,7 +5,7 @@
 import { nextCacheMock } from "../../../test/mocks/next-cache";
 import { getCatalogTools } from "../catalog";
 import { resetDbForTests } from "../db/client";
-import { catalog } from "./catalog";
+import { absoluteImageUrl, catalog } from "./catalog";
 import type { CapabilityCtx, CapabilityTool } from "./types";
 import { identityFor } from "../../../test/utils/identities";
 
@@ -119,6 +119,14 @@ describe("get_tool_details", () => {
     });
     expect(result.links).not.toEqual([]);
     expect(result.units).toHaveLength(1);
+  });
+
+  it("gives the photo as an absolute URL, so an MCP client can open it", async () => {
+    const result = (await tool("get_tool_details").run({ id_or_name: "form-4" }, ctx)) as Record<string, unknown>;
+    expect(result.image_url === null || /^https?:\/\/[^/]+\//.test(String(result.image_url))).toBe(true);
+    expect(absoluteImageUrl("")).toBeNull();
+    expect(absoluteImageUrl("/tools/form-4.jpg")).toMatch(/^https?:\/\/[^/]+\/tools\/form-4\.jpg$/);
+    expect(absoluteImageUrl("https://store.example/x.jpg")).toBe("https://store.example/x.jpg");
   });
 
   it("resolves a tool by the Postgres id it hands back in `list_tools`", async () => {

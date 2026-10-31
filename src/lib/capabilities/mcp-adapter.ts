@@ -9,7 +9,8 @@ import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
  * SDK tools it registers each {@link CapabilityTool} on an {@link McpServer}.
  *
  * Each tool's `run()` is wrapped in an MCP handler that returns the structured
- * result as pretty-printed JSON text, surfacing thrown errors via `isError`.
+ * result as pretty-printed JSON text (or the tool's own `toMcpContent` parts),
+ * surfacing thrown errors via `isError`.
  *
  * **What is registered is what the caller may use** (MCP access spec §3.2):
  * `mcpToolsFor` / `mcpToolAllowed` in `mcp-access.ts` decide from the caller's
@@ -87,7 +88,9 @@ function registerTool(
           // Counting a call never changes its answer.
         }
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          content: tool.toMcpContent
+            ? tool.toMcpContent(result)
+            : [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

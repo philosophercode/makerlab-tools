@@ -10,6 +10,7 @@ import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../db/schema/vocabular
 import { labToday } from "../lab-time";
 import { CHAT_PROPOSAL_FIELDS, PROPOSAL_VALUE_DESCRIPTION, proposeChange } from "./curation";
 import { findTool } from "./helpers";
+import { reviewReadTools } from "./review-reads";
 import type { Capability, CapabilityCtx, CapabilityTool, PromptEnv } from "./types";
 
 /**
@@ -38,6 +39,9 @@ import type { Capability, CapabilityCtx, CapabilityTool, PromptEnv } from "./typ
  *   tool of that name is the generated one (`capabilities/actions.ts`), which
  *   proposes a card the person confirms — the typed "yes" is retired
  *   (§11 answer 1).
+ * - `get_intake_item`, `view_tool_photo` (`tools.approve`) — **MCP only.**
+ *   An intake item's research draft, and a photo as an image part, for an
+ *   MCP client auditing copy and photos (`review-reads.ts`).
  * - `propose_change` (`tools.edit`) — **MCP only.** A proposed change to a
  *   catalogue tool, stored as a `chat_proposals` row for a person to accept on
  *   `/admin/refresh`. **It writes nothing to the tool** (Article 5): a leaked
@@ -383,5 +387,6 @@ export const staff: Capability = {
     listMaintenanceDueTool as unknown as CapabilityTool<unknown, unknown>,
     updateTicketTool as unknown as CapabilityTool<unknown, unknown>,
     mcpProposeTool as unknown as CapabilityTool<unknown, unknown>,
+    ...reviewReadTools,
   ],
 };

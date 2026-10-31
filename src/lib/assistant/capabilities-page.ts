@@ -180,6 +180,8 @@ export const TOOL_AREAS: Readonly<Record<string, AreaId>> = {
   start_import: "intake",
   create_tool: "intake",
   list_intake_queue: "intake",
+  get_intake_item: "intake",
+  view_tool_photo: "intake",
   list_imports: "intake",
   list_categories: "taxonomy",
   list_category_proposals: "taxonomy",
