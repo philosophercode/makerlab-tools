@@ -1,5 +1,5 @@
 import type { ManualOutlineForPrompt } from "../capabilities/types";
-import { listToolManualsForChat } from "../data/manual-chunks";
+import { listToolManualsForChat, type ToolManualForChat } from "../data/manual-chunks";
 import { getDb } from "../db/client";
 import { canSearchPrivateManuals, type ManualSearchViewer } from "../manuals/search";
 
@@ -31,19 +31,28 @@ export async function loadToolManualsForChat(
 ): Promise<ToolManualsForChat> {
   try {
     const db = await getDb();
-    const manuals = await listToolManualsForChat(db, toolId, { includePrivate: canSearchPrivateManuals(viewer) });
-    const searchable = manuals.filter((manual) => manual.searchable);
-    return {
-      outlines: searchable.map((manual) => ({
-        title: manual.title,
-        pageCount: manual.pageCount,
-        pdfUrl: manual.pdfUrl,
-        outline: manual.outline,
-      })),
-      searchableResourceIds: new Set(searchable.map((manual) => manual.resourceId)),
-    };
+    return toolManualsForChat(await listToolManualsForChat(db, toolId, { includePrivate: canSearchPrivateManuals(viewer) }));
   } catch (error) {
-    console.warn(`[chat] manual search state unavailable; manuals fall back to attachment: ${error instanceof Error ? error.name : "error"}`);
-    return { outlines: [], searchableResourceIds: new Set() };
+    return noToolManuals(error);
   }
+}
+
+/** The chat's view of a tool's manual rows: the searchable ones' outlines, and their resources. */
+export function toolManualsForChat(manuals: readonly ToolManualForChat[]): ToolManualsForChat {
+  const searchable = manuals.filter((manual) => manual.searchable);
+  return {
+    outlines: searchable.map((manual) => ({
+      title: manual.title,
+      pageCount: manual.pageCount,
+      pdfUrl: manual.pdfUrl,
+      outline: manual.outline,
+    })),
+    searchableResourceIds: new Set(searchable.map((manual) => manual.resourceId)),
+  };
+}
+
+/** "Nothing searchable", after a failed read: the manuals fall back to attachment. */
+export function noToolManuals(error: unknown): ToolManualsForChat {
+  console.warn(`[chat] manual search state unavailable; manuals fall back to attachment: ${error instanceof Error ? error.name : "error"}`);
+  return { outlines: [], searchableResourceIds: new Set() };
 }

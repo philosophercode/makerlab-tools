@@ -26,6 +26,7 @@ import { useDictation } from "./chat/use-dictation";
 import { newMessageId, useStarterAnswers, type StarterScope } from "./chat/use-starter-answers";
 import { usePageSelectionReader, type PageSelection } from "./chat/page-selection";
 import { useDemoPass } from "./chat/use-demo-pass";
+import { useEarlierPassages } from "./chat/use-earlier-passages";
 import { DemoPassIndicator, DemoPassSpentNotice } from "./chat/DemoPassStatus";
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
@@ -312,6 +313,8 @@ export function ChatPanel() {
   // has finished: not while a turn is submitted or streaming, not after it
   // failed or was cut off. Sending anything adds a newer message, so they go.
   const latest = messages[messages.length - 1];
+  // Earlier turns' manual passages, for a follow-up that cites them again.
+  const earlierPassages = useEarlierPassages(messages);
   const repliesOn = status === "ready" && !cutOff && latest?.role === "assistant" ? latest.id : null;
 
   // Sign-in offered at the ceiling. Comes back to the page the conversation
@@ -446,6 +449,7 @@ export function ChatPanel() {
                       message={message}
                       t={t}
                       onInternalNavigate={close}
+                      earlierPassages={earlierPassages.get(message.id)}
                       {...(message.id === repliesOn ? { onReply: handleReply, repliesDisabled: isLoading || answeringChip } : {})}
                     />
                   ))}

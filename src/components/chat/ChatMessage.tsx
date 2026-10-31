@@ -19,6 +19,7 @@ import {
   linkAttachedPageMentions,
   machineCitation,
   manualPassages,
+  type ManualPassageRef,
 } from "./manual-citations";
 import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
 import { SUGGEST_REPLIES_PART, suggestedRepliesOf } from "../../lib/chat/suggested-replies";
@@ -96,6 +97,7 @@ export const ChatMessage = memo(function ChatMessage({
   onInternalNavigate,
   onReply,
   repliesDisabled = false,
+  earlierPassages,
 }: {
   message: UIMessage;
   t: ChatT;
@@ -107,8 +109,17 @@ export const ChatMessage = memo(function ChatMessage({
   onReply?: (reply: string) => void;
   /** A turn is starting: the bubbles stay drawn but do nothing. */
   repliesDisabled?: boolean;
+  /**
+   * Passages earlier turns' searches returned (`useEarlierPassages`): a
+   * follow-up answered from them cites them as links too. This message's own
+   * passages win on the same key.
+   */
+  earlierPassages?: ReadonlyMap<string, ManualPassageRef>;
 }) {
-  const passages = useMemo(() => manualPassages(message.parts), [message.parts]);
+  const passages = useMemo(() => {
+    const mine = manualPassages(message.parts);
+    return earlierPassages && earlierPassages.size > 0 ? new Map([...earlierPassages, ...mine]) : mine;
+  }, [message.parts, earlierPassages]);
   const documents = useMemo(() => attachedManualLinks(message.parts), [message.parts]);
   const attached = useMemo(() => attachedManuals(message.parts), [message.parts]);
   const citationLabel = useMemo(() => (citation: string) => t("citationAria", { citation }), [t]);

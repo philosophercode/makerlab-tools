@@ -118,9 +118,20 @@ and say why in the PR.
   `makerlab-chat-v1` (`MODEL_CHAT_CACHE_KEY`, `off` sends none; bump the
   suffix when the stable prompt changes shape), plus the tier. The evals pass
   the same options — run `npm run eval` after changing either.
+- **Is the prompt cache hitting?** Every chat turn logs
+  `[chat] prompt cache: N steps, cached/input input tokens cached (P%), …; per step …`
+  (`chat/turn-cache-log.ts`). A conversation's second and later steps should
+  read most of their input from the cache; a step at 0% after the first one
+  means something early in the prompt changed. One known cause: a capped tool
+  (`show_tool`, `suggest_replies`, `make_illustration`, the web caps) dropping
+  out of `activeTools` changes the tool list, part of the cached prefix.
 - **The chat route waits on as little as possible**: identity and the body
   together; rate limit, page context, outcomes, catalogue, focused tool and
-  curation in one `Promise.all`; manual outlines and resources together; the
+  curation in one `Promise.all`; the focused tool's manual outlines, resources
+  and skill together, each cached per tool (`chat/focused-tool-context.ts`,
+  `TOOL_CHAT_CACHE`: tag `catalog`, five-minute revalidate as the backstop for
+  manuals indexed and skills written in the background), so the second turn
+  on a tool page reads none of them from Postgres; the
   manual PDFs fetched **inside the stream**, in parallel, and kept for ten
   minutes per URL (`chat/manual-pdf-cache.ts`; tests call
   `clearManualPdfCache()`). The real fix for PDF latency is processing the
