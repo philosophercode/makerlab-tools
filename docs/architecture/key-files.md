@@ -80,7 +80,7 @@
 | `src/lib/rate-limit.ts` | In-memory (or Upstash) sliding-window limiter, tiered by role (and `DEMO_PASS_CHAT_TIER` for an unspent demo pass) |
 | `src/lib/demo-pass/*` | The demo pass (demo pass spec 2026-10-07): `config` (`DEMO_PASS`, `DEMO_PASS_BUDGET_USD`, `DEMO_PASS_DAILY_LIMIT`, `DEMO_PASS_CONTACT_EMAIL`), `signup` (the form's rules), `token` / `cookie` (the signed `makerlab.demo_pass` cookie), `resolve` (cookie → pass, ledger columns only), `state`, `identity` (`identityWithDemoPass`), `turn-cost` / `charge` (what a turn cost, charged after it), `format` |
 | `src/lib/data/demo-signups.ts` / `src/lib/db/schema/demo-signups.ts` | `demo_signups` (migration `0034`): `findOrCreateDemoSignup`, the ledger read the chat uses (`getDemoPassLedger`, no personal data), `chargeDemoPass`, and the super-admin list and count |
-| `src/app/api/demo-pass/route.ts` / `src/app/demo/` / `src/components/demo/*` | Sign up (`POST`) and the pass's balance (`GET`); the `/demo` form and its thank-you; the front page's `DemoSignupCallout` |
+| `src/app/api/demo-pass/route.ts` / `src/app/interest/` / `src/components/demo/*` | Sign up (`POST`) and the pass's balance (`GET`); the `/interest` form and its thank-you (`/demo` redirects there); the front page's `DemoSignupCallout` |
 | `src/app/admin/users/demo-signups/` / `src/components/admin/DemoSignupsTable.tsx` / `src/app/api/admin/demo-signups/export/route.ts` / `src/lib/export/demo-signups-csv.ts` | People → Demo sign-ups and its CSV (`users.manage`, audited) |
 | `src/components/chat/use-demo-pass.ts` / `DemoPassStatus.tsx` / `src/lib/chat/turn-spend.ts` | The chat's "Demo pass · $x left", the spent thank-you, and a turn's side costs (the manual search) for the ledger |
 | `src/lib/auth/config.ts` | The Better Auth instance: Drizzle adapter, database sessions, admin plugin, domain enforcement |
@@ -146,6 +146,8 @@
 | `evals/manual-questions.eval.ts` / `evals/manual-questions.ts` | `npm run eval:manual-questions` — retrieval recall and the paid end-to-end check over the stored questions; one report per run |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |
 | `src/lib/capabilities/manuals.ts` / `src/lib/chat/tool-manuals.ts` | `search_manual` and its prompt (outline of the focused tool's searchable manuals); what the chat route loads to decide what is searched and what is attached |
+| `src/lib/chat/focused-tool-context.ts` | The chat route's per-tool reads on a tool page (manual outlines, resources, tool skill), cached per tool (`TOOL_CHAT_CACHE`, tag `catalog`) so later turns skip Postgres |
+| `src/lib/chat/turn-cache-log.ts` | The `[chat] prompt cache:` log line: per step, input tokens and how many the provider's cache served |
 | `src/app/admin/research/page.tsx` + `actions.ts` | **Manuals** (`tools.edit`): the state strip, the library table (`listManualLibrary`) and Re-process (`reprocessLibraryManual`) |
 | `scripts/index-manuals.ts` | `npm run manuals:index` — the manual-text and passages backfill (tokens and cost printed) |
 | `scripts/push-local-to-hosted.ts` / `src/lib/push-hosted/*` | `npm run data:push` — copy the local database and files up to a hosted deployment: `tables` (plan from the schema), `rows` (redact, rewrite URLs), `files` (local files, uploads, reuse), `copy` (one transaction), `migrations` (the schema check), `target-env` (the `--to` file), `run` |

@@ -139,4 +139,31 @@ describe("assembly and approval", () => {
     expect(draft.category).toBe("");
     expect(draft.proposeCategory).toBe(false);
   });
+
+  // Assistant cleanup spec 2026-10-28 §2: research ran while the lab had no
+  // tree, then the default tree was seeded before approval.
+  it("matches research's slug again against the categories that exist now", () => {
+    const research = result({ name: "sanders", group: null, existingId: null, slug: "sanders" });
+    const draft = initialDraft({ name: "X", locationHint: null, serialNumber: null }, research, CATEGORIES, []);
+    expect(draft.category).toBe("c-sanders");
+  });
+
+  it("takes the category research proposed when the tree now has it, and files no proposal", () => {
+    const research = result({
+      name: "Sanders",
+      group: "Power Tools",
+      existingId: null,
+      proposal: { name: "Sanders", parentSlug: "power-tools", description: null, reason: "The lab has no categories." },
+    });
+    const draft = initialDraft({ name: "X", locationHint: null, serialNumber: null }, research, CATEGORIES, []);
+    expect(draft.category).toBe("c-sanders");
+    expect(draft.proposeCategory).toBe(false);
+  });
+
+  it("falls back to the imported list's category by its exact name", () => {
+    const research = result({ name: "", group: null, existingId: null });
+    const item = { name: "X", locationHint: null, serialNumber: null, categoryHint: "power tools" };
+    expect(initialDraft(item, research, CATEGORIES, []).category).toBe("c-power");
+    expect(initialDraft({ ...item, categoryHint: "Woodshop" }, research, CATEGORIES, []).category).toBe("");
+  });
 });

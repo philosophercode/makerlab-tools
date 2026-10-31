@@ -1269,6 +1269,7 @@ action, and none is exposed. The chat's counts are unchanged (58 / 50 / 9).
 | `tools.restore` | `restore_tool` | catalog | `tools.publish` | propose | propose |
 | `units.add` | `add_unit` | catalog | `tools.edit` | propose | propose |
 | `units.edit` | `edit_unit` | catalog | `tools.edit` | propose | propose |
+| `units.rename` | `rename_units` | catalog | `tools.edit` | propose (batch ≤ 20) | propose |
 | `units.retire` | `retire_unit` | catalog | `tools.edit` | propose | propose |
 | `units.delete` | `delete_unit` | destructive | `tools.edit` | propose | never |
 | `resources.add` | `add_resource` | catalog | `tools.edit` | propose | propose |

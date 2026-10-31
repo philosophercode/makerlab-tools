@@ -291,6 +291,38 @@ describe("ChatFab", () => {
     expect(composer).toHaveFocus();
   });
 
+  it("keeps the status line while the assistant's message draws nothing yet", async () => {
+    const user = userEvent.setup();
+    // The attached manuals' links arrive first on a tool page; they draw
+    // nothing, and the status line used to vanish with them.
+    useChatReturn = baseReturn({
+      messages: [
+        userMsg("u1", "hello"),
+        { id: "a1", role: "assistant" as const, parts: [{ type: "data-manual-links", data: { kind: "manual-links", links: [] } }] },
+      ],
+      status: "streaming",
+    });
+    render(<ChatFab />);
+
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+
+    expect(screen.getByLabelText("MakerLAB AI is typing")).toBeInTheDocument();
+    expect(screen.getByText("Working on it…")).toBeInTheDocument();
+  });
+
+  it("drops the status line once the answer is being written", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [userMsg("u1", "hello"), assistantMsg("a1", "Hi there")],
+      status: "streaming",
+    });
+    render(<ChatFab />);
+
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+
+    expect(screen.queryByLabelText("MakerLAB AI is typing")).not.toBeInTheDocument();
+  });
+
   it("surfaces the actual error message when useChat returns an error", async () => {
     const user = userEvent.setup();
     useChatReturn = baseReturn({
@@ -1511,6 +1543,23 @@ describe("ChatFab — manual citations (spec §9.1)", () => {
     ]);
     // Read, not cited: not evidence.
     expect(within(dialog).queryByText("Form 4 Manual, p. 50")).not.toBeInTheDocument();
+  });
+
+  it("links a follow-up's citation of a passage an earlier turn's search returned (amendment 2026-10-29)", async () => {
+    const user = userEvent.setup();
+    const followUp = {
+      id: "a2",
+      role: "assistant" as const,
+      parts: [{ type: "text", text: "Wipe it first ([Cleaning (Form 4 Manual, p. 50)](#cite-3f2a9c10-50))." }],
+    } as unknown as UseChatReturn["messages"][number];
+    useChatReturn = baseReturn({
+      messages: [userMsg("u1", "How do I replace the resin tank?"), answer("Lift it."), userMsg("u2", "And cleaning?"), followUp],
+    });
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("link", { name: "Open Form 4 Manual, p. 50" })).toHaveAttribute("href", URL_50);
+    expect(within(dialog).getByRole("button", { name: "1 manual page" })).toBeInTheDocument();
   });
 
   it("draws a #cite- ref as the citation, opening the tool's URL (amendment 2026-09-28)", async () => {

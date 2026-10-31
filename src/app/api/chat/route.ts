@@ -15,10 +15,7 @@ import { getCatalogTool, getCatalogTools } from "../../../lib/catalog";
 import { toolForViewer } from "../../../lib/unit-serials";
 import { loadLabWideNotes } from "../../../lib/lab-notes/read";
 import { loadOnShiftNames } from "../../../lib/on-shift/read";
-import {
-  listResourcesForTool,
-  type ToolResource,
-} from "../../../lib/data/resources";
+import type { ToolResource } from "../../../lib/data/resources";
 import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit";
 import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
 import { siteConfig } from "../../../lib/site-config";
@@ -32,8 +29,7 @@ import {
   attachedManualLinks,
   collectToolManuals,
 } from "../../../lib/chat/attached-manuals";
-import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
-import { loadToolSkillForChat } from "../../../lib/chat/tool-skill";
+import { loadFocusedToolContext } from "../../../lib/chat/focused-tool-context";
 import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
 import { historyReadOutside, markOutsideReads, newTurnState } from "../../../lib/chat/taint";
 import { curationCapability } from "../../../lib/capabilities/curation";
@@ -51,6 +47,7 @@ import { chatPrepareStep } from "./prepare-step";
 import { chatStopWhen } from "./stop-when";
 import { boundChatHistory, historyBudgetFor } from "../../../lib/chat/bound-history";
 import { photoQrHints, photoQrSection } from "../../../lib/chat/photo-qr";
+import { describeTurnCache } from "../../../lib/chat/turn-cache-log";
 import {
   CAPABILITIES,
   capabilitiesForIdentity,
@@ -147,10 +144,11 @@ export async function POST(req: Request) {
   // The two reads are independent; the PDFs themselves are fetched inside the
   // stream, so its response starts without waiting on a manual host.
   // The tool's skill, when it has one (tool skills spec 2026-10-07 §5.6): one
-  // read beside the manuals, never a failure of the turn.
-  const [toolManuals, focusedResources, toolSkill] = focused
-    ? await Promise.all([loadToolManualsForChat(focused.id, identity), loadResourcesForManuals(focused.id), loadToolSkillForChat(focused)])
-    : [{ outlines: [], searchableResourceIds: new Set<string>() }, [] as ToolResource[], null];
+  // read beside the manuals, never a failure of the turn. All three are cached
+  // per tool, so later turns on the same page wait on none of them.
+  const { toolManuals, resources: focusedResources, toolSkill } = focused
+    ? await loadFocusedToolContext(focused, identity)
+    : { toolManuals: { outlines: [], searchableResourceIds: new Set<string>() }, resources: [] as ToolResource[], toolSkill: null };
   if (focused) {
     const hosts = resourceHosts(focused);
     console.info(
@@ -289,13 +287,17 @@ export async function POST(req: Request) {
         // Ten steps at most, and a step that only offered suggested replies
         // after the answer ends the turn (parity spec amendment 2026-10-07).
         stopWhen: chatStopWhen(),
-        // Usage insight (usage insight spec §5.1): what this turn was about,
+        // First a log line of how much of each step's prompt the provider's
+        // cache served (`chat/turn-cache-log.ts`). Then usage insight (usage
+        // insight spec §5.1): what this turn was about,
         // counted with no one in it and written after the response — a demo
         // pass's turn as the `demo` audience. Never throws; a failed insert
         // costs the student nothing. Then an unspent pass is charged what the
         // turn cost (demo pass spec §5.3): awaited, so the next turn sees it;
         // it never throws either.
         onFinish: async ({ steps }) => {
+          const cacheLine = describeTurnCache(steps);
+          if (cacheLine) console.info(cacheLine);
           recordChatTurnUsage({
             steps,
             messages,
@@ -516,20 +518,4 @@ function parsePhotoHints(text: string): PhotoHint[] {
       return { attachmentId: id, name };
     })
     .filter((hint) => hint.attachmentId || hint.name);
-}
-
-// ── Helpers (focused tool / manuals) ───────────────────────────────
-
-/**
- * The focused tool's resources, for the manuals to attach. Only that tool's
- * rows are read (spec §3.10, Article 4's "load context lazily"). A failure
- * leaves the manuals as links, never the request.
- */
-async function loadResourcesForManuals(toolId: string): Promise<ToolResource[]> {
-  try {
-    return await listResourcesForTool(toolId);
-  } catch (err) {
-    console.warn("[chat] failed to load resources for manuals", err);
-    return [];
-  }
 }

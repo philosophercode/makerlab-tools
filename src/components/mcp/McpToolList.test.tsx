@@ -67,8 +67,8 @@ it("says read or write for each tool", () => {
 it.each([
   ["anonymous", 7, "report_issue"],
   ["user", 10, "update_ticket"],
-  ["admin", 46, "get_usage_summary"],
-  ["super_admin", 48, null],
+  ["admin", 47, "get_usage_summary"],
+  ["super_admin", 49, null],
 ] as const)("marks the tools a %s viewer can use", (role, count, notUsable) => {
   renderAs(role);
   expect(screen.getAllByText("You can use this")).toHaveLength(count);

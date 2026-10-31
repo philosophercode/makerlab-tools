@@ -17,16 +17,17 @@ import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent, ConversationScrollButton } from "./ai-elements/conversation";
 import { Message, MessageContent } from "./ai-elements/message";
 import { Suggestion, Suggestions } from "./ai-elements/suggestion";
-import { Loader } from "./ai-elements/loader";
+import { Tool, ToolHeader } from "./ai-elements/tool";
 import { ChatMessage, preloadChatResponse } from "./chat/ChatMessage";
 import { ChatComposer } from "./chat/ChatComposer";
-import { parseCeiling } from "./chat/chat-text";
+import { parseCeiling, turnHasOutput, turnNeedsStatus } from "./chat/chat-text";
 import { useChatAttachments } from "./chat/use-chat-attachments";
 import { useDictation } from "./chat/use-dictation";
 import { newMessageId, useStarterAnswers, type StarterScope } from "./chat/use-starter-answers";
 import { usePageSelectionReader, type PageSelection } from "./chat/page-selection";
 import { useDemoPass } from "./chat/use-demo-pass";
 import { useDockedChat } from "./chat/use-docked-chat";
+import { useEarlierPassages } from "./chat/use-earlier-passages";
 import { DemoPassIndicator, DemoPassSpentNotice } from "./chat/DemoPassStatus";
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
@@ -313,6 +314,8 @@ export function ChatPanel() {
   // has finished: not while a turn is submitted or streaming, not after it
   // failed or was cut off. Sending anything adds a newer message, so they go.
   const latest = messages[messages.length - 1];
+  // Earlier turns' manual passages, for a follow-up that cites them again.
+  const earlierPassages = useEarlierPassages(messages);
   const repliesOn = status === "ready" && !cutOff && latest?.role === "assistant" ? latest.id : null;
 
   // Sign-in offered at the ceiling. Comes back to the page the conversation
@@ -374,12 +377,17 @@ export function ChatPanel() {
     if (target?.isConnected) target.focus();
   }
 
-  const showLoader = isLoading && messages[messages.length - 1]?.role !== "assistant";
   // Beside the page (sm and up) the sheet is non-modal: no scrim, no scroll
   // lock, no focus trap, so the page behind keeps scrolling and stays usable,
   // and a click on it does not close the chat. Full-screen on a phone it
   // stays modal — the page is not visible behind it anyway.
   const docked = useDockedChat();
+  // One status line for the whole wait (see turnNeedsStatus): the attached
+  // manuals' titles before the model has said or called anything, then
+  // "Working on it…" whenever nothing else on screen shows the turn moving.
+  const latestMessage = messages[messages.length - 1];
+  const showLoader = isLoading && turnNeedsStatus(latestMessage);
+  const loaderReading = readingManuals && readingManuals.length > 0 && !turnHasOutput(latestMessage) ? readingManuals : null;
 
   return (
     <>
@@ -453,20 +461,19 @@ export function ChatPanel() {
                       message={message}
                       t={t}
                       onInternalNavigate={close}
+                      earlierPassages={earlierPassages.get(message.id)}
                       {...(message.id === repliesOn ? { onReply: handleReply, repliesDisabled: isLoading || answeringChip } : {})}
                     />
                   ))}
                   {showLoader ? (
                     <Message from="assistant">
                       <MessageContent>
-                        {readingManuals && readingManuals.length > 0 ? (
-                          <p aria-label={t("readingManualsAria")} className="flex items-center gap-2 font-mono text-label text-muted-foreground">
-                            <Loader size={12} className="text-primary-ink" />
-                            {t("reading", { titles: readingManuals.join(", ") })}
-                          </p>
-                        ) : (
-                          <Loader role="img" aria-label={t("typingAria")} className="text-muted-foreground" />
-                        )}
+                        <Tool aria-label={loaderReading ? t("readingManualsAria") : t("typingAria")}>
+                          <ToolHeader
+                            title={loaderReading ? t("reading", { titles: loaderReading.join(", ") }) : t("working")}
+                            state="input-available"
+                          />
+                        </Tool>
                       </MessageContent>
                     </Message>
                   ) : null}
