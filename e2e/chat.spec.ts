@@ -102,6 +102,32 @@ test.describe("Chat assistant", () => {
     await expect(fab).toBeFocused();
   });
 
+  // Beside the page the chat is non-modal: the page keeps scrolling, and a
+  // click on it leaves the chat open. Full-screen on a phone it stays modal.
+  test("docked beside the page, the page still scrolls and clicks keep it open", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.goto("/tools/form-4");
+    await page.getByRole("button", { name: "Open MakerLAB AI" }).click();
+    const dialog = page.getByRole("dialog", { name: "MakerLAB AI" });
+    await expect(dialog).toBeVisible();
+    await expect(page.locator("body[data-scroll-locked]")).toHaveCount(0);
+
+    await page.mouse.move(200, 300);
+    await page.mouse.wheel(0, 400);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+
+    await page.mouse.click(200, 300);
+    await expect(dialog).toBeVisible();
+  });
+
+  test("full-screen on a phone, the chat locks the page behind it", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/tools/form-4");
+    await page.getByRole("button", { name: "Open MakerLAB AI" }).click();
+    await expect(page.getByRole("dialog", { name: "MakerLAB AI" })).toBeVisible();
+    await expect(page.locator("body[data-scroll-locked]")).toHaveCount(1);
+  });
+
   test("a cited manual page is an inline citation and a source", async ({ page }) => {
     const pdf = "http://localhost/manuals/form-4.pdf";
     const body = [
