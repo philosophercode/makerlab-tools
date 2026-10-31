@@ -122,11 +122,16 @@ export type PromptInputSubmitProps = ComponentProps<typeof Button> & {
   status?: ChatStatus;
 };
 
-/** Send: the composer's one filled button. A spinner replaces the arrow while a turn is on its way. */
+/**
+ * Send: the composer's one filled button. A spinner replaces the arrow while a
+ * turn is on its way, at full strength: the button is disabled then, and the
+ * disabled fade left a spinner too faint to read. What the turn is doing is
+ * said in the conversation (the chat's status line), not here.
+ */
 export const PromptInputSubmit = ({ className, variant = "default", size = "icon", status, children, ...props }: PromptInputSubmitProps) => {
   const busy = status === "submitted" || status === "streaming";
   return (
-    <Button className={cn(className)} size={size} type="submit" variant={variant} {...props}>
+    <Button className={cn(busy && "disabled:opacity-100", className)} size={size} type="submit" variant={variant} aria-busy={busy || undefined} {...props}>
       {children ?? (busy ? <Loader size={14} /> : <ArrowUpIcon aria-hidden="true" className="size-4" />)}
     </Button>
   );

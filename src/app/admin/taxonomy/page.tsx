@@ -4,6 +4,7 @@ import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { TaxonomyBoard } from "../../../components/admin/TaxonomyBoard";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { canView } from "../../../lib/auth/permissions";
+import { ensureDefaultTaxonomy } from "../../../lib/taxonomy/seed";
 import { listAdminCategories, listCategoryProposals, listToolsForTaxonomy } from "../../../lib/data/category-admin";
 import { decideCategoryProposal, editCategory, mergeCategories, proposeCategory, recategorizeTool, setCategoryRetired } from "./actions";
 
@@ -27,6 +28,8 @@ export default async function AdminTaxonomyPage() {
 
   if (!canView(identity, "taxonomy.manage")) return <AdminNotice kind="forbidden" />;
 
+  // A lab with no categories at all gets the default tree first (assistant cleanup spec §2).
+  await ensureDefaultTaxonomy().catch(() => undefined);
   const [categories, proposals, tools] = await Promise.all([listAdminCategories(), listCategoryProposals(), listToolsForTaxonomy()]);
   const live = categories.filter((category) => !category.retiredAt);
   const pending = proposals.filter((proposal) => proposal.status === "pending").length;

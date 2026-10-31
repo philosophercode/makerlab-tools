@@ -184,12 +184,15 @@ describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
     // actions are GUI only (amendment 2026-10-07 "Tool skills").
     // Import progress added research_import, proposed, for both staff roles
     // (amendment 2026-10-27).
-    // Photo options added find_photo_options and use_photo_option, proposed,
-    // and the read get_photo_options, for both staff roles (amendment 2026-10-29).
-    expect(offered("super_admin").actionTools).toHaveLength(45);
-    expect(offered("admin").actionTools).toHaveLength(41);
-    expect(offered("super_admin").chatTools).toBe(73);
-    expect(offered("admin").chatTools).toBe(68);
+    // Assistant cleanup added rename_units, proposed, and three reads
+    // (list_uncategorized_tools, list_unit_labels, review_approval_queue) for
+    // both staff roles (spec 2026-10-28). Photo options added find_photo_options
+    // and use_photo_option, proposed, and the read get_photo_options, for both
+    // staff roles (amendment 2026-10-29).
+    expect(offered("super_admin").actionTools).toHaveLength(46);
+    expect(offered("admin").actionTools).toHaveLength(42);
+    expect(offered("super_admin").chatTools).toBe(77);
+    expect(offered("admin").chatTools).toBe(72);
     expect(offered("user").chatTools).toBe(14);
   });
 });

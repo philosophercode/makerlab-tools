@@ -1,7 +1,8 @@
 "use server";
 
 import { authorizeAdminView } from "../../../lib/admin/action-gate";
-import { listCategories, listLocations } from "../../../lib/data/taxonomy";
+import { listLocations } from "../../../lib/data/taxonomy";
+import { listCategoriesForChoosing } from "../../../lib/taxonomy/seed";
 import { loadToolEditor } from "../../../lib/data/tool-editor";
 import { otherToolNames } from "../../../lib/data/tool-name-clash";
 import { listParentToolOptions } from "../../../lib/data/tool-relations";
@@ -71,7 +72,7 @@ export async function loadToolForEditor(idOrSlug: string): Promise<LoadToolEdito
   // `loadToolEditor`, which is about one tool: these belong to the whole lab.
   const db = await getDb();
   const [categories, locations, taken, parentOptions] = await Promise.all([
-    listCategories(),
+    listCategoriesForChoosing(),
     listLocations(),
     otherToolNames(db, editor.tool.id),
     listParentToolOptions(db, editor.tool.id),

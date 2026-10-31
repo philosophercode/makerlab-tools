@@ -64,12 +64,23 @@ describe("RevisionChain", () => {
     expect(chain.inputFor("resources.add", add("t1", "A")).chained).toBe(false);
   });
 
+  it("chains several unit renames of one tool (assistant cleanup spec §5)", () => {
+    const chain = new RevisionChain();
+    const rename = (unitId: string, rev: string) => ({ toolId: "t1", expectedRevision: rev, unitId, unitLabel: unitId });
+    expect(chain.inputFor("units.rename", rename("u1", "A"))).toEqual({ input: rename("u1", "A"), chained: false });
+    chain.record("units.rename", rename("u1", "A"), { confirmed: true, revision: "B" });
+    const second = chain.inputFor("units.rename", rename("u2", "A"));
+    expect(second).toEqual({ input: rename("u2", "B"), chained: true });
+    chain.record("units.rename", second.input, { confirmed: true, revision: "C" });
+    expect(chain.inputFor("units.edit", { ...rename("u3", "A") })).toMatchObject({ input: { expectedRevision: "C" }, chained: true });
+  });
+
   it("leaves actions outside the chained set alone, and a confirmed one of them stops the chain", () => {
     const chain = new RevisionChain();
     chain.record("resources.add", add("t1", "A"), { confirmed: true, revision: "B" });
-    const unit = { toolId: "t1", expectedRevision: "A", unitId: "u1", patch: {} };
-    expect(chain.inputFor("units.edit", unit)).toEqual({ input: unit, chained: false });
-    chain.record("units.edit", { ...unit, expectedRevision: "B" }, { confirmed: true, revision: "C" });
+    const unit = { toolId: "t1", expectedRevision: "A", unitId: "u1" };
+    expect(chain.inputFor("units.retire", unit)).toEqual({ input: unit, chained: false });
+    chain.record("units.retire", { ...unit, expectedRevision: "B" }, { confirmed: true, revision: "C" });
     expect(chain.inputFor("resources.add", add("t1", "A")).chained).toBe(false);
   });
 });

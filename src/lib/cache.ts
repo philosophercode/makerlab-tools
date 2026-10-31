@@ -62,3 +62,21 @@ export const ON_SHIFT_CACHE = {
   revalidate: 5 * 60, //  5 min — backstop
   expire: 60 * 60, //  1 h — hard ceiling
 } as const;
+
+/**
+ * What the chat reads about the tool whose page it is open on, every turn: its
+ * manuals' search state and outlines, its resources and its tool skill
+ * (`chat/focused-tool-context.ts`). A conversation on one tool page asks the
+ * same three questions turn after turn; this answers them from memory.
+ *
+ * Tagged with the catalogue, so a staff edit to the tool or its resources
+ * shows on the next turn. Manuals indexed and skills written by a background
+ * run clear no tag, so the five-minute revalidate is what brings those in:
+ * a new skill or a newly searchable manual reaches the chat within about five
+ * minutes rather than at once.
+ */
+export const TOOL_CHAT_CACHE = {
+  stale: 60, //  1 min
+  revalidate: 5 * 60, //  5 min — the backstop for background writes
+  expire: 60 * 60, //  1 h — hard ceiling
+} as const;

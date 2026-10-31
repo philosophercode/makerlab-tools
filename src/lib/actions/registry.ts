@@ -46,7 +46,7 @@ import {
   TAXONOMY_SET_RETIRED,
 } from "./taxonomy";
 import { TICKETS_UPDATE } from "./tickets";
-import { UNITS_ADD, UNITS_DELETE, UNITS_EDIT, UNITS_RETIRE } from "./units";
+import { UNITS_ADD, UNITS_DELETE, UNITS_EDIT, UNITS_RENAME, UNITS_RETIRE } from "./units";
 
 /**
  * Every registered action, in one ordered array (assistant–GUI parity spec
@@ -86,6 +86,7 @@ const DEFINITIONS = [
   TOOLS_RESTORE,
   UNITS_ADD,
   UNITS_EDIT,
+  UNITS_RENAME,
   UNITS_RETIRE,
   UNITS_DELETE,
   RESOURCES_ADD,

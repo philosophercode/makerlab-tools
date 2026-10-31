@@ -9,7 +9,8 @@ import { resolveIdentityFromHeaders } from "../../../../../lib/auth/identity";
 import { canView } from "../../../../../lib/auth/permissions";
 import { getBulkImport, type BulkImportRecord } from "../../../../../lib/data/bulk-imports";
 import { listPendingTools, type PendingTool } from "../../../../../lib/data/pending-tools";
-import { listCategories, listLocations } from "../../../../../lib/data/taxonomy";
+import { listLocations } from "../../../../../lib/data/taxonomy";
+import { listCategoriesForChoosing } from "../../../../../lib/taxonomy/seed";
 import { canActOnImport, IMPORT_PERMISSION } from "../../../../../lib/import/access";
 import { buildTablePreview, readImportTable, type TablePreview } from "../../../../../lib/import/preview";
 import { sourceRowsView } from "../../../../../lib/import/rows";
@@ -71,7 +72,7 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
     if (found) {
       const [rows, categoryOptions, locationOptions] = await Promise.all([
         listPendingTools({ importId: found.id, limit: null }),
-        listCategories(),
+        listCategoriesForChoosing(),
         listLocations(),
       ]);
       items = rows.sort((a, b) => (a.sourceRow ?? 0) - (b.sourceRow ?? 0));

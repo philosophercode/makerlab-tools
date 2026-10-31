@@ -1178,3 +1178,28 @@ verdicts beside the page checks and lists every answer not judged correct. It ne
 production misses, most were right: an answer from the lab's SOP (which the chat puts first by
 design), or from another page or section that says the same. A judged "correct" is the number a
 person can quote; the page checks stay as the stricter measure of citation precision.
+
+### 2026-10-29 — The chat keeps what it has on a tool page (§3.6)
+
+**What changed.** Three things, for a conversation on one tool's page:
+
+- **Per-tool reads are cached.** The focused tool's manual outlines and search state, its
+  resources and its tool skill are read through `"use cache"` per tool
+  (`src/lib/chat/focused-tool-context.ts`, profile `TOOL_CHAT_CACHE`, tag `catalog`), manuals
+  keyed by access level. A staff edit drops them at once; a manual indexed or a skill written in
+  the background shows within about five minutes (the revalidate). A failed read is never cached.
+  The starter answers and the evals keep the uncached loaders: they run outside Next.
+- **Earlier passages are reused.** "Searching manuals" adds: passages a search returned earlier
+  in this conversation are still the model's to answer and cite from, and a follow-up they cover
+  is answered without searching again. Citing stays as it was: only a `ref` a search returned in
+  this conversation. The chat resolves such a citation too: each message reads the passages of
+  every earlier turn beside its own (`src/components/chat/use-earlier-passages.ts`), so a
+  follow-up's `#cite-<ref>` is a link and is listed under its Sources.
+- **Cache hits are logged.** Each turn logs `[chat] prompt cache:` with each step's input tokens
+  and how many the provider's cache served (`src/lib/chat/turn-cache-log.ts`), counts only.
+
+**Why.** The owner, 2026-10-29: "I don't get the sense that it caches context for each tool."
+Every turn re-read the same three rows, and every follow-up searched the manuals again — a second
+model call for passages already in the conversation. There was no way to see whether the
+provider's prompt cache hit at all.
+

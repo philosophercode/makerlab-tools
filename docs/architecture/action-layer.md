@@ -233,3 +233,14 @@ for people is in `docs/assistant.md`.
   `data/tool-options.ts`) and `log_completed_maintenance` — a ticket that
   starts resolved, the person as reporter and assignee, a unit only of that
   tool, no archived tools.
+- **Cleanup in batches** (assistant cleanup spec 2026-10-28):
+  `capabilities/cleanup.ts` — `list_uncategorized_tools`, `list_unit_labels`,
+  `review_approval_queue` (fenced, taints) and a triage playbook in the prompt —
+  turn "help me clean up" into several cards, one per distinct change:
+  `recategorize_tool` per target category, `rename_units` (`units.rename`, ≤ 20
+  units of one tool or several; it and `units.edit` are in `CHAINED_ACTIONS`),
+  `approve_pending_items` for items whose photo verdict
+  (`intake/image-verdict.ts`, from research's stored vision ranking) is good. A
+  lab with no categories gets `TAXONOMY_TREE` on first use
+  (`taxonomy/seed.ts`'s `listCategoriesForChoosing`), and approval re-matches
+  research's category against the categories that exist now.

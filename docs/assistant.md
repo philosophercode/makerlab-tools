@@ -86,7 +86,7 @@ its people (owner meeting with the Director and Assistant Director,
   for staff (quick report spec 2026-10-07). Reporting in the chat works as
   before.
 
-**Visitors with a demo pass** (signed up at `/demo`; demo pass spec 2026-10-07)
+**Visitors with a demo pass** (signed up at `/interest`; demo pass spec 2026-10-07)
 can do everything above, with 60 messages an hour instead of a visitor's 8,
 until the pass's AI allowance (about $0.50) is spent; then they carry on at the
 visitor limit. Their reports are filed as **demo** tickets — in the queue,
@@ -108,6 +108,7 @@ The assistant can prepare almost anything you do in `/admin`, in a sentence:
 | "Retire Prusa #3", "Add a unit to the Trotec", "Add the SOP link" | Units and links |
 | "Find better photos for the Form 4", "Use option 2 as its cover" | A photo search (one research item), then the chosen picture as the cover, background removed |
 | "Approve these" (items ticked on Intake), "Research the two drills" | Intake approvals and research |
+| "Help me clean up after the import", "Give everything a category", "Make the unit names consistent", "Approve the ones whose photo looks good" | Batches of cards: tools moved into categories (one card per category), units renamed (`rename_units`), approvals for review items whose photo research's vision check rated good — then a short list of what it left for you to look at, with links |
 | "Remove these rows" (ticked on an imported list's review) | Imported lists |
 | "Sync the Notion mirror", "Pause the mirror" | The mirror's running controls |
 

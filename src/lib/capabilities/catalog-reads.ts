@@ -3,6 +3,7 @@ import { countMaintenanceLogsForUnit, listUnitsForTool } from "../data/units";
 import { countImportItemsByStatus, getBulkImport, listBulkImports, type BulkImportRecord, type BulkImportSummary } from "../data/bulk-imports";
 import { listCategoryProposals } from "../data/category-admin";
 import { listCategories } from "../data/taxonomy";
+import { listCategoriesForChoosing } from "../taxonomy/seed";
 import { listPendingTools } from "../data/pending-tools";
 import { listResourcesForEditor } from "../data/resources";
 import { findToolForEditor } from "../data/tools";
@@ -266,7 +267,7 @@ const listCategoriesTool: CapabilityTool<Record<string, never>, ListCategoriesRe
   kind: "read",
   requiredPermission: "tools.edit",
   run: async () => {
-    const categories = await listCategories();
+    const categories = await listCategoriesForChoosing();
     return {
       categories: categories.map((category) => ({
         slug: category.slug ?? "",
