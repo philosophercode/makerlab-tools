@@ -1,7 +1,7 @@
 "use server";
 
 import { performAction } from "../../../lib/actions/perform";
-import { UNITS_ADD, UNITS_DELETE, UNITS_EDIT, UNITS_RETIRE } from "../../../lib/actions/units";
+import { UNITS_ADD, UNITS_DELETE, UNITS_EDIT, UNITS_RENAME, UNITS_RETIRE } from "../../../lib/actions/units";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import type { NewUnit, UnitPatch } from "../../../lib/data/units";
 import type { UnitWritePayload } from "../../../lib/inventory/unit-edits";
@@ -41,6 +41,17 @@ export async function editUnit(
   input: ToolWriteInput & { unitId: string; patch: UnitPatch }
 ): Promise<InventoryActionResult<UnitWritePayload>> {
   return performAction(UNITS_EDIT, input, await resolveIdentityFromHeaders(), { surface: "gui" });
+}
+
+/**
+ * Rename one unit: its label alone (`units.rename`, assistant cleanup spec
+ * 2026-10-28 §5). The same write as a label-only `editUnit`; the assistant's
+ * `rename_units` batches it, and this is that action's GUI door.
+ */
+export async function renameUnit(
+  input: ToolWriteInput & { unitId: string; unitLabel: string }
+): Promise<InventoryActionResult<UnitWritePayload>> {
+  return performAction(UNITS_RENAME, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 /**

@@ -88,7 +88,7 @@ approval. Do not mint one.
   Auth's claim check refuses a personal account first with `unable_to_get_user_info`,
   and the auth route sends that to `/auth/rejected` too.
 - **A demo pass is not an account** (demo pass spec 2026-10-07). A visitor
-  whose address the domain rule refuses signs up at `/demo`
+  whose address the domain rule refuses signs up at `/interest`
   (`POST /api/demo-pass`) and gets `makerlab.demo_pass`: an httpOnly cookie
   naming a `demo_signups` row, HMAC-signed under a key derived from
   `AUTH_SECRET` (`lib/demo-pass/token.ts`), valid 14 days. It is not the retired

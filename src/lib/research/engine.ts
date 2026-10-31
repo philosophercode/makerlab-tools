@@ -5,7 +5,7 @@ import { languageModelFor, providerOptionsFor } from "../ai/models.ts";
 import { countExaCalls } from "../ai/exa.ts";
 import type { StepLike } from "../ai/tool-caps.ts";
 import { findStoredManualByUrl } from "../data/manual-documents.ts";
-import { listCategories } from "../data/taxonomy.ts";
+import { listCategoriesForChoosing } from "../taxonomy/seed.ts";
 import { getDb } from "../db/client.ts";
 import { RESEARCH_MAX_PAGE_READS, RESEARCH_MAX_PDFS_READ, RESEARCH_MAX_WEB_SEARCHES } from "../intake/limits.ts";
 import type { ResearchFocusField } from "../intake/research-focus.ts";
@@ -67,7 +67,7 @@ export interface RunOptions {
  * captured. Throws a classified error (`errors.ts`) on failure.
  */
 export async function runSearch(item: ResearchItemInput, opts: RunOptions): Promise<SearchRun> {
-  const categories = await listCategories();
+  const categories = await listCategoriesForChoosing();
   try {
     const result = await generateText({
       model: languageModelFor("researchSearch"),
@@ -145,7 +145,7 @@ export async function runRead(
 ): Promise<ReadRun> {
   const { signal } = opts;
   const searchTexts = opts.searchTexts ?? [];
-  const categories = await listCategories();
+  const categories = await listCategoriesForChoosing();
   // The brand's product page, when the search found one, is always among the
   // pages read (amendment "Product-page first").
   const subject = { brand: item.brand, name: findings.canonicalName.trim() || item.name };

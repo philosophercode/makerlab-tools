@@ -14,7 +14,8 @@ import {
   type PendingTool,
   type PendingToolPatch,
 } from "../data/pending-tools";
-import { listCategories, listLocations } from "../data/taxonomy";
+import { listLocations } from "../data/taxonomy";
+import { listCategoriesForChoosing } from "../taxonomy/seed";
 import { listToolNames } from "../data/tool-name-clash";
 import { getDb } from "../db/client";
 import { isOneOf, type DuplicateResolution } from "../db/schema/vocabulary";
@@ -81,7 +82,7 @@ type ApproveInput = z.infer<typeof approveInput>;
 async function defaultApproval(item: PendingTool): Promise<ApprovalFields | null> {
   const research = item.research;
   if (!research) return null;
-  const [categories, locations, names] = await Promise.all([listCategories(), listLocations(), getDb().then(listToolNames)]);
+  const [categories, locations, names] = await Promise.all([listCategoriesForChoosing(), listLocations(), getDb().then(listToolNames)]);
   const imported = item.importId ? { links: item.links } : null;
   const draft = initialDraft(item, research, categories, locations, imported, names.map((row) => row.name));
   // The page's preselection: research's image first, an uploaded photo only when research found none.
@@ -90,7 +91,7 @@ async function defaultApproval(item: PendingTool): Promise<ApprovalFields | null
 }
 
 /** Why a card for this item could only fail, or null. The approval re-checks each under its lock. */
-function approvalRefusal(item: PendingTool | null): string | null {
+export function approvalRefusal(item: PendingTool | null): string | null {
   if (!item) return "not_found";
   if (item.status !== "researched" || item.duplicateResolution === "add_unit" || !item.research) return "not_editable";
   if (hasUnresolvedDuplicate(item)) return "unresolved_duplicate";
