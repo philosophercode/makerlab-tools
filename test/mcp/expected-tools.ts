@@ -18,6 +18,7 @@ export const MCP_PROPOSING_TOOLS = [
   "restore_tool",
   "add_unit",
   "edit_unit",
+  "rename_units",
   "retire_unit",
   "add_resource",
   "edit_resource",

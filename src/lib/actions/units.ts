@@ -1,8 +1,10 @@
 import "server-only";
 
+import { inArray } from "drizzle-orm";
 import { z } from "zod";
 import { countMaintenanceLogsForUnit, listUnitsForTool, type NewUnit, type UnitPatch, type UnitRecord } from "../data/units";
 import { getDb } from "../db/client";
+import { units } from "../db/schema";
 import { UNIT_CONDITION, UNIT_STATUS } from "../db/schema/vocabulary";
 import {
   addUnit as addUnitWrite,
@@ -26,6 +28,7 @@ import {
   type ToolRevisionInput,
 } from "./catalog-write";
 import { defineAction, toolShape, type ActionPreview, type ActionPreviewRow } from "./define";
+import { MAX_BATCH } from "./tool-args";
 
 /**
  * A tool's units, from the editor's Units section (assistant–GUI parity spec
@@ -186,6 +189,68 @@ export const UNITS_EDIT = defineAction<ToolRevisionInput & { unitId: string; pat
   afterCommit: tellMirror,
   revalidate: INVENTORY_REVALIDATE,
 });
+
+// ── units.rename ────────────────────────────────────────────────────
+
+/**
+ * **Rename units, many at once** (assistant cleanup spec 2026-10-28 §5): the
+ * labels of up to 20 units, of one tool or several, on one card — "make every
+ * label `Prusa MK4 #1`, `#2`…". Each row is the editor's own unit write with
+ * its tool's revision; several rows for one tool confirm in one step because
+ * `units.rename` is a chained action (`revision-chain.ts`). Only the label
+ * changes; anything else is `edit_unit`.
+ */
+export const UNITS_RENAME = defineAction<ToolRevisionInput & { unitId: string; unitLabel: string }, UnitValue, InventoryRefusal>({
+  id: "units.rename",
+  toolName: "rename_units",
+  description:
+    "Rename up to 20 units at once — of one tool or several — to make their labels consistent (e.g. \"Prusa MK4 #1\", \"Prusa MK4 #2\"). Only the labels change. Proposes the renames on one card; nothing changes until the person confirms it.",
+  permission: "tools.edit",
+  risk: "catalog",
+  maxBatch: MAX_BATCH,
+  input: toolRevisionInput.extend({ unitId: z.string(), unitLabel: z.string().trim().min(1).max(100) }),
+  invalidInput: "invalid_field",
+  subject: (input) => ({ type: "unit", id: input.unitId }),
+  tool: toolShape(
+    z.strictObject({
+      renames: z
+        .array(z.strictObject({ unit_id: UNIT_ID, label: z.string().min(1).max(100).describe("The unit's new label") }))
+        .min(1)
+        .max(MAX_BATCH)
+        .describe("One entry per unit to rename, from get_tool_units or find_cleanup_work"),
+    }),
+    async (args) => {
+      const db = await getDb();
+      const ids = [...new Set(args.renames.map((entry) => entry.unit_id))];
+      const owners = await unitOwners(db, ids);
+      const revisions = new Map<string, ToolRevisionInput>();
+      const inputs: (ToolRevisionInput & { unitId: string; unitLabel: string })[] = [];
+      for (const entry of args.renames) {
+        const toolId = owners.get(entry.unit_id);
+        if (!toolId) return { ok: false, error: "not_found" };
+        if (!revisions.has(toolId)) revisions.set(toolId, await revisionInputFor(toolId));
+        inputs.push({ ...revisions.get(toolId)!, unitId: entry.unit_id, unitLabel: entry.label.trim() });
+      }
+      return { ok: true, inputs };
+    }
+  ),
+  preview: async (input) => {
+    const found = await toolAndUnit(input);
+    if (!found?.unit) return null;
+    return unitPreview(found, "units_edit", found.unit.unitLabel, unitRows(found.unit, { unitLabel: input.unitLabel }));
+  },
+  run: async (input, ctx) => inventoryOutcome(await editUnitWrite(writeContext(input, ctx), input.unitId, { unitLabel: input.unitLabel })),
+  afterCommit: tellMirror,
+  revalidate: INVENTORY_REVALIDATE,
+});
+
+/** Each unit's tool, by unit id — units with no tool (or no such id) are left out. */
+async function unitOwners(db: Awaited<ReturnType<typeof getDb>>, ids: string[]): Promise<Map<string, string>> {
+  const valid = ids.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (valid.length === 0) return new Map();
+  const rows = await db.select({ id: units.id, toolId: units.toolId }).from(units).where(inArray(units.id, valid));
+  return new Map(rows.filter((row) => row.toolId).map((row) => [row.id, row.toolId as string]));
+}
 
 // ── units.retire ────────────────────────────────────────────────────
 

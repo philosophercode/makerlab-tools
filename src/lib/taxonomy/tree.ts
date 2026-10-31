@@ -267,6 +267,25 @@ export const TAXONOMY_TREE: readonly TaxonomyNode[] = [
   },
 ];
 
+/**
+ * The short starter list a lab with no categories gets (assistant cleanup spec
+ * 2026-10-28 §2): the nine top-level categories of {@link TAXONOMY_TREE}, with
+ * a second level only under 3D Printing, where most labs have both kinds of
+ * printer. Same slugs and descriptions as the full tree, so research's answers
+ * and `taxonomy:migrate` still match; staff add subcategories on
+ * `/admin/taxonomy` (or accept research's proposals) when a category grows.
+ */
+const STARTER_CHILDREN: Readonly<Record<string, readonly string[]>> = {
+  "3d-printing": ["fdm-printers", "resin-printers-post-processing"],
+};
+
+export const STARTER_TREE: readonly TaxonomyNode[] = TAXONOMY_TREE.map((node) => {
+  const keep = STARTER_CHILDREN[node.slug] ?? [];
+  const children = (node.children ?? []).filter((child) => keep.includes(child.slug));
+  const { children: _all, ...rest } = node;
+  return children.length > 0 ? { ...rest, children } : rest;
+});
+
 /** A node with its parent's slug: the tree flattened, top-level first then each child, in order. */
 export interface FlatTaxonomyNode {
   slug: string;

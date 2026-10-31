@@ -14,12 +14,8 @@ import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
 import { can, canView } from "../../../../lib/auth/permissions";
 import { isDemoAdmin, isDemoOwned } from "../../../../lib/demo-admin/config";
 import { getPendingTool, type PendingTool } from "../../../../lib/data/pending-tools";
-import {
-  listCategories,
-  listLocations,
-  type CategoryOption,
-  type LocationOption,
-} from "../../../../lib/data/taxonomy";
+import { listLocations, type CategoryOption, type LocationOption } from "../../../../lib/data/taxonomy";
+import { listCategoriesForChoosing } from "../../../../lib/taxonomy/seed";
 import { listToolNames } from "../../../../lib/data/tool-name-clash";
 import { findToolForEditor } from "../../../../lib/data/tools";
 import { getDb } from "../../../../lib/db/client";
@@ -100,7 +96,7 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
   try {
     const [item, categories, locations, names] = await Promise.all([
       getPendingTool(id),
-      listCategories(),
+      listCategoriesForChoosing(),
       listLocations(),
       getDb().then(listToolNames),
     ]);
