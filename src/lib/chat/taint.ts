@@ -51,8 +51,6 @@ export const OUTSIDE_CONTENT_TOOLS: readonly string[] = [
   "get_tool_skill",
   // The approval queue's item names: from imported lists and research (assistant cleanup spec §4).
   "review_approval_queue",
-  // Photo options: pictures, hosts and ranking reasons from the web (photo options spec 2026-10-29).
-  "get_photo_options",
 ];
 
 /** One turn's taint. Created by the route; mutated only by the helpers here. */

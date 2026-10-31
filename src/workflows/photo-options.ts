@@ -2,8 +2,8 @@ import { markPhotoSearchFailed, searchPhotoOptions, type PhotoSearchOutcome } fr
 
 /**
  * `findPhotoOptions` — **Find photo options** in the tool editor's Photos
- * section, and the assistant's `find_photo_options` (photo options spec
- * 2026-10-29): candidate cover pictures for one catalogue tool.
+ * section (photo options spec 2026-10-29): candidate cover pictures for one
+ * catalogue tool.
  *
  * Started only by `requestPhotoOptions` (`src/lib/photo-options/request.ts`),
  * as `start(findPhotoOptions, [searchId])`, after the action has checked

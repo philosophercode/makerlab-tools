@@ -7,8 +7,6 @@ import { listCategoriesForChoosing } from "../taxonomy/seed";
 import { listPendingTools } from "../data/pending-tools";
 import { listResourcesForEditor } from "../data/resources";
 import { findToolForEditor } from "../data/tools";
-import { latestPhotoSearch } from "../data/photo-searches";
-import { photoOptionHost } from "../photo-options/types";
 import { getDb } from "../db/client";
 import { canActOnImport } from "../import/access";
 import { fenceUntrusted, OTHERS_TEXT_NOTE } from "../web/fence";
@@ -83,54 +81,6 @@ const getToolUnitsTool: CapabilityTool<{ tool: string }, ToolUnitsResult> = {
         has_file: resource.fileUrls.length > 0,
         manual: resource.manual?.state ?? null,
       })),
-    };
-  },
-};
-
-// ── get_photo_options ───────────────────────────────────────────────
-
-interface PhotoOptionsResult {
-  found: boolean;
-  tool?: { id: string; slug: string; name: string; editor: string };
-  search?: { search_id: string; status: "searching" | "ready" | "failed" | "stalled"; requested_at: string; error: string | null };
-  options?: string;
-}
-
-/**
- * The tool's latest photo options (photo options spec 2026-10-29 §6), numbered
- * as the editor numbers them, for `use_photo_option`. The pictures, their
- * hosts and the ranking's reasons come from the web, so the list is fenced as
- * untrusted and reading it taints the turn (`lib/chat/taint.ts`).
- */
-const getPhotoOptionsTool: CapabilityTool<{ tool: string }, PhotoOptionsResult> = {
-  name: "get_photo_options",
-  description:
-    "Get a tool's latest photo options — candidate cover photos find_photo_options found: each numbered, with where it is from, whether it is the manufacturer's own, its background and view, and the ranking's one-line reason — and whether the search is still running. Staff who edit the catalogue only. Use the number and the search_id with use_photo_option; the person can also pick in the tool editor's Photos section.",
-  inputSchema: z.strictObject({ tool: z.string().min(1).max(200).describe("The tool's id or slug, from search_tools") }),
-  kind: "read",
-  requiredPermission: "tools.edit",
-  run: async (input) => {
-    const tool = await findToolForEditor(input.tool.trim());
-    if (!tool) return { found: false };
-    const summary = { id: tool.id, slug: tool.slug, name: tool.name, editor: `/tools/${tool.slug}` };
-    const search = await latestPhotoSearch(tool.id);
-    if (!search) return { found: true, tool: summary };
-    const status = search.status === "searching" && !search.running ? "stalled" : search.status;
-    const lines = search.options.map((option, index) =>
-      [
-        `${index + 1}. from ${photoOptionHost(option) || "(unknown host)"}${option.manufacturer ? " — the manufacturer's own" : ""}`,
-        `   ${option.width}×${option.height}, background ${option.background ?? "unknown"}, view ${option.view ?? "unknown"}${option.composite ? ", a banner or composite" : ""}`,
-        option.reason ? `   reason: ${option.reason.replace(/\s+/g, " ").slice(0, 200)}` : "",
-        search.chosenUrl === option.url ? "   (this is the current cover)" : "",
-      ]
-        .filter(Boolean)
-        .join("\n")
-    );
-    return {
-      found: true,
-      tool: summary,
-      search: { search_id: search.id, status, requested_at: search.requestedAt, error: search.error },
-      options: fenceUntrusted("photo options (pictures found on the web, ranked by a model)", lines.join("\n") || "(none)"),
     };
   },
 };
@@ -322,7 +272,6 @@ export const catalogReads: Capability = {
   promptFragment: () => "",
   tools: [
     getToolUnitsTool as unknown as CapabilityTool<unknown, unknown>,
-    getPhotoOptionsTool as unknown as CapabilityTool<unknown, unknown>,
     listImportsTool as unknown as CapabilityTool<unknown, unknown>,
     listCategoriesTool as unknown as CapabilityTool<unknown, unknown>,
     listCategoryProposalsTool as unknown as CapabilityTool<unknown, unknown>,

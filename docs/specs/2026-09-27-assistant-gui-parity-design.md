@@ -1929,26 +1929,15 @@ poll (`loadImportProgress`) is a read, exempt as such.
 **Counts:** action tools go from 42 to **43** for a director and 38 to **39** for a SuperMaker; chat
 tools from 69 to **70** and 64 to **65**. Students and the MCP lists are unchanged.
 
-### 2026-10-29 — Photo options: two actions and one read
+### 2026-10-29 — Photo options: two editor actions
 
-Written by AI after the owner's request (photo options spec 2026-10-29). Photos stay out of the
-action layer as files (§2: an upload is not a sentence), but a picture a search recorded is a URL,
-which is: two registered actions, run by the tool editor's one-line server actions
-`findPhotoOptions` and `pickPhotoOption` (`app/admin/inventory/photo-option-actions.ts`):
+Written by AI after the owner's request (photo options spec 2026-10-29). The tool editor's **Find
+photo options** and **Use as cover** run two registered actions through one-line server actions
+(`app/admin/inventory/photo-option-actions.ts`); the assistant does not offer them.
 
 | Action | Tool | Risk | Permission | Chat | MCP |
 |---|---|---|---|---|---|
-| `photos.find_options` | `find_photo_options` | spend | `tools.edit` | propose | never |
-| `photos.use_option` | `use_photo_option` | catalog | `tools.edit` | propose | propose |
+| `photos.find_options` | `find_photo_options` | spend | `tools.edit` | never | never |
+| `photos.use_option` | `use_photo_option` | catalog | `tools.edit` | never | never |
 
-`photos.find_options` costs one research item and changes no photo (refusals `photo_search_running`,
-`daily_limit`, `start_failed`). `photos.use_option` takes an option by number together with the
-`search_id` of the list it came from (so a newer search never swaps the picture), downloads and (by default) cleans it, and makes it the cover at the tool's revision, removing
-the old cover unless told not to (refusal `photo_unavailable` when the picture cannot be downloaded;
-`photo_options_not_ready` when there is no such option). The read `get_photo_options` (`tools.edit`)
-lists the options, fenced as outside content; it taints the turn. The editor's poll
-`loadPhotoOptions` is a read, exempt as such.
-
-**Counts:** action tools go from 43 to **45** for a director and 39 to **41** for a SuperMaker who
-edits the catalogue; chat tools by three. Students are unchanged; MCP gains `use_photo_option` for
-callers with `tools.edit`.
+Tool counts are unchanged. The editor's poll `loadPhotoOptions` is a read, exempt as such.

@@ -6,16 +6,7 @@
 
 /** Assistant–GUI parity spec phase 7: the reads an MCP client needs to name ids in a proposal. */
 /** Taxonomy v2 added `list_categories` and `list_category_proposals` (spec 2026-09-28 §4.6). */
-/** Photo options added `get_photo_options` (spec 2026-10-29), which `use_photo_option` numbers from. */
-export const ADMIN_READS_FOR_PROPOSALS = [
-  "list_corrections",
-  "list_project_queue",
-  "get_tool_units",
-  "get_photo_options",
-  "list_imports",
-  "list_categories",
-  "list_category_proposals",
-];
+export const ADMIN_READS_FOR_PROPOSALS = ["list_corrections", "list_project_queue", "get_tool_units", "list_imports", "list_categories", "list_category_proposals"];
 
 /** Every action MCP may propose (§3.8, §11 answer 4): queue and catalogue work, nothing else. */
 export const MCP_PROPOSING_TOOLS = [
@@ -31,8 +22,6 @@ export const MCP_PROPOSING_TOOLS = [
   "retire_unit",
   "add_resource",
   "edit_resource",
-  // Photo options (spec 2026-10-29): using one is catalogue work; finding them spends, so never over MCP.
-  "use_photo_option",
   "approve_pending_items",
   "add_pending_as_unit",
   "rename_pending_item",

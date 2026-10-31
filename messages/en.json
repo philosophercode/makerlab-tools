@@ -3313,9 +3313,7 @@
       "taxonomy_edit_category": "Edit the category “{name}”",
       "taxonomy_retire": "Retire the category “{name}”",
       "taxonomy_restore": "Restore the category “{name}”",
-      "taxonomy_recategorize_tool": "Move {name} to another category",
-      "photos_find_options": "Find photo options for {name} (1 research item; {left} left today)",
-      "photos_use_option": "Use photo option {option} from {host} as the cover of {name}"
+      "taxonomy_recategorize_tool": "Move {name} to another category"
     },
     "fields": {
       "role": "Role",
@@ -3360,11 +3358,7 @@
       "mirrorPaused": "Mirror",
       "description": "Description",
       "retired": "Retired",
-      "categoryProposal": "Proposed category",
-      "photoNote": "Note for the photo search",
-      "coverPhoto": "Cover photo",
-      "removeBackground": "Remove the background",
-      "oldCover": "Old cover"
+      "categoryProposal": "Proposed category"
     },
     "values": {
       "role": {
@@ -3990,7 +3984,6 @@
       "get_tool_details": "Explain a tool: specs, PPE, training, links",
       "get_unit_details": "Say whether a unit is working",
       "get_tool_units": "Read a tool's units and links",
-      "get_photo_options": "Read a tool's photo options",
       "search_manual": "Answer from a tool's manuals, with page references",
       "read_page": "Read a tool's linked pages (SOPs, guides)",
       "exa_search": "Search the web",
@@ -4098,7 +4091,9 @@
       "schedules_complete": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
       "skills_write": "The guide is what the assistant itself reads on a tool's page, so it never writes its own; staff do, on the tool's skill page.",
       "skills_set_after_research": "It spends the lab's money with nobody pressing a button; directors set it on Settings › AI agents.",
-      "shifts_set": "Being shown to students is a person's own choice, so staff mark it themselves on the admin overview or their account page."
+      "shifts_set": "Being shown to students is a person's own choice, so staff mark it themselves on the admin overview or their account page.",
+      "photos_find_options": "A picker of web pictures you look at in the tool editor's Photos section, not a sentence.",
+      "photos_use_option": "Choosing among pictures is done looking at them, in the tool editor's Photos section."
     },
     "never": {
       "super_admin": "Make someone a super admin, or change a super admin's role",

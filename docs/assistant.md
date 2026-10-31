@@ -106,7 +106,6 @@ The assistant can prepare almost anything you do in `/admin`, in a sentence:
 | "Dismiss that correction", "Publish Casey's lamp project" | The correction's status; the project in the gallery |
 | "Publish the Glowforge", "Mark the Form 4 as reviewed" | The tool's catalogue state |
 | "Retire Prusa #3", "Add a unit to the Trotec", "Add the SOP link" | Units and links |
-| "Find better photos for the Form 4", "Use option 2 as its cover" | A photo search (one research item), then the chosen picture as the cover, background removed |
 | "Approve these" (items ticked on Intake), "Research the two drills" | Intake approvals and research |
 | "Help me clean up after the import", "Give everything a category", "Make the unit names consistent", "Approve the ones whose photo looks good" | Batches of cards: tools moved into categories (one card per category), units renamed (`rename_units`), approvals for review items whose photo research's vision check rated good — then a short list of what it left for you to look at, with links |
 | "Remove these rows" (ticked on an imported list's review) | Imported lists |
