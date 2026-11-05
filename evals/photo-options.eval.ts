@@ -10,6 +10,7 @@ import { IMAGE_MAX_BYTES } from "@/lib/intake/limits";
 import type { PhotoOption } from "@/lib/photo-options/types";
 import { cleanPickedImage } from "@/lib/research/images/pick-clean";
 import { findPhotoOptions } from "@/lib/research/photo-options-find";
+import { lookupName } from "@/lib/tool-names";
 import { guardedFetch } from "@/lib/web/guarded-fetch";
 import { PHOTO_EVAL_CASES, type PhotoEvalCase } from "./photo-options/cases";
 import {
@@ -176,7 +177,7 @@ async function runCase(testCase: PhotoEvalCase): Promise<CaseResult> {
   let found;
   try {
     found = await findPhotoOptions(
-      { name: testCase.name, links: testCase.links, note: null, exclude: [] },
+      { name: lookupName(testCase), links: testCase.links, note: null, exclude: [] },
       { label: `eval-${slug}`, signal: AbortSignal.timeout(SEARCH_TIMEOUT_MS) },
     );
   } catch (error) {

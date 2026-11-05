@@ -4,6 +4,9 @@
  * spread across the categories, each with the maker's own sites: a top pick
  * on one of these is "the maker's photo".
  *
+ * The search gets the official name when the catalogue has one, else the
+ * display name (`lookupName`), as the shipped step does.
+ *
  * `links` is empty on purpose. The tools that need better photos are mostly
  * the ones nobody added a product page to, so the eval measures the search on
  * the name alone, the hard case. `model` is what the judge is told the picture
@@ -11,8 +14,10 @@
  */
 
 export interface PhotoEvalCase {
-  /** The catalogue's display name, as the editor's search sends it. */
+  /** The catalogue's display name, for the report. */
   name: string;
+  /** The catalogue's official name, when it has one: the search uses it first (`lookupName`), as the shipped step does. */
+  officialName?: string;
   /** What the picture must show, for the judge. */
   model: string;
   /** The maker's own hosts (and their subdomains). */
@@ -47,12 +52,14 @@ export const PHOTO_EVAL_CASES: readonly PhotoEvalCase[] = [
   },
   {
     name: "Epilog Helix 24 Laser Cutter",
+    officialName: "Epilog Helix 24 Laser System (Model 8000)",
     model: "Epilog Helix 24 laser engraver (Model 8000)",
     makerHosts: ["epiloglaser.com"],
     links: [],
   },
   {
     name: "Trotec Speedy 400",
+    officialName: "Trotec Speedy 400 CO₂ Laser Engraving System (Speedy 400C-8086)",
     model: "Trotec Speedy 400 CO2 laser engraver",
     makerHosts: ["troteclaser.com"],
     links: [],
@@ -71,18 +78,21 @@ export const PHOTO_EVAL_CASES: readonly PhotoEvalCase[] = [
   },
   {
     name: "Hakko Soldering Station",
+    officialName: "HAKKO FX-888D",
     model: "Hakko FX-888D digital soldering station",
     makerHosts: ["hakko.com", "hakkousa.com"],
     links: [],
   },
   {
     name: "DeWalt Drill/Driver",
+    officialName: "DEWALT 20V MAX* Brushless Cordless Compact Drill/Driver Kit (DCD777C2)",
     model: "DeWalt DCD777 20V MAX brushless compact drill/driver",
     makerHosts: ["dewalt.com"],
     links: [],
   },
   {
     name: "Festool TS 55 Track Saw",
+    officialName: "Festool TS 55 REQ-F-Plus Plunge Cut Track Saw",
     model: "Festool TS 55 plunge-cut track saw",
     makerHosts: ["festool.com", "festoolusa.com"],
     links: [],
