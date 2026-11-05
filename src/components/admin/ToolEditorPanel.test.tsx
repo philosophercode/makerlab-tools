@@ -78,6 +78,9 @@ function stubActions(overrides: Partial<ToolEditorActions> = {}): ToolEditorActi
     })),
     reorderPhotos: vi.fn(async () => ({ ok: true as const, revision: "r", order: [] })),
     removePhoto: vi.fn(async () => ({ ok: true as const, revision: "r", order: [] })),
+    findPhotoOptions: vi.fn(async () => ({ ok: true as const, searchId: "s1" })),
+    loadPhotoOptions: vi.fn(async () => ({ ok: true as const, search: null })),
+    pickPhotoOption: vi.fn(async () => ({ ok: true as const, revision: "r", order: [], replacedId: null })),
     ...overrides,
   } as ToolEditorActions;
 }

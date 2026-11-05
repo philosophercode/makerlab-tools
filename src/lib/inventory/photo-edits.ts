@@ -133,6 +133,46 @@ export async function removePhoto(
   });
 }
 
+/** What {@link setCoverPhoto} answers beside the new revision. */
+export interface CoverPayload {
+  /** The ids now owned by this tool, cover first. */
+  order: string[];
+  /** The cover it replaced, when `replace` released it. */
+  replacedId: string | null;
+}
+
+/**
+ * Make a freshly stored photo the tool's **cover** (photo options spec
+ * 2026-10-29 §4): claim it, put it at position 0, and — with `replace` —
+ * release the photo that was the cover, in the same transaction, for the daily
+ * sweep (as {@link removePhoto} does). The other photos keep their order.
+ *
+ * A row nobody can claim (already owned, or gone) writes nothing and answers
+ * `not_found`, so the tool's revision does not move for a cover that is not
+ * there.
+ */
+export async function setCoverPhoto(
+  context: ToolWriteContext,
+  attachmentId: string,
+  opts: { replace: boolean }
+): Promise<InventoryWriteResult<CoverPayload>> {
+  return withTouchedTool<CoverPayload>(context, async (tx) => {
+    const owner = toolOwner(context.toolId);
+    const before = (await listAttachmentsForOwner(tx, owner)).map((row) => row.id);
+    const claimed = await claimAttachments(tx, [attachmentId], owner);
+    if (claimed === 0) return { ok: false, reason: "not_found" as const };
+
+    const oldCover = before[0] ?? null;
+    let replacedId: string | null = null;
+    if (opts.replace && oldCover) {
+      replacedId = (await releaseAttachments(tx, owner, [oldCover])) > 0 ? oldCover : null;
+    }
+    const rest = before.filter((id) => id !== replacedId);
+    await reorderAttachments(tx, owner, [attachmentId, ...rest]);
+    return { ok: true, order: await currentOrder(tx, owner), replacedId };
+  });
+}
+
 function toolOwner(toolId: string): ClaimOwner {
   return { ownerType: "tool", ownerId: toolId };
 }

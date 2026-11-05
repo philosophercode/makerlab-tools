@@ -253,6 +253,13 @@
       "when": 1793131885418,
       "tag": "0035_import_progress",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793245617592,
+      "tag": "0036_photo_options",
+      "breakpoints": true
     }
   ]
 }

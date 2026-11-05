@@ -1928,3 +1928,16 @@ poll (`loadImportProgress`) is a read, exempt as such.
 
 **Counts:** action tools go from 42 to **43** for a director and 38 to **39** for a SuperMaker; chat
 tools from 69 to **70** and 64 to **65**. Students and the MCP lists are unchanged.
+
+### 2026-10-29 — Photo options: two editor actions
+
+Written by AI after the owner's request (photo options spec 2026-10-29). The tool editor's **Find
+photo options** and **Use as cover** run two registered actions through one-line server actions
+(`app/admin/inventory/photo-option-actions.ts`); the assistant does not offer them.
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `photos.find_options` | `find_photo_options` | spend | `tools.edit` | never | never |
+| `photos.use_option` | `use_photo_option` | catalog | `tools.edit` | never | never |
+
+Tool counts are unchanged. The editor's poll `loadPhotoOptions` is a read, exempt as such.

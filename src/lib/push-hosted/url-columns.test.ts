@@ -116,6 +116,8 @@ describe("url-named columns (pinned: a new one is a reviewed change)", () => {
       "pending_tools.links",
       "projects.link",
       "resources.url",
+      // Photo options (migration 0036): the picked picture's own URL — somebody else's host.
+      "tool_photo_searches.chosen_url",
       "user.image",
     ]);
   });

@@ -97,6 +97,8 @@ export interface ImageAssessment {
 export interface RankedImage extends ImageAssessment {
   candidate: ImageCandidate;
   image: ProbedImage;
+  /** On the brand's domain or declared on its pages ({@link isManufacturerImage}); false without a brand. */
+  manufacturer: boolean;
 }
 
 export interface Ranking {
@@ -133,7 +135,18 @@ export const BUSY_PENALTY = 1.5;
 export async function rankCandidates(
   itemName: string,
   probed: readonly ProbedImage[],
-  opts: { signal: AbortSignal; loadSharp?: SharpLoader; reviewerNote?: string | null; brand?: string | null }
+  opts: {
+    signal: AbortSignal;
+    loadSharp?: SharpLoader;
+    reviewerNote?: string | null;
+    brand?: string | null;
+    /**
+     * How many to keep, best first. Default `IMAGE_MAX_SHOWN` (3), what research
+     * stores. Photo options keep more; past the third, `candidate.rank` stays 3
+     * and the list's order is the rank.
+     */
+    maxShown?: number;
+  }
 ): Promise<RankedImage[]> {
   const pool = probed.slice(0, IMAGE_MAX_RANKED);
 
@@ -184,8 +197,9 @@ export async function rankCandidates(
     console.info(`[research] image rank: ${judged.length - accepted.length} of ${judged.length} rejected (${why.join(", ")})`);
   }
   const ordered = demotePoorViews(demoteComposites(preferCleanBackgrounds(accepted)));
-  return ordered.slice(0, IMAGE_MAX_SHOWN).map(({ image, reason, subject: shows, composite, productBox, view }, n) => ({
+  return ordered.slice(0, opts.maxShown ?? IMAGE_MAX_SHOWN).map(({ image, reason, subject: shows, composite, productBox, view, manufacturer }, n) => ({
     image,
+    manufacturer,
     subject: shows,
     composite,
     productBox,
@@ -197,7 +211,7 @@ export async function rankCandidates(
       width: image.info.width,
       height: image.info.height,
       contentType: image.info.format,
-      rank: (n + 1) as ImageCandidate["rank"],
+      rank: Math.min(n + 1, IMAGE_MAX_SHOWN) as ImageCandidate["rank"],
       reason,
       ...(image.background ? { background: image.background } : {}),
       ...(composite ? { composite: true } : {}),

@@ -150,14 +150,15 @@ export async function prepareApprovalImage(
  * approval's "original" (refresh research spec §3.3: "the approval image
  * path"; amendment "The picked image is cleaned too"). `hints` are what
  * research recorded about the image; absent, its background is classified
- * here. The caller has already checked that `url` is one research recorded.
- * Null, with the reason logged by host only, for anything that fails: the
- * caller answers `image_not_attached`.
+ * here; `null` stores the download as it is, uncut (a photo option picked
+ * with "Remove the background" off). The caller has already checked that
+ * `url` is one research recorded. Null, with the reason logged by host only,
+ * for anything that fails: the caller answers `image_not_attached`.
  */
 export async function storeResearchImage(
   url: string,
   options: ApprovalImageOptions,
-  hints: PickHints = {}
+  hints: PickHints | null = {}
 ): Promise<string | null> {
   const store = resolveStore(options.store);
   if (!store) return null;
