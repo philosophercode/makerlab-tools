@@ -9,7 +9,7 @@ import {
   RESEARCH_STEP_MAX_RETRIES,
 } from "../intake/limits.ts";
 import { brandFromLinks, photoCandidates, photoSearchInstruction, toPhotoOption } from "../photo-options/candidates.ts";
-import { PHOTO_OPTIONS_MAX } from "../photo-options/types.ts";
+import { PHOTO_OPTIONS_MAX, type PhotoOption } from "../photo-options/types.ts";
 import { lookupName } from "../tool-names.ts";
 import type { ImageHint } from "../web/read-page.ts";
 import { uniqueHosts } from "./assemble.ts";
@@ -77,23 +77,45 @@ export async function searchPhotoOptions(searchId: string): Promise<PhotoSearchO
       .where(and(eq(attachments.ownerType, "tool"), eq(attachments.ownerId, tool.id), isNotNull(attachments.sourceUrl)))
   ).flatMap((row) => (row.url ? [row.url] : []));
 
-  const name = lookupName(tool);
+  const exclude = [...(await shownPhotoUrls(tool.id, { except: searchId })), ...photoSources];
+  const found = await findPhotoOptions(
+    { name: lookupName(tool), links, note: search.note, exclude },
+    { label: searchId, signal: AbortSignal.timeout(IMAGE_STEP_TIMEOUT_MS) }
+  );
+  if (!found.ok) return fail(searchId, found.reason);
+  return (await finishPhotoSearch(searchId, found.options)) ? "done" : "skipped";
+}
+searchPhotoOptions.maxRetries = IMAGE_STEP_MAX_RETRIES;
+
+export type FoundPhotoOptions = { ok: true; options: PhotoOption[] } | { ok: false; reason: string };
+
+/**
+ * Steps 1–4 with no database: the tool's name, its web links, the person's
+ * note and the URLs to leave out in; the ranked options, best first, or why
+ * there are none. {@link searchPhotoOptions} runs it for a search row, and the
+ * photo-quality eval (`npm run eval:photo-options`) runs it as it ships.
+ * Throws only on an unexpected error, as the step expects.
+ */
+export async function findPhotoOptions(
+  input: { name: string; links: readonly string[]; note: string | null; exclude: readonly string[] },
+  opts: { label: string; signal: AbortSignal }
+): Promise<FoundPhotoOptions> {
+  const { name, links } = input;
+  const { signal } = opts;
   const subject: { brand: string | null; name: string } = { brand: brandFromLinks(name, links), name };
-  const instruction = photoSearchInstruction(search.note);
-  const signal = AbortSignal.timeout(IMAGE_STEP_TIMEOUT_MS);
+  const instruction = photoSearchInstruction(input.note);
 
   const [pageHints, searched] = await Promise.all([
     pagePictures(links, subject, signal),
-    searchProductPictures(subject, instruction, { label: searchId, signal, maxSearches: 1 }),
+    searchProductPictures(subject, instruction, { label: opts.label, signal, maxSearches: 1 }),
   ]);
-  if (typeof searched === "string") return fail(searchId, searched);
+  if (typeof searched === "string") return { ok: false, reason: searched };
 
-  const exclude = [...(await shownPhotoUrls(tool.id, { except: searchId })), ...photoSources];
-  const candidates = photoCandidates(pageHints, searched, { exclude, subject });
-  if (candidates.length === 0) return fail(searchId, "No new picture of it was found.");
+  const candidates = photoCandidates(pageHints, searched, { exclude: input.exclude, subject });
+  if (candidates.length === 0) return { ok: false, reason: "No new picture of it was found." };
 
   const usable = (await probeCandidates(candidates, { signal })).flatMap((probe) => (probe.ok ? [probe.image] : []));
-  if (usable.length === 0) return fail(searchId, "No usable picture of it was found.");
+  if (usable.length === 0) return { ok: false, reason: "No usable picture of it was found." };
 
   let ranked;
   try {
@@ -101,13 +123,11 @@ export async function searchPhotoOptions(searchId: string): Promise<PhotoSearchO
   } catch (error) {
     const message = expectedFailure(error, "Image ranking", MODEL_JOBS.imageRank.env);
     if (message === null) throw error;
-    return fail(searchId, message);
+    return { ok: false, reason: message };
   }
-  if (ranked.length === 0) return fail(searchId, "Pictures were found, but none could be confirmed as the product itself.");
-
-  return (await finishPhotoSearch(searchId, ranked.map(toPhotoOption))) ? "done" : "skipped";
+  if (ranked.length === 0) return { ok: false, reason: "Pictures were found, but none could be confirmed as the product itself." };
+  return { ok: true, options: ranked.map(toPhotoOption) };
 }
-searchPhotoOptions.maxRetries = IMAGE_STEP_MAX_RETRIES;
 
 /** The workflow gave up on the search: record why. */
 export async function markPhotoSearchFailed(searchId: string, reason: string): Promise<boolean> {

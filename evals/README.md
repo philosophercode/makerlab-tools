@@ -365,6 +365,35 @@ EVAL_MQ_E2E=1 npm run eval:manual-questions  # plus one real chat turn per quest
 A miss is not always the search's fault: a generated question can be vague
 enough that several pages answer it. Read the misses before tuning anything.
 
+## The photo-quality eval
+
+Does **Find photo options** pull good photos, and does **Use as cover** cut
+them out cleanly? (Photo options spec 2026-10-29, amendment "A photo-quality
+eval".)
+
+```bash
+npm run eval:photo-options                          # all twelve tools, about $1–3
+EVAL_PO_TOOL=form npm run eval:photo-options        # the tools whose name has "form"
+```
+
+- **The search, as it ships.** For each of twelve catalogue machines
+  (`photo-options/cases.ts`) it runs `findPhotoOptions`, the search step
+  without its database row: one Exa search on the name alone, the probe and
+  the vision ranking.
+- **The judge** (job `evalQuestions`) looks at the top three options: the
+  right model, a plain background, not a shop or showroom photo. All three
+  make a **good pick**. The top pick is **the maker's photo** when it is on
+  one of the case's maker hosts or the ranking marked it Manufacturer.
+- **The cutout.** The top pick is cleaned exactly as **Use as cover** cleans
+  it (`cleanPickedImage` with the ranking's hints) and shown to the judge on
+  magenta beside the original: clean edges, the product whole, no background
+  left.
+- **Reported, never failed.** It fails only when no tool could be searched (a
+  missing key, no network). Nothing is stored and no database is needed. The
+  scores, one block per tool, one JSON report and each cutout PNG go to
+  `evals/.photo-options/` (gitignored).
+- **Options:** `EVAL_PO_TOOL=<part of a name>`, `EVAL_PO_LIMIT=N`.
+
 ---
 
 ## What it runs against
@@ -433,6 +462,8 @@ should be revisited, not worked around.
 | `runner.ts` | Control flow: execute → assert → retry → classify → report |
 | `manual-questions.ts` | The manual question eval: its options, the end-to-end check (`assessAnswer`), the run and its report |
 | `manual-questions.eval.ts` / `manual-questions.vitest.config.ts` | `npm run eval:manual-questions` entrypoint and its config |
+| `photo-options.eval.ts` / `photo-options.vitest.config.ts` | `npm run eval:photo-options` entrypoint and its config |
+| `photo-options/cases.ts` / `photo-options/grade.ts` | The photo-quality eval's twelve tools, and its judge prompts, scoring and report (pure, tested in `grade.test.ts`) |
 | `manual-questions-fixture.ts` | Hand-written eval questions for the fixture manuals (`EVAL_MQ_FIXTURES=1`) |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |
 | `vitest.config.ts` | Config for `npm run eval` only — never picked up by `npm test` |

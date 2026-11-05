@@ -86,3 +86,20 @@ Current cover), the ranking's reason and its host. Selecting one shows the two c
 - `research/photo-options-steps.test.ts`: the step end to end with stubbed models, and the pick.
 - `inventory/photo-edits` cover test: the new photo first, the old cover released or kept.
 - `PhotoOptions.test.tsx`: tiles, tags, pick, the running state.
+
+## Amendment 2026-11-05: A photo-quality eval
+
+The owner asked whether anything checks that the search pulls good photos and cleans them up
+properly. `npm run eval:photo-options` (`evals/photo-options.eval.ts`, evals/README.md) does, paid,
+by hand, never in CI.
+
+- `findPhotoOptions` (`research/photo-options-steps.ts`) is steps 1 to 4 of §2 with no database:
+  the step calls it for its row, and the eval calls it for twelve catalogue machines by name alone
+  (`evals/photo-options/cases.ts`), no product links, the hard case.
+- A vision judge (job `evalQuestions`) grades the top three options for the right model, a plain
+  background and no shop scene, and the top pick's cutout, made by `cleanPickedImage` from the
+  ranking's hints as §3's pick makes it, for clean edges, nothing cut away and no background left.
+  The top pick is the maker's photo when it is on one of the case's maker hosts or marked
+  Manufacturer.
+- The scores are reported, never failed: top pick good, its three parts, maker's photo, a good pick
+  in the top three, cutout clean. About $1 to $3 a run.
