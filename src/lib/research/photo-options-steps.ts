@@ -2,23 +2,10 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { failPhotoSearch, finishPhotoSearch, getPhotoSearch, shownPhotoUrls } from "../data/photo-searches.ts";
 import { getDb } from "../db/client.ts";
 import { attachments, resources, tools } from "../db/schema/index.ts";
-import {
-  IMAGE_STEP_MAX_RETRIES,
-  IMAGE_STEP_TIMEOUT_MS,
-  RESEARCH_MAX_PAGE_READS,
-  RESEARCH_STEP_MAX_RETRIES,
-} from "../intake/limits.ts";
-import { brandFromLinks, photoCandidates, photoSearchInstruction, toPhotoOption } from "../photo-options/candidates.ts";
-import { PHOTO_OPTIONS_MAX } from "../photo-options/types.ts";
+import { IMAGE_STEP_MAX_RETRIES, IMAGE_STEP_TIMEOUT_MS, RESEARCH_STEP_MAX_RETRIES } from "../intake/limits.ts";
 import { lookupName } from "../tool-names.ts";
-import type { ImageHint } from "../web/read-page.ts";
-import { uniqueHosts } from "./assemble.ts";
-import { expectedFailure, imageErrorText, searchProductPictures } from "./image-stage.ts";
-import { probeCandidates } from "./images/probe.ts";
-import { rankCandidates } from "./images/rank.ts";
-import { MODEL_JOBS } from "../ai/models.ts";
-import { readCandidatePages } from "./read-pages.ts";
-import { isVideoUrl, orderPagesForReading, type PageSubject } from "./source-pages.ts";
+import { imageErrorText } from "./image-stage.ts";
+import { findPhotoOptions } from "./photo-options-find.ts";
 
 /**
  * **Find photo options** for a catalogue tool (photo options spec 2026-10-29
@@ -77,35 +64,13 @@ export async function searchPhotoOptions(searchId: string): Promise<PhotoSearchO
       .where(and(eq(attachments.ownerType, "tool"), eq(attachments.ownerId, tool.id), isNotNull(attachments.sourceUrl)))
   ).flatMap((row) => (row.url ? [row.url] : []));
 
-  const name = lookupName(tool);
-  const subject: { brand: string | null; name: string } = { brand: brandFromLinks(name, links), name };
-  const instruction = photoSearchInstruction(search.note);
-  const signal = AbortSignal.timeout(IMAGE_STEP_TIMEOUT_MS);
-
-  const [pageHints, searched] = await Promise.all([
-    pagePictures(links, subject, signal),
-    searchProductPictures(subject, instruction, { label: searchId, signal, maxSearches: 1 }),
-  ]);
-  if (typeof searched === "string") return fail(searchId, searched);
-
   const exclude = [...(await shownPhotoUrls(tool.id, { except: searchId })), ...photoSources];
-  const candidates = photoCandidates(pageHints, searched, { exclude, subject });
-  if (candidates.length === 0) return fail(searchId, "No new picture of it was found.");
-
-  const usable = (await probeCandidates(candidates, { signal })).flatMap((probe) => (probe.ok ? [probe.image] : []));
-  if (usable.length === 0) return fail(searchId, "No usable picture of it was found.");
-
-  let ranked;
-  try {
-    ranked = await rankCandidates(name, usable, { signal, reviewerNote: instruction, brand: subject.brand, maxShown: PHOTO_OPTIONS_MAX });
-  } catch (error) {
-    const message = expectedFailure(error, "Image ranking", MODEL_JOBS.imageRank.env);
-    if (message === null) throw error;
-    return fail(searchId, message);
-  }
-  if (ranked.length === 0) return fail(searchId, "Pictures were found, but none could be confirmed as the product itself.");
-
-  return (await finishPhotoSearch(searchId, ranked.map(toPhotoOption))) ? "done" : "skipped";
+  const found = await findPhotoOptions(
+    { name: lookupName(tool), links, note: search.note, exclude },
+    { label: searchId, signal: AbortSignal.timeout(IMAGE_STEP_TIMEOUT_MS) }
+  );
+  if (!found.ok) return fail(searchId, found.reason);
+  return (await finishPhotoSearch(searchId, found.options)) ? "done" : "skipped";
 }
 searchPhotoOptions.maxRetries = IMAGE_STEP_MAX_RETRIES;
 
@@ -115,24 +80,6 @@ export async function markPhotoSearchFailed(searchId: string, reason: string): P
   return failPhotoSearch(searchId, imageErrorText(reason));
 }
 markPhotoSearchFailed.maxRetries = RESEARCH_STEP_MAX_RETRIES;
-
-/** The pictures the tool's own web links declare: at most four pages, product page first, no PDFs, no videos. */
-async function pagePictures(urls: readonly string[], subject: PageSubject, signal: AbortSignal): Promise<ImageHint[]> {
-  const pages = orderPagesForReading(
-    urls.filter((url) => !isVideoUrl(url) && !/\.pdf(?:$|[?#])/i.test(url)),
-    subject,
-    RESEARCH_MAX_PAGE_READS
-  );
-  if (pages.length === 0) return [];
-  try {
-    const read = await readCandidatePages(pages, { signal, allowedHosts: uniqueHosts(pages), max: RESEARCH_MAX_PAGE_READS, maxPdfs: 0 });
-    return read.imageHints;
-  } catch (error) {
-    // The search still runs: the tool's links are a bonus, not the source.
-    console.warn(`[photo-options] the tool's links could not be read (${error instanceof Error ? error.name : "unknown error"})`);
-    return [];
-  }
-}
 
 async function fail(searchId: string, reason: string): Promise<PhotoSearchOutcome> {
   await failPhotoSearch(searchId, imageErrorText(reason));
