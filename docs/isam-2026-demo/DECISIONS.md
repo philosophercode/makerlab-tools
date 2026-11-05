@@ -1,7 +1,7 @@
 # ISAM 2026 Demo Abstract — Decisions Log
 
 > Working notes for the extended abstract submission. **Current source: `abstract-v2.md`** — build with
-> `node docs/isam-2026-demo/build.mjs` (see "V2" below). V1/V1.1 sources are kept as records.
+> `node docs/isam-2026-demo/build.mjs` (see "V2" below). The V1 sources are kept as the submitted record.
 > Submission deadline: **10 July 2026** (submitted 30 May). Final upload, via the presenter portal: **30 September 2026**.
 > Regular registration closes **15 September 2026**; at least one author must be registered to present.
 > Demo install/session: **Sunday evening, 11 October 2026**, on-site at Rice University, Houston (symposium 11–13 October).
@@ -11,13 +11,11 @@
 
 - **V1 — SUBMITTED to ISAM 2026 (2026-05-30). FROZEN — do not edit.** Title: *"The MakerLAB Assistant:
   AI to Help Operate, Fix, and Build in Makerspaces."* 2 pages, 3 figures, 3 references (MCP, Claude,
-  ChatGPT). Files: `abstract-v1.{html,pdf,docx}`, `abstract-v1.md`,
-  `The MakerLAB Assistant - ISAM 2026 Demo V1.pdf`. This is the record of exactly what was submitted.
-- **V1.1 — WORKING copy** for post-submission edits (currently identical to V1). Files:
-  `abstract-v1.1.{html,pdf,docx}`, `abstract-v1.1.md`, `The MakerLAB Assistant - ISAM 2026 Demo V1.1.pdf`.
-  Edit `abstract-v1.1.html`, then regenerate:
-  - PDF: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=abstract-v1.1.pdf "file://$PWD/abstract-v1.1.html"`
-  - DOCX: `pandoc abstract-v1.1.html -o abstract-v1.1.docx --resource-path="$PWD"`
+  ChatGPT). Files: `abstract-v1.{html,pdf,docx}`, `abstract-v1.md`. This is the record of exactly what
+  was submitted. (`The MakerLAB Assistant - ISAM 2026 Demo V1.pdf` was a byte-identical copy of
+  `abstract-v1.pdf`; removed 2026-10-31.)
+- **V1.1 — working copy** for post-submission edits. It never diverged from V1 (every file was
+  byte-identical) and V2 replaced it, so its files were removed on 2026-10-31; git history keeps them.
 
 - **V2 — WORKING copy for the 30 Sep final upload (2026-09-28).** Title changed to *"MakerLAB AI: AI to
   Help Operate, Fix, and Build in Makerspaces."* 2 pages, abstract 288 words, 3 figures, 4 references.
