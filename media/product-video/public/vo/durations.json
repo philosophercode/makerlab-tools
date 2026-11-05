@@ -1,0 +1,13 @@
+{
+  "model": "gemini-2.5-pro-preview-tts",
+  "voice": "Sulafat",
+  "durations": {
+    "hook": 6.764,
+    "operate": 8.211,
+    "debug": 5.487,
+    "create": 6.652,
+    "staff": 8.838,
+    "screen": 4.84,
+    "end": 4.765
+  }
+}
