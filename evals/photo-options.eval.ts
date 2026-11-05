@@ -9,7 +9,7 @@ import { inspectImage } from "@/lib/images/inspect";
 import { IMAGE_MAX_BYTES } from "@/lib/intake/limits";
 import type { PhotoOption } from "@/lib/photo-options/types";
 import { cleanPickedImage } from "@/lib/research/images/pick-clean";
-import { findPhotoOptions } from "@/lib/research/photo-options-steps";
+import { findPhotoOptions } from "@/lib/research/photo-options-find";
 import { guardedFetch } from "@/lib/web/guarded-fetch";
 import { PHOTO_EVAL_CASES, type PhotoEvalCase } from "./photo-options/cases";
 import {

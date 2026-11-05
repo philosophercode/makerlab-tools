@@ -93,7 +93,7 @@ The owner asked whether anything checks that the search pulls good photos and cl
 properly. `npm run eval:photo-options` (`evals/photo-options.eval.ts`, evals/README.md) does, paid,
 by hand, never in CI.
 
-- `findPhotoOptions` (`research/photo-options-steps.ts`) is steps 1 to 4 of §2 with no database:
+- `findPhotoOptions` (`research/photo-options-find.ts`) is steps 1 to 4 of §2 with no database:
   the step calls it for its row, and the eval calls it for twelve catalogue machines by name alone
   (`evals/photo-options/cases.ts`), no product links, the hard case.
 - A vision judge (job `evalQuestions`) grades the top three options for the right model, a plain
