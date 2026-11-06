@@ -67,7 +67,18 @@ function tamper(cookie: string) {
       if (op === "insert") next = value.slice(0, i) + c + value.slice(i);
       return `${BETTER_AUTH_SESSION_COOKIE}=${next}`;
     })
-    .filter((forged) => forged !== cookie);
+    // Cookie parsing trims whitespace and percent-decodes, so an edit that
+    // normalises back to the original signed value is not a forgery.
+    .filter((forged) => normalise(forged) !== normalise(cookie));
+}
+
+function normalise(cookie: string): string {
+  const value = cookie.slice(BETTER_AUTH_SESSION_COOKIE.length + 1).trim();
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 describe("invariant: forged credentials resolve to anonymous", () => {
