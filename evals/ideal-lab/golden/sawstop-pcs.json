@@ -1,0 +1,87 @@
+{
+  "displayName": "SawStop Cabinet Saw",
+  "officialName": "SawStop 10\" Professional Cabinet Saw (PCS) – Models PCS175 (1.75 HP) / PCS31230 (3 HP)",
+  "description": "The SawStop Professional Cabinet Saw (PCS) is a 10-inch cast-iron cabinet table saw. In a makerspace, students use it to rip boards to width, crosscut parts with the miter gauge, and cut bevels and dadoes in wood and sheet goods for furniture, boxes and project parts. It cuts up to 3 1/8 in deep with the blade at 0°. If the spinning blade touches skin, a brake stops it in under 5 milliseconds and drops it below the table.",
+  "specs": [
+    {
+      "label": "Blade diameter",
+      "value": "10\" (5/8\" arbor), left tilt"
+    },
+    {
+      "label": "Max. depth of cut at 0°",
+      "value": "3 1/8\""
+    },
+    {
+      "label": "Max. depth of cut at 45°",
+      "value": "2 1/4\""
+    },
+    {
+      "label": "Max. rip right of blade",
+      "value": "30\", 36\" or 52\", depending on fence system"
+    },
+    {
+      "label": "Max. rip left of blade (30\" Premium Fence)",
+      "value": "12\""
+    },
+    {
+      "label": "Dado capacity",
+      "value": "8\" diameter, 29/32\" max. width (requires dado brake cartridge & insert)"
+    },
+    {
+      "label": "Motor",
+      "value": "1.75 HP, 120 V, 14 A (PCS175) or 3 HP, 1 phase, 230 V, 13 A (PCS31230)"
+    },
+    {
+      "label": "Cast iron table with extension wings",
+      "value": "44\" W x 27\" D"
+    },
+    {
+      "label": "Table flatness (measured diagonally)",
+      "value": "0.010\" maximum gap"
+    },
+    {
+      "label": "Blade stopping time on skin contact",
+      "value": "less than 5 milliseconds"
+    },
+    {
+      "label": "Usable blade kerf range (safety system)",
+      "value": "3/32\" to 3/16\""
+    },
+    {
+      "label": "Dust collection port",
+      "value": "4\""
+    }
+  ],
+  "tags": [
+    "table saw",
+    "ripping",
+    "crosscutting",
+    "woodworking",
+    "bevel cuts",
+    "dado",
+    "sheet goods",
+    "furniture"
+  ],
+  "materials": [
+    "hardwood",
+    "softwood",
+    "plywood",
+    "MDF"
+  ],
+  "ppeRequired": [
+    "safety glasses",
+    "hearing protection",
+    "dust mask"
+  ],
+  "useRestrictions": "Only trained, staff-authorised users may operate it, using only standard 10\" steel or carbide-tooth blades or approved 8\" stacked dado sets, never cutoff or sanding discs.",
+  "manualUrl": "https://www.sawstop.com/wp-content/uploads/2021/10/Owners-Manual-Professional-Cabinet-Saw-300-1.pdf",
+  "sources": [
+    "https://www.sawstop.com/product/professional-cabinet-saw-pcs175-pfa30/",
+    "https://www.sawstop.com/product/professional-cabinet-saw-pcs31230-pfa30/",
+    "https://www.sawstop.com/product/professional-cabinet-saw-pcs175-tgp236/",
+    "https://www.sawstop.com/product/professional-cabinet-saw-pcs31230-atgp52/",
+    "https://www.sawstop.com/compare/professional-cabinet-saw",
+    "https://www.sawstop.com/wp-content/uploads/2021/10/Owners-Manual-Professional-Cabinet-Saw-300-1.pdf",
+    "https://www.sawstop.com/wp-content/uploads/2021/10/PCS-175-Owners-Manual-Feb2024.pdf"
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "displayName": "Formlabs Form 4",
+  "officialName": "Formlabs Form 4",
+  "description": "The Formlabs Form 4 is a masked stereolithography (MSLA) resin 3D printer. In a makerspace, students use it to print detailed, smooth-surfaced prototypes, fitted assemblies, models and functional parts from liquid photopolymer resin, in a build volume of 20.0 × 12.5 × 21.0 cm. After printing, parts are washed to remove uncured resin and then UV-cured to finish them.",
+  "specs": [
+    {
+      "label": "Technology",
+      "value": "Masked Stereolithography (MSLA), Low Force Display (LFD)"
+    },
+    {
+      "label": "Build volume (W × D × H)",
+      "value": "20.0 × 12.5 × 21.0 cm (7.9 × 4.9 × 8.3 in)"
+    },
+    {
+      "label": "Build area",
+      "value": "250 cm²"
+    },
+    {
+      "label": "Maximum part length",
+      "value": "27.3 cm (10.7 in)"
+    },
+    {
+      "label": "Layer thickness",
+      "value": "25–200 µm (0.001–0.008 in), varies by material"
+    },
+    {
+      "label": "XY resolution",
+      "value": "50 µm pixel size with pre-tuned anti-aliasing"
+    },
+    {
+      "label": "Light source",
+      "value": "60 LEDs, 405 nm wavelength, 16 mW/cm² at the cure plane"
+    },
+    {
+      "label": "Print speed",
+      "value": "Up to 100 mm/hr maximum; 45 mm/hr average for general-purpose resins"
+    },
+    {
+      "label": "Typical XY tolerance",
+      "value": "±0.15% for 1–30 mm features (lower limit ±0.02 mm)"
+    },
+    {
+      "label": "Resin heating",
+      "value": "Auto-heats resin to 25–45 °C (77–113 °F), depending on material"
+    },
+    {
+      "label": "Operating environment",
+      "value": "18–28 °C (64–82 °F)"
+    },
+    {
+      "label": "Power requirements",
+      "value": "100–240 VAC, 4.8 A, 50/60 Hz, 480 W"
+    }
+  ],
+  "tags": [
+    "3d printing",
+    "resin printing",
+    "sla",
+    "msla",
+    "prototyping",
+    "photopolymer",
+    "high detail",
+    "models"
+  ],
+  "materials": [
+    "Formlabs photopolymer resins",
+    "Third-party 405 nm resins (Open Material Mode)"
+  ],
+  "ppeRequired": [
+    "Nitrile gloves",
+    "Safety glasses",
+    "Lab coat or apron"
+  ],
+  "useRestrictions": "Only for students trained on the Form 4 and its resin handling, washing and curing workflow, and only with resins approved by lab staff.",
+  "manualUrl": "https://formlabs.com/support/Manuals-and-documentation/",
+  "sources": [
+    "https://formlabs.com/3d-printers/resin/tech-specs/",
+    "https://formlabs.com/products/form-4-basic-package/",
+    "https://formlabs.com/3d-printers/form-4/",
+    "https://formlabs.com/support/What-is-the-largest-part-I-can-print-on-a-Formlabs-printer/",
+    "https://formlabs.com/support/Manuals-and-documentation/",
+    "https://formlabs.com/support/Quick-Start-Guide-Form-4/"
+  ]
+}

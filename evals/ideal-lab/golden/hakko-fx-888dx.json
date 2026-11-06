@@ -1,0 +1,87 @@
+{
+  "displayName": "Hakko Soldering Station",
+  "officialName": "HAKKO FX-888DX Digital Soldering Station",
+  "description": "The Hakko FX-888DX is a 100 W digital soldering station. You set the iron temperature, from 50 to 480 °C, by turning and pressing a single dial. In a makerspace, students use it to solder through-hole and surface-mount parts onto circuit boards, join wires and connectors, and repair electronics for Arduino projects, kits and prototypes. Use it only for soldering, in a well-ventilated area, and always put the hot iron back in its holder.",
+  "specs": [
+    {
+      "label": "Station power consumption",
+      "value": "100 W"
+    },
+    {
+      "label": "Temperature range",
+      "value": "50 to 480 °C (120 to 899 °F)"
+    },
+    {
+      "label": "Temperature stability",
+      "value": "±1 °C at idle temperature (when set to 200 to 480 °C)"
+    },
+    {
+      "label": "Factory default set temperature",
+      "value": "350 °C (750 °F)"
+    },
+    {
+      "label": "Temperature presets",
+      "value": "Up to 5"
+    },
+    {
+      "label": "Station output voltage",
+      "value": "AC 26 V"
+    },
+    {
+      "label": "Soldering iron (FX-8801) power consumption",
+      "value": "65 W (26 V)"
+    },
+    {
+      "label": "Heating element",
+      "value": "Ceramic heater"
+    },
+    {
+      "label": "Compatible tips (FX-8801 iron)",
+      "value": "T18 series"
+    },
+    {
+      "label": "Tip to ground resistance",
+      "value": "<2 Ω"
+    },
+    {
+      "label": "Iron cord length",
+      "value": "1.2 m"
+    },
+    {
+      "label": "Station dimensions (W × H × D)",
+      "value": "100 × 120 × 125 mm"
+    }
+  ],
+  "tags": [
+    "soldering",
+    "electronics",
+    "circuit boards",
+    "pcb assembly",
+    "wiring",
+    "through-hole",
+    "repair",
+    "arduino"
+  ],
+  "materials": [
+    "Solder wire",
+    "Lead-free solder",
+    "Flux",
+    "Printed circuit boards",
+    "Electronic components",
+    "Copper wire"
+  ],
+  "ppeRequired": [
+    "Safety glasses",
+    "Fume extraction"
+  ],
+  "useRestrictions": "Only for soldering electronics by students trained on the station; never leave the hot iron out of its holder or unattended.",
+  "manualUrl": "https://hakkousa.com/amfile/file/download/file/3894/product/13169/",
+  "sources": [
+    "http://www.hakko.com/english/products/hakko_fx888dx_spec.html",
+    "https://hakkousa.com/fx-888dx.html",
+    "https://hakkousa.com/amfile/file/download/file/3894/product/13169/",
+    "https://hakkousa.com/amfile/file/download/file/3893/product/13169/",
+    "https://hakko.de/en/products/diy-hobby/fx-888dx/",
+    "https://www.hakko.co.uk/product/fx-888dx-digital-soldering-station/"
+  ]
+}
