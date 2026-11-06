@@ -24,7 +24,20 @@ const tampered = (token: string) =>
       if (op === "drop") return token.slice(0, i) + token.slice(i + 1);
       return token.slice(0, i) + ch + token.slice(i);
     })
-    .filter((t) => t !== token);
+    .filter((t) => canonical(t) !== canonical(token));
+
+/**
+ * A 32-byte HMAC in base64url is 43 characters, and the last one carries two
+ * unused bits: "…u_" and "…u-" can be the same signature. Compare what the
+ * signature decodes to, so an edit that changes only those bits is not counted
+ * as a forgery.
+ */
+function canonical(token: string): string {
+  const dot = token.lastIndexOf(".");
+  const sig = token.slice(dot + 1);
+  if (dot < 0 || !/^[A-Za-z0-9_-]+$/.test(sig)) return token;
+  return `${token.slice(0, dot)}.${Buffer.from(sig, "base64url").toString("hex")}`;
+}
 
 describe("invariant: unsubscribe links verify only as signed", () => {
   const claim = fc.record({

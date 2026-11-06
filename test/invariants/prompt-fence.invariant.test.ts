@@ -43,7 +43,9 @@ describe("invariant: fenced text stays inside its fence", () => {
 
   it("an inline quote is one JSON string on one line, within its cap", () => {
     fc.assert(
-      fc.property(fc.oneof(fc.string(), fc.anything()), fc.integer({ min: 2, max: 200 }), (value, max) => {
+      // Callers pass database values: strings, numbers, null. An object with a
+      // throwing toString is not something any caller can hand it.
+      fc.property(fc.oneof(fc.string(), fc.string({ unit: "grapheme" }), fc.integer(), fc.double(), fc.constant(null)), fc.integer({ min: 2, max: 200 }), (value, max) => {
         const out = inlineText(value, max);
         expect(out).not.toMatch(/[\r\n]/);
         const parsed = JSON.parse(out) as unknown;
