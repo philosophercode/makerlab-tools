@@ -13,6 +13,7 @@ import {
   parseGolden,
   parseListingVerdict,
   parsePairwise,
+  pickJudgePromptWithSource,
   readHandGrades,
   regressions,
   summarize,
@@ -112,6 +113,17 @@ describe("ideal-lab verdicts", () => {
     expect(parsePairwise('{"winner":"C"}', true)).toBeNull();
     const slots = IDEAL_LAB_CASES.map((testCase) => newIsAFor(testCase.id));
     expect(slots.some(Boolean) && slots.some((slot) => !slot)).toBe(true);
+  });
+
+  it("tells the photo judge where the picture came from, for look-alike models", () => {
+    const prompt = pickJudgePromptWithSource("Universal Robots UR5e", {
+      url: "https://www.universal-robots.com/media/ur5e.png",
+      pageUrl: "https://www.universal-robots.com/products/ur5e/",
+      makerHosts: ["universal-robots.com"],
+    });
+    expect(prompt).toContain("The page it was on: https://www.universal-robots.com/products/ur5e/");
+    expect(prompt).toContain("The maker's own sites: universal-robots.com");
+    expect(pickJudgePromptWithSource("X", { url: "https://a.example/x.png", pageUrl: null, makerHosts: [] })).toContain("(not known)");
   });
 
   it("reads a golden listing", () => {

@@ -658,3 +658,28 @@ export function readHandGrades(sheet: string): { id: string; part: "listing" | "
   }
   return out;
 }
+
+// ── The photo judge's context ─────────────────────────────────────
+
+/**
+ * The photo-options eval's pick prompt, plus where the picture came from. A
+ * UR5e looks like a UR3e and a MIRACO Pro like a MIRACO: from pixels alone the
+ * judge says "unsure". The page it was on settles it when that page is the
+ * maker's own page for this exact model — the same evidence a reviewer uses.
+ */
+export function pickJudgePromptWithSource(
+  model: string,
+  source: { url: string; pageUrl: string | null; makerHosts: readonly string[] }
+): string {
+  const page = source.pageUrl ?? "(not known)";
+  return [
+    `The machine it must show: ${model}`,
+    `The picture's address: ${source.url}`,
+    `The page it was on: ${page}`,
+    `The maker's own sites: ${source.makerHosts.join(", ")}`,
+    "",
+    "When the picture is on the maker's own site and its page is the product page for exactly this model, and what you see matches that machine's product family, a sibling you cannot tell apart from pixels is right_model \"yes\". From any other site, judge the pixels alone.",
+    "",
+    "Grade the picture. Answer with the JSON object only.",
+  ].join("\n");
+}

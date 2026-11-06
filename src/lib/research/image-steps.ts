@@ -5,8 +5,7 @@ import type { Db } from "../db/types.ts";
 import { IMAGE_STEP_MAX_RETRIES, IMAGE_STEP_TIMEOUT_MS, RESEARCH_STEP_MAX_RETRIES } from "../intake/limits.ts";
 import type { ResearchFocusField } from "../intake/research-focus.ts";
 import type { ImageHint } from "../web/read-page.ts";
-import { errorName, imageErrorText, rankAndClean, type StageOutcome } from "./image-stage.ts";
-import { collectCandidates } from "./images/candidates.ts";
+import { errorName, findProductImages, imageErrorText, type StageOutcome } from "./image-stage.ts";
 import type { ResearchResult } from "./result.ts";
 import type { ItemStepResult } from "./step-types.ts";
 
@@ -150,13 +149,16 @@ async function runStage(
   const signal = AbortSignal.timeout(IMAGE_STEP_TIMEOUT_MS);
 
   // The brand's product page's pictures lead, manual and wiki pictures trail
-  // (amendment "Product-page first, front-facing images").
-  const candidates = collectCandidates(
+  // (amendment "Product-page first, front-facing images"); one more picture
+  // search when they leave no clean cover.
+  return findProductImages(
+    db,
+    id,
+    subject,
     hints.filter((hint) => hint.source !== "exa"),
     hints.filter((hint) => hint.source === "exa"),
-    subject
+    { signal }
   );
-  return rankAndClean(db, id, subject.name, candidates, { signal, brand: subject.brand });
 }
 
 /** Store the result, or — the row was taken away meanwhile — let go of what this attempt made. */

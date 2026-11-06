@@ -27,6 +27,8 @@ export function judgeModelId(): string {
   return process.env.EVAL_JUDGE_MODEL?.trim() || modelIdFor("evalQuestions");
 }
 
+let warnedNoCost = false;
+
 /** One judge call: text and pictures in, its reply and what the Gateway said it cost. */
 export async function judgeCall(
   system: string,
@@ -54,6 +56,12 @@ export async function judgeCall(
   // Per step when the Gateway reports it there; else the call's own metadata.
   const perStep = result.steps.reduce((total, step) => total + (gatewayCallReport(step.providerMetadata).cost ?? 0), 0);
   const cost = perStep > 0 ? perStep : (gatewayCallReport(result.providerMetadata).cost ?? 0);
+  if (cost === 0 && !warnedNoCost) {
+    // Once a run: what the Gateway sent instead, so an unreported cost can be traced (keys only, no values).
+    warnedNoCost = true;
+    const gateway = result.providerMetadata?.gateway;
+    console.warn(`[judge] no cost reported; provider metadata keys: ${Object.keys(result.providerMetadata ?? {}).join(", ") || "(none)"}; gateway keys: ${gateway ? Object.keys(gateway).join(", ") : "(none)"}`);
+  }
   return { text: result.text, cost };
 }
 

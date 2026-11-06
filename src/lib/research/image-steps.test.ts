@@ -160,7 +160,26 @@ beforeEach(() => {
   imageRequests = [];
   serveImages();
   vi.spyOn(console, "warn").mockImplementation(() => {});
+  // The one more picture search (`findProductImages`) finds nothing unless a test says otherwise.
+  setLanguageModel("researchSearch", textModel("done"));
 });
+
+/** A picture search whose one Exa result carries these images. */
+function pictureSearch(images: string[]) {
+  return scriptedModel(() => ({
+    content: [
+      { type: "tool-call", toolCallId: "exa_1", toolName: "exa_search", input: JSON.stringify({ query: "P1S" }), providerExecuted: true },
+      {
+        type: "tool-result",
+        toolCallId: "exa_1",
+        toolName: "exa_search",
+        result: { requestId: "exa_req", results: images.map((image) => ({ id: PAGE, url: PAGE, title: "P1S", image })) },
+      },
+      { type: "text", text: "done" },
+    ],
+    finishReason: "stop",
+  }));
+}
 
 afterEach(async () => {
   resetModelStubs();
@@ -223,6 +242,34 @@ describe("findImages", () => {
     const research = (await getPendingTool(id))?.research;
     expect(research?.images).toEqual({ candidates: [], cleaned: null });
     expect(research?.imageError).toBeNull();
+  });
+
+  it("runs one more picture search when the top pick is a busy scene, and leads with its plain photo", async () => {
+    await useLocalBlob();
+    const id = await researchingItem();
+    ranking([0]);
+    const search = pictureSearch([hint("studio-found").url]);
+    setLanguageModel("researchSearch", search);
+    vi.spyOn(console, "info").mockImplementation(() => {});
+
+    await findImages(id, REQUEST, RESULT, [hint("scene")]);
+
+    expect(search.doGenerateCalls).toHaveLength(1);
+    const images = (await getPendingTool(id))?.research?.images;
+    expect(images?.candidates.map((c) => c.url)).toEqual([hint("studio-found").url, hint("scene").url]);
+    expect(images?.cleaned?.fromUrl).toBe(hint("studio-found").url);
+  });
+
+  it("searches no more when the top pick is already a plain photo", async () => {
+    const id = await researchingItem();
+    ranking([0]);
+    const search = pictureSearch([hint("studio-found").url]);
+    setLanguageModel("researchSearch", search);
+
+    await findImages(id, REQUEST, RESULT, [hint("studio-front")]);
+
+    expect(search.doGenerateCalls).toHaveLength(0);
+    expect((await getPendingTool(id))?.research?.images?.candidates.map((c) => c.url)).toEqual([hint("studio-front").url]);
   });
 
   it("records no candidates when none survives the probe", async () => {

@@ -9,6 +9,7 @@ import { createBlobUploader } from "../import/blob-uploader.ts";
 import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
 import type { ImageHint } from "../web/read-page.ts";
 import { scrub } from "./errors.ts";
+import { collectCandidates, dedupeKey } from "./images/candidates.ts";
 import { makeCleanCopy } from "./images/clean-copy.ts";
 import { probeCandidates } from "./images/probe.ts";
 import { rankCandidates, type RankedImage } from "./images/rank.ts";
@@ -117,11 +118,7 @@ export async function rankAndClean(
   id: string,
   itemName: string,
   candidates: readonly ImageHint[],
-  opts: {
-    signal: AbortSignal;
-    reviewerNote?: string | null;
-    /** The item's brand — what makes a picture the manufacturer's own (`images/rank.ts`); none for no preference. */
-    brand?: string | null;
+  opts: RankOptions & {
     /**
      * `false`: probe and rank only, store nothing — refresh research (refresh
      * research spec §3.1) keeps no cleaned copy; the image an admin accepts is
@@ -130,32 +127,102 @@ export async function rankAndClean(
     clean?: boolean;
   }
 ): Promise<StageOutcome> {
+  const ranked = await rankOnly(itemName, candidates, opts);
+  if (isOutcome(ranked)) return ranked;
+  return finish(db, id, ranked, opts.clean !== false);
+}
+
+interface RankOptions {
+  signal: AbortSignal;
+  reviewerNote?: string | null;
+  /** The item's brand — what makes a picture the manufacturer's own (`images/rank.ts`); none for no preference. */
+  brand?: string | null;
+}
+
+/** Steps 3–4: probe and rank. The ranked images, or the outcome when there are none (or ranking failed). */
+async function rankOnly(itemName: string, candidates: readonly ImageHint[], opts: RankOptions): Promise<RankedImage[] | StageOutcome> {
   const { signal } = opts;
   if (candidates.length === 0) return { images: NO_CANDIDATES, imageError: null };
 
   const usable = (await probeCandidates([...candidates], { signal })).flatMap((probe) => (probe.ok ? [probe.image] : []));
   if (usable.length === 0) return { images: NO_CANDIDATES, imageError: null };
 
-  let ranked: RankedImage[];
   try {
-    ranked = await rankCandidates(itemName, usable, { signal, reviewerNote: opts.reviewerNote, brand: opts.brand ?? null });
+    const ranked = await rankCandidates(itemName, usable, { signal, reviewerNote: opts.reviewerNote, brand: opts.brand ?? null });
+    // Pictures were found, and none showed the product itself: no image rather than a wrong one.
+    return ranked.length === 0 ? { images: { ...NO_CANDIDATES, allRejected: true }, imageError: null } : ranked;
   } catch (error) {
     const message = expectedFailure(error, "Image ranking", MODEL_JOBS.imageRank.env);
     if (message === null) throw error;
     return { images: null, imageError: message };
   }
-  // Pictures were found, and none showed the product itself: no image rather than a wrong one.
-  if (ranked.length === 0) return { images: { ...NO_CANDIDATES, allRejected: true }, imageError: null };
+}
 
-  const { cleaned, cleanNote } = opts.clean === false ? { cleaned: null, cleanNote: null } : await cleanTop(db, id, ranked[0]);
+/** Step 5 and the outcome: clean rank 1 (or not) and record the top three. */
+async function finish(db: Db, id: string, ranked: RankedImage[], clean: boolean): Promise<StageOutcome> {
+  const { cleaned, cleanNote } = clean ? await cleanTop(db, id, ranked[0]) : { cleaned: null, cleanNote: null };
   return {
     images: {
-      candidates: ranked.map((entry) => entry.candidate),
+      candidates: ranked.slice(0, 3).map((entry, index) => ({ ...entry.candidate, rank: (index + 1) as 1 | 2 | 3 })),
       cleaned,
       ...(cleanNote ? { cleanNote } : {}),
     },
     imageError: null,
   };
+}
+
+/**
+ * A top pick that will not make a clean cover on its own: none at all, a
+ * banner or collage, or a busy scene. The ideal-lab eval found these on a third
+ * of the golden set (lifestyle shots, store badges, gallery thumbnails only).
+ */
+export function needsAnotherPictureSearch(ranked: RankedImage[] | StageOutcome): boolean {
+  if (isOutcome(ranked)) return ranked.imageError === null && (ranked.images?.candidates.length ?? 0) === 0;
+  const top = ranked[0];
+  return !top || top.composite === true || top.image.background === "busy";
+}
+
+const isOutcome = (value: RankedImage[] | StageOutcome): value is StageOutcome => !Array.isArray(value);
+
+/**
+ * The research image stage (steps 2–5) for one item, with one more chance:
+ * the pages' and the search's pictures are probed and ranked; when that leaves
+ * no clean cover ({@link needsAnotherPictureSearch}), **one** dedicated picture
+ * search for the maker's product page ({@link searchProductPictures}, as **Find
+ * a different image** runs) is ranked too, and its best pick is used when it is
+ * a plain photo. Then rank 1 is cleaned. At most one more Exa search and one
+ * more ranking, and only for the items that need it.
+ */
+export async function findProductImages(
+  db: Db,
+  id: string,
+  subject: { name: string; brand: string | null },
+  pageHints: readonly ImageHint[],
+  exaHints: readonly ImageHint[],
+  opts: { signal: AbortSignal; clean?: boolean; label?: string }
+): Promise<StageOutcome> {
+  const clean = opts.clean !== false;
+  const rankOpts = { signal: opts.signal, brand: subject.brand };
+  const candidates = collectCandidates(pageHints, exaHints, subject);
+  const first = await rankOnly(subject.name, candidates, rankOpts);
+  if (!needsAnotherPictureSearch(first)) return isOutcome(first) ? first : finish(db, id, first, clean);
+
+  const label = opts.label ?? id;
+  const searched = await searchProductPictures(subject, null, { label, signal: opts.signal, maxSearches: 1 });
+  const seen = new Set(candidates.map((candidate) => dedupeKey(candidate.url)));
+  const fresh = typeof searched === "string" ? [] : collectCandidates([], searched, subject).filter((hint) => !seen.has(dedupeKey(hint.url)));
+  const second = fresh.length > 0 ? await rankOnly(subject.name, fresh, rankOpts) : null;
+  const firstList = isOutcome(first) ? [] : first;
+  const secondList = second === null || isOutcome(second) ? [] : second;
+  if (secondList.length > 0 && !needsAnotherPictureSearch(secondList)) {
+    console.info(`[research] ${label}: a second picture search found a cleaner cover`);
+    return finish(db, id, [...secondList, ...firstList], clean);
+  }
+  if (firstList.length > 0) return finish(db, id, firstList, clean);
+  if (secondList.length > 0) return finish(db, id, secondList, clean);
+  // Neither ranked anything: the first outcome, unless only the second found (and rejected) pictures.
+  if (isOutcome(first) && first.imageError === null && second !== null && isOutcome(second) && second.images?.allRejected) return second;
+  return first as StageOutcome;
 }
 
 /**

@@ -12,8 +12,7 @@ import { initialDraft, initialImageChoice } from "@/lib/intake/approval-draft";
 import { pickHints } from "@/lib/intake/approval-image";
 import { withTrainingForStaff } from "@/lib/intake/training";
 import { runRead, runSearch } from "@/lib/research/engine";
-import { rankAndClean } from "@/lib/research/image-stage";
-import { collectCandidates } from "@/lib/research/images/candidates";
+import { findProductImages } from "@/lib/research/image-stage";
 import { cleanPickedImage } from "@/lib/research/images/pick-clean";
 import { textLanguage } from "@/lib/research/language";
 import type { ResearchItemInput } from "@/lib/research/prompt";
@@ -41,6 +40,7 @@ import {
   parseGolden,
   parseListingVerdict,
   parsePairwise,
+  pickJudgePromptWithSource,
   regressions,
   summarize,
   type Baseline,
@@ -56,7 +56,6 @@ import {
   onMakerHost,
   parseCutoutVerdict,
   parsePickVerdict,
-  pickJudgePrompt,
   type CutoutResult,
   type GradedOption,
 } from "./photo-options/grade";
@@ -66,7 +65,7 @@ import {
  * the ideal lab's golden ten (and three held out): a vague chat message →
  * identification (the real chat prompt and `identify_tools`, stubbed) →
  * research (the shipped search and read passes, `engine.ts`) → the product
- * image (candidates, probe, ranking — `rankAndClean`) → the approval draft
+ * image (candidates, probe, ranking, one more picture search — `findProductImages`) → the approval draft
  * (`initialDraft`, with the real lab's zones) → the cover's background removal
  * (`cleanPickedImage`, as **Use as cover** makes it).
  *
@@ -203,19 +202,17 @@ async function findImage(testCase: IdealLabCase, researched: ResearchOut, resear
   if (hit) return { value: hit, cached: true };
 
   const subject = { name: researched.result.canonicalName.trim() || item.name, brand: item.brand };
-  // As the research workflow's image step collects them (`image-steps.ts`).
-  const candidates = collectCandidates(
-    researched.hints.filter((hint) => hint.source !== "exa"),
-    researched.hints.filter((hint) => hint.source === "exa"),
-    subject
-  );
   const { value: outcome, cost } = await withCostMeter(() =>
-    // `clean: false`: nothing stored, so no database; the cutout is made below, as Use as cover makes it.
-    rankAndClean(null as unknown as Db, `eval-${testCase.id}`, subject.name, candidates, {
-      signal: AbortSignal.timeout(STAGE_TIMEOUT_MS),
-      brand: subject.brand,
-      clean: false,
-    })
+    // As the research workflow's image step runs it (`image-steps.ts`). `clean: false`:
+    // nothing stored, so no database; the cutout is made below, as Use as cover makes it.
+    findProductImages(
+      null as unknown as Db,
+      `eval-${testCase.id}`,
+      subject,
+      researched.hints.filter((hint) => hint.source !== "exa"),
+      researched.hints.filter((hint) => hint.source === "exa"),
+      { signal: AbortSignal.timeout(STAGE_TIMEOUT_MS), clean: false, label: testCase.id }
+    )
   );
   const value: ImageOut = { images: outcome.images, imageError: outcome.imageError, cost };
   await cache.put("image", testCase.id, key, value);
@@ -277,7 +274,11 @@ async function gradePhoto(candidate: ImageCandidate, testCase: IdealLabCase, byt
       if ("error" in got) return { ...graded, error: got.error };
       picture = got.bytes;
     }
-    const { text, cost } = await judgeCall(PICK_JUDGE_SYSTEM, pickJudgePrompt(testCase.model), [await forJudge(picture)]);
+    const { text, cost } = await judgeCall(
+      PICK_JUDGE_SYSTEM,
+      pickJudgePromptWithSource(testCase.model, { url: candidate.url, pageUrl: candidate.pageUrl ?? null, makerHosts: testCase.makerHosts }),
+      [await forJudge(picture)]
+    );
     const verdict = parsePickVerdict(text);
     return verdict ? { ...graded, verdict, cost } : { ...graded, error: "unreadable verdict", cost };
   } catch (error) {
