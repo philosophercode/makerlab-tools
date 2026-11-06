@@ -132,7 +132,7 @@ export const LISTING_JUDGE_SYSTEM = [
   "- keywords: are the tags words a student would actually search for (the process, materials, uses), like the reference's? Brand names only, duplicates of the name, or jargon is a real problem; none scores 1.",
   RESEARCH_PROPOSES_PPE
     ? "- safety: are the PPE and use restrictions sensible for this kind of machine, compared with the reference? Missing eye protection on a laser or saw, or inventing a hazard, is a real problem."
-    : "- safety: the lab's staff set PPE, so an empty PPE field is correct and not a problem. Judge the use restrictions and anything said about safety: is it right for this machine, with no invented hazard and nothing misleading? An empty restriction on a machine the sources give a clear restriction for is a minor nit (4).",
+    : "- safety: the lab's staff set PPE, so an empty PPE field is correct and not a problem. Judge the use restrictions and anything said about safety: is it right for this machine, with no invented hazard and nothing misleading? An empty restriction on a machine the sources give a clear restriction for is a minor nit (4). Anything that tells a student how to bypass, override or disable a safety system (a bypass mode, an interlock, a guard) is a 1.",
   "- name_ok: true when the display name follows the lab's display-name rules (below) — the short name people in the lab would say; false when it is the full product name, carries a part or catalogue number the rules drop, is only the brand, or names another machine.",
   "",
   "### The lab's display-name rules",
