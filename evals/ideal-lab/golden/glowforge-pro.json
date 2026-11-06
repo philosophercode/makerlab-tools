@@ -1,0 +1,91 @@
+{
+  "displayName": "Glowforge Pro",
+  "officialName": "Glowforge Pro 3D Laser Printer",
+  "description": "The Glowforge Pro is a desktop CO2 laser cutter and engraver with a 45 W laser and a cutting area of about 11 by 19.5 inches. In a makerspace, students use it to cut and engrave wood, acrylic, leather, paper and cardboard for prototypes, enclosures, signs and models, and to engrave glass and stone. Its passthrough slot takes thin sheets longer than the bed, so students can work on long pieces such as signs.",
+  "specs": [
+    {
+      "label": "Laser",
+      "value": "CO2 glass laser tube, 10,600 nm, rated at 45 watts"
+    },
+    {
+      "label": "Cutting area",
+      "value": "approx. 11\" (279 mm) deep and 19.5\" (495 mm) wide"
+    },
+    {
+      "label": "Maximum material width",
+      "value": "20\" (515 mm)"
+    },
+    {
+      "label": "Maximum material height",
+      "value": "2\" (50 mm); 0.5\" (13 mm) with tray"
+    },
+    {
+      "label": "Pro Passthrough slot",
+      "value": "material up to 1/4\" (6.3 mm) high, up to 20\" (50.8 cm) wide, and as long as desired"
+    },
+    {
+      "label": "Positioning precision",
+      "value": "0.001\" (0.025 mm)"
+    },
+    {
+      "label": "Engraving resolution",
+      "value": "up to 1355 DPI"
+    },
+    {
+      "label": "Power",
+      "value": "110/220 VAC, 50 or 60 Hz; 800 W peak power consumption"
+    },
+    {
+      "label": "Recommended operating temperature",
+      "value": "60F-81F (16C-27C)"
+    },
+    {
+      "label": "Laser class",
+      "value": "Class 4 laser product"
+    },
+    {
+      "label": "File formats",
+      "value": "JPG, PNG, SVG, PDF and other formats (web interface, internet required)"
+    }
+  ],
+  "tags": [
+    "laser cutting",
+    "laser engraving",
+    "acrylic",
+    "plywood",
+    "signs",
+    "prototyping",
+    "leather",
+    "stencils"
+  ],
+  "materials": [
+    "wood",
+    "plywood",
+    "acrylic",
+    "leather",
+    "paper",
+    "cardboard",
+    "fabric",
+    "Delrin",
+    "cork",
+    "rubber",
+    "glass (engrave only)",
+    "stone (engrave only)",
+    "anodized aluminum (engrave only)"
+  ],
+  "ppeRequired": [
+    "laser safety glasses",
+    "closed-toe shoes"
+  ],
+  "useRestrictions": "Only trained users may operate it; use only laser-compatible materials (never vinyl/PVC or reflective metals such as copper or chrome), never leave a job unattended, and keep the Pro Shields installed except when a staff-approved passthrough job is running.",
+  "manualUrl": "https://support.glowforge.com/hc/en-us/articles/360034142653-glowforge-manuals",
+  "sources": [
+    "https://glowforge.com/b/tech-specs/performance",
+    "https://shop.glowforge.com/products/glowforge-pro-certified-rebuilt",
+    "https://glowforge.com/b/pro",
+    "https://glowforge.com/b/sales",
+    "https://support.glowforge.com/hc/en-us/articles/360033633314-safety-glowforge-performance-series",
+    "https://support.glowforge.com/hc/en-us/articles/360033633594-remove-and-install-pro-shields",
+    "https://support.glowforge.com/hc/en-us/articles/360034142653-glowforge-manuals"
+  ]
+}

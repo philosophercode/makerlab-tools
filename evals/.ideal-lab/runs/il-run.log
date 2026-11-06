@@ -1,0 +1,238 @@
+
+> makerlab-tools@5.0.0 eval:ideal-lab
+> node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run --config evals/ideal-lab.vitest.config.ts
+
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (evals/ideal-lab.vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v4.1.12 /Users/isaacsteinberg/Developer/Projects/makerlab-tools-eval
+
+[research] eval-bambu-h2d: search call cost $0.0252, tier flex
+[research] read 3/3 pages; 2 from the search's text; 1 manual(s) as text (pdf); not read: none
+[research] eval-bambu-h2d: read call cost $0.0023, tier flex
+[research] image rank call cost $0.0007, tier flex
+[research] image rank: 3 of 8 rejected (part, not_product, not_product)
+[ideal-lab] PASS bambu-h2d (97 s)
+[research] eval-formlabs-form-4: search call cost $0.0373, tier not reported
+[research] read 4/4 pages; 1 manual(s) as text (pdf); not read: none
+[research] eval-formlabs-form-4: read call cost $0.0018, tier flex
+[research] eval-formlabs-form-4: formlabs.com: manual resolved to a PDF on media.formlabs.com (link to a PDF, 2 hop(s))
+[research] image rank call cost $0.0007, tier flex
+[research] image rank: 2 of 7 rejected (other_model, other_model)
+[ideal-lab] PASS formlabs-form-4 (109 s)
+[research] eval-trotec-speedy-400: search call cost $0.0085, tier flex
+[research] read 3/3 pages; 2 manual(s) as text (pdf, pdf); not read: none
+[research] eval-trotec-speedy-400: read call cost $0.0016, tier flex
+[research] image rank call cost $0.0002, tier flex
+[research] image rank: 1 of 2 rejected (other_model)
+[ideal-lab] FAIL trotec-speedy-400 (63 s)
+[research] eval-glowforge-pro: search call cost $0.0162, tier flex
+[research] read 3/3 pages; 1 manual(s) as text (pdf); not read: none
+[research] eval-glowforge-pro: read call cost $0.0015, tier flex
+[research] image rank call cost $0.0004, tier flex
+[research] image rank: 2 of 4 rejected (not_product, not_product)
+[research] glowforge-pro: image search call cost $0.0083, tier flex
+[research] image rank call cost $0.0003, tier flex
+[research] glowforge-pro: a second picture search found a cleaner cover
+[ideal-lab] FAIL glowforge-pro (89 s)
+[research] eval-shaper-origin: search call cost $0.0157, tier flex
+[research] read 2/2 pages; 1 manual(s) as text (pdf); not read: none
+[research] eval-shaper-origin: read call cost $0.0013, tier flex
+[research] image rank call cost $0.0007, tier flex
+[research] image rank: 4 of 8 rejected (part, part, part, not_product)
+[ideal-lab] PASS shaper-origin (63 s)
+[research] eval-bantam-pcb-mill: search call cost $0.0314, tier flex
+[research] read 3/3 pages; 1 from the search's text; 1 manual(s) as text (pdf); not read: none
+[research] eval-bantam-pcb-mill: read call cost $0.0014, tier flex
+[research] image rank call cost $0.0002, tier flex
+[research] image rank: 2 of 2 rejected (consumable, not_product)
+[research] bantam-pcb-mill: image search call cost $0.0082, tier flex
+[ideal-lab] FAIL bantam-pcb-mill (101 s)
+[research] eval-sawstop-pcs: search call cost $0.0251, tier flex
+[research] read 2/3 pages; 1 from the search's text; 1 manual(s) as text (pdf); not read: www.sawstop.com: failed (http_403)
+[research] eval-sawstop-pcs: read call cost $0.0020, tier flex
+[research] image rank call cost $0.0005, tier flex
+[research] image rank: 4 of 6 rejected (other_model, other_model, other_model, other_model)
+[ideal-lab] FAIL sawstop-pcs (103 s)
+[research] eval-hakko-fx-888dx: search call cost $0.0235, tier flex
+[research] read 3/3 pages; 3 from the search's text; not read: none
+[research] eval-hakko-fx-888dx: read call cost $0.0009, tier flex
+[research] image rank call cost $0.0006, tier flex
+[research] image rank: 3 of 4 rejected (not_product, other_model, other_model)
+[research] hakko-fx-888dx: image search call cost $0.0074, tier flex
+[ideal-lab] FAIL hakko-fx-888dx (84 s)
+[research] eval-revopoint-miraco-pro: search call cost $0.0248, tier flex
+[research] read 4/4 pages; 1 from the search's text; 1 manual(s) as text (pdf); not read: none
+[research] eval-revopoint-miraco-pro: read call cost $0.0018, tier flex
+[research] image rank call cost $0.0007, tier flex
+[research] image rank: 5 of 8 rejected (not_product, not_product, not_product, not_product, not_product)
+[research] revopoint-miraco-pro: image search call cost $0.0082, tier flex
+[research] image rank call cost $0.0006, tier flex
+[research] image rank: 1 of 5 rejected (other_model)
+[research] revopoint-miraco-pro: a second picture search found a cleaner cover
+[ideal-lab] FAIL revopoint-miraco-pro (115 s)
+[research] eval-ur5e: search call cost $0.0313, tier flex
+[research] read 2/2 pages; 2 manual(s) as text (pdf, pdf); not read: none
+[research] eval-ur5e: read call cost $0.0016, tier flex
+[research] image rank call cost $0.0009, tier flex
+[research] image rank: 2 of 7 rejected (not_product, part)
+[research] ur5e: image search call cost $0.0077, tier flex
+[research] image rank call cost $0.0003, tier flex
+[research] image rank: 1 of 2 rejected (part)
+[research] ur5e: a second picture search found a cleaner cover
+[ideal-lab] FAIL ur5e (135 s)
+[research] eval-prusa-core-one: search call cost $0.0320, tier flex
+[research] eval-prusa-core-one: read call cost $0.0014, tier flex
+[research] eval-prusa-core-one: help.prusa3d.com: manual resolved to a PDF on www.prusa3d.com (link to a PDF, 2 hop(s))
+[research] image rank call cost $0.0003, tier flex
+[research] prusa-core-one: image search call cost $0.0080, tier flex
+[research] image rank call cost $0.0003, tier flex
+[research] prusa-core-one: a second picture search found a cleaner cover
+[ideal-lab] FAIL prusa-core-one (101 s)
+[research] eval-rigol-ds1054z: search call cost $0.0170, tier flex
+[research] read 2/3 pages; 1 manual(s) as text (pdf); not read: www.rigol.com: failed (http_404)
+[research] eval-rigol-ds1054z: read call cost $0.0015, tier flex
+[research] image rank call cost $0.0008, tier flex
+[research] image rank: 2 of 4 rejected (other_model, other_model)
+[ideal-lab] FAIL rigol-ds1054z (108 s)
+[research] eval-festool-domino-500: search call cost $0.0324, tier flex
+[research] read 3/3 pages; 1 from the search's text; 1 manual(s) as text (pdf); not read: none
+[research] eval-festool-domino-500: read call cost $0.0015, tier flex
+[research] image rank call cost $0.0002, tier flex
+[research] festool-domino-500: image search call cost $0.0079, tier flex
+[research] image rank call cost $0.0006, tier flex
+[research] image rank: 2 of 4 rejected (part, part)
+[ideal-lab] FAIL festool-domino-500 (112 s)
+
+Ideal-lab eval
+Tuned set — 10 tools
+  Loop pass (all stages good): 30%
+  Identify: right machine 100%
+  Listing: good 70% · mean 4.2/5 · grounded 5.0/5 · description 3.9/5 · 41 words
+  Checks: English 100% · manual 90% (PDF 60%) · links resolve 100% · zone 100% · citations verified 95%
+  Photo: top pick good 70% · good in top 3 80% · maker's 80% · cutout OK 70%
+Held out — 3 tools
+  Loop pass (all stages good): 0%
+  Identify: right machine 100%
+  Listing: good 33% · mean 4.1/5 · grounded 4.0/5 · description 4.0/5 · 39 words
+  Checks: English 100% · manual 67% (PDF 67%) · links resolve 100% · zone 100% · citations verified 100%
+  Photo: top pick good 33% · good in top 3 33% · maker's 100% · cutout OK 67%
+  Cost: $1.58 this run (pipeline $0.41 fresh of $0.41 if uncached, judge $1.18)
+
+✓ bambu-h2d — 97 s, cached: identify
+  identified: Bambu Lab H2D ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 29 words · image chosen ✓
+  listing ✓: machine yes, accuracy 5, grounded 5, description 4, specs 5, keywords 4, safety 4, name ✓ — The description is thin: it says little about what students make or how the two nozzles help (e.g. dissolvable supports, rigid plus flexible). Use restrictions are empty, though the reference requires the printer induction and staff training for the laser and cutting modules.
+  photo 1: portal.bblmw.com ✓ model yes, plain — A front-on studio shot of the whole Bambu Lab H2D enclosed printer, with the H2D branding visible, on a plain white background and taken from the maker's own H2D product page.
+  photo 2: store.bblcdn.eu ✗ model yes, plain, shop — The Bambu Lab H2D is shown whole, with visible H2D branding, on a plain light background, but a 'Black Friday Sale €150 Off' promotional badge is overlaid.
+  photo 3: store.bblcdn.eu ✗ model yes, plain, shop — The Bambu Lab H2D, labelled 'H2D' on its front, sits whole on a plain light background, but a 'Black Friday Sale €150 Off' promotional badge is overlaid.
+  cutout: kept as is
+
+✓ formlabs-form-4 — 109 s, cached: identify
+  identified: Formlabs Form 4 Resin 3D Printer ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 83% · 46 words · image chosen ✓
+  listing ✓: machine yes, accuracy 4, grounded 5, description 4, specs 4, keywords 4, safety 4, name ✓ — The materials list includes biocompatible resin, which the comparison table says is only on the Form 4B. The specs omit the reference's 405 nm light source, resin heating, operating environment and power, and the restrictions omit the training requirement.
+  photo 1: formlabs-media.formlabs.com ✓ model yes, plain — Formlabs product shot from the Form 4 product page showing the whole printer front-on with an orange cover, a Formlabs base and a touchscreen reading 'Form 4', on a plain white background.
+  photo 2: formlabs-media.formlabs.com ✓ model yes, plain — Maker's own Form 4 package image shows the whole orange-lid Formlabs printer, with its screen labelled Form 4, beside its finishing accessories on a plain white background with no price or promo overlays.
+  photo 3: formlabs-media.formlabs.com ✗ model yes, busy — The orange-hooded resin printer from Formlabs' own Form 4 page matches the Form 4, but it sits on a wooden bench in a dark workshop beside wash and cure units rather than on a plain backdrop.
+  cutout: kept as is
+
+✗ trotec-speedy-400 — 63 s, cached: identify
+  identified: Trotec Speedy 400 ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 38 words · image chosen ✓
+  listing ✗: machine yes, accuracy 3, grounded 5, description 4, specs 4, keywords 4, safety 4, name ✓ — The specs mix in the sibling Speedy 400 flexx (fiber laser source, 30–50 W fiber power, flexx weight) instead of describing only the CO2 machine. They also omit the exhaust requirement and the 10.6 µm sealed CO2 source, and glass is not marked engrave-only.
+  photo 1: backend.troteclaser.com ✓ model yes, plain — Trotec's own product shot of a laser engraver labelled 'Speedy 400', shown whole on a plain white background, from the Speedy 400 product page.
+  cutout: kept as is
+
+✗ glowforge-pro — 89 s, cached: identify
+  identified: Glowforge Pro ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 34 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 5, description 3, specs 3, keywords 4, safety 4, name ✓ — The description gives no headline spec (45 W, about 11×19.5 in bed) and no materials students work with. The specs omit the cutting area, engraving resolution, power and operating temperature, and pad the list with marketing items like device compatibility. The materials list is thin and does not mark glass as engrave-only.
+  photo 1: shop.glowforge.com ✗ model unsure, plain — The Glowforge Pro-style unit sits on a plain transparent background, but the file and page are for the Pro HD, which looks the same as the Pro.
+  photo 2: shop.glowforge.com ✓ model yes, plain — A maker's own product shot from the Glowforge Pro HD page shows the whole Glowforge Pro-family laser cutter, with its front passthrough slot, on a plain white background with no promotional overlays.
+  photo 3: cdn.builder.io ✗ model unsure, busy — This is a Glowforge laser cutter from the Basic/Plus/Pro family, but the Pro can't be told apart from its siblings here, and it sits in a home room with a person and decor.
+  cutout: rough, background left
+
+✓ shaper-origin — 63 s, cached: identify
+  identified: Shaper Origin Handheld CNC Router ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 34 words · image chosen ✓
+  listing ✓: machine yes, accuracy 5, grounded 5, description 4, specs 4, keywords 5, safety 4, name ✓ — Specs omit the spindle speed range (10,000–26,000 RPM), the 1" maximum cutter diameter and the 720 W motor power, and the description skips the camera/ShaperTape tracking. Use restrictions are empty though the safety guide requires dust extraction.
+  photo 1: a-us.storyblok.com ✓ model yes, plain — The whole Shaper Origin handheld CNC router, with its 'SHAPER | ORIGIN' screen branding, appears on a plain white background on the maker's own product page.
+  photo 2: a-us.storyblok.com ✗ model yes, busy — The Shaper Origin handheld CNC router is clearly shown with its branded screen, but it is in use by a person on a wooden workbench with ShaperTape rather than on a plain background.
+  photo 3: a-us.storyblok.com ✓ model yes, plain — Side view of the Shaper Origin handheld CNC router with its angled touchscreen and dual handles, shown whole on a plain white background on the maker's own product page.
+  cutout: kept as is
+
+✗ bantam-pcb-mill — 101 s, cached: identify
+  identified: Bantam Tools Desktop PCB Milling Machine ✓
+  checks: English ✓ · manual ✓ (PDF ✗) · links ✓ · zone ✓ · citations 100% · 42 words · image chosen ✗
+  listing ✓: machine yes, accuracy 5, grounded 5, description 4, specs 4, keywords 5, safety 4, name ✓ — The use restriction covers only collet care. It misses the source-backed limits: run with the safety windows in place, fix the material firmly, and cut nothing harder than steel. The description also gives no headline spec, such as the 5.5 × 4.5 in working area or the 1/8 in shank.
+  photo: none found
+  cutout: —
+
+✗ sawstop-pcs — 103 s, cached: identify
+  identified: SawStop Professional Cabinet Saw 3HP ✓
+  checks: English ✓ · manual ✓ (PDF ✗) · links ✓ · zone ✓ · citations 100% · 47 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 5, description 4, specs 4, keywords 4, safety 3, name ✓ — The use restriction tells students to cut conductive materials in Bypass Mode, which disables the safety system, and omits the blade restrictions and staff-authorisation rule. The description also skips the 10-inch blade size and cut depth, and the specs leave out the brake stopping time and the 1.75 HP variant.
+  photo 1: www.sawstop.com ✓ model yes, plain — SawStop Professional cabinet saw with fence and extension table, shown whole on a plain white background, from the maker's PCS product page.
+  photo 2: www.sawstop.com ✓ model yes, plain — SawStop Professional cabinet saw with extension table on a plain white background, from the maker's PCS product page.
+  cutout: clean
+
+✗ hakko-fx-888dx — 84 s, cached: identify
+  identified: Hakko FX-888DX Soldering Station ✓
+  checks: English ✓ · manual ✓ (PDF ✗) · links ✓ · zone ✓ · citations 100% · 34 words · image chosen ✓
+  listing ✓: machine yes, accuracy 5, grounded 5, description 4, specs 4, keywords 4, safety 4, name ✓ — The description is thin on student uses (only 'solder electronic connections', with no circuit boards, wiring or repair), and the use restrictions are empty where the reference gives clear ones.
+  photo 1: hakko.de ✓ model yes, plain — The blue and yellow Hakko station clearly reads FX-888DX on its front panel and sits on a plain white/light grey background with no promotional elements.
+  cutout: rough, cut into product, background left
+
+✗ revopoint-miraco-pro — 115 s, cached: identify
+  identified: Revopoint MIRACO Pro Handheld 3D Scanner ✓
+  checks: English ✓ · manual ✗ · links ✓ · zone ✓ · citations 100% · 56 words · image chosen ✓
+  listing ✓: machine yes, accuracy 5, grounded 5, description 4, specs 4, keywords 4, safety 4, name ✓ — The draft omits the 0.3 mm Far-mode accuracy and the max frames per scan, and its restrictions miss the photosensitive-epilepsy warning and the 10 mm minimum object size. The description skips reverse engineering and the scanning technology.
+  photo 1: www.revopoint3d.com ✓ model yes, plain — This is the maker's own product shot of the MIRACO scanner, which looks the same as the Pro, on a plain white background with no promotional overlays.
+  photo 2: www.revopoint3d.com ✗ model yes, plain, shop — The maker's MIRACO product page shows the MIRACO scanner whole on a white background, but a Red Dot award badge with text is overlaid.
+  photo 3: www.swingdesign.com ✗ model yes, plain, shop — The Revopoint MIRACO-style scanner with a 32GB overlay matches the Pro, but it is shown in a retailer bundle collage with accessories and promotional text over the image.
+  cutout: clean
+
+✗ ur5e — 135 s, cached: identify
+  identified: Universal Robots UR5e Collaborative Robot ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 67% · 46 words · image chosen ✓
+  listing ✓: machine yes, accuracy 4, grounded 5, description 4, specs 4, keywords 4, safety 4, name ✓ — The use restrictions are empty, though the reference limits use to trained users and bans handling people. The description's uses (inspection, adhesives) are less typical than pick-and-place, the tool-flange I/O line drops the analog-in label, and the specs omit the ~200 W typical power.
+  photo 1: a.storyblok.com ✗ model unsure, plain — This is a Universal Robots e-series arm on a plain white background, but the file name says UR12e, the page is the general e-series page rather than the UR5e page, and UR5e cannot be confirmed from the pixels.
+  photo 2: a.storyblok.com ✗ model no, busy — The file name marks this as a UR15 launch photo on the maker's homepage, not the UR5e, and it is staged on a pedestal against a dark studio backdrop.
+  photo 3: cdn11.bigcommerce.com ✗ model unsure, plain — This is clearly a Universal Robots e-Series arm on a plain white background, but it comes from a distributor site and the pixels alone cannot reliably tell the UR5e apart from its UR3e/UR10e/UR16e siblings.
+  cutout: kept as is
+
+✗ prusa-core-one (held out) — 101 s, cached: identify
+  identified: Original Prusa CORE One ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 46 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 3, description 4, specs 3, keywords 5, safety 4, name ✓ — Specs omit most of the reference's core figures: filament diameter, layer height, nozzle and bed temperatures, print surface, power and printer dimensions. ABS, ASA and nylon are listed without the Advanced Filtration System restriction.
+    unsupported: Wi-Fi connectivity | USB drive file transfer | Prusa Connect and Prusa App remote management
+  photo 1: www.prusa3d.com ✓ model yes, plain — Maker's own product shot of the whole Prusa Core One enclosed printer, branded CORE ONE, on a plain white background.
+  photo 2: www.prusa3d.com ✗ model no, plain, shop — The frame label reads 'CORE ONE+', a different variant from the Core One, and the image carries Black Friday promotional badges and gift price text over a white background.
+  photo 3: www.prusa3d.com ✗ model yes, plain, shop — Prusa's own Core One product photo on white, but covered with Black Friday badges, gift bundle images and a $450 price promotion.
+  cutout: clean
+
+✗ rigol-ds1054z (held out) — 108 s, cached: identify
+  identified: Rigol DS1054Z Digital Oscilloscope ✓
+  checks: English ✓ · manual ✗ · links ✓ · zone ✓ · citations 100% · 31 words · image chosen ✓
+  listing ✓: machine yes, accuracy 5, grounded 5, description 4, specs 4, keywords 4, safety 4, name ✓ — The description is thinner than the reference on what students actually do (debugging microcontroller, PWM and sensor signals), and the draft has no mains/CAT I use restriction. The specs are otherwise complete apart from the 7 ns rise time.
+  photo 1: www.rigol.com ✗ model unsure, plain — This is a Rigol DS1000Z-family scope on a plain white maker shot from the family page, but the LA button and logic connector suggest a Plus/MSO variant rather than a confirmed DS1054Z.
+  photo 2: www.rigol.com ✗ model no, plain — This is a rear view of a Rigol DS1000Z-series scope with Source 1/2 generator outputs, which marks it as an -S variant rather than the plain DS1054Z, on a clean white background.
+  cutout: kept as is
+
+✗ festool-domino-500 (held out) — 112 s, cached: identify
+  identified: Festool DOMINO DF 500 Q-Plus ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 41 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 4, description 4, specs 4, keywords 4, safety 4, name ✗ — The display name keeps the model code in brand caps instead of saying what the tool is ("Festool Domino Joiner"). The specs omit the tenon sizes, cutter diameters, height adjustment, minimum workpiece thickness and cable length.
+    unsupported: Q-Plus variant name
+  photo 1: www.festool.com ✗ model no, busy — The photo shows a man cutting with a jigsaw on a Festool table with a dust extractor, not the Domino DF 500 joiner, in a workshop room.
+  cutout: kept as is (busy_background)
+
+Report: evals/.ideal-lab/runs/2026-11-06T10-02-05-555Z
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  05:02:03
+   Duration  1282.06s (transform 863ms, setup 0ms, import 1.56s, tests 1280.39s, environment 0ms)
+
