@@ -1,0 +1,87 @@
+{
+  "displayName": "Shaper Origin",
+  "officialName": "Shaper Origin Gen 2 (SO2) Handheld CNC Router",
+  "description": "The Shaper Origin is a handheld CNC router. You guide it along a path shown on its touchscreen, and it uses a camera and ShaperTape to track where it is. While you steer, it corrects the bit's position by up to 1/2 inch. In a makerspace, students use it to cut joinery, inlays, profiles and engraved signs in wood, plastics and soft metals, without writing any CNC programs.",
+  "specs": [
+    {
+      "label": "Spindle motor power",
+      "value": "720 W"
+    },
+    {
+      "label": "Spindle speed (no-load)",
+      "value": "10,000–26,000 RPM"
+    },
+    {
+      "label": "Collet supplied",
+      "value": "1/4\" (accepts 1/4\" shank router bits)"
+    },
+    {
+      "label": "Maximum cutter diameter",
+      "value": "1\" (25.4 mm)"
+    },
+    {
+      "label": "Depth of cut",
+      "value": "43 mm, digitally adjustable"
+    },
+    {
+      "label": "Automatic cut correction range",
+      "value": "1/2\""
+    },
+    {
+      "label": "Dust port",
+      "value": "Fits standard 27 mm & 36 mm suction hoses"
+    },
+    {
+      "label": "Input power",
+      "value": "120 VAC (60 Hz)"
+    },
+    {
+      "label": "Dimensions (W × D × H)",
+      "value": "339 mm × 227 mm × 306 mm"
+    },
+    {
+      "label": "Weight",
+      "value": "6.75 kg"
+    }
+  ],
+  "tags": [
+    "cnc router",
+    "handheld cnc",
+    "joinery",
+    "inlay",
+    "engraving",
+    "signage",
+    "woodworking",
+    "routing"
+  ],
+  "materials": [
+    "hardwood",
+    "softwood",
+    "plywood",
+    "MDF",
+    "acrylic",
+    "polycarbonate",
+    "HDPE",
+    "Delrin",
+    "PVC",
+    "Corian",
+    "aluminum",
+    "brass",
+    "copper"
+  ],
+  "ppeRequired": [
+    "safety glasses",
+    "hearing protection"
+  ],
+  "useRestrictions": "Only trained users may operate it. Use it on a horizontal surface with the finger guard fitted and dust extraction connected, and never with bearing-guided bits.",
+  "manualUrl": "https://support.shapertools.com/hc/en-us/articles/12110889294875-quick-start-guide-usage-and-safety-instructions-and-regulatory-information-for-origin-gen-2",
+  "sources": [
+    "https://www.shapertools.com/en-us/origin",
+    "https://support.shapertools.com/hc/en-us/articles/115002740973-what-type-of-spindle-does-origin-ship-with",
+    "https://support.shapertools.com/hubfs/Knowledge%20Base%20Documents/Product%20Manual%20Gen%202/Origin%20Gen2%20-%20Safety%20Guide_en_de_fr.pdf?hsLang=en",
+    "https://support.shapertools.com/hubfs/Knowledge%20Base%20Documents/Product%20Manual%20Gen%202/Origin%20Gen2%20-%20Quick%20Guide_en_de_fr.pdf?hsLang=en",
+    "https://support.shapertools.com/hc/en-us/articles/115002740813-what-materials-can-i-cut-with-origin",
+    "https://support.shapertools.com/hc/en-us/articles/115002985634-guide-to-stock-bits",
+    "https://support.shapertools.com/hc/en-us/articles/12110889294875-quick-start-guide-usage-and-safety-instructions-and-regulatory-information-for-origin-gen-2"
+  ]
+}
