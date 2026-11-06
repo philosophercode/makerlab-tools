@@ -73,7 +73,7 @@ export const IDEAL_LAB_CASES: IdealLabCase[] = [
   {
     id: "glowforge-pro",
     zone: null,
-    prompt: "glowforge pro",
+    prompt: "add a glowforge pro",
     model: "Glowforge Pro",
     brand: "Glowforge",
     mustName: ["Glowforge", "Pro"],
@@ -137,7 +137,7 @@ export const IDEAL_LAB_CASES: IdealLabCase[] = [
   {
     id: "prusa-core-one",
     zone: null,
-    prompt: "4 prusa core ones",
+    prompt: "we got 4 prusa core ones, add them",
     model: "Prusa Core One",
     brand: "Prusa Research",
     mustName: ["Core One"],

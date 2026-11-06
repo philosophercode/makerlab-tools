@@ -1,5 +1,5 @@
 import { IMAGE_EXA_TOPUP_BELOW, IMAGE_MAX_CANDIDATES } from "../../intake/limits.ts";
-import { imageIdentity } from "../../web/image-url.ts";
+import { imageIdentity, unwrapImageProxy } from "../../web/image-url.ts";
 import type { ImageHint } from "../../web/read-page.ts";
 import { imagePageTier, type PageSubject } from "../source-pages.ts";
 
@@ -86,7 +86,8 @@ export function collectCandidates(
 
 /** The hint with its URL made canonical (no fragment) and its page URL kept only when it is http(s). */
 function cleanHint(hint: ImageHint): ImageHint | null {
-  const url = httpUrl(hint.url);
+  // A resizing proxy's thumbnail becomes its full-size original (`unwrapImageProxy`).
+  const url = httpUrl(unwrapImageProxy(hint.url));
   if (!url || url.href.length > MAX_IMAGE_URL_LENGTH) return null;
   url.hash = "";
   const page = hint.pageUrl ? httpUrl(hint.pageUrl) : null;

@@ -100,7 +100,7 @@ const GOLDEN_DIR = path.join(HERE, "ideal-lab", "golden");
 const BASELINE_FILE = path.join(HERE, "ideal-lab", "baseline.json");
 const STAGE_TIMEOUT_MS = 4 * 60_000;
 /** Kept per page in the research cache: enough for the judge. */
-const CACHED_PAGE_CHARS = 8000;
+const CACHED_PAGE_CHARS = 20000;
 const TOP_JUDGED = 3;
 
 const cache = new StageCache(path.join(WORK_DIR, "cache"), process.env.EVAL_IL_FRESH === "1");
@@ -257,6 +257,7 @@ async function cheapChecks(
     manualFound: Boolean(manual),
     manualIsPdf: Boolean(manualAnswer?.pdf),
     linksResolve: checked.every((entry) => entry.ok),
+    deadLinks: result.resources.filter((_, index) => !checked[index].ok).map((resource) => resource.url),
     citationCoverage: cited.length === 0 ? null : cited.filter((quotes) => quotes!.some((quote) => quote.verified)).length / cited.length,
     descriptionWords: description ? description.split(/\s+/).length : 0,
     imageChosen: initialImageChoice(images).choice !== "none",
@@ -297,6 +298,20 @@ async function gradeCutout(candidate: ImageCandidate, testCase: IdealLabCase, or
     return { cutout: verdict ? { kind: "judged", cleaned: picked.cleaned, verdict } : { kind: "error", error: "unreadable verdict" }, cost };
   } catch (error) {
     return { cutout: { kind: "error", error: error instanceof Error ? error.message : String(error) }, cost: 0 };
+  }
+}
+
+/** Rank 1 as it would become the cover, flattened on white for judging, and saved beside the report. */
+async function coverOf(candidate: ImageCandidate, original: Uint8Array, testCase: IdealLabCase, outDir: string): Promise<Uint8Array> {
+  try {
+    const info = inspectImage(original);
+    if (!info) return original;
+    const picked = await cleanPickedImage({ bytes: original, info }, pickHints(candidate));
+    const cover = await forJudge(picked.bytes, "#ffffff");
+    await writeFile(path.join(outDir, `${testCase.id}-cover.png`), cover);
+    return cover;
+  } catch {
+    return original;
   }
 }
 
@@ -400,6 +415,9 @@ async function runCase(testCase: IdealLabCase, baseline: Baseline | null, outDir
     const golden = await readGolden(testCase.id);
     const candidates = image.value.images?.candidates ?? [];
     const topBytes = candidates[0] ? await downloadImage(candidates[0].url) : null;
+    // The cover as the approval page would set it: rank 1 cleaned as **Use as cover** cleans it
+    // (cropped and/or cut, on white), else the original. That, not the raw candidate, is what students see.
+    const cover = topBytes && "bytes" in topBytes ? await coverOf(candidates[0], topBytes.bytes, testCase, outDir) : null;
     const before = baseline?.cases[testCase.id]?.listing ?? null;
     const newIsA = newIsAFor(testCase.id);
     const [listingJudged, photos, cutout, pairwise] = await Promise.all([
@@ -407,7 +425,7 @@ async function runCase(testCase: IdealLabCase, baseline: Baseline | null, outDir
       Promise.all(
         candidates
           .slice(0, TOP_JUDGED)
-          .map((candidate, index) => gradePhoto(candidate, testCase, index === 0 && topBytes && "bytes" in topBytes ? topBytes.bytes : null))
+          .map((candidate, index) => gradePhoto(candidate, testCase, index === 0 && cover ? cover : null))
       ),
       candidates[0] && topBytes && "bytes" in topBytes
         ? gradeCutout(candidates[0], testCase, topBytes.bytes, outDir)

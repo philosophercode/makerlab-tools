@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { imageIdentity } from "./image-url";
+import { imageIdentity, unwrapImageProxy } from "./image-url";
 
 /**
  * When two image URLs are one picture (amendment "Composites and product
@@ -36,5 +36,32 @@ describe("imageIdentity", () => {
 
   it("does not strip a name that merely ends in digits", () => {
     expect(imageIdentity("https://shop.test/files/model_3000.jpg")).not.toBe(imageIdentity("https://shop.test/files/model.jpg"));
+  });
+});
+
+describe("unwrapImageProxy", () => {
+  it("takes the original out of a Next.js image proxy", () => {
+    expect(
+      unwrapImageProxy("https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2Fa%2Fform4.png&w=640&q=75")
+    ).toBe("https://formlabs-media.formlabs.com/filer_public/a/form4.png");
+    expect(unwrapImageProxy("https://example.com/_next/image?url=%2Fimages%2Fmill.jpg&w=384")).toBe("https://example.com/images/mill.jpg");
+  });
+
+  it("takes the original out of a JSON-encoded resize request", () => {
+    const proxied =
+      "https://www.troteclaser.com/static_processed/78bf/speedy400_front_30.png?{%22image%22:%22https://backend.troteclaser.com/static/images/Speedy400_front_30.png%22,%22edits%22:{%22resize%22:{%22width%22:615,%22height%22:350}}}";
+    expect(unwrapImageProxy(proxied)).toBe("https://backend.troteclaser.com/static/images/Speedy400_front_30.png");
+  });
+
+  it("leaves everything else as it is", () => {
+    for (const href of [
+      "https://bambulab.com/h2d.jpg?width=1200",
+      "https://example.com/_next/image?url=javascript%3Aalert(1)",
+      "https://example.com/a.png?{not json",
+      "https://example.com/a.png?%7B%22image%22%3A%22ftp%3A%2F%2Fx%22%7D",
+      "not a url",
+    ]) {
+      expect(unwrapImageProxy(href)).toBe(href);
+    }
   });
 });

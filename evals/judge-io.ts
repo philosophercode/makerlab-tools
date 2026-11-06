@@ -51,7 +51,9 @@ export async function judgeCall(
     maxRetries: 2,
     abortSignal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
   });
-  const cost = result.steps.reduce((total, step) => total + (gatewayCallReport(step.providerMetadata).cost ?? 0), 0);
+  // Per step when the Gateway reports it there; else the call's own metadata.
+  const perStep = result.steps.reduce((total, step) => total + (gatewayCallReport(step.providerMetadata).cost ?? 0), 0);
+  const cost = perStep > 0 ? perStep : (gatewayCallReport(result.providerMetadata).cost ?? 0);
   return { text: result.text, cost };
 }
 

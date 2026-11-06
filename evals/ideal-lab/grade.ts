@@ -1,3 +1,5 @@
+import { DESCRIPTION_RULES } from "@/lib/description-rules";
+import { DISPLAY_NAME_RULES } from "@/lib/display-name-rules";
 import { extractJsonObject } from "@/lib/research/model-output";
 import { isCleanCutout, isGoodPick, type CutoutResult, type GradedOption } from "../photo-options/grade";
 
@@ -33,16 +35,31 @@ export interface GoldenListing {
   sources: string[];
 }
 
+/**
+ * Whether research is meant to propose PPE. The lab's rule since 2026-09-23 is
+ * no (gateway spec amendment "PPE is the lab's call, not research's"): the
+ * field arrives empty for staff. While it stands, the golden listing still
+ * names the PPE a lab would require — staff can copy it — but the judge does
+ * not mark a draft down for leaving PPE empty.
+ */
+export const RESEARCH_PROPOSES_PPE = false;
+
 export const GOLDEN_SYSTEM = [
-  "You write the ideal catalogue listing for one machine in a university makerspace, as a reference that other drafts are graded against. Students read it to learn what the machine is, what it is for and how to use it safely.",
+  "You write the ideal catalogue listing for one machine in a university makerspace, as a reference that other drafts are graded against. Students read it to learn what the machine is, what it is for and how to use it safely. It must follow the lab's own rules below exactly.",
   "Search the web (the manufacturer's own pages first) to confirm the exact model and its facts. Every number must come from a page you found; leave out what you cannot confirm.",
-  "- display_name: the short name a student would call it, at most 40 characters, brand plus model, no part numbers or marketing words (\"Bambu Lab H2D\", \"Hakko FX-888DX\").",
-  "- official_name: the full make and model as the maker writes it.",
-  "- description: 2–4 plain sentences, about 40–80 words: what it is, what it is for in a makerspace, one or two things that make it useful. No marketing, no list of specs.",
-  "- specs: the 4–8 a student would look up (work area or build volume, materials it handles, power, accuracy or key limits), each with units.",
-  "- tags: 4–8 lower-case search keywords a student might type (the process, materials, common uses), not the brand.",
-  "- materials: what it works with. ppe_required: the protective equipment a lab would require. use_restrictions: one sentence, or null.",
-  "- manual_url: the maker's manual or user guide (PDF or page), or null.",
+  "",
+  "### display_name",
+  DISPLAY_NAME_RULES,
+  "",
+  "### description",
+  DESCRIPTION_RULES,
+  "",
+  "### The other fields",
+  "- official_name: the full make and model as the maker writes it, with the model number.",
+  "- specs: the 6–12 a student would look up (work area or build volume, materials it handles, power, speeds, accuracy, key limits), each with units, values exactly as the maker gives them.",
+  "- tags: 4–8 lower-case search words a student might type (the process, what it makes, materials, common uses), not the brand or model.",
+  "- materials: short labels, what it works with. ppe_required: short labels, the protective equipment a lab would require for this kind of machine. use_restrictions: one short sentence on who may use it or what it must not be used for, or null.",
+  "- manual_url: the maker's manual or user guide for this exact model (PDF or page), or null.",
   'Answer with exactly one JSON object and nothing else: {"display_name": "...", "official_name": "...", "description": "...", "specs": [{"label": "...", "value": "..."}], "tags": ["..."], "materials": ["..."], "ppe_required": ["..."], "use_restrictions": "..." | null, "manual_url": "..." | null, "sources": ["url", ...]}.',
 ].join("\n");
 
@@ -110,11 +127,20 @@ export const LISTING_JUDGE_SYSTEM = [
   "- right_machine: yes when the draft describes that exact machine and model; no when it describes another product or model; unsure when it cannot be told.",
   "- accuracy: are the facts right for this exact model? A number that contradicts the reference, a sibling model's feature, or a made-up capability is a real problem.",
   "- grounded: is every factual claim in the draft's description and specs found in the source excerpts? List each claim you cannot find there in `unsupported` (short phrases). Common knowledge (a laser cutter cuts with a laser) needs no source.",
-  "- description: says what it is, what it is for and one or two things that make it useful, in 2–4 plain sentences a first-year student understands, about as long as the reference's. One bare sentence is too short; more than ~100 words, marketing language, or a list of specs is too verbose. Either is a real problem.",
+  "- description: follows the lab's description rules (below) and is about as informative as the reference's: what it is, what students use it for, a headline spec or two. One bare sentence when the pages had more to say is too short; over five sentences, marketing language or a list of specs is too verbose. Either is a real problem.",
   "- specs: are the specs the reference lists present, with units and matching values? Missing most of them is a real problem; none at all scores 1.",
   "- keywords: are the tags words a student would actually search for (the process, materials, uses), like the reference's? Brand names only, duplicates of the name, or jargon is a real problem; none scores 1.",
-  "- safety: are the PPE and use restrictions sensible for this kind of machine, compared with the reference? Missing eye protection on a laser or saw, or inventing a hazard, is a real problem.",
-  "- name_ok: true when the display name is a short catalogue name like the reference's (brand plus model, no part numbers, no marketing words); false when it is the full product name, a part number, or another machine's name.",
+  RESEARCH_PROPOSES_PPE
+    ? "- safety: are the PPE and use restrictions sensible for this kind of machine, compared with the reference? Missing eye protection on a laser or saw, or inventing a hazard, is a real problem."
+    : "- safety: the lab's staff set PPE, so an empty PPE field is correct and not a problem. Judge the use restrictions and anything said about safety: is it right for this machine, with no invented hazard and nothing misleading? An empty restriction on a machine the sources give a clear restriction for is a minor nit (4).",
+  "- name_ok: true when the display name follows the lab's display-name rules (below) — the short name people in the lab would say; false when it is the full product name, carries a part or catalogue number the rules drop, is only the brand, or names another machine.",
+  "",
+  "### The lab's display-name rules",
+  DISPLAY_NAME_RULES,
+  "",
+  "### The lab's description rules",
+  DESCRIPTION_RULES,
+  "",
   'Answer with exactly one JSON object and nothing else: {"right_machine": "yes" | "no" | "unsure", "accuracy": 1-5, "grounded": 1-5, "unsupported": ["..."], "description": 1-5, "specs": 1-5, "keywords": 1-5, "safety": 1-5, "name_ok": true | false, "reason": "one or two short sentences on the biggest gap from the reference, or \\"none\\""}.',
 ].join("\n");
 
@@ -136,7 +162,7 @@ export interface ListingForJudge {
 }
 
 /** Each source page's text, cut to this many characters for the judge. */
-export const JUDGE_SOURCE_CHARS = 5000;
+export const JUDGE_SOURCE_CHARS = 12000;
 
 function goldenBlock(golden: GoldenListing): string {
   return [
@@ -288,6 +314,8 @@ export interface CaseChecks {
   manualIsPdf: boolean;
   /** Every resource link answers (2xx) right now. */
   linksResolve: boolean;
+  /** The ones that did not. */
+  deadLinks?: string[];
   /** Of the fields research cited, the share with at least one quote code verified. */
   citationCoverage: number | null;
   /** Description length in words. */
@@ -534,7 +562,7 @@ export function formatReport(results: readonly CaseResult[], summary: RunSummary
     lines.push(`  identified: ${result.identifiedName ?? "(nothing)"} ${mark(Boolean(checks?.identifiedOne && checks.identifiedRight))}`);
     if (checks) {
       lines.push(
-        `  checks: English ${mark(checks.english)} · manual ${mark(checks.manualFound)}${checks.manualFound ? ` (PDF ${mark(checks.manualIsPdf)})` : ""} · links ${mark(checks.linksResolve)} · zone ${mark(checks.zoneRight)} · citations ${pct(checks.citationCoverage)} · ${checks.descriptionWords} words · image chosen ${mark(checks.imageChosen)}`
+        `  checks: English ${mark(checks.english)} · manual ${mark(checks.manualFound)}${checks.manualFound ? ` (PDF ${mark(checks.manualIsPdf)})` : ""} · links ${mark(checks.linksResolve)}${checks.deadLinks?.length ? ` (dead: ${checks.deadLinks.join(", ")})` : ""} · zone ${mark(checks.zoneRight)} · citations ${pct(checks.citationCoverage)} · ${checks.descriptionWords} words · image chosen ${mark(checks.imageChosen)}`
       );
     }
     if (result.listing) {

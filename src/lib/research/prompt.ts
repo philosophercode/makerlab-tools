@@ -145,6 +145,7 @@ export const ENGLISH_PARAGRAPH = [
 const LINKS_PARAGRAPH = [
   `## Links`,
   `- **Only links you actually saw.** A URL goes in your answer only if it appeared in a search result or in a page you were given. Never assemble a URL from memory or from a pattern — especially never a \`youtube.com/watch?v=…\` link you did not retrieve. Every link is checked by the server afterwards and the ones that do not resolve are shown to staff as dropped; an empty list is a better answer than an invented one.`,
+  `- **"Manual" is this exact model's own manual or user guide** — never one for its software, an accessory, a sibling model or a support index page. Give one of those as "Other" if it is worth keeping, or leave it out.`,
   `- Each link has a \`title\` (what it is, e.g. "MK4S user manual (PDF)"), the exact \`url\`, and a \`type\`: "Manual" for manuals, user guides and quick-start guides; "Video" for a setup or overview video; "Other" for anything else worth keeping, such as the product page or a safety data sheet.`,
 ].join("\n");
 
@@ -181,6 +182,8 @@ const CATEGORY_RULE = [
 const LABELS_PARAGRAPH = [
   `## Writing the listing`,
   `- **Materials and tags are short labels, not sentences** — one to three words each, e.g. materials \`["PLA", "PETG", "TPU"]\`, tags \`["FDM", "Enclosed"]\`. Never \`"Wood (plywood, hardwood, veneer)"\`.`,
+  `- **Tags are what a student types to find it**: 4–8 lower-case search words — the process, what it makes, the materials and common uses, e.g. \`["fdm", "3d printing", "multi-material", "prototyping", "laser engraving"]\` — never the brand, the model or a feature name only the maker uses.`,
+  `- **Write the description to the length the pages support**: two or three sentences, about 250–${DESCRIPTION_TARGET_CHARS} characters, when the product page describes the machine; a single bare sentence only when the pages really say that little.`,
   DESCRIPTION_RULES,
   `- **The description is strictly factual.** Every number, material, feature and use in it comes from the pages: never add a voltage, battery, wattage, size or capacity the pages do not state, and never a capability a page does not describe. **When the pages say little, write less** — one accurate sentence is better than three padded ones; never fill a gap from memory. The full spec sheet goes in \`specs\`, not in the description.`,
   `- **Never mention protective equipment in the description** — no safety glasses, gloves, masks, hearing protection or any other PPE. The lab's staff set PPE; a description that names it would contradict them.`,

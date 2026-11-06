@@ -42,3 +42,50 @@ export function imageIdentity(href: string): string {
   const query = params.length > 0 ? `?${new URLSearchParams(params).toString()}` : "";
   return `${host}${path}${query}`;
 }
+
+/**
+ * The full-size original behind an image-resizing proxy URL, or the URL
+ * unchanged. Product pages often serve their gallery through one at thumbnail
+ * size, below the stage's 400 px floor — the ideal-lab eval found every Trotec
+ * Speedy 400 picture rejected this way, and Formlabs' gallery shrunk:
+ *
+ * - **Next.js** `/_next/image?url=<original>&w=640` → the `url` parameter
+ *   (relative to the page's own origin when it is a path).
+ * - **A JSON-encoded edit request** (Thumbor/Serverless Image Handler style):
+ *   `…/file.png?{"image":"https://backend…/file.png","edits":{"resize":…}}`
+ *   → the `image` value, when it is an absolute http(s) URL.
+ *
+ * Anything else — and anything that does not decode cleanly — is returned as
+ * given: unwrapping only ever offers a bigger copy of the same picture.
+ */
+export function unwrapImageProxy(href: string): string {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return href;
+  }
+  if (/\/_next\/image\/?$/.test(url.pathname)) {
+    const inner = url.searchParams.get("url");
+    if (inner) {
+      try {
+        const original = new URL(inner, url.origin);
+        if (original.protocol === "https:" || original.protocol === "http:") return original.href;
+      } catch {
+        // not a URL: keep the proxy
+      }
+    }
+    return href;
+  }
+  const query = url.search.slice(1);
+  if (query.startsWith("%7B") || query.startsWith("{")) {
+    try {
+      const decoded = JSON.parse(decodeURIComponent(query)) as unknown;
+      const image = decoded && typeof decoded === "object" ? (decoded as Record<string, unknown>).image : null;
+      if (typeof image === "string" && /^https?:\/\//i.test(image)) return new URL(image).href;
+    } catch {
+      // not JSON: keep it
+    }
+  }
+  return href;
+}
