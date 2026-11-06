@@ -73,12 +73,21 @@ function tamper(cookie: string) {
 }
 
 function normalise(cookie: string): string {
-  const value = cookie.slice(BETTER_AUTH_SESSION_COOKIE.length + 1).trim();
+  let value = cookie.slice(BETTER_AUTH_SESSION_COOKIE.length + 1).trim();
   try {
-    return decodeURIComponent(value);
+    value = decodeURIComponent(value);
   } catch {
     return value;
   }
+  // The signature is base64 of a 32-byte HMAC: its last character before the
+  // "=" carries two unused bits, so "…A=" and "…B=" are the same signature.
+  // Compare what the signature decodes to, when it is well-formed base64.
+  const dot = value.lastIndexOf(".");
+  const sig = value.slice(dot + 1);
+  if (dot > 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(sig)) {
+    return `${value.slice(0, dot)}.${Buffer.from(sig, "base64").toString("hex")}`;
+  }
+  return value;
 }
 
 describe("invariant: forged credentials resolve to anonymous", () => {
