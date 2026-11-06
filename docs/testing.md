@@ -36,11 +36,11 @@ npm run test:e2e:ui # playwright test --ui (interactive)
 ```
 
 **Invariant tests** (`test/invariants/`, list and rules in its `README.md`):
-ten rules that must hold for any input, most of them property-based with
+twenty rules that must hold for any input, most of them property-based with
 [fast-check](https://fast-check.dev) — admin routes refuse non-staff, forged
-cookies stay anonymous, the demo seed never touches a configured database,
-nobody reads another person's tokens, serials never reach non-staff, malformed
-bodies are never a 500, and more. They run with `npm test` (so in CI's
+cookies and signed links never verify, the demo seed never touches a configured
+database, nobody reads another person's tokens, serials never reach non-staff,
+no SSRF, no CSV formula injection, malformed bodies are never a 500, and more. They run with `npm test` (so in CI's
 shards); `INVARIANT_RUNS=2000 npm run test:invariants` runs more cases
 locally. A failure prints fast-check's seed and shrunk counterexample.
 

@@ -284,8 +284,10 @@ function parsePermission(
   const resource = permission.slice(0, dot);
   const action = permission.slice(dot + 1);
 
+  // Own keys only: "toString.x" must name nothing, not Object.prototype's method.
+  if (!Object.hasOwn(statement, resource)) return null;
   const actions = (statement as Record<string, readonly string[]>)[resource];
-  if (!actions || !actions.includes(action)) return null;
+  if (!Array.isArray(actions) || !actions.includes(action)) return null;
 
   return { [resource]: [action] };
 }
