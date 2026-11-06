@@ -1,0 +1,89 @@
+{
+  "displayName": "Trotec Speedy 400",
+  "officialName": "Trotec Speedy 400 CO2 Laser Engraving System",
+  "description": "The Trotec Speedy 400 is a CO2 laser engraver and cutter with an enclosed working area of 1016 x 610 mm. In a makerspace, students use it to cut and engrave wood, acrylic, paper, leather and fabric for prototypes, enclosures, signs and models. It can also engrave glass, stone and anodized aluminum.",
+  "specs": [
+    {
+      "label": "Working area",
+      "value": "1016 x 610 mm (40 x 24 in)"
+    },
+    {
+      "label": "Loading area",
+      "value": "1096 x 698 mm (43 x 27.4 in)"
+    },
+    {
+      "label": "Max. workpiece height",
+      "value": "305 mm (12 in) with 1.5 in or 2.0 in lens"
+    },
+    {
+      "label": "Laser source",
+      "value": "CO2, sealed-off, wavelength 10.6 µm"
+    },
+    {
+      "label": "Laser power (CO2)",
+      "value": "80 - 120 W"
+    },
+    {
+      "label": "Max. processing speed",
+      "value": "4.32 m/s (170 ips)"
+    },
+    {
+      "label": "Max. acceleration",
+      "value": "50 m/s² (1969 ips²)"
+    },
+    {
+      "label": "Accuracy",
+      "value": "+/- 0.015 mm (0.0006 in) over the whole working area"
+    },
+    {
+      "label": "Max. material load",
+      "value": "Static up to 100 kg (220 lbs); dynamic up to 30 kg (66 lbs)"
+    },
+    {
+      "label": "Laser class",
+      "value": "2"
+    },
+    {
+      "label": "Power supply",
+      "value": "1~230V / 50/60Hz / 10.2 A; 1~115V / 50/60Hz / 15.3 A"
+    },
+    {
+      "label": "Exhaust required",
+      "value": "Minimum 400 m³/h at 4,200 Pa"
+    }
+  ],
+  "tags": [
+    "laser cutting",
+    "laser engraving",
+    "acrylic",
+    "plywood",
+    "signs",
+    "prototyping",
+    "etching",
+    "co2 laser"
+  ],
+  "materials": [
+    "wood",
+    "plywood",
+    "acrylic",
+    "paper",
+    "cardboard",
+    "leather",
+    "fabric",
+    "rubber",
+    "glass (engrave only)",
+    "stone (engrave only)",
+    "anodized aluminum (engrave only)"
+  ],
+  "ppeRequired": [
+    "safety glasses"
+  ],
+  "useRestrictions": "Only trained and authorised users may run it, never leave it unattended while it is lasing, and only cut or engrave materials on the lab's approved list.",
+  "manualUrl": "https://www.troteclaser.com/static/pdf/speedy-400/8070_Speedy_400_Operating_manual_EN.pdf",
+  "sources": [
+    "https://www.troteclaser.com/en/laser-machines/laser-engraver/speedy-400-fastest-laser-engraver-cutter",
+    "https://www.troteclaser.com/static/pdf/speedy-400/datasheet-speedy400C-8086-en.pdf",
+    "https://www.troteclaser.com/static/pdf/speedy-400/8070_Speedy_400_Operating_manual_EN.pdf",
+    "https://www.troteclaser.com/static/pdf/speedy-series/2026-01-Brochure-Speedy-EN.pdf"
+  ]
+}

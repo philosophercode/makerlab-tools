@@ -1,0 +1,82 @@
+{
+  "displayName": "Revopoint MIRACO Pro 3D Scanner",
+  "officialName": "Revopoint MIRACO Pro 3D Scanner (32 GB RAM)",
+  "description": "The Revopoint MIRACO Pro is a standalone handheld 3D scanner that uses infrared structured light, with its own screen and processor, so you can scan without a computer. In a makerspace, students use it to turn real objects into digital models for 3D printing, reverse engineering, replacement parts and colour models. It covers everything from small parts in Near mode to cars and people in Far mode, with up to 0.05 mm single-frame accuracy.",
+  "specs": [
+    {
+      "label": "Technology",
+      "value": "Quad-camera Infrared Structured Light"
+    },
+    {
+      "label": "Single-frame accuracy, up to",
+      "value": "0.05 mm (Near mode); 0.3 mm (Far mode)"
+    },
+    {
+      "label": "Single-frame precision, up to",
+      "value": "0.02 mm"
+    },
+    {
+      "label": "Working distance",
+      "value": "100 - 1000 mm"
+    },
+    {
+      "label": "Single capture area",
+      "value": "28 × 53 mm at 100 mm; 975 × 775 mm at 1000 mm"
+    },
+    {
+      "label": "Scan volume",
+      "value": "Minimum 10 × 10 × 10 mm; maximum 4 × 4 × 4 m"
+    },
+    {
+      "label": "Scanning speed, up to",
+      "value": "15 fps"
+    },
+    {
+      "label": "RGB camera resolution",
+      "value": "48 Megapixels"
+    },
+    {
+      "label": "Max frames per scan",
+      "value": "Up to 10000 (no colour); up to 8000 (colour)"
+    },
+    {
+      "label": "Output file formats",
+      "value": "PLY, OBJ, STL, ASC, 3MF, GLTF, FBX"
+    },
+    {
+      "label": "Battery",
+      "value": "Internal 5000 mAh, up to 2 hours of scanning"
+    },
+    {
+      "label": "Scanner weight",
+      "value": "750 g"
+    }
+  ],
+  "tags": [
+    "3d scanning",
+    "reverse engineering",
+    "digitizing",
+    "3d printing",
+    "body scanning",
+    "colour scanning",
+    "mesh",
+    "stl"
+  ],
+  "materials": [
+    "Small parts",
+    "Figurines and sculptures",
+    "Vehicle parts",
+    "People (body scans)",
+    "Dark, reflective or transparent objects (with scanning spray)"
+  ],
+  "ppeRequired": [],
+  "useRestrictions": "Not suitable for objects smaller than 10 × 10 × 10 mm, and its flashing lights may not be suitable for people with photosensitive epilepsy.",
+  "manualUrl": "https://doc.revopoint3d.com/doc/miraco/",
+  "sources": [
+    "https://dl.revopoint3d.com/brochure/miracopro/miracopro-brochure-en.pdf",
+    "https://global.revopoint3d.com/pages/standalone-3d-scanner-miraco",
+    "https://doc.revopoint3d.com/doc/miraco/",
+    "https://www.revopoint3d.com/pages/support-miraco",
+    "https://www.revopoint3d.com/blogs/blog/how-to-use-miraco-pro-pluss-far-mode-and-near-modes"
+  ]
+}
