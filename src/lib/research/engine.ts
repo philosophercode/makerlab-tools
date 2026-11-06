@@ -129,6 +129,12 @@ export interface ToolManualPage {
 export interface ReadRun {
   result: ResearchResult;
   imageHints: ImageHint[];
+  /**
+   * The pages the read model was given (title and text as it saw them). Not
+   * stored or passed between steps — the research eval
+   * (`evals/ideal-lab.eval.ts`) judges the draft's grounding against them.
+   */
+  pages: { url: string; title: string | null; text: string }[];
 }
 
 /**
@@ -264,7 +270,7 @@ export async function runRead(
     citations,
   });
 
-  return { result, imageHints };
+  return { result, imageHints, pages: pagesRead.map((page) => ({ url: page.url, title: page.title ?? null, text: page.text })) };
 }
 
 /**

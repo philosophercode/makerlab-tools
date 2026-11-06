@@ -394,6 +394,66 @@ EVAL_PO_TOOL=form npm run eval:photo-options        # the tools whose name has "
   `evals/.photo-options/` (gitignored).
 - **Options:** `EVAL_PO_TOOL=<part of a name>`, `EVAL_PO_LIMIT=N`.
 
+## The ideal-lab eval
+
+The whole adding-equipment loop, end to end, on a golden set: does a vague
+chat message become an app-ready catalogue entry — the right machine, a good
+listing, the right zone, a manual, a clean cover photo?
+
+```bash
+EVAL_IL_GOLDEN=1 npm run eval:ideal-lab        # once: Opus writes the golden listings that are missing
+npm run eval:ideal-lab                         # the loop on all 13, graded
+EVAL_IL_CASE=hakko npm run eval:ideal-lab      # one case
+EVAL_IL_FREEZE=1 npm run eval:ideal-lab        # freeze this run as the baseline
+EVAL_IL_STRICT=1 npm run eval:ideal-lab        # fail when a guarded score fell below the baseline
+```
+
+- **The cases** (`ideal-lab/cases.ts`): ten machines from the demo lab's list,
+  each a deliberately fuzzy message ("10 hakko 888 soldering irons for the
+  electronics bench"), plus **three held out** — never tuned against, so a
+  prompt that only fits the ten shows up as a gap between the two groups.
+- **The loop, as it ships, with nothing stored.** Identify: the real chat
+  prompt and tools for a super admin (`composeCase`), `identify_tools`
+  stubbed and its input read. Research: `runSearch` and `runRead`
+  (`research/engine.ts`) on the identified item. Image: the image step's
+  candidates, probe and ranking (`rankAndClean`, `clean: false`). Approval:
+  `initialDraft` with the real lab's five zones. Cover: `cleanPickedImage`, as
+  **Use as cover** makes it. In-memory demo database; no Blob.
+- **Cheap checks in code:** identified once, with the model's tokens; the
+  description is English (`textLanguage`); a Manual resource that downloads as
+  a PDF; every link answers; the share of cited fields with a quote code
+  verified; the draft starts in the zone the message named; an image chosen;
+  the cover on the maker's site.
+- **Judges** (job `evalQuestions`, Opus; `EVAL_JUDGE_MODEL` tries another,
+  and runs judged by different models are not compared): the listing against
+  the **golden reference** in `ideal-lab/golden/<id>.json` — written once by
+  Opus with web search, committed, and corrected by hand where it is wrong —
+  for the right machine, accuracy, grounding in the pages read, a description
+  neither bare nor verbose, specs, keywords, safety and a short display name;
+  the top three photos and the cutout (the photo-quality eval's judges); and,
+  once a baseline exists, the listing **pairwise** against the baseline's
+  (better / same / worse, the slot alternated by case).
+- **A loop pass** is every stage good: identified, English, a manual, the
+  right zone, a good listing (every score ≥ 4), a good cover, a clean cutout
+  (or none needed).
+- **The baseline** (`ideal-lab/baseline.json`, committed) is a frozen run:
+  its scores and each case's listing. A run prints each guarded score beside
+  the baseline's and names any that fell past its tolerance (one case in ten
+  for most; none for "identified" and "English").
+- **Cached by stage** in `evals/.ideal-lab/cache/` (gitignored): each stage's
+  output is keyed by its input, its models and the source of the code it runs,
+  so a read-prompt edit re-runs research but not identification, and a judge
+  edit re-runs nothing but the judges. `EVAL_IL_FRESH=1` ignores it.
+- **Cost is reported:** the pipeline's fresh spend, what it would have cost
+  uncached, and the judges'. Roughly $3–6 for a fresh run of all thirteen,
+  under $2 when only the judges run.
+- **Check the judge against a person:** each run writes `hand-grades.md`
+  beside its `report.txt` and `report.json` in `evals/.ideal-lab/runs/<time>/`:
+  every entry with the judge's call and agree/disagree boxes
+  (`readHandGrades` reads them back).
+- **Options:** `EVAL_IL_CASE=<id part>`, `EVAL_IL_HOLDOUT=0`, `EVAL_IL_FRESH=1`,
+  `EVAL_IL_GOLDEN=1|force`, `EVAL_IL_FREEZE=1`, `EVAL_IL_STRICT=1`.
+
 ---
 
 ## What it runs against
@@ -463,6 +523,8 @@ should be revisited, not worked around.
 | `manual-questions.ts` | The manual question eval: its options, the end-to-end check (`assessAnswer`), the run and its report |
 | `manual-questions.eval.ts` / `manual-questions.vitest.config.ts` | `npm run eval:manual-questions` entrypoint and its config |
 | `photo-options.eval.ts` / `photo-options.vitest.config.ts` | `npm run eval:photo-options` entrypoint and its config |
+| `ideal-lab.eval.ts` / `ideal-lab.vitest.config.ts` / `ideal-lab/` | `npm run eval:ideal-lab`: the adding-equipment loop end to end, its cases, golden listings, baseline, stage cache and grading |
+| `judge-io.ts` | The paid evals' judge model, judged calls with their cost, and pictures shrunk for judging |
 | `photo-options/cases.ts` / `photo-options/grade.ts` | The photo-quality eval's twelve tools, and its judge prompts, scoring and report (pure, tested in `grade.test.ts`) |
 | `manual-questions-fixture.ts` | Hand-written eval questions for the fixture manuals (`EVAL_MQ_FIXTURES=1`) |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |

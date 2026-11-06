@@ -5,3 +5,4 @@
 .manual-questions/
 # The photo-quality eval's per-run reports and judged images (`npm run eval:photo-options`).
 .photo-options/
+.ideal-lab/

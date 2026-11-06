@@ -144,6 +144,7 @@
 | `src/lib/manuals/eval-retrieval.ts` | The retrieval half of the manual question eval: `search_manual`'s search per question, recall@k per machine |
 | `scripts/manual-eval-questions.ts` | `npm run manuals:eval-questions` — the eval question backfill (dry run by default, estimate printed; `--apply`) |
 | `evals/manual-questions.eval.ts` / `evals/manual-questions.ts` | `npm run eval:manual-questions` — retrieval recall and the paid end-to-end check over the stored questions; one report per run |
+| `evals/ideal-lab.eval.ts` / `evals/ideal-lab/` | `npm run eval:ideal-lab` — the adding-equipment loop end to end (chat identify, research, image, approval draft, cutout) on ten tools and three held out, judged against committed golden listings and a frozen baseline; stages cached; paid |
 | `evals/photo-options.eval.ts` / `evals/photo-options/` | `npm run eval:photo-options` — photo options on twelve tools, judged for the right model, a plain background and a clean cutout; paid, one report per run |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |
 | `src/lib/capabilities/manuals.ts` / `src/lib/chat/tool-manuals.ts` | `search_manual` and its prompt (outline of the focused tool's searchable manuals); what the chat route loads to decide what is searched and what is attached |

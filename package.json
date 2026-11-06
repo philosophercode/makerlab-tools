@@ -23,6 +23,7 @@
     "eval": "vitest run --config evals/vitest.config.ts",
     "eval:all": "bash scripts/eval-all.sh",
     "eval:manual-questions": "node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run --config evals/manual-questions.vitest.config.ts",
+    "eval:ideal-lab": "node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run --config evals/ideal-lab.vitest.config.ts",
     "eval:photo-options": "node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run --config evals/photo-options.vitest.config.ts",
     "starters:refresh": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/starters-refresh.ts",
     "qr:labels": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/generate-qr-labels.ts",
