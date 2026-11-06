@@ -1,0 +1,123 @@
+Ideal-lab eval
+Tuned set — 10 tools
+  Loop pass (all stages good): 20%
+  Identify: right machine 100%
+  Listing: good 30% · mean 4.0/5 · grounded 4.9/5 · description 3.4/5 · 40 words
+  Checks: English 100% · manual 90% (PDF 60%) · links resolve 70% · zone 100% · citations verified 96%
+  Photo: top pick good 60% · good in top 3 60% · maker's 80% · cutout OK 70%
+Held out — 3 tools
+  Loop pass (all stages good): 0%
+  Identify: right machine 100%
+  Listing: good 0% · mean 4.1/5 · grounded 4.3/5 · description 4.0/5 · 36 words
+  Checks: English 100% · manual 100% (PDF 67%) · links resolve 100% · zone 100% · citations verified 100%
+  Photo: top pick good 0% · good in top 3 0% · maker's 67% · cutout OK 33%
+  Cost: $0.31 this run (pipeline $0.31 fresh of $0.31 if uncached, judge $0.00)
+
+✓ bambu-h2d — 95 s
+  identified: Bambu Lab H2D ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✗ (dead: https://bambulab.com/en-us/h2d, https://bambulab.com/en-us/h2d/tech-specs) · zone ✓ · citations 100% · 41 words · image chosen ✓
+  listing ✓: machine yes, accuracy 4, grounded 5, description 4, specs 5, keywords 4, safety 4, name ✓ — The description leads with the total two-nozzle volume and the optional laser and cutting modules, rather than the single-nozzle volume and everyday student uses (prototypes, dissolvable supports). Use restrictions are empty, though the reference limits use to inducted students and restricts the laser and cutting modules to staff-trained users.
+  photo 1: portal.bblmw.com ✓ model yes, plain — A front-on product shot of a Bambu Lab printer marked H2D, shown whole on a plain white background with no retail elements.
+  photo 2: portal.bblmw.com ✗ model yes, busy — The printer is clearly labelled H2D (with an AMS 2 Pro on top), but it is staged on a dark pedestal against a dark gradient, not a plain light backdrop.
+  photo 3: portal.bblmw.com ✗ model no, busy — The printer's label appears to read H2C rather than H2D, and it is shown on a dark gradient backdrop on a pedestal instead of a plain light background.
+  cutout: kept as is
+
+✗ formlabs-form-4 — 82 s
+  identified: Formlabs Form 4 Resin 3D Printer ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 39 words · image chosen ✓
+  listing ✗: machine yes, accuracy 5, grounded 5, description 3, specs 4, keywords 3, safety 4, name ✓ — The description and tags repeat the maker's industrial applications (production parts, manufacturing aids, end-use parts) instead of saying what students use it for, and omit the wash-and-cure step. The specs miss resin heating, operating environment and power, and use restrictions are empty.
+  photo 1: formlabs-media.formlabs.com ✓ model yes, plain — Front product shot of a Formlabs resin printer whose touchscreen reads 'Form 4', shown whole on a plain white background with no retail elements.
+  photo 2: formlabs-media.formlabs.com ✓ model yes, plain — The whole Formlabs Form 4 is shown, with 'Form 4' on its touchscreen, alongside its finishing-kit accessories on a plain white background with no promotional elements.
+  photo 3: formlabs-media.formlabs.com ✓ model yes, plain — The Formlabs Form 4 is clearly shown whole on a plain white background, but it shares the frame with the Form Wash and Form Cure units rather than standing alone.
+  cutout: kept as is
+
+✗ trotec-speedy-400 — 60 s
+  identified: Trotec Speedy 400 ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 48 words · image chosen ✓
+  listing ✗: machine yes, accuracy 3, grounded 5, description 4, specs 4, keywords 4, safety 3, name ✓ — The draft mixes in the flexx (fiber) configuration, including fiber power and 'Metals' as a material, when the lab's machine is the CO2 version. Its only use restriction covers service technicians, not student operation.
+  photo 1: backend.troteclaser.com ✓ model yes, plain — The whole Trotec laser engraver, labelled 'Speedy 400' on the front, is shown alone on a plain white background with no promotional elements.
+  cutout: kept as is
+
+✗ glowforge-pro — 71 s
+  identified: Glowforge Pro ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 34 words · image chosen ✓
+  listing ✗: machine yes, accuracy 3, grounded 5, description 3, specs 3, keywords 4, safety 4, name ✓ — The specs omit the 11 x 19.5 in cutting area and the 1355 DPI engraving resolution. They list 'up to 2 inches thick' and glass as plain materials, which misleadingly suggests the machine cuts 2-inch stock and glass (glass is engrave-only). The description leans on marketing ('infinitely long projects', furniture) instead of makerspace uses.
+  photo 1: cdn.builder.io ✗ model unsure, plain, shop — It is a cropped Glowforge laser on white with a promotional 'NEW' badge, but the Pro's front pass-through slot isn't visible to tell it from Basic or Plus.
+  cutout: bad, cut into product, background left
+
+✓ shaper-origin — 82 s
+  identified: Shaper Origin Handheld CNC Router ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 32 words · image chosen ✓
+  listing ✓: machine yes, accuracy 4, grounded 4, description 4, specs 4, keywords 4, safety 4, name ✓ — Specs omit spindle power, spindle speed and maximum cutter diameter. Materials are limited to 'Wood', missing the plastics and soft metals the reference lists, and the use restrictions are empty.
+    unsupported: compatible router bits 1/8" (source lists these as included bits, not a compatibility spec)
+  photo 1: a-us.storyblok.com ✓ model yes, plain — The whole Shaper Origin handheld CNC router, with its 'SHAPER | ORIGIN' branded screen, is shown on a plain white background with no promotional elements.
+  photo 2: a-us.storyblok.com ✗ model yes, busy — The machine is clearly a Shaper Origin with its branded screen, but it is shown in use on a wooden workbench with a person's hand and arm rather than on a plain backdrop.
+  photo 3: a-us.storyblok.com ✓ model yes, plain — A side view of the Shaper Origin handheld CNC router, with its angled touchscreen, grip handle and clear spindle housing, on a plain white background.
+  cutout: kept as is
+
+✗ bantam-pcb-mill — 89 s
+  identified: Bantam Tools Desktop PCB Milling Machine ✓
+  checks: English ✓ · manual ✓ (PDF ✗) · links ✗ (dead: https://support.bantamtools.com/hc/en-us/articles/115001656133-Unbox-and-Set-Up-Your-New-Mill) · zone ✓ · citations 80% · 52 words · image chosen ✗
+  listing ✓: machine yes, accuracy 5, grounded 5, description 4, specs 4, keywords 4, safety 4, name ✓ — Use restrictions are empty, though the sources call for the safety windows to be in place and limit cutting to materials softer than steel. The specs omit PCB cut speed and carry a garbled system-requirements line, and the tags lack 'cnc'.
+  photo: none found
+  cutout: —
+
+✗ sawstop-pcs — 81 s
+  identified: SawStop Professional Cabinet Saw 3HP ✓
+  checks: English ✓ · manual ✓ (PDF ✗) · links ✗ (dead: https://www.sawstop.com/product/professional-cabinet-saw-pcs31230-tgp236/, https://www.sawstop.com/manuals/professional-cabinet-saw-3-0hp-owners-manual/) · zone ✓ · citations 100% · 46 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 5, description 3, specs 4, keywords 4, safety 4, name ✓ — The description is thin: it only mentions ripping and omits crosscuts, bevels, dadoes, materials and the depth of cut. The draft also narrows the listing to the single 3 HP / 36" T-Glide configuration, leaving out the 1.75 HP option, the safety-system kerf range and the blade restrictions.
+  photo 1: www.sawstop.com ✓ model yes, plain — Whole SawStop Professional cabinet saw with fence and extension table, labelled 'Professional', shown on a plain white background.
+  photo 2: www.sawstop.com ✓ model yes, plain — A SawStop Professional cabinet saw with a T-Glide fence and extension table is shown whole on a plain white background.
+  photo 3: www.sawstop.com ✓ model yes, plain — A SawStop Professional cabinet saw with extended fence rails, labelled 'Professional', shown whole on a plain white background with no retail elements.
+  cutout: clean
+
+✗ hakko-fx-888dx — 109 s
+  identified: Hakko FX-888DX Soldering Station ✓
+  checks: English ✓ · manual ✓ (PDF ✗) · links ✓ · zone ✓ · citations 100% · 33 words · image chosen ✓
+  listing ✗: machine yes, accuracy 5, grounded 5, description 3, specs 4, keywords 3, safety 4, name ✓ — The description is thin: it only says 'soldering projects', gives no headline spec such as 100 W or 50–480 °C, and does not name makerspace uses like soldering circuit boards, wiring and repair. The tags miss PCB, through-hole, wiring and repair terms, and the use restriction is empty.
+  photo 1: hakko.de ✓ model yes, plain — The blue and yellow Hakko station is clearly labelled FX-888DX and sits on a plain light grey studio backdrop, though the top of the unit is cropped.
+  photo 2: hakko.co.uk ✗ model yes, plain, shop — A small Hakko FX888DX station appears in a white packing-list infographic, but it is a listing collage full of accessories and promotional text, not a whole-machine product photo.
+  cutout: bad, cut into product, background left
+
+✗ revopoint-miraco-pro — 107 s
+  identified: Revopoint MIRACO Pro Handheld 3D Scanner ✓
+  checks: English ✓ · manual ✗ · links ✓ · zone ✓ · citations 100% · 40 words · image chosen ✓
+  listing ✗: machine yes, accuracy 5, grounded 5, description 3, specs 4, keywords 4, safety 4, name ✓ — The description never says what students use the scanner for in a makerspace (3D printing, reverse engineering, replacement parts), and the far-mode 0.3 mm accuracy and photosensitive-epilepsy warning are missing.
+  photo 1: www.revopoint3d.com ✗ model unsure, plain — This is a Revopoint MIRACO-series scanner, but the rear view shows no marking that tells the Pro apart from the standard MIRACO.
+  photo 2: www.revopoint3d.com ✗ model unsure, plain — This is clearly a Revopoint MIRACO 3D scanner on a plain white background, but nothing visible tells the Pro model apart from the standard MIRACO.
+  photo 3: www.revopoint3d.com ✗ model unsure, plain, shop — This is clearly a Revopoint MIRACO-series scanner on white, but the standard MIRACO and Pro look nearly identical, and a Red Dot award badge with text is overlaid.
+  cutout: clean
+
+✗ ur5e — 132 s
+  identified: Universal Robots UR5e Collaborative Robot ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 75% · 31 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 5, description 3, specs 4, keywords 4, safety 4, name ✓ — The description is vague ("low-weight processing tasks" is brochure wording) and leaves out the teach pendant and uses such as pick and place with grippers. The specs omit the force sensing range, joint speed and tool flange, and give a 20.7 kg weight against the reference's 20.6 kg.
+  photo 1: a.storyblok.com ✗ model unsure, plain — This is clearly a Universal Robots e-Series cobot arm on a plain white background, but without scale the UR5e cannot be reliably told apart from the UR3e, UR10e or UR16e.
+  photo 2: www.knottsco.com ✗ model unsure, plain — This is a Universal Robots e-series cobot on a plain white background, but with no visible label or size reference it cannot be confirmed as the UR5e rather than the UR3e, UR10e or UR16e.
+  photo 3: www.knottsco.com ✗ model unsure, plain — It is clearly a Universal Robots e-Series cobot arm on a plain white background, but without scale or a label it cannot be confirmed as the UR5e rather than the similar UR3e or UR10e.
+  cutout: kept as is
+
+✗ prusa-core-one (held out) — 83 s
+  identified: Original Prusa CORE One ✓
+  checks: English ✓ · manual ✓ (PDF ✗) · links ✓ · zone ✓ · citations 100% · 45 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 3, description 4, specs 2, keywords 4, safety 4, name ✓ — Specs miss most of the reference's core figures (layer height, nozzle and bed temperatures, filament diameter, print surface, dimensions, power) and pad out with MK4S comparisons. The draft also lists ABS, ASA and nylon without the Advanced Filtration System caveat the reference sets as a use restriction.
+    unsupported: MMU3 multi-material support, up to five filaments | File transfer over network or USB drive | Optional Prusa Connect and Prusa App remote management
+  photo 1: storage.googleapis.com ✗ model yes, busy — The enclosed printer is clearly branded Prusa Core One, but it sits on a wooden workbench against a pegboard wall rather than a plain backdrop.
+  photo 2: storage.googleapis.com ✗ model yes, busy, shop — This is clearly the Prusa Core One, but it sits in front of a tool pegboard with large promotional 'PRUSA CORE ONE' text overlaid.
+  photo 3: storage.googleapis.com ✗ model yes, busy — The enclosed black-and-orange printer is labelled Prusa Core One, but it sits on a lab bench in a furnished room rather than on a plain background.
+  cutout: bad, background left
+
+✗ rigol-ds1054z (held out) — 122 s
+  identified: Rigol DS1054Z Digital Oscilloscope ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 29 words · image chosen ✓
+  listing ✗: machine yes, accuracy 5, grounded 5, description 4, specs 5, keywords 4, safety 4, name ✗ — The display name drops 'DS1054Z', the model name people use for this scope. The description is thinner than the reference on makerspace uses such as Arduino, PWM and sensor debugging.
+  photo 1: www.rigol.com ✗ model no, plain — This Rigol DS-series scope has an LA button and a front logic-analyzer connector, which the DS1054Z lacks, so it looks like a Plus or MSO model rather than the DS1054Z.
+  photo 2: www.rigol.com ✗ model no, plain — This rear view of a Rigol scope shows Source 1/Source 2 generator outputs, which marks a DS/MSO1000Z-S variant rather than the plain DS1054Z, and the front is not visible.
+  cutout: kept as is
+
+✗ festool-domino-500 (held out) — 105 s
+  identified: Festool DOMINO DF 500 Q-Plus ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 35 words · image chosen ✗
+  listing ✗: machine yes, accuracy 5, grounded 5, description 4, specs 4, keywords 4, safety 4, name ✗ — The display name keeps the Q-Plus kit suffix and capitalised DOMINO and never says it is a joiner. The specs and description omit the 4 x 20 to 10 x 50 mm tenon range and the materials, and no use restriction is given.
+  photo: none found
+  cutout: —

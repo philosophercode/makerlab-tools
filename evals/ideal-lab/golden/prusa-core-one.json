@@ -1,0 +1,93 @@
+{
+  "displayName": "Prusa Core One",
+  "officialName": "Prusa CORE One",
+  "description": "The Prusa CORE One is a fully enclosed CoreXY FDM 3D printer from Prusa Research. Its chamber heats up to 55 °C, so it can print everyday filaments like PLA and PETG as well as engineering materials. In a makerspace, students use it to print prototypes, enclosures, replacement parts and functional mechanical parts up to 250 × 220 × 270 mm.",
+  "specs": [
+    {
+      "label": "Build volume",
+      "value": "250 × 220 × 270 mm (9.8 × 8.6 × 10.6 in)"
+    },
+    {
+      "label": "Filament diameter",
+      "value": "1.75 mm"
+    },
+    {
+      "label": "Layer height",
+      "value": "0.05–0.30 mm"
+    },
+    {
+      "label": "Nozzle",
+      "value": "High-flow Prusa Nozzle brass CHT – 0.4 mm"
+    },
+    {
+      "label": "Max nozzle temperature",
+      "value": "290 °C / 554 °F"
+    },
+    {
+      "label": "Max heatbed temperature",
+      "value": "120 °C / 248 °F"
+    },
+    {
+      "label": "Max chamber temperature",
+      "value": "55 °C / 131 °F"
+    },
+    {
+      "label": "Supported materials",
+      "value": "PLA, PETG, Flex, PVA, PC, PP, CPE, PVB; with Advanced Filtration System: ABS, ASA, HIPS, PA"
+    },
+    {
+      "label": "Print surface",
+      "value": "Magnetic heatbed with removable PEI spring steel sheets"
+    },
+    {
+      "label": "First layer calibration",
+      "value": "Fully automatic (Load Cell sensor)"
+    },
+    {
+      "label": "Power consumption",
+      "value": "PLA: 90 W / ABS: 110 W"
+    },
+    {
+      "label": "Printer dimensions",
+      "value": "22.5 kg, 415 × 444 × 555 mm (16.3 × 17.5 × 21.8 in)"
+    }
+  ],
+  "tags": [
+    "3d printing",
+    "fdm",
+    "prototyping",
+    "enclosures",
+    "functional parts",
+    "pla",
+    "petg",
+    "filament"
+  ],
+  "materials": [
+    "PLA",
+    "PETG",
+    "Flex (TPU)",
+    "PVA",
+    "PC",
+    "PP",
+    "CPE",
+    "PVB",
+    "ABS (with filtration)",
+    "ASA (with filtration)",
+    "HIPS (with filtration)",
+    "PA / nylon (with filtration)"
+  ],
+  "ppeRequired": [
+    "Heat-resistant gloves when handling hot parts",
+    "Safety glasses when removing supports"
+  ],
+  "useRestrictions": "Only trained users may operate it, and ABS, ASA, HIPS or nylon may be printed only when the Advanced Filtration System is fitted.",
+  "manualUrl": "https://help.prusa3d.com/downloads/core-one",
+  "sources": [
+    "https://www.prusa3d.com/en/product/prusa-core-one/",
+    "https://www.prusa3d.com/p/core-one-plus/",
+    "https://help.prusa3d.com/article/faq-frequently-asked-questions_1932",
+    "https://blog.prusa3d.com/introducing-prusa-core-one-fully-enclosed-corexy-3d-printer-with-active-temperature-control_105477/",
+    "https://help.prusa3d.com/downloads/core-one",
+    "https://help.prusa3d.com/product/core-one"
+  ]
+}
