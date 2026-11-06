@@ -198,9 +198,10 @@ describe("ideal-lab cache", () => {
       console.info("[research] r: search call cost $0.0120, tier flex");
       console.info("[research] r: read call cost not reported, tier flex");
       console.info("[research] image rank call cost $0.0030, tier flex");
+      console.info("[research] image rank call cost $0.0000 (own key, list price $0.0100), tier not reported");
       return 7;
     });
     expect(value).toBe(7);
-    expect(cost).toBeCloseTo(0.015);
+    expect(cost).toBeCloseTo(0.025);
   });
 });

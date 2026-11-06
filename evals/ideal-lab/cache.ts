@@ -81,7 +81,8 @@ export async function withCostMeter<T>(run: () => Promise<T>): Promise<{ value: 
     (...args: unknown[]) => {
       for (const arg of args) {
         if (typeof arg !== "string") continue;
-        for (const match of arg.matchAll(/\bcost \$(\d+(?:\.\d+)?)/g)) cost += Number(match[1]);
+        // A call on the account's own key logs cost 0 and its list price: count the list price.
+        for (const match of arg.matchAll(/\bcost \$(\d+(?:\.\d+)?)(?: \(own key, list price \$(\d+(?:\.\d+)?)\))?/g)) cost += Number(match[2] ?? match[1]);
       }
       write(...args);
     };

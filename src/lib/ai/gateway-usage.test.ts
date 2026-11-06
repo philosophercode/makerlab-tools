@@ -27,3 +27,11 @@ describe("describeGatewayCall", () => {
     expect(describeGatewayCall({ cost: null, serviceTier: null })).toBe("cost not reported, tier not reported");
   });
 });
+
+describe("a call on the account's own key", () => {
+  it("logs the list price beside the zero cost", () => {
+    const report = gatewayCallReport({ gateway: { cost: "0", marketCost: "0.0123" } });
+    expect(report.marketCost).toBeCloseTo(0.0123);
+    expect(describeGatewayCall(report)).toBe("cost $0.0000 (own key, list price $0.0123), tier not reported");
+  });
+});
