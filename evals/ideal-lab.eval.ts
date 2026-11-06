@@ -228,7 +228,8 @@ async function answers(url: string): Promise<{ ok: boolean; pdf: boolean }> {
     stopAfterBytes: 8,
     accept: "*/*",
   });
-  if (!fetched.ok) return { ok: false, pdf: false };
+  // A site that refuses scripts (403, 401, 429) is not a dead link: a person's browser opens it.
+  if (!fetched.ok) return { ok: fetched.reason === "http_error" && [401, 403, 429].includes(fetched.status ?? 0), pdf: false };
   const magic = new TextDecoder().decode(fetched.bytes.slice(0, 5));
   return { ok: true, pdf: magic === "%PDF-" || fetched.contentType === "application/pdf" };
 }

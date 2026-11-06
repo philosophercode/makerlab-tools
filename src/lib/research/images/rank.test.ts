@@ -205,7 +205,7 @@ describe("rankCandidates", () => {
     const labels = userParts(recordedCalls(model)[0])
       .filter((part) => part.type === "text" && part.text?.startsWith("Image "))
       .map((part) => part.text);
-    expect(labels).toEqual(["Image 0 (background: transparent):", "Image 1 (background: plain):", "Image 2 (background: unknown):"]);
+    expect(labels).toEqual(["Image 0 (background: transparent, file: img-0.png):", "Image 1 (background: plain, file: img-1.png):", "Image 2 (background: unknown, file: img-2.png):"]);
     expect(RANK_SYSTEM_PROMPT).toMatch(/prefer "transparent" or "plain" over "busy"/);
     expect(ranked.map((entry) => entry.candidate.background)).toEqual(["transparent", "plain", undefined]);
     expect("background" in ranked[2].candidate).toBe(false);
@@ -500,5 +500,16 @@ describe("the product itself, or nothing (research fixes amendment 2026-09-24)",
     expect(isManufacturerImage({ url: "https://cdn.shopify.example/f4.png", pageUrl: "https://formlabs.com/3d-printers/form-4/" }, subject)).toBe(true);
     expect(isManufacturerImage({ url: "https://cdn.shopify.example/f4.png", pageUrl: "https://reseller.example/form-4" }, subject)).toBe(false);
     expect(isManufacturerImage({ url: "https://media.formlabs.com/f4.png", pageUrl: null }, { brand: null, name: "Form 4" })).toBe(false);
+  });
+});
+
+describe("imageFileName", () => {
+  it("names a file that says something, and drops opaque ones", async () => {
+    const { imageFileName } = await import("./rank");
+    expect(imageFileName("https://a.storyblok.com/f/1/UR12e-front.png?w=800")).toBe("UR12e-front.png");
+    expect(imageFileName("https://cdn.example/x/dfc%20500%20hero.jpg")).toBe("dfc_500_hero.jpg");
+    expect(imageFileName("https://cdn.example/3f9a2b7c1d4e5f60a7b8.jpg")).toBeNull();
+    expect(imageFileName("https://cdn.example/12345.png")).toBeNull();
+    expect(imageFileName("not a url")).toBeNull();
   });
 });

@@ -73,7 +73,7 @@ export const RANK_SYSTEM_PROMPT = [
   'An image is a "composite" when it is not a plain photo of the machine: a price, text or badge overlay, a store banner, a collage or several panels, several different products, or a room or lifestyle scene in which the machine is small. A composite is worse than a plain photo of the same machine.',
   'For every image also give "productBox": the box around the single main machine as [x0, y0, x1, y1], fractions of the image width and height from 0 to 1 measured from the top-left corner, tight around the machine only (not its text, price or other panels) — or null when there is no single main machine.',
   'For every image also give "view": which side of the machine it shows — "front" (the face a person uses: door, display, controls), "three_quarter" (front and one side at an angle), "side", "back" (rear panel, cables, vents), "top", "detail" (a close-up of one area, not the whole machine), "part" (an accessory, spare or component rather than the machine), or "unknown". The catalogue photo should be a front or three-quarter view of the whole machine: rank a back view, a detail or a part below every image that shows the whole machine from the front.',
-  'For every image you must also give "subject": does the image show the whole product named, itself? Answer "product" only when it clearly shows the whole machine or item named. Otherwise say what it shows instead: "accessory" (an attachment, bit, blade, battery, charger, case or other item sold for or with it), "consumable" (material it uses up: filament, resin, sandpaper, a milling or drill bit, a blade pack), "part" (a component or spare of it), "packaging" (the box or packaging alone), "other_model" (a different model, size, generation or variant than the one named, or a different product of the same brand — check model numbers printed on it), or "not_product" (a logo, diagram, screenshot, chart, person or scene without the product). When the item named is itself an accessory — a charger, a battery, a bit — a photo of that exact item is "product". When unsure, do not answer "product".',
+  'For every image you must also give "subject": does the image show the whole product named, itself? Answer "product" only when it clearly shows the whole machine or item named. Otherwise say what it shows instead: "accessory" (an attachment, bit, blade, battery, charger, case or other item sold for or with it), "consumable" (material it uses up: filament, resin, sandpaper, a milling or drill bit, a blade pack), "part" (a component or spare of it), "packaging" (the box or packaging alone), "other_model" (a different model, size, generation or variant than the one named, or a different product of the same brand — check model numbers printed on it, and the image file name when one is given: a file named for another model, e.g. \"UR12e\" for a UR5e, is \"other_model\" unless the picture itself clearly shows the model named), or "not_product" (a logo, diagram, screenshot, chart, person or scene without the product). When the item named is itself an accessory — a charger, a battery, a bit — a photo of that exact item is "product". When unsure, do not answer "product".',
   'A reviewer may add an instruction about which photo to prefer. Follow it when it is about which photo of this machine to choose.',
   'Answer with one JSON object and nothing else: {"order": [image indexes, best first, every index exactly once], "reasons": [one short reason per entry of "order", in the same order], "images": [one entry per image in index order 0, 1, 2, …: {"subject": "product" | "accessory" | "consumable" | "part" | "packaging" | "other_model" | "not_product", "composite": true or false, "productBox": [x0, y0, x1, y1] or null, "view": "front" | "three_quarter" | "side" | "back" | "top" | "detail" | "part" | "unknown"}]}. "images" and every "subject" are required.',
 ].join("\n");
@@ -170,7 +170,7 @@ export async function rankCandidates(
         role: "user",
         content: rankingContent(
           itemName,
-          shown.map((entry) => ({ view: entry.view, background: entry.image.background })),
+          shown.map((entry) => ({ view: entry.view, background: entry.image.background, url: entry.image.hint.url })),
           opts.reviewerNote
         ),
       },
@@ -285,7 +285,7 @@ export function preferCleanBackgrounds<T extends { image: Pick<ProbedImage, "bac
 /** The user message: the name, the reviewer's instruction (fenced, when there is one), then each image after its number. */
 export function rankingContent(
   itemName: string,
-  views: readonly { view: ModelImage; background: ProbedImage["background"] }[],
+  views: readonly { view: ModelImage; background: ProbedImage["background"]; url?: string }[],
   reviewerNote?: string | null
 ): UserContent {
   const name = itemName.replace(/\s+/g, " ").trim().slice(0, MAX_NAME_CHARS);
@@ -299,11 +299,32 @@ export function rankingContent(
       text: `Reviewer's instruction (from the lab staff member reviewing this item — about which photo to prefer):\n<reviewer-instruction>\n${note}\n</reviewer-instruction>`,
     });
   }
-  views.forEach(({ view, background }, index) => {
-    content.push({ type: "text", text: `Image ${index} (background: ${background ?? "unknown"}):` });
+  views.forEach(({ view, background, url }, index) => {
+    const file = url ? imageFileName(url) : null;
+    content.push({ type: "text", text: `Image ${index} (background: ${background ?? "unknown"}${file ? `, file: ${file}` : ""}):` });
     content.push({ type: "image", image: view.bytes, mediaType: view.mediaType });
   });
   return content;
+}
+
+/**
+ * The picture's file name, for the ranker: a CDN's `UR12e-front.png` or
+ * `dfc-500-hero.jpg` names a sibling the pixels cannot tell apart (the
+ * ideal-lab eval's UR5e and Festool DF 500). Letters, digits, dots, dashes and
+ * underscores only, at most 80 characters; null for an opaque one (a hash, a
+ * bare number) that says nothing.
+ */
+export function imageFileName(url: string): string | null {
+  let segment: string;
+  try {
+    segment = decodeURIComponent(new URL(url).pathname.split("/").filter(Boolean).pop() ?? "");
+  } catch {
+    return null;
+  }
+  const clean = segment.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80);
+  const stem = clean.replace(/\.[A-Za-z0-9]{2,5}$/, "").replace(/[0-9a-f]{8,}/gi, "");
+  // Opaque: no run of three letters left once hex runs are gone (a hash, an id, "1234").
+  return /[A-Za-z]{3}/.test(stem) ? clean : null;
 }
 
 /**

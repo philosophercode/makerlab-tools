@@ -29,6 +29,12 @@ export function judgeModelId(): string {
 
 let warnedNoCost = false;
 
+function marketCost(metadata: unknown): number {
+  const gateway = (metadata as { gateway?: { marketCost?: unknown } } | undefined)?.gateway;
+  const value = Number(gateway?.marketCost);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
 /** One judge call: text and pictures in, its reply and what the Gateway said it cost. */
 export async function judgeCall(
   system: string,
@@ -53,9 +59,12 @@ export async function judgeCall(
     maxRetries: 2,
     abortSignal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
   });
-  // Per step when the Gateway reports it there; else the call's own metadata.
-  const perStep = result.steps.reduce((total, step) => total + (gatewayCallReport(step.providerMetadata).cost ?? 0), 0);
-  const cost = perStep > 0 ? perStep : (gatewayCallReport(result.providerMetadata).cost ?? 0);
+  // Per step when the Gateway reports it there; else the call's own metadata. A call
+  // billed to the account's own provider key (BYOK) reports cost 0 and its list price
+  // as `marketCost`: that is what the judge would cost anyone else, so it is counted.
+  const priced = (metadata: unknown) => gatewayCallReport(metadata).cost || marketCost(metadata);
+  const perStep = result.steps.reduce((total, step) => total + priced(step.providerMetadata), 0);
+  const cost = perStep > 0 ? perStep : priced(result.providerMetadata);
   if (cost === 0 && !warnedNoCost) {
     // Once a run: what the Gateway sent instead, so an unreported cost can be traced (keys only, no values).
     warnedNoCost = true;
