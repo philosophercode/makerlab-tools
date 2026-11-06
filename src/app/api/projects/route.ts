@@ -128,6 +128,10 @@ export async function POST(req: NextRequest) {
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
+  // `null`, an array or a bare value parse fine and are still not a project.
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
   const title = asString(payload.title);
   // **The byline is the session's, full stop.** `payload.author` is no longer

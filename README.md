@@ -1,5 +1,8 @@
 # MakerLAB Tools
 
+[![CI](https://github.com/philosophercode/makerlab-tools/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/philosophercode/makerlab-tools/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+
 **An equipment catalogue and AI assistant for a makerspace.** Students find a machine,
 read how to use it, and ask an assistant that answers from the lab's own inventory and
 manuals, citing the page. Staff keep the inventory, work maintenance tickets and add new
@@ -110,6 +113,37 @@ npm run eval:all       # agent evals; real, paid model calls, never in CI
 
 The test suite needs **no credentials and makes no network calls**.
 Working against a persistent local database is covered in [`docs/deploy.md`](docs/deploy.md).
+
+---
+
+## Testing and audits
+
+Every pull request and every push to `main` runs lint, typecheck, spec coverage, the
+Vitest suite and the Playwright suite in CI (the badge above). None of it needs
+credentials or the network: the database is an in-process Postgres (PGlite) seeded with
+demo data, and every model call is stubbed.
+
+| Kind | What it checks | Where |
+|---|---|---|
+| Unit and component | Functions and React components, one at a time | `*.test.ts(x)` next to the code |
+| Integration | Route handlers and server actions against a real (in-process) database, with real sessions and roles | `src/app/api/**/*.test.ts`, `src/lib/data/` |
+| Workflow | The background research and refresh jobs, run end to end on a local workflow world | `*.workflow.test.ts` |
+| End to end | A production build in a browser: catalogue, chat, intake, admin, the Notion mirror | `e2e/` (Playwright) |
+| Invariant | 20 rules that must hold for any input, most property-based with [fast-check](https://fast-check.dev): admin routes refuse non-staff, forged cookies and signed links never verify, the demo can't write, nobody reads another person's data, serials never reach non-staff, no SSRF, no CSV formula injection, malformed input is never a 500 | `test/invariants/` ([list](test/invariants/README.md)) |
+| Agent evals | The assistant against real models: answers, citations, tool use, manual retrieval. Paid, so run before a model or prompt change, never in CI | `evals/` ([README](evals/README.md)) |
+
+**Reviews and audits**
+
+- **Security audit, October 2026.** A source-and-local audit with Cloudflare's
+  `security-audit-skill` confirmed six findings (two medium, four low). Each one was
+  fixed with a regression test, along with the dependency advisories `npm audit` reported
+  at the time: [`docs/specs/2026-10-23-security-audit-fixes-design.md`](docs/specs/2026-10-23-security-audit-fixes-design.md).
+- **Every pull request** gets GitHub code scanning and an automated code review, and CI
+  checks that its third-party actions are pinned to commit SHAs.
+- **Dependabot** proposes dependency and action updates.
+
+Runbook: [`docs/testing.md`](docs/testing.md). Reporting a vulnerability:
+[`.github/SECURITY.md`](.github/SECURITY.md).
 
 ---
 
