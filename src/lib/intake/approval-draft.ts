@@ -178,14 +178,68 @@ export function suggestedCategory(research: ResearchResult, hint: string | null,
   return matchCategory({ name: hint, group: null }, categories).existingId ?? "";
 }
 
-/** A location whose room or zone is the hint, ignoring case. */
-function matchLocation(hint: string | null, locations: LocationOption[]): string {
+/**
+ * The location the hint names: a room or zone it is exactly (ignoring case),
+ * else the one zone it names by word — "the laser room" is the Laser Machine
+ * Room, "by the other printers" the 3D Printing Hub, "the machine shop" the
+ * Machining Shop (the ideal-lab eval's fuzzy messages). Words are compared by
+ * stem ("printers" ~ "printing"), place words ("room", "lab", "area"…) only
+ * break ties, and the zone with the larger share of its own words named wins;
+ * a tie between zones is no match: a wrong zone is worse than none.
+ */
+export function matchLocation(hint: string | null, locations: readonly LocationOption[]): string {
   const wanted = hint?.trim().toLowerCase();
   if (!wanted) return "";
-  const match = locations.find(
+  const exact = locations.find(
     (location) => location.room.toLowerCase() === wanted || location.zone.toLowerCase() === wanted
   );
-  return match?.id ?? "";
+  if (exact) return exact.id;
+
+  // Which zone the hint names by its own words; failing that, by a place word
+  // only one zone has ("the shop" when there is one shop).
+  return bestZone(placeWords(wanted).filter((word) => !PLACE_WORDS.has(word)), locations, (word) => !PLACE_WORDS.has(word)) ||
+    bestZone(placeWords(wanted).filter((word) => NAMING_PLACE_WORDS.has(word)), locations, (word) => NAMING_PLACE_WORDS.has(word));
+}
+
+function bestZone(said: readonly string[], locations: readonly LocationOption[], counts: (word: string) => boolean): string {
+  const wanted = new Set(said);
+  if (wanted.size === 0) return "";
+  let best: { id: string; score: number } | null = null;
+  let tied = false;
+  for (const location of locations) {
+    const own = placeWords(location.zone).filter(counts);
+    if (own.length === 0) continue;
+    const hits = own.filter((word) => wanted.has(word)).length;
+    if (hits === 0) continue;
+    const score = hits / own.length;
+    if (!best || score > best.score) {
+      best = { id: location.id, score };
+      tied = false;
+    } else if (score === best.score && location.id !== best.id) {
+      tied = true;
+    }
+  }
+  return best && !tied ? best.id : "";
+}
+
+/** Place words specific enough to name a zone when only one zone has them. "Lab", "room" and "space" never are. */
+const NAMING_PLACE_WORDS = new Set(["shop", "hub", "bay", "studio"]);
+
+/** Words that say "a place", not which one. */
+const PLACE_WORDS = new Set(["room", "area", "space", "lab", "shop", "bench", "hub", "zone", "studio", "bay", "corner", "the", "in", "by", "at", "on", "near", "other", "next", "to", "of", "and", "our", "it", "goes", "lives"]);
+
+/** Lower-case words, each cut to a rough stem: "Printers" → "print", "Machining" → "machin". */
+function placeWords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .map((word) => {
+      for (const suffix of ["ings", "ing", "ers", "er", "es", "s", "e"]) {
+        if (word.length - suffix.length >= 3 && word.endsWith(suffix)) return word.slice(0, -suffix.length);
+      }
+      return word;
+    });
 }
 
 /** "PLA, resin" → ["PLA", "resin"]. Blanks dropped. */
