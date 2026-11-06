@@ -1,0 +1,77 @@
+{
+  "displayName": "Bantam Tools Desktop PCB Mill",
+  "officialName": "Bantam Tools Desktop PCB Milling Machine",
+  "description": "A small enclosed 3-axis CNC mill that cuts prototype circuit boards straight from EAGLE, Gerber, SVG or G-code files, so you can test a board the same day without sending it out for fabrication. It can also engrave and cut small parts in aluminum, brass, plastics, wood and machining wax. The software finds the tool and bed automatically and can mill both sides of a board using an alignment bracket.",
+  "specs": [
+    {
+      "label": "Working volume (spoilboard installed)",
+      "value": "140 × 114 × 34.3 mm (5.5 × 4.5 × 1.35 in)"
+    },
+    {
+      "label": "Spindle speed",
+      "value": "8,500–26,000 rpm"
+    },
+    {
+      "label": "Accuracy / repeatability",
+      "value": "<0.003 in per 6 in of travel / ±0.001 in"
+    },
+    {
+      "label": "Minimum trace width and spacing",
+      "value": "6 mil (0.006 in); minimum drill size 16 mil"
+    },
+    {
+      "label": "Tooling",
+      "value": "ER-11 collet, 1/8 in shank; smallest recommended end mill 0.010 in (0.25 mm)"
+    },
+    {
+      "label": "Max cut / traverse speed",
+      "value": "100 in/min (2,600 mm/min)"
+    },
+    {
+      "label": "Power",
+      "value": "100–240 V AC, 50/60 Hz, 1.4 A; 50 W typical / 120 W peak"
+    },
+    {
+      "label": "File input",
+      "value": "EAGLE .brd, Gerber RS-274X, G-code (.nc/.tap), SVG"
+    }
+  ],
+  "tags": [
+    "pcb milling",
+    "circuit board prototyping",
+    "cnc mill",
+    "desktop cnc",
+    "engraving",
+    "fr-1",
+    "electronics",
+    "small parts machining"
+  ],
+  "materials": [
+    "FR-1 PCB blanks (single- and double-sided)",
+    "Aluminum (6061)",
+    "Brass",
+    "Copper",
+    "Acrylic",
+    "Polycarbonate",
+    "HDPE",
+    "Delrin",
+    "Machining wax",
+    "Birch plywood and maple"
+  ],
+  "ppeRequired": [
+    "Safety glasses",
+    "Hearing protection (advised when near the machine while milling)",
+    "Long hair tied back, no loose clothing or jewelry"
+  ],
+  "useRestrictions": "Never leave the mill running unattended, keep the safety windows in place, and do not mill steel, glass, or fiberglass/FR-4 unless the FR-4 Milling System oil tub is fitted.",
+  "manualUrl": "https://support.bantamtools.com/hc/en-us/articles/115001656133-Unbox-and-Set-Up-Your-New-Mill",
+  "sources": [
+    "https://support.bantamtools.com/hc/en-us/articles/115001672214-Bantam-Tools-Desktop-PCB-Milling-Machine-Specifications",
+    "https://content.bantamtools.com/tech-specs-desktop-pcb-milling-machine",
+    "https://support.bantamtools.com/hc/en-us/articles/115003453943-Design-Considerations-for-the-Bantam-Tools-Desktop-PCB-Milling-Machine",
+    "https://support.bantamtools.com/hc/en-us/articles/115000723693-Basic-Safety-Overview",
+    "https://support.bantamtools.com/hc/en-us/articles/360059006853-Materials-Overview",
+    "https://support.bantamtools.com/hc/en-us/articles/115001684713-Installing-and-Using-the-Bantam-Tools-FR-4-Milling-System",
+    "https://support.bantamtools.com/hc/en-us/articles/115001656133-Unbox-and-Set-Up-Your-New-Mill"
+  ]
+}

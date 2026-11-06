@@ -1,0 +1,77 @@
+{
+  "displayName": "Glowforge Pro",
+  "officialName": "Glowforge Pro 3D Laser Printer",
+  "description": "The Glowforge Pro is an enclosed desktop CO2 laser cutter and engraver. It cuts and engraves flat sheets of wood, acrylic, leather, paper and fabric, and it can engrave glass, stone and anodized aluminum. Students use it for prototypes, enclosures, signs and models. A lid camera lets you place designs directly on the material, and a passthrough slot lets you feed long boards through for oversized projects.",
+  "specs": [
+    {
+      "label": "Laser",
+      "value": "45 W CO2 glass tube, 10,600 nm"
+    },
+    {
+      "label": "Cutting area",
+      "value": "approx. 495 mm wide × 279 mm deep (19.5 in × 11 in)"
+    },
+    {
+      "label": "Maximum material size",
+      "value": "515 mm (20 in) wide; 13 mm (0.5 in) thick with crumb tray, 50 mm (2 in) thick with tray removed"
+    },
+    {
+      "label": "Passthrough slot",
+      "value": "material up to 6.3 mm (1/4 in) thick, 20 in wide, any length"
+    },
+    {
+      "label": "Positioning precision",
+      "value": "0.025 mm (0.001 in); engraving up to 1355 DPI"
+    },
+    {
+      "label": "Power",
+      "value": "110/220 VAC, 50/60 Hz; 800 W peak consumption"
+    },
+    {
+      "label": "Laser class",
+      "value": "Class 4 laser product"
+    },
+    {
+      "label": "Operating temperature",
+      "value": "16–27 °C (60–81 °F)"
+    }
+  ],
+  "tags": [
+    "laser cutter",
+    "laser engraver",
+    "co2 laser",
+    "acrylic",
+    "plywood",
+    "leather",
+    "engraving",
+    "prototyping"
+  ],
+  "materials": [
+    "wood and laser-safe plywood",
+    "acrylic",
+    "Delrin (acetal)",
+    "leather (vegetable-tanned)",
+    "paper and cardboard",
+    "fabric and felt",
+    "cork",
+    "natural rubber",
+    "glass (engrave only)",
+    "stone, slate and marble (engrave only)",
+    "ceramic tile (engrave only)",
+    "anodized aluminum (engrave only)"
+  ],
+  "ppeRequired": [
+    "CO2-laser-rated (10,600 nm) safety glasses whenever the Pro Shields are removed for passthrough work"
+  ],
+  "useRestrictions": "Only trained users may run it, never unattended, and only on approved laser-compatible materials (no vinyl/PVC, ABS, HDPE or galvanized metal), with the Pro Shields installed except during passthrough jobs.",
+  "manualUrl": "https://support.glowforge.com/hc/en-us/articles/360034142653-glowforge-manuals",
+  "sources": [
+    "https://glowforge.com/b/tech-specs/performance",
+    "https://shop.glowforge.com/products/glowforge-pro-certified-rebuilt",
+    "https://glowforge.com/b/sales",
+    "https://support.glowforge.com/hc/en-us/articles/360033633314-safety-glowforge-performance-series",
+    "https://support.glowforge.com/hc/en-us/articles/360033633594-remove-and-install-pro-shields",
+    "https://support.glowforge.com/hc/en-us/articles/4605593296027-non-proofgrade-materials-faq",
+    "https://support.glowforge.com/hc/en-us/articles/360034142653-glowforge-manuals"
+  ]
+}

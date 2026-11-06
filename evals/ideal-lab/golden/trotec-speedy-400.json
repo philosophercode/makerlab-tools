@@ -1,0 +1,74 @@
+{
+  "displayName": "Trotec Speedy 400",
+  "officialName": "Trotec Speedy 400 laser engraving system (CO2; also sold as Speedy 400 flexx with an added fiber laser)",
+  "description": "The Speedy 400 is a large enclosed flatbed CO2 laser that cuts and engraves sheet materials. In a makerspace it is used to cut wood, acrylic, paper and leather, and to engrave signs, panels and prototypes up to about 1 m wide. Jobs are sent from Ruby software, and an ultrasonic autofocus sets the focus height. On the flexx version, a second fiber laser can also mark bare metals.",
+  "specs": [
+    {
+      "label": "Working area",
+      "value": "1016 x 610 mm (40 x 24 in)"
+    },
+    {
+      "label": "Max. workpiece height",
+      "value": "305 mm (12 in) with 1.5 in or 2.0 in lens; less with longer lenses"
+    },
+    {
+      "label": "Laser source",
+      "value": "CO2, 10.6 µm wavelength, 60–120 W depending on configuration; flexx adds a 30–50 W fiber laser"
+    },
+    {
+      "label": "Max. processing speed",
+      "value": "4.32 m/s (170 ips)"
+    },
+    {
+      "label": "Accuracy",
+      "value": "±0.015 mm over the whole working area; 5 µm addressable"
+    },
+    {
+      "label": "Max. table load",
+      "value": "100 kg static, 30 kg dynamic"
+    },
+    {
+      "label": "Electrical",
+      "value": "1~ AC 110–230 V, 50/60 Hz, approx. 1200–2100 W depending on laser power"
+    },
+    {
+      "label": "Exhaust requirement",
+      "value": "Minimum 400 m³/h at 4200 Pa"
+    }
+  ],
+  "tags": [
+    "laser cutter",
+    "laser engraving",
+    "co2 laser",
+    "acrylic cutting",
+    "wood engraving",
+    "signage",
+    "rotary engraving",
+    "flatbed laser"
+  ],
+  "materials": [
+    "wood",
+    "acrylic (PMMA)",
+    "paper and card",
+    "leather",
+    "fabric",
+    "rubber",
+    "glass (engrave only)",
+    "stone (engrave only)",
+    "anodized aluminum (engrave only)",
+    "painted metal (engrave only)",
+    "bare metals (marking only, flexx fiber laser)"
+  ],
+  "ppeRequired": [
+    "safety glasses",
+    "closed-toe shoes"
+  ],
+  "useRestrictions": "Only trained users may run it, with the lid closed and the exhaust running, and they must stay at the machine for the whole job because cutting can catch fire.",
+  "manualUrl": "https://www.troteclaser.com/static/pdf/speedy-400/8070_Speedy_400_Operating_manual_EN.pdf",
+  "sources": [
+    "https://www.troteclaser.com/en/laser-machines/laser-engraver/speedy-400-fastest-laser-engraver-cutter",
+    "https://www.troteclaser.com/static/pdf/speedy-400/datasheet-speedy400C-8086-en.pdf",
+    "https://www.troteclaser.com/static/pdf/speedy-400/8070_Speedy_400_Operating_manual_EN.pdf",
+    "https://www.troteclaser.com/en/resources/blog/co2-flatbed-laser-with-integrated-fire-protection"
+  ]
+}

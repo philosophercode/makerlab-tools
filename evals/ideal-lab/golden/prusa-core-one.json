@@ -1,0 +1,77 @@
+{
+  "displayName": "Prusa CORE One",
+  "officialName": "Prusa CORE One",
+  "description": "The Prusa CORE One is a fully enclosed CoreXY FDM 3D printer that builds parts layer by layer from 1.75 mm plastic filament. In a makerspace you can use it for prototypes, enclosures, jigs and functional parts. It checks the first layer automatically with a load-cell sensor. Its heated chamber handles warp-prone engineering plastics, and it can print PLA and PETG with the door closed.",
+  "specs": [
+    {
+      "label": "Build volume",
+      "value": "250 × 220 × 270 mm (X × Y × Z)"
+    },
+    {
+      "label": "Filament diameter",
+      "value": "1.75 mm"
+    },
+    {
+      "label": "Layer height",
+      "value": "0.05–0.30 mm"
+    },
+    {
+      "label": "Stock nozzle",
+      "value": "0.4 mm brass high-flow (swappable 0.25–0.8 mm)"
+    },
+    {
+      "label": "Max nozzle temperature",
+      "value": "290 °C"
+    },
+    {
+      "label": "Max heatbed temperature",
+      "value": "120 °C"
+    },
+    {
+      "label": "Max chamber temperature",
+      "value": "55 °C"
+    },
+    {
+      "label": "Power consumption",
+      "value": "90 W (PLA settings) / 110 W (ABS settings)"
+    }
+  ],
+  "tags": [
+    "3d printing",
+    "fdm",
+    "prototyping",
+    "pla",
+    "petg",
+    "enclosed printer",
+    "functional parts",
+    "abs"
+  ],
+  "materials": [
+    "PLA",
+    "PETG",
+    "Flex (TPU)",
+    "PVA",
+    "PC",
+    "PP",
+    "CPE",
+    "PVB",
+    "ABS (with Advanced Filtration System)",
+    "ASA (with Advanced Filtration System)",
+    "HIPS (with Advanced Filtration System)",
+    "PA / nylon (with Advanced Filtration System)"
+  ],
+  "ppeRequired": [
+    "safety glasses when removing prints and supports",
+    "heat-resistant gloves when working near the hot nozzle or heatbed"
+  ],
+  "useRestrictions": "Use ABS, ASA, HIPS and nylon (PA) only when the Advanced Filtration System is fitted, and use abrasive filaments only with a hardened nozzle.",
+  "manualUrl": "https://help.prusa3d.com/downloads/core-one",
+  "sources": [
+    "https://www.prusa3d.com/en/product/prusa-core-one/",
+    "https://www.prusa3d.com/p/core-one-plus/",
+    "https://help.prusa3d.com/article/faq-frequently-asked-questions_1932",
+    "https://blog.prusa3d.com/introducing-prusa-core-one-fully-enclosed-corexy-3d-printer-with-active-temperature-control_105477/",
+    "https://help.prusa3d.com/downloads/core-one",
+    "https://help.prusa3d.com/product/core-one"
+  ]
+}

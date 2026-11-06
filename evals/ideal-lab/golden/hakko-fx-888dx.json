@@ -1,0 +1,69 @@
+{
+  "displayName": "Hakko FX-888DX",
+  "officialName": "HAKKO FX-888DX Digital Soldering Station",
+  "description": "The FX-888DX is a temperature-controlled bench soldering station. It has a pen-style iron, an iron holder and tip-cleaning tools. In the makerspace it is used for through-hole and surface-mount electronics, wiring, connectors and repairs. You set the temperature by turning one push-button dial, and it can store up to five preset temperatures. The tips are interchangeable, and other compatible handpieces can be connected.",
+  "specs": [
+    {
+      "label": "Temperature range",
+      "value": "50–480 °C (120–899 °F)"
+    },
+    {
+      "label": "Temperature stability",
+      "value": "±1 °C at idle (when set to 200–480 °C)"
+    },
+    {
+      "label": "Station power consumption",
+      "value": "100 W (120 VAC, 50/60 Hz, US model)"
+    },
+    {
+      "label": "Iron (FX-8801) power",
+      "value": "65 W at 26 VAC, ceramic heater"
+    },
+    {
+      "label": "Tips",
+      "value": "T18 series (T18-D16 1.6 mm chisel supplied with the US model)"
+    },
+    {
+      "label": "Temperature presets",
+      "value": "Up to 5"
+    },
+    {
+      "label": "Tip-to-ground resistance (ESD safe)",
+      "value": "< 2 Ω"
+    },
+    {
+      "label": "Iron cord length",
+      "value": "1.2 m"
+    }
+  ],
+  "tags": [
+    "soldering",
+    "electronics",
+    "pcb",
+    "through-hole",
+    "surface mount",
+    "wiring",
+    "lead-free solder",
+    "repair"
+  ],
+  "materials": [
+    "Lead-free solder",
+    "Tin-lead solder",
+    "Flux",
+    "Printed circuit boards and electronic components",
+    "Copper wire and connectors"
+  ],
+  "ppeRequired": [
+    "Safety glasses",
+    "Fume extraction or a well-ventilated workstation"
+  ],
+  "useRestrictions": "Use only for soldering, with fume extraction or good ventilation, and always put the hot iron back in its holder when you are not using it.",
+  "manualUrl": "https://hakkousa.com/amfile/file/download/file/3894/product/13169/",
+  "sources": [
+    "http://www.hakko.com/english/products/hakko_fx888dx_spec.html",
+    "http://www.hakko.com/english/products/hakko_fx888dx.html",
+    "https://hakkousa.com/fx-888dx.html",
+    "https://hakkousa.com/amfile/file/download/file/3894/product/13169/",
+    "https://hakkousa.com/amfile/file/download/file/3893/product/13169/"
+  ]
+}

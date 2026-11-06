@@ -1,0 +1,70 @@
+{
+  "displayName": "Festool Domino DF 500",
+  "officialName": "Festool DOMINO DF 500 Q Joining Machine (Dowel Jointer)",
+  "description": "The Domino DF 500 is a handheld joining machine. Its cutter spins and swings side to side at the same time, so it cuts an oval mortise that takes a matching Domino tenon. In the makerspace it is used for frames, carcasses, mitres and panel joints in solid wood and sheet goods. Built-in stops let you place mortises from a reference edge without marking each one out. Joints cannot rotate, even with a single tenon.",
+  "specs": [
+    {
+      "label": "Power consumption",
+      "value": "420 W"
+    },
+    {
+      "label": "No-load speed",
+      "value": "25,500 rpm"
+    },
+    {
+      "label": "Routing depth",
+      "value": "presets of 12, 15, 20, 25 and 28 mm (28 mm max)"
+    },
+    {
+      "label": "Cutter diameters",
+      "value": "4, 5, 6, 8, 10 mm"
+    },
+    {
+      "label": "Domino tenon sizes",
+      "value": "4 x 20 mm to 10 x 50 mm"
+    },
+    {
+      "label": "Routing height adjustment",
+      "value": "5–30 mm"
+    },
+    {
+      "label": "Mitre angle",
+      "value": "0–90°, with detents at 0°, 22.5°, 45°, 67.5° and 90°"
+    },
+    {
+      "label": "Dust extraction port",
+      "value": "27 mm diameter"
+    }
+  ],
+  "tags": [
+    "joinery",
+    "mortise and tenon",
+    "loose tenon",
+    "dowel jointer",
+    "woodworking",
+    "furniture",
+    "cabinet making",
+    "mitre joints"
+  ],
+  "materials": [
+    "softwood",
+    "hardwood",
+    "chipboard",
+    "plywood",
+    "fibreboard (MDF)"
+  ],
+  "ppeRequired": [
+    "safety glasses",
+    "hearing protection",
+    "P2 dust mask",
+    "protective gloves when changing cutters only"
+  ],
+  "useRestrictions": "Only trained users may operate it; clamp the workpiece, hold the tool with both hands, connect a dust extractor, and set the routing depth at least 3 mm less than the workpiece thickness.",
+  "manualUrl": "https://media.cdn.festool.io/productmedia/Images/attachment/579f826c-53e2-11ef-8a53-005056b3ad01.pdf",
+  "sources": [
+    "https://media.cdn.festool.io/productmedia/Images/attachment/579f826c-53e2-11ef-8a53-005056b3ad01.pdf",
+    "https://www.festool.com/products/domino-jointing-system/jointing-machines/578462---df-500-rq-plus",
+    "https://www.festoolusa.com/products/domino-joiners/joinery-machines/578544---df-500-rq-set-us",
+    "https://www.machinery4wood.co.uk/extraimages/domino_df500_jointing_machine_manual.pdf"
+  ]
+}

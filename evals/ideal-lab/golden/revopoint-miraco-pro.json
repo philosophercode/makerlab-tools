@@ -1,0 +1,64 @@
+{
+  "displayName": "Revopoint MIRACO Pro",
+  "officialName": "Revopoint MIRACO Pro 3D Scanner",
+  "description": "The MIRACO Pro is a handheld 3D scanner that works on its own, without a computer or cables. It captures real objects as digital 3D models that you can use for reverse engineering, CAD reference or 3D printing. Near mode picks up fine detail on small parts, and far mode quickly covers large objects such as vehicles or people. You can scan and process models on its built-in touchscreen, then export STL or OBJ files.",
+  "specs": [
+    {
+      "label": "Technology",
+      "value": "Quad-camera infrared structured light (Class 1 infrared light source)"
+    },
+    {
+      "label": "Single-frame accuracy",
+      "value": "Up to 0.05 mm (near mode); up to 0.3 mm (far mode)"
+    },
+    {
+      "label": "Single-frame precision",
+      "value": "Up to 0.02 mm"
+    },
+    {
+      "label": "Working distance",
+      "value": "100–1000 mm"
+    },
+    {
+      "label": "Scan volume",
+      "value": "Minimum 10 × 10 × 10 mm; maximum 4 × 4 × 4 m"
+    },
+    {
+      "label": "Single capture area",
+      "value": "28 × 53 mm at 100 mm; 975 × 775 mm at 1000 mm"
+    },
+    {
+      "label": "Scanning speed",
+      "value": "Up to 15 fps"
+    },
+    {
+      "label": "Battery and weight",
+      "value": "Internal 5000 mAh battery, up to 2 h of scanning; 750 g"
+    }
+  ],
+  "tags": [
+    "3d scanning",
+    "3d scanner",
+    "reverse engineering",
+    "structured light",
+    "color scanning",
+    "body scanning",
+    "stl",
+    "photogrammetry alternative"
+  ],
+  "materials": [
+    "Solid, non-reflective objects from 10 mm up to 4 m",
+    "People (face and body scans)",
+    "Shiny, see-through or very dark objects (need scanning spray first)"
+  ],
+  "ppeRequired": [],
+  "useRestrictions": "Do not shine the scanner into anyone's eyes for long periods (Class 1 infrared light), and warn subjects before scanning because the flashing lights may not be suitable for people with photosensitive epilepsy.",
+  "manualUrl": "https://doc.revopoint3d.com/doc/miraco/",
+  "sources": [
+    "https://dl.revopoint3d.com/brochure/miracopro/miracopro-brochure-en.pdf",
+    "https://doc.revopoint3d.com/doc/miraco/",
+    "https://www.revopoint3d.com/products/standalone-3d-scanner-miraco",
+    "https://www.revopoint3d.com/pages/support-miraco",
+    "https://www.revopoint3d.com/blogs/blog/how-to-use-miraco-pro-pluss-far-mode-and-near-modes"
+  ]
+}

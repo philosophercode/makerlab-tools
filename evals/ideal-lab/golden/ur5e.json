@@ -1,0 +1,66 @@
+{
+  "displayName": "Universal Robots UR5e",
+  "officialName": "Universal Robots UR5e (e-Series collaborative robot)",
+  "description": "The UR5e is a collaborative robot arm with six rotating joints and a medium payload. It is designed to work near people when a risk assessment supports that. In a makerspace it is used to learn robot programming and to build pick-and-place, assembly, testing and automation projects. You program it on a touchscreen teach pendant, or teach positions by moving the arm by hand in Freedrive mode. A sensor at the tool flange measures force and torque, so the arm can do tasks that need to sense contact.",
+  "specs": [
+    {
+      "label": "Maximum payload",
+      "value": "5 kg (11 lb)"
+    },
+    {
+      "label": "Reach",
+      "value": "850 mm (33.5 in)"
+    },
+    {
+      "label": "Degrees of freedom",
+      "value": "6 rotating joints"
+    },
+    {
+      "label": "Pose repeatability (ISO 9283)",
+      "value": "± 0.03 mm"
+    },
+    {
+      "label": "Joint speed",
+      "value": "max 180 °/s; tool speed approx. 1 m/s in a typical program"
+    },
+    {
+      "label": "Force/torque sensing accuracy",
+      "value": "± 4.0 N force, ± 0.3 Nm torque"
+    },
+    {
+      "label": "Power",
+      "value": "100–240 VAC, 47–440 Hz supply; 570 W max, approx. 200 W in a typical program"
+    },
+    {
+      "label": "Robot arm weight",
+      "value": "20.7 kg (45.7 lb)"
+    }
+  ],
+  "tags": [
+    "robot arm",
+    "cobot",
+    "collaborative robot",
+    "automation",
+    "pick and place",
+    "robotics",
+    "ros",
+    "end effector"
+  ],
+  "materials": [
+    "Light parts and objects handled with a gripper or end effector, within the 5 kg payload including the tool",
+    "End effectors mounted on the ISO 9409-1-50-4-M6 tool flange"
+  ],
+  "ppeRequired": [
+    "Safety glasses",
+    "Closed-toe shoes"
+  ],
+  "useRestrictions": "Only trained users may run the robot, and only after a risk assessment of the setup with the tool attached; keep the total payload under 5 kg, check that the safety settings are correct, and keep the emergency stop within reach.",
+  "manualUrl": "https://www.universal-robots.com/manuals/EN/PDF/SW5_24/user-manual-UR5e-PDF_online/710-965-00_UR5e_User_Manual_en_Global.pdf",
+  "sources": [
+    "https://www.universal-robots.com/manuals/EN/HTML/SW5_25/Content/prod-usr-man/complianceUR5e/H_g5_sections/appendix_g5/tech_spec_sheet.htm",
+    "https://www.universal-robots.com/manuals/EN/DataSheets/UR5e_techsheet_pdf_online/UR5e_techsheet_en.pdf",
+    "https://www.universal-robots.com/manuals/EN/TechSheets/UR5e_techsheet_pdf_online/UR5e_techsheet_en.pdf",
+    "https://www.universal-robots.com/media/1807465/ur5e_e-series_datasheets_web.pdf",
+    "https://www.universal-robots.com/manuals/EN/PDF/SW5_24/user-manual-UR5e-PDF_online/710-965-00_UR5e_User_Manual_en_Global.pdf"
+  ]
+}

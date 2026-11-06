@@ -1,0 +1,78 @@
+{
+  "displayName": "Bambu Lab H2D",
+  "officialName": "Bambu Lab H2D",
+  "description": "The Bambu Lab H2D is an enclosed FDM 3D printer with two nozzles. It builds parts layer by layer from plastic filament, so you can make prototypes, enclosures, fixtures and functional parts. With two nozzles, one print can combine two colours or materials, such as rigid and flexible plastic or a separate support material. Its heated chamber helps when printing engineering plastics like ABS, PC, nylon and fibre-filled filaments.",
+  "specs": [
+    {
+      "label": "Build volume, single nozzle (W×D×H)",
+      "value": "325 × 320 × 325 mm"
+    },
+    {
+      "label": "Build volume, both nozzles (W×D×H)",
+      "value": "300 × 320 × 320 mm"
+    },
+    {
+      "label": "Max nozzle temperature",
+      "value": "350 °C"
+    },
+    {
+      "label": "Max heatbed temperature",
+      "value": "120 °C"
+    },
+    {
+      "label": "Max chamber temperature (active heating)",
+      "value": "65 °C"
+    },
+    {
+      "label": "Filament diameter",
+      "value": "1.75 mm"
+    },
+    {
+      "label": "Nozzle diameters",
+      "value": "0.4 mm included; 0.2, 0.6, 0.8 mm supported"
+    },
+    {
+      "label": "Max power",
+      "value": "2200 W at 220 V / 1320 W at 110 V"
+    }
+  ],
+  "tags": [
+    "3d printing",
+    "fdm",
+    "dual nozzle",
+    "multi-material",
+    "prototyping",
+    "pla",
+    "abs",
+    "carbon fiber"
+  ],
+  "materials": [
+    "PLA",
+    "PETG",
+    "TPU",
+    "PVA",
+    "BVOH",
+    "ABS",
+    "ASA",
+    "PC",
+    "PA (nylon)",
+    "PET",
+    "Carbon/glass fibre reinforced PLA, PETG, PA, PET, PC, ABS, ASA",
+    "PPA-CF/GF",
+    "PPS",
+    "PPS-CF/GF"
+  ],
+  "ppeRequired": [
+    "Safety glasses when removing parts or support material",
+    "Heat-resistant gloves when handling the hot nozzle or bed"
+  ],
+  "useRestrictions": "Only trained users may run the printer, and the optional laser and cutting modules need separate staff authorisation and the laser-safety enclosure.",
+  "manualUrl": "https://wiki.bambulab.com/en/h2d",
+  "sources": [
+    "https://bambulab.com/en/h2d/tech-specs",
+    "https://wiki.bambulab.com/en/h2/manual/printable-range-for-dual-nozzles",
+    "https://wiki.bambulab.com/en/h2/manual/h2d-intro",
+    "https://wiki.bambulab.com/en/h2d",
+    "https://eu.store.bambulab.com/products/h2d"
+  ]
+}

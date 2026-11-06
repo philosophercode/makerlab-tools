@@ -1,0 +1,115 @@
+Ideal-lab eval
+Tuned set — 10 tools
+  Loop pass (all stages good): 0%
+  Identify: right machine 80%
+  Listing: good 0% · mean 2.9/5 · grounded 3.6/5 · description 2.9/5 · 34 words
+  Checks: English 90% · manual 60% (PDF 50%) · links resolve 50% · zone 10% · citations verified 100%
+  Photo: top pick good 20% · good in top 3 20% · maker's 60% · cutout OK 50%
+Held out — 3 tools
+  Loop pass (all stages good): 0%
+  Identify: right machine 67%
+  Listing: good 0% · mean 3.3/5 · grounded 3.5/5 · description 3.5/5 · 32 words
+  Checks: English 67% · manual 33% (PDF 33%) · links resolve 67% · zone 67% · citations verified 100%
+  Photo: top pick good 33% · good in top 3 33% · maker's 33% · cutout OK 33%
+  Cost: $0.29 this run (pipeline $0.29 fresh of $0.29 if uncached, judge $0.00)
+
+✗ bambu-h2d — 128 s
+  identified: Bambu Lab H2D Laser Full Combo ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✗ · zone ✗ · citations 100% · 40 words · image chosen ✓
+  listing ✗: machine yes, accuracy 2, grounded 2, description 3, specs 3, keywords 3, safety 2, name ✓ — The draft describes the Laser Full Combo bundle as if the laser and cutting modules are standard, and lists no PPE despite a Class 4 laser. It gives a wrong dual-nozzle height (325 mm instead of 320 mm), and omits max power and the heated-chamber purpose from the description.
+    unsupported: recommended space 700*700*1100 mm³ | dual nozzle height 325 mm | total volume height 325 mm | cutting area 300*285 mm² | drawing area 300*255 mm² | cutting blade 45°*0.35 mm | blade pressure 50-600 gf | cutting module max thickness 0.5 mm | pen drawings
+  photo 1: store.bblcdn.com ✗ model yes, plain, shop — The Bambu Lab H2D with AMS units is shown on a plain light background, but a promotional 'Free Shipping $150 Off' badge is overlaid.
+  photo 2: store.bblcdn.com ✗ model yes, plain, shop — The printer's front reads H2D and sits on a plain light grey backdrop, but a 'Free Shipping $150 Off' promo badge and sales disclaimer text are overlaid.
+  photo 3: store.bblcdn.com ✗ model yes, plain, shop — The Bambu Lab H2D, labelled on the front, is shown on a plain light background, but a 'Free Shipping $150 Off' promo badge and a disclaimer text overlay are present.
+  cutout: clean
+
+✗ formlabs-form-4 — 87 s
+  identified: Formlabs Form 4 Resin 3D Printer ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✗ · citations 100% · 29 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 3, description 3, specs 2, keywords 2, safety 1, name ✓ — The draft lists no PPE or use restrictions for a resin printer, where gloves, eye protection, IPA ventilation and training are needed. It is also missing most reference specs (build volume, layer thickness, light source, power), and the 'Form 4 manual' link is actually the Form Studio 1 manual.
+    unsupported: Low Force Display (LFD) technology | Backlight unit LEDs: 60
+  photo 1: formlabs-media.formlabs.com ✗ model yes, busy — The machine matches the Formlabs Form 4 design, but it sits on a workbench in a dark workshop with other machines behind it, not on a plain background.
+  cutout: bad, background left
+
+✗ trotec-speedy-400 — 66 s
+  identified: Trotec Speedy 400 ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✗ · citations 100% · 32 words · image chosen ✗
+  listing ✗: machine yes, accuracy 4, grounded 2, description 3, specs 4, keywords 3, safety 1, name ✓ — The draft gives no PPE or use restrictions for a CO2 laser cutter: no eye protection, no exhaust or lid rule, and no warning about fire or staying with the job. Its description is also thin, and several specs are not in the source excerpts.
+    unsupported: Accuracy +/- 0.015 mm over whole working area | Addressable accuracy 5 μm | Max material load 100 kg static / 30 kg dynamic | Power consumption 230V 10.2 A / 115V 15.3 A | Connectivity: Ethernet; optional Wifi
+  photo: none found
+  cutout: —
+
+✗ glowforge-pro — 4 s
+  error: identify_tools was not called (0 calls). The assistant said: The MakerLAB catalog doesn’t list a Glowforge Pro. It does list the [Trotec Speedy 400](/tools/trotec-speedy-400) laser cutter.
+
+✗ shaper-origin — 105 s
+  identified: Shaper Origin Handheld CNC Router ✓
+  checks: English ✓ · manual ✗ · links ✓ · zone ✗ · citations 100% · 32 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 3, description 3, specs 4, keywords 3, safety 1, name ✓ — The draft has no PPE or use restrictions for a handheld router, which needs eye, hearing and dust protection. Its description and tags are also thinner than the reference and miss how ShaperTape tracking works.
+    unsupported: 1/4" collet | accepts any 1/4" shank router bits | 43mm depth of cut | 120 VAC 60Hz input power | 6.75 kg weight (source says 9.75 kg) | dimensions 339 x 227 x 306 mm | included router bits 1/4", 1/8", engraving bit
+  photo 1: a-us.storyblok.com ✓ model yes, plain — The whole Shaper Origin handheld CNC router, with the 'SHAPER | ORIGIN' branding visible on its screen, is shown on a plain white background with no promotional overlays.
+  photo 2: a-us.storyblok.com ✓ model yes, plain — This is a side view of the Shaper Origin handheld CNC router, recognisable by its angled touchscreen, rounded grip handle and clear spindle shield, shown whole on plain white.
+  photo 3: a-us.storyblok.com ✓ model yes, plain — A front view of the whole Shaper Origin handheld CNC router, with its Shaper logo, two black handles and power cord, on a plain white background.
+  cutout: kept as is
+
+✗ bantam-pcb-mill — 147 s
+  identified: Bantam Tools Desktop PCB Milling Machine ✓
+  checks: English ✓ · manual ✓ (PDF ✗) · links ✗ · zone ✗ · citations 100% · 44 words · image chosen ✗
+  listing ✗: machine yes, accuracy 5, grounded 5, description 3, specs 4, keywords 3, safety 1, name ✓ — No PPE or use restrictions at all: eye and hearing protection, never leaving it unattended and the FR-4/steel restrictions are all missing. The description is thin and padded with a spec, and there are only two tags.
+  photo: none found
+  cutout: —
+
+✗ sawstop-pcs — 135 s
+  identified: SawStop Professional Cabinet Saw 3HP ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✗ · zone ✗ · citations 100% · 36 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 3, description 3, specs 4, keywords 2, safety 1, name ✗ — No PPE is listed, and the only use restriction is a generic rain warning; the reference requires eye, hearing and dust protection, no gloves, and trained users only. The description is a single sentence that covers only the 3 HP / 36-inch-fence configuration.
+    unsupported: Blade guard dust collection port: 1-1/2" Outside, 1-1/4" Inside | Riving knife / splitter thickness: 0.090" (2.3 mm) | Do not expose it to rain or use it in damp locations
+  photo 1: www.sawstop.com ✓ model yes, plain — The image shows a whole SawStop cabinet saw labelled 'Professional' with fence rails and an extension table, on a plain white background with no promotional elements.
+  photo 2: www.sawstop.com ✓ model yes, plain — A whole black SawStop cabinet saw labelled 'Professional' is shown with an extended fence rail and legs on a plain white background, with no retail elements.
+  photo 3: www.sawstop.com ✓ model yes, plain — Whole SawStop Professional cabinet saw, labelled 'Professional', with extension table and fence on a plain white background.
+  cutout: clean
+
+✗ hakko-fx-888dx — 115 s
+  identified: Hakko 888 Soldering Station ✗
+  checks: English ✓ · manual ✗ · links ✗ · zone ✗ · citations 100% · 18 words · image chosen ✓
+  listing ✗: machine no, accuracy 2, grounded 5, description 2, specs 3, keywords 2, safety 1, name ✗ — The draft describes the discontinued FX-888, not the FX-888DX. Its specs therefore contradict the reference (70 W vs 100 W, 200–480 °C vs 50–480 °C, no presets), and it has no PPE or use restrictions.
+  photo 1: hakko.co.uk ✗ model no, plain, shop — The red LED readout matches the older FX-888D rather than the FX-888DX, and large 'Discontinued Unavailable to purchase' text is overlaid on a white background.
+  cutout: bad, background left
+
+✗ revopoint-miraco-pro — 131 s
+  identified: Revopoint MIRACO Pro Handheld 3D Scanner ✓
+  checks: English ✓ · manual ✗ · links ✓ · zone ✗ · citations 100% · 37 words · image chosen ✓
+  listing ✗: machine yes, accuracy 5, grounded 4, description 3, specs 4, keywords 3, safety 3, name ✓ — Use restrictions omit the Class 1 infrared eye-exposure and photosensitive-epilepsy warnings in the brochure, and no materials are listed. The description is thin, with no uses such as reverse engineering or 3D printing and no export formats, and the tags miss search terms like reverse engineering or STL.
+    unsupported: Compatible operating systems: Windows 10/11 (64-bit), macOS 11.0 or better
+  photo 1: global.revopoint3d.com ✗ model unsure, plain — It is a Revopoint MIRACO-style scanner with a flip-out screen, but nothing visible separates the Pro from the standard MIRACO.
+  photo 2: global.revopoint3d.com ✗ model unsure, plain — The whole Revopoint MIRACO scanner is shown on a plain white background, but the visible 'MIRACO 3D SCANNER' label doesn't confirm the Pro version over the standard or Plus models, which look nearly identical.
+  photo 3: global.revopoint3d.com ✗ model unsure, plain, shop — This is clearly a Revopoint MIRACO scanner on white, but the Pro cannot be told apart from other MIRACO models, and a Red Dot award badge is overlaid.
+  cutout: clean
+
+✗ ur5e — 162 s
+  identified: Universal Robots UR5e ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 41 words · image chosen ✓
+  listing ✗: machine yes, accuracy 3, grounded 5, description 3, specs 4, keywords 2, safety 1, name ✓ — The draft gives no PPE and no use restrictions, though the reference requires training, a risk assessment, payload limits and an emergency stop within reach. Its materials field lists the arm's construction materials instead of what it handles, and its tags are too sparse for students to find it.
+  photo 1: a.storyblok.com ✗ model unsure, plain — This is clearly a whole Universal Robots e-Series arm on a plain white background, but without scale or a visible model label it cannot be confirmed as the UR5e rather than another e-Series model like the UR10e or UR16e.
+  cutout: kept as is
+
+✗ prusa-core-one (held out) — 2 s
+  error: identify_tools was not called (0 calls). The assistant said: I don’t see a Prusa CORE One in the MakerLAB catalog. The catalog lists the [Form 4](/tools/form-4) and [Trotec Speedy 400](/tools/trotec-speedy-400).
+
+✗ rigol-ds1054z (held out) — 127 s
+  identified: Rigol DS1054Z Digital Oscilloscope ✓
+  checks: English ✓ · manual ✗ · links ✓ · zone ✓ · citations 100% · 31 words · image chosen ✓
+  listing ✗: machine yes, accuracy 5, grounded 2, description 3, specs 4, keywords 2, safety 2, name ✗ — The draft leaves out the CAT I and probe-ground restriction and gives only two tags. Its description is a bare spec statement with no makerspace uses, and the display name drops the model number.
+    unsupported: input coupling DC/AC/GND | input impedance 1 MΩ || 15 pF | max input voltage CAT I 300 Vrms / CAT II 100 Vrms / 1000 Vpk | vertical scale 1 mV/div to 10 V/div | timebase 5 ns/div to 50 s/div | auto measurements list | 5 measurements at the same time | Parallel decoding | standard ports USB Host/Device, LAN, Aux Out | power 100–240 V, 45–440 Hz | maximum power 50 W
+  photo 1: www.rigol.com ✗ model no, plain — This is a Rigol DS1000Z-series scope, but the LA button and logic-analyzer connector point to a Plus/MSO variant rather than the plain DS1054Z.
+  photo 2: www.rigol.com ✗ model no, plain — This rear view of a Rigol scope shows Source 1/Source 2 generator outputs, which points to a DS1000Z-S variant rather than the DS1054Z, on a plain white background.
+  cutout: kept as is
+
+✗ festool-domino-500 (held out) — 152 s
+  identified: Festool DOMINO DF 500 Q ✓
+  checks: English ✓ · manual ✓ (PDF ✓) · links ✓ · zone ✓ · citations 100% · 33 words · image chosen ✓
+  listing ✗: machine yes, accuracy 4, grounded 5, description 4, specs 4, keywords 3, safety 1, name ✗ — The draft gives no PPE or use restrictions at all: no eye, hearing or dust protection, and no rule to keep the routing depth at least 3 mm under the workpiece thickness. The display name also drops the model number, and the tags and materials are very thin.
+  photo 1: manuals.plus ✓ model yes, plain — The compact body, fence and top dial match the Festool Domino DF 500, shown whole with its hose on a plain white background with no retail elements.
+  photo 2: d1mv2b9v99cq0i.cloudfront.net ✓ model yes, plain — This is the Festool Domino DF 500 joiner, shown whole with its Systainer, cable and accessories on a plain white background with no retail elements.
+  photo 3: img.misterworker.com ✓ model yes, plain — The whole Festool Domino DF 500 joiner appears on a plain white background, shown with its Systainer case, cord and fence accessories, and nothing promotional over it.
+  cutout: rough, cut into product

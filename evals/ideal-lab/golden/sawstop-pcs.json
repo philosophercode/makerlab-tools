@@ -1,0 +1,71 @@
+{
+  "displayName": "SawStop PCS",
+  "officialName": "SawStop 10\" Professional Cabinet Saw (PCS)",
+  "description": "The SawStop PCS is a 10-inch cabinet table saw with a cast-iron top. In the shop it is used to rip and crosscut solid wood and sheet goods, and to cut dados and bevels. Its safety system senses when skin touches the spinning blade. It then stops the blade in under 5 milliseconds and drops it below the table. A riving knife, a blade guard and a 4-inch dust port help keep cuts safe and clean.",
+  "specs": [
+    {
+      "label": "Blade diameter / tilt",
+      "value": "10 in, tilts left"
+    },
+    {
+      "label": "Max depth of cut",
+      "value": "3 1/8 in at 0°; 2 1/4 in at 45°"
+    },
+    {
+      "label": "Rip capacity, right of blade",
+      "value": "30 in, 36 in or 52 in, depending on fence fitted"
+    },
+    {
+      "label": "Cast-iron table with extension wings",
+      "value": "44 in W x 27 in D"
+    },
+    {
+      "label": "Motor",
+      "value": "1.75 HP, 120 V, 14 A; or 3 HP, 230 V single-phase, 13 A (NEMA 6-15P plug)"
+    },
+    {
+      "label": "Dado capacity",
+      "value": "8 in diameter, max 29/32 in wide (needs dado brake cartridge and insert)"
+    },
+    {
+      "label": "Blade stop time on skin contact",
+      "value": "less than 5 ms"
+    },
+    {
+      "label": "Dust collection port",
+      "value": "4 in"
+    }
+  ],
+  "tags": [
+    "table saw",
+    "woodworking",
+    "ripping",
+    "crosscutting",
+    "dado",
+    "bevel cuts",
+    "plywood",
+    "flesh-sensing safety"
+  ],
+  "materials": [
+    "solid hardwood",
+    "softwood",
+    "plywood",
+    "MDF and other wood-based sheet goods"
+  ],
+  "ppeRequired": [
+    "safety glasses",
+    "hearing protection",
+    "dust mask or respirator",
+    "no gloves, loose clothing or jewelry; tie back long hair"
+  ],
+  "useRestrictions": "Only trained users may run it, and only on wood and wood-based materials (no metal and no sanding or cutoff discs), with the riving knife or guard fitted; bypass mode and blade, dado or brake-cartridge changes are for shop staff only.",
+  "manualUrl": "https://www.sawstop.com/wp-content/uploads/2021/10/Owners-Manual-Professional-Cabinet-Saw-300-1.pdf",
+  "sources": [
+    "https://www.sawstop.com/product/professional-cabinet-saw-pcs175-pfa30/",
+    "https://www.sawstop.com/product/professional-cabinet-saw-pcs31230-pfa30/",
+    "https://www.sawstop.com/product/professional-cabinet-saw-pcs31230-tgp252/",
+    "https://www.sawstop.com/compare/professional-cabinet-saw",
+    "https://www.sawstop.com/wp-content/uploads/2021/10/Owners-Manual-Professional-Cabinet-Saw-300-1.pdf",
+    "https://sawstop.eu/wp-content/uploads/2025/07/Professional-Cabinet-Saw-Owners-Manual_EU-English-Rev-A-85-007951-00_small.pdf"
+  ]
+}

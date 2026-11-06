@@ -1,0 +1,69 @@
+{
+  "displayName": "Formlabs Form 4",
+  "officialName": "Formlabs Form 4",
+  "description": "The Form 4 is a resin (masked stereolithography) 3D printer. It uses 405 nm light to harden liquid photopolymer resin layer by layer. In a makerspace it makes detailed, smooth prototypes, snap-fit assemblies, small enclosures, jigs and molds. Resin comes from cartridges and is filled into the tank automatically. Finished parts must be washed in IPA and then UV post-cured.",
+  "specs": [
+    {
+      "label": "Build volume (W × D × H)",
+      "value": "200 × 125 × 210 mm"
+    },
+    {
+      "label": "Layer thickness",
+      "value": "25–200 µm (depends on material)"
+    },
+    {
+      "label": "XY resolution (pixel size)",
+      "value": "50 µm"
+    },
+    {
+      "label": "Light source",
+      "value": "405 nm LED backlight with LCD mask"
+    },
+    {
+      "label": "Typical XY tolerance",
+      "value": "±0.15% for 1–30 mm features (lower limit ±0.02 mm)"
+    },
+    {
+      "label": "Maximum print speed",
+      "value": "100 mm/hr"
+    },
+    {
+      "label": "Power requirements",
+      "value": "100–240 VAC, 4.8 A, 50/60 Hz, 480 W"
+    },
+    {
+      "label": "Operating environment",
+      "value": "18–28 °C"
+    }
+  ],
+  "tags": [
+    "3d printing",
+    "resin printer",
+    "sla",
+    "msla",
+    "photopolymer",
+    "rapid prototyping",
+    "high detail",
+    "molds"
+  ],
+  "materials": [
+    "Formlabs photopolymer resins (general purpose, tough, rigid, flexible/elastic, silicone, high-temperature, flame-retardant, castable, ceramic)",
+    "Third-party 405 nm photopolymer resins via Open Material Mode"
+  ],
+  "ppeRequired": [
+    "Nitrile gloves",
+    "Safety glasses",
+    "Lab coat or apron"
+  ],
+  "useRestrictions": "Users must complete training before printing, use only resins the lab has approved, and wash parts in IPA only in a ventilated area.",
+  "manualUrl": "https://formlabs.com/support/Manuals-and-documentation/",
+  "sources": [
+    "https://formlabs.com/3d-printers/resin/tech-specs/",
+    "https://formlabs.com/products/form-4-basic-package/",
+    "https://formlabs.com/3d-printers/form-4/",
+    "https://formlabs.com/support/What-is-the-largest-part-I-can-print-on-a-Formlabs-printer/",
+    "https://formlabs.com/support/Manuals-and-documentation/",
+    "https://formlabs.com/support/Quick-Start-Guide-Form-4/",
+    "https://formlabs.com/support/Setting-up-your-Form-4-generation-printer/"
+  ]
+}

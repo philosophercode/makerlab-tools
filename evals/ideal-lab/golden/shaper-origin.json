@@ -1,0 +1,86 @@
+{
+  "displayName": "Shaper Origin",
+  "officialName": "Shaper Tools Shaper Origin (Gen 2) handheld CNC router",
+  "description": "Shaper Origin is a handheld CNC router. You guide it by hand along a path shown on its touchscreen. A camera reads ShaperTape stuck to your work so the tool knows where it is, and it corrects small hand errors as you cut. In a makerspace it is used for joinery, inlays, signs, engraving, templates and fitting hardware. You can import designs from most design software, and because it moves over the work, the piece can be bigger than the tool.",
+  "specs": [
+    {
+      "label": "Maximum cut depth",
+      "value": "43 mm (set on the touchscreen, with automatic bit touch-off)"
+    },
+    {
+      "label": "Automatic correction range",
+      "value": "12 mm (1/2 in); the bit lifts out if you move outside this range"
+    },
+    {
+      "label": "Spindle",
+      "value": "720 W SM1, variable 10,000–26,000 RPM"
+    },
+    {
+      "label": "Collet / bit shank",
+      "value": "1/4 in collet (US models) or 8 mm collet (220–240 V models)"
+    },
+    {
+      "label": "Maximum cutter diameter",
+      "value": "25.4 mm (1 in)"
+    },
+    {
+      "label": "Input power",
+      "value": "120 VAC 60 Hz (US) or 220–240 V, depending on region"
+    },
+    {
+      "label": "Weight",
+      "value": "6.75 kg"
+    },
+    {
+      "label": "Dimensions (W × D × H)",
+      "value": "339 × 227 × 306 mm"
+    }
+  ],
+  "tags": [
+    "cnc router",
+    "handheld cnc",
+    "woodworking",
+    "joinery",
+    "inlay",
+    "engraving",
+    "signage",
+    "plywood"
+  ],
+  "materials": [
+    "hardwood",
+    "softwood",
+    "plywood",
+    "MDF",
+    "acrylic",
+    "polycarbonate",
+    "HDPE",
+    "Delrin",
+    "PVC",
+    "PVC foam",
+    "acetate",
+    "Corian",
+    "cork",
+    "linoleum",
+    "soapstone",
+    "aluminum",
+    "brass",
+    "copper"
+  ],
+  "ppeRequired": [
+    "safety glasses",
+    "hearing protection",
+    "dust mask"
+  ],
+  "useRestrictions": "Use it only on a flat, level surface with the workpiece clamped or taped down, the finger guard fitted, dust extraction connected and both hands on the handles; never use it on a wall or with bearing-guided bits.",
+  "manualUrl": "https://support.shapertools.com/hubfs/Knowledge%20Base%20Documents/Product%20Manual%20Gen%202/Origin%20Gen2%20-%20Safety%20Guide_en_de_fr.pdf?hsLang=en",
+  "sources": [
+    "https://www.shapertools.com/en-us/origin",
+    "https://www.shapertools.com/en-au/store/product/shaper-origin-gen2",
+    "https://support.shapertools.com/hc/en-us/articles/115002740973-what-type-of-spindle-does-origin-ship-with",
+    "https://support.shapertools.com/hc/en-us/articles/115002985634-guide-to-stock-bits",
+    "https://support.shapertools.com/hc/en-us/articles/115002740813-what-materials-can-i-cut-with-origin",
+    "https://support.shapertools.com/hubfs/Knowledge%20Base%20Documents/Product%20Manual%20Gen%202/Origin%20Gen2%20-%20Safety%20Guide_en_de_fr.pdf?hsLang=en",
+    "https://support.shapertools.com/hubfs/Knowledge%20Base%20Documents/Product%20Manual%20Gen%202/Origin%20Gen2%20-%20Quick%20Guide_en_de_fr.pdf?hsLang=en",
+    "https://support.shapertools.com/hubfs/Knowledge%20Base%20Documents/Product%20Manual%20Gen%201/ENG-Origin%20Product%20Manual.pdf?hsLang=en"
+  ]
+}

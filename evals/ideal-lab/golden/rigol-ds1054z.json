@@ -1,0 +1,64 @@
+{
+  "displayName": "Rigol DS1054Z",
+  "officialName": "RIGOL DS1054Z Digital Oscilloscope (DS1000Z Series)",
+  "description": "The DS1054Z is a four-channel bench digital oscilloscope. It draws voltage signals as waveforms over time on a 7-inch colour screen. In a makerspace it is used to debug and check electronics projects, such as microcontroller outputs, PWM, sensor signals, power-supply ripple and serial buses. It can watch four signals at once and has automatic measurements, an FFT view and USB/LAN ports for saving or remote control, so it suits both learning and real troubleshooting.",
+  "specs": [
+    {
+      "label": "Analog bandwidth (-3 dB)",
+      "value": "DC to 50 MHz (calculated rise time 7 ns)"
+    },
+    {
+      "label": "Analog channels",
+      "value": "4"
+    },
+    {
+      "label": "Max real-time sample rate",
+      "value": "1 GSa/s (1 channel), 500 MSa/s (2 channels), 250 MSa/s (3 or 4 channels)"
+    },
+    {
+      "label": "Memory depth",
+      "value": "Up to 24 Mpts (1 channel); 6 Mpts with 3 or 4 channels"
+    },
+    {
+      "label": "Vertical scale",
+      "value": "1 mV/div to 10 V/div (1X probe), 8-bit resolution"
+    },
+    {
+      "label": "Timebase scale",
+      "value": "5 ns/div to 50 s/div"
+    },
+    {
+      "label": "Max input voltage (1 MΩ)",
+      "value": "CAT I 300 Vrms, CAT II 100 Vrms, 1000 Vpk transient"
+    },
+    {
+      "label": "Power",
+      "value": "100 V to 240 V AC, 45 Hz to 440 Hz, 50 W max"
+    }
+  ],
+  "tags": [
+    "oscilloscope",
+    "electronics",
+    "signal measurement",
+    "waveform",
+    "debugging",
+    "pwm",
+    "embedded",
+    "test equipment"
+  ],
+  "materials": [
+    "Low-voltage electronic circuits",
+    "Analog signals",
+    "Digital and serial signals (e.g. UART, I2C, SPI)"
+  ],
+  "ppeRequired": [],
+  "useRestrictions": "Rated for Measurement Category I only. Do not connect it to mains-powered circuits, and never clip the probe ground lead to anything but circuit ground, because the probe ground is tied to earth through the scope.",
+  "manualUrl": "https://www.rigol.com/dam/global/downloads/brochures/en/user-manual/oscillosopes/DS1000Z_UserGuide_EN.pdf",
+  "sources": [
+    "https://www.rigol.com/dam/global/downloads/brochures/en/data-sheet/oscilloscopes/DS1000Z_DataSheet_EN.pdf",
+    "https://www.rigol.com/dam/global/downloads/brochures/en/user-manual/oscillosopes/DS1000Z_UserGuide_EN.pdf",
+    "https://mall.rigol.com/oscilloscope/ds1054z.html",
+    "https://www.rigol-uk.co.uk/product/rigol-ds1054z-50mhz-digital-oscilloscope/",
+    "https://assets.testequity.com/te1/Documents/pdf/rigol/Rigol-DS1054Z-Specification.pdf"
+  ]
+}
