@@ -30,9 +30,19 @@ npm run test:all    # everything: lint + typecheck + vitest + playwright (one co
 npm test            # vitest run — one-shot, runs unit + integration + component
 npm run test:watch  # vitest watch mode
 npm run test:coverage   # vitest run --coverage (v8 reporter: text + html)
+npm run test:invariants # test/invariants only: the rules that must always hold (fast-check)
 npm run test:e2e    # playwright test (E2E)
 npm run test:e2e:ui # playwright test --ui (interactive)
 ```
+
+**Invariant tests** (`test/invariants/`, list and rules in its `README.md`):
+ten rules that must hold for any input, most of them property-based with
+[fast-check](https://fast-check.dev) — admin routes refuse non-staff, forged
+cookies stay anonymous, the demo seed never touches a configured database,
+nobody reads another person's tokens, serials never reach non-staff, malformed
+bodies are never a 500, and more. They run with `npm test` (so in CI's
+shards); `INVARIANT_RUNS=2000 npm run test:invariants` runs more cases
+locally. A failure prints fast-check's seed and shrunk counterexample.
 
 **Prerequisite for E2E:** run this **once** before your first `npm run test:e2e`
 — the harness installs `@playwright/test` but not the browser binary:

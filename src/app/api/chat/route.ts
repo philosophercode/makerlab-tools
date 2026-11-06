@@ -87,11 +87,17 @@ export async function POST(req: Request) {
   // beside the session (demo pass spec 2026-10-07 §5.3) — a forged cookie costs
   // an HMAC, never a query — and counts only for an anonymous caller: the turn
   // then runs as that pass (its own chat tier and key while it has budget).
-  const [session, body, demoPass] = await Promise.all([
+  const [session, parsed, demoPass] = await Promise.all([
     resolveIdentity(req),
-    req.json() as Promise<ChatRequest>,
+    // A body that is not JSON, or JSON that is not an object, is a 400, never
+    // a 500 from the destructuring below (invariant test: api-input-fuzz).
+    req.json().catch(() => null) as Promise<unknown>,
     resolveDemoPass(req.headers),
   ]);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return Response.json({ error: "Invalid request." }, { status: 400 });
+  }
+  const body = parsed as ChatRequest;
   const identity = identityWithDemoPass(session, demoPass);
   const pass = identity.demoPass ? demoPass : null;
   const { messages: rawMessages, toolId, locale, pendingId, id: rawChatId, page } = body;
