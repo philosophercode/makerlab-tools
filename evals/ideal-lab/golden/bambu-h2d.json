@@ -1,0 +1,92 @@
+{
+  "displayName": "Bambu Lab H2D",
+  "officialName": "Bambu Lab H2D",
+  "description": "The Bambu Lab H2D is an enclosed dual-nozzle FDM 3D printer. Each nozzle has a single-nozzle build volume of 325 x 320 x 325 mm, and the nozzles reach 350 °C. In a makerspace, students use it to print prototypes, enclosures, fixtures and functional parts. Using two nozzles, they can combine two colours or materials in one print, such as rigid and flexible filament, or use the second nozzle for dissolvable supports.",
+  "specs": [
+    {
+      "label": "Printing technology",
+      "value": "Fused Deposition Modeling"
+    },
+    {
+      "label": "Build volume, single nozzle (W*D*H)",
+      "value": "325*320*325 mm³"
+    },
+    {
+      "label": "Common print area for both nozzles",
+      "value": "300x320 mm, max height 320 mm"
+    },
+    {
+      "label": "Max nozzle temperature",
+      "value": "350 °C"
+    },
+    {
+      "label": "Max heatbed temperature",
+      "value": "120 ℃"
+    },
+    {
+      "label": "Active chamber heating, max temperature",
+      "value": "65 °C"
+    },
+    {
+      "label": "Supported nozzle diameters",
+      "value": "0.2 mm, 0.4 mm, 0.6 mm, 0.8 mm (0.4 mm included)"
+    },
+    {
+      "label": "Filament diameter",
+      "value": "1.75 mm"
+    },
+    {
+      "label": "Max toolhead speed",
+      "value": "1000 mm/s"
+    },
+    {
+      "label": "Max toolhead acceleration",
+      "value": "20,000 mm/s²"
+    },
+    {
+      "label": "Supported build plates",
+      "value": "Textured PEI Plate, Smooth PEI Plate"
+    },
+    {
+      "label": "Max power",
+      "value": "2200 W@220 V / 1320 W@110 V"
+    }
+  ],
+  "tags": [
+    "3d printing",
+    "fdm",
+    "dual nozzle",
+    "multi-material",
+    "prototyping",
+    "filament",
+    "enclosures",
+    "functional parts"
+  ],
+  "materials": [
+    "PLA",
+    "PETG",
+    "TPU",
+    "ABS",
+    "ASA",
+    "PC",
+    "PA",
+    "PVA",
+    "BVOH",
+    "PET",
+    "carbon/glass fibre reinforced filaments",
+    "PPA-CF/GF",
+    "PPS"
+  ],
+  "ppeRequired": [
+    "safety glasses"
+  ],
+  "useRestrictions": "Only for students who have completed the lab's 3D printer induction, and the optional laser and cutting modules only for those trained on them by staff.",
+  "manualUrl": "https://wiki.bambulab.com/en/h2d",
+  "sources": [
+    "https://bambulab.com/en/h2d/tech-specs",
+    "https://wiki.bambulab.com/en/h2/manual/max-printable-area",
+    "https://bambulab.com/en/support/buying-guide?id=958074357314334720&page=1",
+    "https://us.store.bambulab.com/products/h2d?form=navigation",
+    "https://wiki.bambulab.com/en/h2d"
+  ]
+}

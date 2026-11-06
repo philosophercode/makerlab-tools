@@ -1,0 +1,78 @@
+{
+  "displayName": "Universal Robots UR5e",
+  "officialName": "Universal Robots UR5e (e-Series collaborative robot arm)",
+  "description": "The Universal Robots UR5e is a six-joint collaborative robot arm that can lift up to 5 kg and reach 850 mm. Students program it on its touchscreen teach pendant to pick and place parts, guide grippers and other tools, and test automation, assembly and robotics projects.",
+  "specs": [
+    {
+      "label": "Payload",
+      "value": "5 kg (11 lbs)"
+    },
+    {
+      "label": "Reach",
+      "value": "850 mm (33.5 in)"
+    },
+    {
+      "label": "Degrees of freedom",
+      "value": "6 rotating joints"
+    },
+    {
+      "label": "Pose repeatability (ISO 9283)",
+      "value": "± 0.03 mm"
+    },
+    {
+      "label": "Maximum TCP speed",
+      "value": "4 m/s"
+    },
+    {
+      "label": "Joint working range and maximum speed",
+      "value": "± 360°, ± 180°/s (all six joints)"
+    },
+    {
+      "label": "Force sensing range at tool flange",
+      "value": "Force ± 50.0 N, torque ± 10.0 Nm"
+    },
+    {
+      "label": "Programming",
+      "value": "12 inch touchscreen with PolyScope graphical user interface"
+    },
+    {
+      "label": "Power consumption",
+      "value": "Maximum 570 W; moderate operating settings 200 W"
+    },
+    {
+      "label": "Robot arm weight including cable",
+      "value": "20.6 kg (45.4 lbs)"
+    },
+    {
+      "label": "Footprint",
+      "value": "Ø 151 mm"
+    },
+    {
+      "label": "Tool flange",
+      "value": "EN ISO-9409-1-50-4-M6, M8 8-pin female connector"
+    }
+  ],
+  "tags": [
+    "robot arm",
+    "cobot",
+    "automation",
+    "pick and place",
+    "robotics",
+    "gripper",
+    "programming"
+  ],
+  "materials": [
+    "parts and workpieces up to 5 kg",
+    "grippers and end-of-arm tools"
+  ],
+  "ppeRequired": [
+    "safety glasses"
+  ],
+  "useRestrictions": "Only trained and authorised users may operate it, and it must never be used to handle or lift people or for medical uses.",
+  "manualUrl": "https://www.universal-robots.com/manuals/EN/PDF/SW5_19/user-manual-UR5e-PDF_online/710-965-00_UR5e_User_Manual_en_Global.pdf",
+  "sources": [
+    "https://www.universal-robots.com/manuals/EN/TechSheets/UR5e_techsheet_pdf_online/UR5e_techsheet_en.pdf",
+    "https://www.universal-robots.com/media/1807465/ur5e_e-series_datasheets_web.pdf",
+    "https://www.universal-robots.com/manuals/EN/PDF/SW5_19/user-manual-UR5e-PDF_online/710-965-00_UR5e_User_Manual_en_Global.pdf"
+  ]
+}
