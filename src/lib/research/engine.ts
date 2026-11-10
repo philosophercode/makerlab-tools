@@ -13,6 +13,7 @@ import { verifyCitations } from "../refresh/citations.ts";
 import type { ImageHint } from "../web/read-page.ts";
 import { assembleResearchResult, draftFromFindings, uniqueHosts, uniqueLinks } from "./assemble.ts";
 import { keepEnglishLinks } from "./english-links.ts";
+import { checkAndReviseListing } from "./listing-check.ts";
 import { classifyResearchError } from "./errors.ts";
 import { pickManualPdfs, withManualPdf } from "./manual-pdfs.ts";
 import { parseFetchDraft, parseSearchFindings, type FetchDraft, type ModelLink, type SearchFindings } from "./model-output.ts";
@@ -219,20 +220,26 @@ export async function runRead(
     if (read.pages.length === 0 && read.pdfs.length === 0) {
       draft = draftFromFindings(findings, { keepCandidateLinks: true });
     } else {
+      const system = researchSystemPrompt("read");
+      const messages = buildReadMessages(item, findings, read, categories, opts.reviewerNote ?? null, opts.focus ?? null);
+      let draftText: string;
       try {
         const { text, providerMetadata } = await generateText({
           model: languageModelFor("researchRead"),
-          system: researchSystemPrompt("read"),
-          messages: buildReadMessages(item, findings, read, categories, opts.reviewerNote ?? null, opts.focus ?? null),
+          system,
+          messages,
           providerOptions: providerOptionsFor("researchRead"),
           abortSignal: signal,
           maxRetries: 0,
         });
         console.info(`[research] ${opts.requestId}: read call ${describeGatewayCall(gatewayCallReport(providerMetadata))}`);
+        draftText = text;
         draft = { ...parseFetchDraft(text), sourceUrls: readSourceUrls(read) };
       } catch (error) {
         throw classifyResearchError(error, "read");
       }
+      // The listing's quality gate: a rubric and fact check against the same pages, one revision when it finds a problem.
+      draft = (await checkAndReviseListing({ system, messages }, draftText, draft, { signal, requestId: opts.requestId })).draft;
     }
   }
 

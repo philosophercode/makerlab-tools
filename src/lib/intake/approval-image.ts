@@ -167,11 +167,12 @@ export async function storeResearchImage(
 }
 
 /** What research recorded about a candidate that the cleaning can use. */
-export function pickHints(candidate: Pick<ImageCandidate, "background" | "composite" | "productBox">): PickHints {
+export function pickHints(candidate: Pick<ImageCandidate, "background" | "composite" | "productBox" | "cutoutRejected">): PickHints {
   return {
     background: candidate.background ?? null,
     composite: candidate.composite ?? null,
     productBox: candidate.productBox ?? null,
+    ...(candidate.cutoutRejected ? { cutoutRejected: true } : {}),
   };
 }
 

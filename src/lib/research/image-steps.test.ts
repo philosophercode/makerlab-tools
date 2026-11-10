@@ -223,7 +223,8 @@ describe("findImages", () => {
     expect(row?.research?.canonicalName).toBe("Bambu Lab P1S");
     // The found picture was probed, ranked and cut out, exactly as without a photo.
     expect(imageRequests).toEqual(["studio-front.png"]);
-    expect(rank.doGenerateCalls).toHaveLength(1);
+    // The ranking, then the cutout check (same job; this stub's answer is no check, so the copy is kept).
+    expect(rank.doGenerateCalls).toHaveLength(2);
     expect(row?.research?.images?.candidates).toEqual([
       expect.objectContaining({ url: hint("studio-front").url, rank: 1, background: "plain" }),
     ]);
@@ -325,6 +326,32 @@ describe("findImages", () => {
     expect(JSON.stringify(call.prompt)).toContain("Machine: Bambu Lab P1S");
     expect(call.tools ?? []).toEqual([]);
     expect(await ownedBy(id)).toEqual([]);
+  });
+
+  it("moves the next picture to rank 1 when the cutout check rejects rank 1's copy, and marks rank 1 never to be cut again", async () => {
+    await useLocalBlob();
+    const id = await researchingItem();
+    const order = [1, 0, 2];
+    const check = (ok: boolean) =>
+      JSON.stringify({ sameMachine: true, backgroundRemoved: ok, productIntact: true, cleanEdges: true, goodCover: true, reason: ok ? "clean" : "backdrop left" });
+    const model = textModel((call) =>
+      call === 0
+        ? JSON.stringify({ order, reasons: order.map((n) => `reason ${n}`), images: order.map(() => ({ subject: "product" })) })
+        : check(call !== 1)
+    );
+    setLanguageModel("imageRank", model);
+    const hints = [hint("studio-front"), hint("studio-side", "twitter"), hint("studio-box", "jsonld")];
+
+    await findImages(id, REQUEST, RESULT, hints);
+
+    const images = (await getPendingTool(id))?.research?.images;
+    expect(model.doGenerateCalls).toHaveLength(3);
+    expect(images?.candidates.map((c) => [c.url, c.rank, c.cutoutRejected ?? false])).toEqual([
+      [hints[0].url, 1, false],
+      [hints[1].url, 2, true],
+      [hints[2].url, 3, false],
+    ]);
+    expect(images?.cleaned).toEqual({ attachmentId: expect.any(String), fromUrl: hints[0].url });
   });
 
   it("cuts a plain rank 1 out deterministically and stores it private, owned by the item, with the original's URL", async () => {

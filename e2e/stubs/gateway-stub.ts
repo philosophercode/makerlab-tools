@@ -281,6 +281,10 @@ function answerImageRank(req: ParsedLanguageRequest): WireLanguageBody {
   return textResponse(JSON.stringify({ order, reasons, images }));
 }
 
+const CUTOUT_PASSES = { sameMachine: true, backgroundRemoved: true, productIntact: true, cleanEdges: true, goodCover: true, reason: "E2E stub" };
+/** `LISTING_CHECK_HEADING`'s words, kept here so the stub imports nothing from the app. */
+const LISTING_CHECK_MARK = "## Check the draft (a reviewer's pass";
+
 // ── /v3/ai/language-model ───────────────────────────────────────────────
 
 async function handleLanguageModel(rawReq: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -303,7 +307,17 @@ async function handleLanguageModel(rawReq: IncomingMessage, res: ServerResponse)
     return;
   }
   if (promptHasImage(req)) {
+    // The cutout check (`research/images/check-cutout.ts`): every copy passes.
+    if (promptText(req).includes("background-removed product photos")) {
+      sendLanguageReply(res, false, textResponse(JSON.stringify(CUTOUT_PASSES)));
+      return;
+    }
     sendLanguageReply(res, false, answerImageRank(req));
+    return;
+  }
+  // The listing check (`research/listing-check.ts`): every draft passes.
+  if (promptText(req).includes(LISTING_CHECK_MARK)) {
+    sendLanguageReply(res, false, textResponse(JSON.stringify({ ok: true, issues: [] })));
     return;
   }
   sendLanguageReply(res, false, answerResearchRead(req));

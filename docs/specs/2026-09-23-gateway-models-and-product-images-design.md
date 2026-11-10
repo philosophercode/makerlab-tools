@@ -2724,3 +2724,48 @@ the same model (`manual_eval_questions.model`), and questions are copied between
 from the same model — so the switch rewrites the Luna questions once, and a rerun resumes rather
 than starting over (`--force` is no longer needed for a model change). The dry runs price their
 estimate at the job's model (`src/lib/ai/list-prices.ts`), not at Luna.
+
+### 2026-11-10 — Quality gates: the cutout is checked, the listing is checked (§3.3, §3.5, §4.1, §10)
+
+**What changed.** Two checks, each a cheap model call, between a draft and what an admin sees.
+
+- **The cover gate** (`research/images/cover-gate.ts`, `research/images/check-cutout.ts`). The
+  stage's step 5 no longer cuts rank 1 and keeps whatever passes the cut's pixel checks. Up to
+  **three** ranked pictures are cut in turn (`makeCleanCopy`, unchanged), and each copy is shown to
+  a vision call (job `imageRank`) beside its original, **on magenta**, with five yes/no questions:
+  the same machine, the backdrop gone, the machine intact, clean edges, a good cover. All five must
+  be yes. The first copy that passes is kept, and its picture **moves to rank 1**; a picture that
+  cannot be cut (a busy backdrop with no box) is passed over the same way; an already transparent
+  picture wins as it is. When nothing passes, rank 1 stays first with no copy and the new note
+  **`cutout_rejected`**. Each rejected picture is recorded with **`cutoutRejected: true`**
+  (`ImageCandidate`, optional), and `cleanPickedImage` stores such a picture as downloaded — so
+  approval never re-makes a cutout the check refused. A check that cannot run (no `sharp`, a model
+  failure, an unreadable answer) keeps its copy, as before the gate. Refresh research
+  (`clean: false`) runs no gate; the ideal-lab eval runs it without storing (`checkCovers`).
+- **The listing gate** (`research/listing-check.ts`). After the read pass, one more `researchRead`
+  call continues the same conversation — the read system prompt, the pages, the draft as the
+  assistant's turn — with a rubric: another variant's specs, a value no page states, anything
+  that teaches bypassing a safety system, safety text on the pages but no use restrictions, a
+  description with no headline spec or no concrete student uses, a name a student would not say.
+  When it lists a problem, one revision call rewrites the draft to fix exactly those, and the
+  revision is checked again: it is kept only when it has fewer problems. The
+  revision is parsed as strictly as the draft and must keep its name and description; anything
+  unreadable, or a model failure, keeps the read pass's draft. Links, citations and assembly then
+  run on the result as before.
+
+**Why.** The owner's hand review of the ideal-lab eval (2026-11-10) agreed with the judge on 12 of
+13 drafts, and asked that each step have a quality gate: "find image, evaluate if it's correct
+image and a good candidate for background removal, and then remove background, confirm
+background is removed, and it's like a good image." The eval's cutout failures (backdrop left on
+the Hakko and Bantam, the Formlabs window cut through) pass the cut's own pixel checks: only a look
+at the result tells them apart. Its listing failures were rules the read prompt already states,
+broken anyway (a sibling's specs, an empty or unsafe use restriction).
+
+**Cost.** At most three cutout checks per item, only for copies made (two small images each), and
+one listing check per read, plus a revision and a recheck only when the check finds something. On Luna's flex
+tier that is about two cents an item more [estimate; the eval's cost meter counts it].
+
+**Tests.** `cover-gate.test.ts` (pass, fall back, all rejected, nothing cut, transparent, unreadable
+check), `listing-check.test.ts` (pass, revise and recheck, a revision that fixes nothing, a revision that is not a draft, an unreadable check),
+`image-steps.test.ts` (a rejected rank 1 moves down and is marked), `pick-clean.test.ts` (a marked
+picture is never cut). The E2E Gateway stub passes every check.

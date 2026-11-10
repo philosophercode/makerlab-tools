@@ -37,6 +37,12 @@ function onNoise(): Canvas {
 }
 
 describe("cleanPickedImage", () => {
+  it("stores a picture whose cutout research rejected as it is, never cut again", async () => {
+    const source = await original(onWhite());
+    const picked = await cleanPickedImage(source, { background: "plain", cutoutRejected: true });
+    expect(picked).toEqual({ ...source, cleaned: null, note: "cutout_rejected" });
+  });
+
   it("cuts a plain backdrop away, as rank 1's copy would be", async () => {
     const picked = await cleanPickedImage(await original(onWhite()), { background: "plain" });
 

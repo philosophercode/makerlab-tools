@@ -221,7 +221,10 @@ export type ImageView = (typeof IMAGE_VIEWS)[number];
  * - `product_removed` — the cut would have taken most of the picture, product included;
  * - `fragmented` — what was left fell apart into several large pieces;
  * - `product_too_small` — what was left is a speck of the frame;
- * - `failed` — the image could not be decoded or re-encoded for the cut.
+ * - `failed` — the image could not be decoded or re-encoded for the cut;
+ * - `cutout_rejected` — copies were made, and the cutout check
+ *   (`images/check-cutout.ts`) judged every one a poor cover: backdrop left,
+ *   the machine eaten into, or the wrong machine.
  */
 export const CLEAN_NOTES = [
   "busy_background",
@@ -230,6 +233,7 @@ export const CLEAN_NOTES = [
   "fragmented",
   "product_too_small",
   "failed",
+  "cutout_rejected",
 ] as const;
 export type CleanNote = (typeof CLEAN_NOTES)[number];
 
@@ -284,6 +288,12 @@ export interface ImageCandidate {
    * too"). Absent on older rows and when the ranking gave none.
    */
   productBox?: readonly [number, number, number, number];
+  /**
+   * Research cut this picture and the cutout check judged the copy a poor
+   * cover (`images/check-cutout.ts`): when it is picked, it is stored as it
+   * was downloaded, never cut again. Absent means not cut, or cut and kept.
+   */
+  cutoutRejected?: boolean;
 }
 
 export interface ResearchImages {
@@ -358,6 +368,7 @@ export const imageCandidateSchema: z.ZodType<ImageCandidate> = z.strictObject({
   composite: z.boolean().optional(),
   view: z.enum(IMAGE_VIEWS).optional(),
   productBox: productBoxSchema.optional(),
+  cutoutRejected: z.boolean().optional(),
 });
 
 export const researchImagesSchema: z.ZodType<ResearchImages> = z

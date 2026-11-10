@@ -203,15 +203,16 @@ async function findImage(testCase: IdealLabCase, researched: ResearchOut, resear
 
   const subject = { name: researched.result.canonicalName.trim() || item.name, brand: item.brand };
   const { value: outcome, cost } = await withCostMeter(() =>
-    // As the research workflow's image step runs it (`image-steps.ts`). `clean: false`:
-    // nothing stored, so no database; the cutout is made below, as Use as cover makes it.
+    // As the research workflow's image step runs it (`image-steps.ts`). `clean: false`: nothing
+    // stored, so no database; `checkCovers`: the cover gate still cuts and checks, reorders and
+    // marks rejected cutouts. The cutout is then remade below, as Use as cover makes it.
     findProductImages(
       null as unknown as Db,
       `eval-${testCase.id}`,
       subject,
       researched.hints.filter((hint) => hint.source !== "exa"),
       researched.hints.filter((hint) => hint.source === "exa"),
-      { signal: AbortSignal.timeout(STAGE_TIMEOUT_MS), clean: false, label: testCase.id }
+      { signal: AbortSignal.timeout(STAGE_TIMEOUT_MS), clean: false, checkCovers: true, label: testCase.id }
     )
   );
   const value: ImageOut = { images: outcome.images, imageError: outcome.imageError, cost };

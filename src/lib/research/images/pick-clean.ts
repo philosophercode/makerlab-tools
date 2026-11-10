@@ -30,6 +30,8 @@ export interface PickHints {
   background?: BackgroundClass | null;
   composite?: boolean | null;
   productBox?: readonly number[] | null;
+  /** Research's cutout check rejected this picture's copy: store it as it is, never cut it again. */
+  cutoutRejected?: boolean | null;
 }
 
 export interface PickedImage {
@@ -47,6 +49,7 @@ export async function cleanPickedImage(
   opts: { loadSharp?: SharpLoader } = {}
 ): Promise<PickedImage> {
   const asIs = (note: CleanNote | null): PickedImage => ({ ...original, cleaned: null, note });
+  if (hints.cutoutRejected) return asIs("cutout_rejected");
   try {
     const background = hints.background ?? (await classifyBackground(original.bytes, { loadSharp: opts.loadSharp }));
     if (background === "transparent") return asIs(null);

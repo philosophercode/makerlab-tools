@@ -10,7 +10,7 @@ import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
 import type { ImageHint } from "../web/read-page.ts";
 import { scrub } from "./errors.ts";
 import { collectCandidates, dedupeKey } from "./images/candidates.ts";
-import { makeCleanCopy } from "./images/clean-copy.ts";
+import { chooseCleanCover } from "./images/cover-gate.ts";
 import { probeCandidates } from "./images/probe.ts";
 import { rankCandidates, type RankedImage } from "./images/rank.ts";
 import { ModelOutputError } from "./model-output.ts";
@@ -129,7 +129,7 @@ export async function rankAndClean(
 ): Promise<StageOutcome> {
   const ranked = await rankOnly(itemName, candidates, opts);
   if (isOutcome(ranked)) return ranked;
-  return finish(db, id, ranked, opts.clean !== false);
+  return finish(db, id, ranked, opts.clean !== false, { itemName, signal: opts.signal, label: id });
 }
 
 interface RankOptions {
@@ -158,12 +158,29 @@ async function rankOnly(itemName: string, candidates: readonly ImageHint[], opts
   }
 }
 
-/** Step 5 and the outcome: clean rank 1 (or not) and record the top three. */
-async function finish(db: Db, id: string, ranked: RankedImage[], clean: boolean): Promise<StageOutcome> {
-  const { cleaned, cleanNote } = clean ? await cleanTop(db, id, ranked[0]) : { cleaned: null, cleanNote: null };
+interface GateContext {
+  itemName: string;
+  signal: AbortSignal;
+  label: string;
+  /** Run the gate even when nothing is stored (the ideal-lab eval): the order and the marks, no copy kept. */
+  checkOnly?: boolean;
+}
+
+/**
+ * Step 5 and the outcome: the gated clean cover (`images/cover-gate.ts`) — its
+ * picture moved to rank 1 when it is not already there, and any picture whose
+ * cutout was rejected marked so it is never cut again — then the top three.
+ */
+async function finish(db: Db, id: string, ranked: RankedImage[], clean: boolean, gate: GateContext): Promise<StageOutcome> {
+  const top = clean || gate.checkOnly ? await cleanTop(db, id, ranked, gate, clean) : { cleaned: null, cleanNote: null, order: ranked, rejected: new Set<RankedImage>() };
+  const { cleaned, cleanNote } = top;
   return {
     images: {
-      candidates: ranked.slice(0, 3).map((entry, index) => ({ ...entry.candidate, rank: (index + 1) as 1 | 2 | 3 })),
+      candidates: top.order.slice(0, 3).map((entry, index) => ({
+        ...entry.candidate,
+        rank: (index + 1) as 1 | 2 | 3,
+        ...(top.rejected.has(entry) ? { cutoutRejected: true } : {}),
+      })),
       cleaned,
       ...(cleanNote ? { cleanNote } : {}),
     },
@@ -199,13 +216,20 @@ export async function findProductImages(
   subject: { name: string; brand: string | null },
   pageHints: readonly ImageHint[],
   exaHints: readonly ImageHint[],
-  opts: { signal: AbortSignal; clean?: boolean; label?: string }
+  opts: {
+    signal: AbortSignal;
+    clean?: boolean;
+    label?: string;
+    /** With `clean: false`: still run the cover gate (cut and check, reorder, mark), storing nothing. The ideal-lab eval's mode. */
+    checkCovers?: boolean;
+  }
 ): Promise<StageOutcome> {
   const clean = opts.clean !== false;
   const rankOpts = { signal: opts.signal, brand: subject.brand };
+  const gate: GateContext = { itemName: subject.name, signal: opts.signal, label: opts.label ?? id, checkOnly: opts.checkCovers === true };
   const candidates = collectCandidates(pageHints, exaHints, subject);
   const first = await rankOnly(subject.name, candidates, rankOpts);
-  if (!needsAnotherPictureSearch(first)) return isOutcome(first) ? first : finish(db, id, first, clean);
+  if (!needsAnotherPictureSearch(first)) return isOutcome(first) ? first : finish(db, id, first, clean, gate);
 
   const label = opts.label ?? id;
   const searched = await searchProductPictures(subject, null, { label, signal: opts.signal, maxSearches: 1 });
@@ -216,26 +240,27 @@ export async function findProductImages(
   const secondList = second === null || isOutcome(second) ? [] : second;
   if (secondList.length > 0 && !needsAnotherPictureSearch(secondList)) {
     console.info(`[research] ${label}: a second picture search found a cleaner cover`);
-    return finish(db, id, [...secondList, ...firstList], clean);
+    return finish(db, id, [...secondList, ...firstList], clean, gate);
   }
-  if (firstList.length > 0) return finish(db, id, firstList, clean);
-  if (secondList.length > 0) return finish(db, id, secondList, clean);
+  if (firstList.length > 0) return finish(db, id, firstList, clean, gate);
+  if (secondList.length > 0) return finish(db, id, secondList, clean, gate);
   // Neither ranked anything: the first outcome, unless only the second found (and rejected) pictures.
   if (isOutcome(first) && first.imageError === null && second !== null && isOutcome(second) && second.images?.allRejected) return second;
   return first as StageOutcome;
 }
 
 /**
- * The cleaned copy of rank 1, stored and recorded — or null, with a note when
- * a copy was expected and not made (`images/clean-copy.ts` decides which):
+ * The cleaned cover, stored and recorded — or null, with a note when a copy
+ * was expected and not made. The gate (`images/cover-gate.ts`) picks it: up to
+ * three ranked pictures are cut (`images/clean-copy.ts`) and each copy checked
+ * (`images/check-cutout.ts`) until one passes; the winner moves to rank 1.
  *
- * - no Blob store: null, no note — nothing is cropped or cut;
- * - a product box and a reason to use it: the crop, cut too when its backdrop
- *   is plain (`kind: "cropped_and_cut"`), or kept alone (`kind: "cropped"`,
- *   with the note saying why the backdrop stayed);
- * - otherwise a `plain` rank 1 is cut (no `kind`: a plain cut, as before);
- *   `busy` is null with `busy_background`; `transparent` or unclassified is
- *   null with no note; a cut that failed its checks is null with its note;
+ * - no Blob store: null, no note — nothing is cut or checked, the order stays;
+ * - a winner: its copy (a crop, a cut, or both — `kind`), or none when it is
+ *   already transparent;
+ * - no winner: null, with `cutout_rejected` when a copy was rejected,
+ *   otherwise rank 1's own note (`busy_background`, a cut that failed its
+ *   pixel checks);
  * - a Blob write that failed: null, no note (retrying the whole stage would
  *   pay for the ranking again, for a copy nobody has to choose).
  *
@@ -244,24 +269,35 @@ export async function findProductImages(
 async function cleanTop(
   db: Db,
   id: string,
-  top: RankedImage | undefined
-): Promise<{ cleaned: ResearchImages["cleaned"]; cleanNote: CleanNote | null }> {
-  const none = { cleaned: null, cleanNote: null };
-  if (!top) return none;
-  const uploader = createBlobUploader();
-  if (!uploader) return none;
+  ranked: RankedImage[],
+  gate: GateContext,
+  store = true
+): Promise<{ cleaned: ResearchImages["cleaned"]; cleanNote: CleanNote | null; order: RankedImage[]; rejected: Set<RankedImage> }> {
+  const none = { cleaned: null, cleanNote: null, order: ranked, rejected: new Set<RankedImage>() };
+  if (ranked.length === 0) return none;
+  const uploader = store ? createBlobUploader() : null;
+  if (!uploader && !gate.checkOnly) return none;
 
-  const copy = await makeCleanCopy({
-    bytes: top.image.bytes,
-    background: top.image.background,
-    composite: top.composite,
-    productBox: top.productBox,
-  });
+  const chosen = await chooseCleanCover(
+    gate.itemName,
+    ranked.map((entry) => ({
+      bytes: entry.image.bytes,
+      background: entry.image.background,
+      composite: entry.composite,
+      productBox: entry.productBox,
+    })),
+    { signal: gate.signal, label: gate.label }
+  );
+  const rejected = new Set(chosen.rejected.map((index) => ranked[index]));
+  const winner = ranked[chosen.index];
+  const order = chosen.index === 0 ? ranked : [winner, ...ranked.filter((entry) => entry !== winner)];
+  const copy = chosen.copy;
   if (!copy.made) {
     if (copy.note && copy.note !== "busy_background") console.warn(`[research] the background cutout was not kept: ${copy.note}`);
-    return { cleaned: null, cleanNote: copy.note };
+    return { cleaned: null, cleanNote: copy.note, order, rejected };
   }
-  if (copy.kind === "cropped") console.info(`[research] rank 1 cropped to its product; backdrop kept (${copy.note ?? "not plain"})`);
+  if (copy.kind === "cropped") console.info(`[research] the cover was cropped to its product; backdrop kept (${copy.note ?? "not plain"})`);
+  if (!uploader) return { cleaned: null, cleanNote: copy.note, order, rejected };
 
   let stored: { pathname: string };
   try {
@@ -271,7 +307,7 @@ async function cleanTop(
     });
   } catch (error) {
     console.warn(`[research] the cleaned image could not be stored (${errorName(error)})`);
-    return none;
+    return { ...none, order, rejected };
   }
 
   const attachmentId = await recordCleanedImage(db, {
@@ -280,11 +316,13 @@ async function cleanTop(
     sizeBytes: copy.bytes.byteLength,
     width: copy.info.width,
     height: copy.info.height,
-    fromUrl: top.candidate.url,
+    fromUrl: winner.candidate.url,
   });
   return {
-    cleaned: { attachmentId, fromUrl: top.candidate.url, ...(copy.kind === "cut" ? {} : { kind: copy.kind }) },
+    cleaned: { attachmentId, fromUrl: winner.candidate.url, ...(copy.kind === "cut" ? {} : { kind: copy.kind }) },
     cleanNote: copy.note,
+    order,
+    rejected,
   };
 }
 

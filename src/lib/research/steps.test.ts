@@ -367,7 +367,8 @@ describe("searchItem + readAndVerifyItem", () => {
 
     expect(pageHits).toEqual(expect.arrayContaining([PRODUCT_URL, MANUAL_URL]));
     const calls = recordedCalls(models.read);
-    expect(calls).toHaveLength(1);
+    // The read call, then the listing check (this stub answers it with the draft, which is no check: the draft stands).
+    expect(calls).toHaveLength(2);
     const [call] = calls;
     expect(call.tools ?? []).toEqual([]);
     expect(call.providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
