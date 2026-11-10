@@ -1,0 +1,91 @@
+{
+  "displayName": "Bantam Tools PCB Mill",
+  "officialName": "Bantam Tools Desktop PCB Milling Machine",
+  "description": "The Bantam Tools Desktop PCB Milling Machine is a small benchtop CNC mill. In a makerspace, students use it to mill prototype circuit boards from FR-1 copper-clad blanks. They also use it to engrave or cut small parts from machining wax, plastics, wood and soft metals such as aluminium and brass. It has a 5.5 × 4.5 in (140 × 114 mm) working area and holds cutting tools with a 1/8 in shank.",
+  "specs": [
+    {
+      "label": "Working volume (spoilboard installed)",
+      "value": "5.5 × 4.5 × 1.35 in (140 × 114 × 34.3 mm)"
+    },
+    {
+      "label": "Working volume (spoilboard removed)",
+      "value": "5.5 × 4.5 × 1.6 in (140 × 114 × 40.6 mm)"
+    },
+    {
+      "label": "Spindle speed",
+      "value": "8,500 - 26,000 rpm"
+    },
+    {
+      "label": "Max XYZ traverse speed",
+      "value": "100 in/min (2,600 mm/min)"
+    },
+    {
+      "label": "PCB cut speed",
+      "value": "Up to 100 in/min (2,600 mm/min)"
+    },
+    {
+      "label": "Accuracy",
+      "value": "<0.003 in per 6 in linear travel"
+    },
+    {
+      "label": "Repeatability",
+      "value": "± 0.001 in"
+    },
+    {
+      "label": "Tool holding",
+      "value": "ER-11 collet; largest recommended shank 1/8 in"
+    },
+    {
+      "label": "Smallest recommended end mill",
+      "value": "0.010 in (0.25 mm)"
+    },
+    {
+      "label": "Minimum PCB trace width and spacing",
+      "value": "6 mil"
+    },
+    {
+      "label": "File input",
+      "value": "EAGLE BRD (.brd), Gerber RS-274X (.gtl, .grb), G-code (.nc, .tap), SVG (.svg)"
+    },
+    {
+      "label": "Power",
+      "value": "100-240 V AC 50/60 Hz 1.4 A; 50 W typical / 120 W peak"
+    }
+  ],
+  "tags": [
+    "pcb milling",
+    "circuit board prototyping",
+    "cnc",
+    "engraving",
+    "desktop mill",
+    "electronics",
+    "machining"
+  ],
+  "materials": [
+    "FR-1 PCB blanks",
+    "machining wax",
+    "aluminium",
+    "brass",
+    "copper",
+    "acrylic",
+    "polycarbonate",
+    "HDPE",
+    "Delrin",
+    "birch plywood",
+    "maple"
+  ],
+  "ppeRequired": [
+    "safety glasses",
+    "hearing protection"
+  ],
+  "useRestrictions": "Use only with all safety windows in place and the material firmly fixed to the bed, never leave it running unattended, and never use cutting fluid, coolant or unsupported materials such as steel.",
+  "manualUrl": "https://support.bantamtools.com/hc/en-us/categories/115000803206-Operating-The-Mill",
+  "sources": [
+    "https://support.bantamtools.com/hc/en-us/articles/115001672214-Bantam-Tools-Desktop-PCB-Milling-Machine-Specifications",
+    "https://content.bantamtools.com/tech-specs-desktop-pcb-milling-machine",
+    "https://support.bantamtools.com/hc/en-us/articles/115003453943-Design-Considerations-for-the-Bantam-Tools-Desktop-PCB-Milling-Machine",
+    "https://support.bantamtools.com/hc/en-us/articles/115000723693-Basic-Safety-Overview",
+    "https://support.bantamtools.com/hc/en-us/articles/115001656133-Unbox-and-Set-Up-Your-New-Mill",
+    "https://support.bantamtools.com/hc/en-us/categories/115000803206-Operating-The-Mill"
+  ]
+}
