@@ -46,7 +46,7 @@ export const CUTOUT_CHECK_SYSTEM_PROMPT = [
   '- "sameMachine": the copy shows the machine named, the same one as in the original photo.',
   '- "backgroundRemoved": nothing but the machine is left — no backdrop, wall, floor, table, shadow box, gradient patch, text, person or other object around it. A soft shadow directly under the machine is fine.',
   '- "productIntact": no part of the machine is missing or eaten away — no magenta holes through its body, panels, window, legs, cables or handles that are not see-through in the original, and nothing cut off at the edges.',
-  '- "cleanEdges": the outline follows the machine closely, without a halo of backdrop colour or jagged bites.',
+  '- "cleanEdges": the outline follows the machine closely: no halo, fringe or thin outline of backdrop colour (dark or light) along its edges, and no jagged bites. Look closely at the edges against the magenta.',
   '- "goodCover": the whole machine, in focus, filling a fair share of the frame, seen from the front or at an angle — a photo a catalogue would use as the tool\'s main picture.',
   'When unsure, answer false. Answer with one JSON object and nothing else: {"sameMachine": true|false, "backgroundRemoved": true|false, "productIntact": true|false, "cleanEdges": true|false, "goodCover": true|false, "reason": "one short sentence"}.',
 ].join("\n");
