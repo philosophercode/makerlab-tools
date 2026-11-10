@@ -79,7 +79,7 @@ export const RANK_SYSTEM_PROMPT = [
 ].join("\n");
 
 /** What an image shows, as the ranking model judged it. Only `product` is ever offered. */
-export const IMAGE_SUBJECTS = ["product", "accessory", "consumable", "part", "packaging", "other_model", "not_product"] as const;
+const IMAGE_SUBJECTS = ["product", "accessory", "consumable", "part", "packaging", "other_model", "not_product"] as const;
 export type ImageSubject = (typeof IMAGE_SUBJECTS)[number];
 
 /** What the ranking model said about one image besides its place. */
@@ -115,7 +115,7 @@ export interface Ranking {
  * front or at an angle; then a side, a top or a view nobody named; then a back
  * view, a close-up or a part — the X2D's back panel from its wiki.
  */
-export const VIEW_TIER: Record<ImageView, 0 | 1 | 2> = {
+const VIEW_TIER: Record<ImageView, 0 | 1 | 2> = {
   front: 0,
   three_quarter: 0,
   side: 1,
@@ -283,7 +283,7 @@ export function preferCleanBackgrounds<T extends { image: Pick<ProbedImage, "bac
 }
 
 /** The user message: the name, the reviewer's instruction (fenced, when there is one), then each image after its number. */
-export function rankingContent(
+function rankingContent(
   itemName: string,
   views: readonly { view: ModelImage; background: ProbedImage["background"] }[],
   reviewerNote?: string | null

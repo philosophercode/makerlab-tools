@@ -405,7 +405,7 @@ const FOCUS_WORDS: Record<Exclude<ResearchFocusField, "image">, string> = {
 };
 
 /** The focus as the text passes should read it, or null when there is nothing to say. */
-export function focusForPrompt(focus: ResearchFocus | undefined): string | null {
+function focusForPrompt(focus: ResearchFocus | undefined): string | null {
   if (!focus) return null;
   const words = focus.filter((field): field is Exclude<ResearchFocusField, "image"> => field !== "image").map((field) => FOCUS_WORDS[field]);
   return words.length > 0 ? words.join("; ") : null;
@@ -425,7 +425,7 @@ export function focusForPrompt(focus: ResearchFocus | undefined): string | null 
  * research — so the model spends its effort there — while the answer keeps its
  * full shape. Nothing when there is neither a note nor a focus.
  */
-export function reviewerBlock(note: string | null | undefined, focus: ResearchFocus = null): string[] {
+function reviewerBlock(note: string | null | undefined, focus: ResearchFocus = null): string[] {
   const line = reviewerNoteForPrompt(note);
   const focusLine = focusForPrompt(focus);
   if (!line && !focusLine) return [];
@@ -464,7 +464,7 @@ export function categoryBlock(categories: readonly CategoryOption[]): string {
 }
 
 /** `slug — Parent › Name: description`; a pre-v2 row without a slug is listed by its name. */
-export function categoryLine(category: Pick<CategoryOption, "name" | "group" | "slug" | "description">): string {
+function categoryLine(category: Pick<CategoryOption, "name" | "group" | "slug" | "description">): string {
   const path = category.group ? `${clip(category.group, 80)} › ${clip(category.name, 80)}` : clip(category.name, 80);
   const description = clip(category.description, 300);
   return `${category.slug ? `${category.slug} — ` : ""}${path}${description ? `: ${description}` : ""}`;

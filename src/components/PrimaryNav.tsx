@@ -31,7 +31,7 @@ const ALL_LINKS = [
 const LINKS = ALL_LINKS.filter((link) => link.key !== "map" || lab.map);
 
 /** How long a sign-in notice stays before it fades. Long enough to read twice. */
-export const SIGN_IN_NOTICE_MS = 6000;
+const SIGN_IN_NOTICE_MS = 6000;
 
 export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDurationMs?: number } = {}) {
   const pathname = usePathname() || "/";

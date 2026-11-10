@@ -12,10 +12,10 @@ import { categoryKeywords, rankByPaletteScore, type CategoryEntry } from "../pal
 import { SEARCH_INPUT_CLASS, SearchFrame, useSearchLines } from "../search/SearchFrame";
 
 /** At most this many categories under the box. */
-export const HOME_SEARCH_CATEGORY_LIMIT = 3;
+const HOME_SEARCH_CATEGORY_LIMIT = 3;
 
 /** cmdk's value for the "Ask MakerLAB AI" row. */
-export const ASK_VALUE = "ask";
+const ASK_VALUE = "ask";
 
 export interface HomeSearchProps {
   /** The text, which lives in the URL (`?q=`): the list below shows its matches. */

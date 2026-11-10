@@ -15,7 +15,7 @@ import { labelSvg } from "../../../lib/qr/label-svg";
 let brandBytes: Promise<Uint8Array | null> | null = null;
 
 /** The brand image's bytes (the logo's PNG), fetched once. Null when it cannot be read: the lab's name is written instead. */
-export function loadBrandImage(href: string): Promise<Uint8Array | null> {
+function loadBrandImage(href: string): Promise<Uint8Array | null> {
   brandBytes ??= fetch(href)
     .then(async (response) => (response.ok ? new Uint8Array(await response.arrayBuffer()) : null))
     .catch(() => null);
@@ -31,7 +31,7 @@ function toBase64(bytes: Uint8Array): string {
 }
 
 /** The brand image as a data: URI, so a downloaded SVG (and the canvas a PNG is drawn on) carries it. */
-export async function brandDataUri(href: string): Promise<string | null> {
+async function brandDataUri(href: string): Promise<string | null> {
   const bytes = await loadBrandImage(href);
   return bytes ? `data:image/png;base64,${toBase64(bytes)}` : null;
 }

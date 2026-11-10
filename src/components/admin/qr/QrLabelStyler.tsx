@@ -194,7 +194,7 @@ export function QrLabelStyler({ settings, onChange }: { settings: QrLabelSetting
 }
 
 /** `1.5in` → `1_5in`: a next-intl key cannot hold a dot. */
-export function presetKey(id: string): string {
+function presetKey(id: string): string {
   return id.replace(/\./g, "_");
 }
 

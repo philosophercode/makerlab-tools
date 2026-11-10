@@ -22,7 +22,7 @@ import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
  * Read-only: `npm run starters:refresh` makes and remakes the answers.
  */
 
-export const CHIP_STATUSES = ["cached", "stale", "rejected", "live"] as const;
+const CHIP_STATUSES = ["cached", "stale", "rejected", "live"] as const;
 export type ChipStatusValue = (typeof CHIP_STATUSES)[number];
 
 export interface StarterChipRow {

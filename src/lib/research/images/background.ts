@@ -41,23 +41,23 @@ import {
  */
 
 /** The classifier's working size. Small on purpose: every probed candidate is classified. */
-export const CLASSIFY_LONG_EDGE = 512;
+const CLASSIFY_LONG_EDGE = 512;
 
 /** Alpha below this counts as see-through. */
-export const TRANSPARENT_ALPHA = 16;
+const TRANSPARENT_ALPHA = 16;
 /** Share of the border band that must be see-through for `transparent`. */
-export const TRANSPARENT_BORDER_SHARE = 0.85;
+const TRANSPARENT_BORDER_SHARE = 0.85;
 
 /** The border's median must be at least this bright (0–255 luma) for `plain`. */
-export const PLAIN_MIN_LUMINANCE = 190;
+const PLAIN_MIN_LUMINANCE = 190;
 /** RGB distance from the border's median that still counts as the backdrop. */
-export const PLAIN_TOLERANCE = 48;
+const PLAIN_TOLERANCE = 48;
 /** Share of the border band that must be the backdrop colour for `plain`. */
-export const PLAIN_BORDER_SHARE = 0.85;
+const PLAIN_BORDER_SHARE = 0.85;
 /** The fallback: share of the outermost ring that must be the backdrop colour… */
-export const PLAIN_RING_SHARE = 0.9;
+const PLAIN_RING_SHARE = 0.9;
 /** …and share of the whole band that must still match it. */
-export const PLAIN_BAND_FLOOR = 0.3;
+const PLAIN_BAND_FLOOR = 0.3;
 
 export async function classifyBackground(
   bytes: Uint8Array,

@@ -54,13 +54,13 @@ import { hasPdfMagic } from "../web/pdf-magic.ts";
  */
 
 /** Longest a download may take, headers and body together. */
-export const MANUAL_FETCH_TIMEOUT_MS = 30_000;
+const MANUAL_FETCH_TIMEOUT_MS = 30_000;
 
 /** Largest manual archived. Bigger ones are refused, not truncated. */
 export const MAX_MANUAL_BYTES = 25 * 1024 * 1024;
 
 /** Redirects followed. More than the guard's default 3: download links bounce through CDNs. */
-export const MANUAL_MAX_REDIRECTS = 5;
+const MANUAL_MAX_REDIRECTS = 5;
 
 const FETCH_USER_AGENT = "Mozilla/5.0 (compatible; MakerLabBot/1.0; manual archive)";
 
@@ -325,7 +325,7 @@ export function filenameFromDisposition(header: string | null): string | null {
 }
 
 /** The URL path's last segment, when it names a file. */
-export function filenameFromUrl(url: string): string | null {
+function filenameFromUrl(url: string): string | null {
   try {
     const last = new URL(url).pathname.split("/").filter(Boolean).pop();
     return last ? cleanName(decodeURIComponent(last)) : null;

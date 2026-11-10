@@ -105,7 +105,7 @@ export interface AnswerLink {
 const INLINE_LINK = /\[((?:[^[\]]|\[[^[\]]*\])*)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g;
 
 /** Every link in a Markdown answer with its words: `[words](href)`, `<https://…>` and bare `https://…`. */
-export function answerLinkEntries(markdown: string): AnswerLink[] {
+function answerLinkEntries(markdown: string): AnswerLink[] {
   const links: AnswerLink[] = [];
   for (const match of markdown.matchAll(INLINE_LINK)) links.push({ href: match[2], words: match[1] });
   const withoutInline = markdown.replace(INLINE_LINK, " ");

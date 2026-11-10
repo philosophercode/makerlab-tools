@@ -262,7 +262,7 @@ export function useChatAttachments(t: ChatT) {
  * format it cannot read, or a file too large — the route's own limit, or the
  * platform's 413 before the route ran. Anything else keeps the route's words.
  */
-export function photoUploadErrorText(
+function photoUploadErrorText(
   t: ChatT,
   status: number,
   body: { error?: string; code?: string } | null

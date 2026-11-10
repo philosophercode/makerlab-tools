@@ -103,8 +103,8 @@ export interface EvalQuestionsOptions {
  * dry run's estimate. Measured shape, not a promise: the Gateway's reported
  * cost is the real figure.
  */
-export const ESTIMATED_OUTPUT_TOKENS_PER_QUESTION = 90;
-export const ESTIMATED_REASONING_TOKENS = 600;
+const ESTIMATED_OUTPUT_TOKENS_PER_QUESTION = 90;
+const ESTIMATED_REASONING_TOKENS = 600;
 
 /** Write (or keep, or copy) one document's eval questions. Throws only for the database. */
 export async function generateDocumentQuestions(

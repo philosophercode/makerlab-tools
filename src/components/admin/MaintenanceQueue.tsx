@@ -41,14 +41,14 @@ const OPEN_STATUSES = new Set(["open", "in_progress"]);
 /** Who filed a ticket: the lab's own people and visitors, or a demo pass. */
 const TICKET_SOURCES = ["lab", "demo"] as const;
 
-export const TICKET_STATUS_TONE: Record<string, StatusTone> = {
+const TICKET_STATUS_TONE: Record<string, StatusTone> = {
   open: "active",
   in_progress: "warn",
   resolved: "ok",
   closed: "muted",
 };
 
-export const PRIORITY_TONE: Record<string, StatusTone> = {
+const PRIORITY_TONE: Record<string, StatusTone> = {
   critical: "bad",
   high: "bad",
   medium: "warn",

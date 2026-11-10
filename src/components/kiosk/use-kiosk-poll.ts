@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { nextPollDelay } from "@/lib/kiosk/derive";
 import type { KioskSnapshot } from "@/lib/kiosk/types";
 
-export const KIOSK_ENDPOINT = "/api/kiosk";
+const KIOSK_ENDPOINT = "/api/kiosk";
 
 export interface KioskPollState {
   /** The last good snapshot, or null when there has never been one. */

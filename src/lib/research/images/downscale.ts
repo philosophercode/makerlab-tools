@@ -23,7 +23,7 @@ import type { ImageFormat, ImageInfo } from "../../images/inspect.ts";
  */
 
 /** The ranking model's view of an image: its long edge, in pixels. */
-export const RANK_IMAGE_LONG_EDGE = 768;
+const RANK_IMAGE_LONG_EDGE = 768;
 
 /** An image that could not be downscaled is sent to the ranking model as it is only up to this size. */
 export const RANK_FALLBACK_MAX_BYTES = 1.5 * 1024 * 1024;

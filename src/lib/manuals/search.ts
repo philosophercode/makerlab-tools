@@ -51,11 +51,11 @@ import { defaultRerankTarget, rerankDocuments, type RerankTarget } from "./reran
 
 export const DEFAULT_LIMIT = 8;
 /** How deep each ranked list goes before fusion. */
-export const CANDIDATES = 30;
+const CANDIDATES = 30;
 /** Reciprocal rank fusion's constant (Cormack et al.): score = Σ 1 / (k + rank). */
-export const RRF_K = 60;
+const RRF_K = 60;
 /** Fused passages handed to the reranker, when reranking. */
-export const RERANK_CANDIDATES = 24;
+const RERANK_CANDIDATES = 24;
 
 /**
  * The reranker score below which `search_manual` drops a passage (amendment
@@ -497,7 +497,7 @@ function fusedQuery(args: {
  * 40). Raised for an unscoped search so that, after the visibility filter,
  * {@link CANDIDATES} passages are still left to fuse.
  */
-export const HNSW_EF_SEARCH = 200;
+const HNSW_EF_SEARCH = 200;
 
 /**
  * Tokens that look like part numbers or error codes: a digit plus a letter or

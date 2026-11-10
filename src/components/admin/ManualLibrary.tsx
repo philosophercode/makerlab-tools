@@ -31,7 +31,7 @@ import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
  * not linked). The row's tool links to the tool page, where the editor is.
  */
 
-export const MANUAL_STATE_TONE: Record<ManualLibraryState, StatusTone> = {
+const MANUAL_STATE_TONE: Record<ManualLibraryState, StatusTone> = {
   searchable: "ok",
   textOnly: "idle",
   noText: "warn",

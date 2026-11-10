@@ -8,7 +8,7 @@ import { KioskGlyph } from "./KioskGlyph";
 import { KIOSK_TYPE } from "./kiosk-type";
 
 /** Cards shown before "+N more down": a screen is read at a glance, not scrolled. */
-export const DOWN_VISIBLE = 6;
+const DOWN_VISIBLE = 6;
 
 /**
  * Which machines are down (kiosk spec §6): a card per tool with its photo,
