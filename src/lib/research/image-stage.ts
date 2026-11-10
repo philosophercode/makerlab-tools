@@ -34,10 +34,10 @@ import type { CleanNote, ResearchImages } from "./result.ts";
  */
 
 /** Where cleaned copies land in Blob. The store adds a random suffix. */
-export const CLEANED_IMAGE_PREFIX = "research/cleaned/";
+const CLEANED_IMAGE_PREFIX = "research/cleaned/";
 
 /** The longest `imageError` stored. */
-export const IMAGE_ERROR_MAX_CHARS = 200;
+const IMAGE_ERROR_MAX_CHARS = 200;
 
 const NO_CANDIDATES: ResearchImages = { candidates: [], cleaned: null };
 

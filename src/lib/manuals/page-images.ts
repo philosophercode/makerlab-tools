@@ -32,11 +32,11 @@ import { getDocumentProxy, getResolvedPDFJS } from "unpdf";
  */
 
 export const MAX_LONG_SIDE_PX = 2000;
-export const MIN_LONG_SIDE_PX = 1000;
+const MIN_LONG_SIDE_PX = 1000;
 const JPEG_QUALITY = 80;
 
 /** Drawing a whole manual gives up after this long (checked between pages, as the extractor does). */
-export const RENDER_TIMEOUT_MS = 180_000;
+const RENDER_TIMEOUT_MS = 180_000;
 
 export interface PageImage {
   /** 1-based PDF page index — what `#page=N` opens. */

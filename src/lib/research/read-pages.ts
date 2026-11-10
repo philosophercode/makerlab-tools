@@ -144,7 +144,7 @@ export interface ReadCandidatePagesOptions {
 }
 
 /** How long research gives pdf.js to extract one manual — well inside the read step's 240 s. */
-export const RESEARCH_PDF_EXTRACT_TIMEOUT_MS = 30_000;
+const RESEARCH_PDF_EXTRACT_TIMEOUT_MS = 30_000;
 
 /** A target that names a PDF is given the manual archive's download time, not a page's 15 s. */
 export const RESEARCH_PDF_READ_TIMEOUT_MS = 30_000;
@@ -343,7 +343,7 @@ export function capManualText(text: string, max = RESEARCH_MANUAL_TEXT_MAX_CHARS
 }
 
 /** True when a URL's path names a PDF (`….pdf`), query and fragment ignored. */
-export function looksLikePdfUrl(raw: string): boolean {
+function looksLikePdfUrl(raw: string): boolean {
   try {
     return new URL(raw).pathname.toLowerCase().endsWith(".pdf");
   } catch {

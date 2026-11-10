@@ -79,7 +79,7 @@ function markShown(path: string): void {
 }
 
 /** Record that the viewer has met the assistant, and hide the callout everywhere. */
-export function markAssistantIntroSeen(): void {
+function markAssistantIntroSeen(): void {
   if (dismissedThisVisit) return;
   dismissedThisVisit = true;
   write(DISMISSED);

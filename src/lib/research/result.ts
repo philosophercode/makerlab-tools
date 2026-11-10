@@ -11,7 +11,7 @@ import type { CitedField } from "./model-output.ts";
 import { DISPLAY_NAME_MAX, displayNameFrom } from "../tool-names.ts";
 
 /** The fields research quotes for (proposal field names). */
-export const CITED_FIELDS = [
+const CITED_FIELDS = [
   "name",
   "description",
   "materials",

@@ -74,7 +74,7 @@ export function CorrectionControls({
 }
 
 /** A correction's status as a glyph: waiting on you, looked at, done, set aside. */
-export const CORRECTION_STATUS_TONE: Record<string, StatusTone> = {
+const CORRECTION_STATUS_TONE: Record<string, StatusTone> = {
   new: "active",
   reviewed: "warn",
   fixed: "ok",

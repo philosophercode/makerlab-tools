@@ -65,7 +65,7 @@ type Dialog = typeof DialogComponent;
 let LoadedDialog: Dialog | null = null;
 
 /** Fetch the dialog's code ahead of the first open (hover, focus), or for a test. */
-export function preloadPaletteDialog(): Promise<Dialog> {
+function preloadPaletteDialog(): Promise<Dialog> {
   return import("./CommandPaletteDialog").then((mod) => {
     LoadedDialog = mod.CommandPaletteDialog;
     return mod.CommandPaletteDialog;

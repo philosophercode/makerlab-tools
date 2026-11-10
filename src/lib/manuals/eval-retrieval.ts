@@ -20,7 +20,7 @@ import { DEFAULT_LIMIT, rerankMinScore, searchManuals, type ManualPassage, type 
  */
 
 /** Lab staff: every manual of the machine is searched, private files too. */
-export const RETRIEVAL_VIEWER: ManualSearchViewer = { role: "admin" };
+const RETRIEVAL_VIEWER: ManualSearchViewer = { role: "admin" };
 
 export interface RetrievalOptions {
   /** How many passages the search returns (`search_manual` keeps 8). */

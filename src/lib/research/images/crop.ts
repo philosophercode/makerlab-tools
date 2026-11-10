@@ -46,7 +46,7 @@ export const CROP_PADDINGS = [CROP_PADDING, 0.02, 0.01] as const;
 export const CROP_ONLY_PADDING = 0.02;
 
 /** A product covering at least this share of a clean, non-composite image is not cropped. */
-export const CROP_WHEN_BOX_BELOW = 0.8;
+const CROP_WHEN_BOX_BELOW = 0.8;
 
 /** The original is read at most this long before the box is cut from it. */
 const CROP_SOURCE_LONG_EDGE = 2048;
@@ -99,7 +99,7 @@ export function boxToPixels(
 }
 
 /** A crop must leave out at least this share of the image (after padding), or it changes nothing worth storing. */
-export const MIN_CROP_GAIN = 0.1;
+const MIN_CROP_GAIN = 0.1;
 
 /**
  * Whether rank 1 should be cropped to its box before anything else: there is
