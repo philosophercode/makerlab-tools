@@ -1,0 +1,86 @@
+{
+  "displayName": "Festool Domino Joiner",
+  "officialName": "Festool DOMINO DF 500 Joiner",
+  "description": "The Festool Domino DF 500 is a handheld joiner. It cuts oval mortises with a cutter that spins and swings side to side, and you fit loose Domino tenons into them. In a makerspace, students use it to make strong joints in solid wood and in boards like plywood and MDF for furniture, cabinets, frames, mitred corners and drawer boxes. It takes tenons from 4 x 20 mm to 10 x 50 mm and cuts up to 28 mm deep.",
+  "specs": [
+    {
+      "label": "Power consumption",
+      "value": "420 W"
+    },
+    {
+      "label": "No-load speed",
+      "value": "25,500 rpm"
+    },
+    {
+      "label": "Max. mortising depth",
+      "value": "28 mm"
+    },
+    {
+      "label": "Preset routing depths",
+      "value": "12, 15, 20, 25, 28 mm"
+    },
+    {
+      "label": "Cutter diameters",
+      "value": "4, 5, 6, 8, 10 mm"
+    },
+    {
+      "label": "Domino tenon sizes",
+      "value": "4 x 20 mm to 10 x 50 mm"
+    },
+    {
+      "label": "Max. mortising width",
+      "value": "23 mm + bit diameter"
+    },
+    {
+      "label": "Routing height adjustment",
+      "value": "5 - 30 mm"
+    },
+    {
+      "label": "Mitre routing angle",
+      "value": "0 - 90 °"
+    },
+    {
+      "label": "Minimum workpiece thickness",
+      "value": "12 mm (with 4 x 20 mm Dominos)"
+    },
+    {
+      "label": "Dust extraction connection diameter",
+      "value": "27 mm"
+    },
+    {
+      "label": "Cable length",
+      "value": "4 m"
+    }
+  ],
+  "tags": [
+    "joinery",
+    "mortise and tenon",
+    "loose tenon",
+    "woodworking",
+    "furniture",
+    "cabinet making",
+    "mitre joints",
+    "dowel joints"
+  ],
+  "materials": [
+    "softwood",
+    "hardwood",
+    "plywood",
+    "chipboard",
+    "fibreboard"
+  ],
+  "ppeRequired": [
+    "safety glasses",
+    "hearing protection",
+    "dust mask"
+  ],
+  "useRestrictions": "Only trained users may run it, only with the fence fitted and Festool Domino cutters, and only to cut mortises in wood and wood-based boards.",
+  "manualUrl": "https://media.cdn.festool.io/productmedia/Images/attachment/475b9d25-40da-11e9-80f9-005056b31774.pdf",
+  "sources": [
+    "https://www.festoolusa.com/products/domino-joiners/joinery-machines/578544---df-500-rq-set-us",
+    "https://www.festool.com/products/domino-jointing-system/jointing-machines/578462---df-500-rq-plus",
+    "https://www.festool.co.uk/products/domino-jointing-system/jointing-machines/578464---df-500-rq-plus-gb-230v",
+    "https://media.cdn.festool.io/productmedia/Images/attachment/475b9d25-40da-11e9-80f9-005056b31774.pdf",
+    "https://www.festool.com/press/product-news/2025-df-500"
+  ]
+}

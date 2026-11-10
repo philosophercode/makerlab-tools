@@ -1,0 +1,81 @@
+{
+  "displayName": "Rigol DS1054Z Oscilloscope",
+  "officialName": "RIGOL DS1054Z Digital Oscilloscope (DS1000Z Series)",
+  "description": "The Rigol DS1054Z is a four-channel digital oscilloscope with 50 MHz bandwidth and a sample rate of up to 1 GSa/s. In a makerspace, students use it to see and measure electrical signals over time. They use it to debug Arduino and other microcontroller projects, check PWM, clock and sensor signals, and troubleshoot low-voltage audio and electronics circuits.",
+  "specs": [
+    {
+      "label": "Analog bandwidth",
+      "value": "DC to 50 MHz"
+    },
+    {
+      "label": "Analog channels",
+      "value": "4"
+    },
+    {
+      "label": "Max. real-time sample rate",
+      "value": "1 GSa/s (single-channel), 500 MSa/s (dual-channel), 250 MSa/s (three/four-channel)"
+    },
+    {
+      "label": "Max. memory depth",
+      "value": "24 Mpts (single-channel), 12 Mpts (dual-channel), 6 Mpts (three/four-channel)"
+    },
+    {
+      "label": "Max. waveform capture rate",
+      "value": "30,000 wfms/s"
+    },
+    {
+      "label": "Vertical scale",
+      "value": "1 mV/div to 10 V/div"
+    },
+    {
+      "label": "Vertical resolution",
+      "value": "8 bits"
+    },
+    {
+      "label": "Timebase scale",
+      "value": "5 ns/div to 50 s/div"
+    },
+    {
+      "label": "Calculated rise time",
+      "value": "7 ns"
+    },
+    {
+      "label": "Max. input voltage (1 MΩ)",
+      "value": "CAT I 300 Vrms, CAT II 100 Vrms, transient overvoltage 1000 Vpk"
+    },
+    {
+      "label": "Display",
+      "value": "7 inch WVGA (800x480) TFT LCD"
+    },
+    {
+      "label": "Interfaces",
+      "value": "USB Host, USB Device, LAN (LXI), AUX output"
+    }
+  ],
+  "tags": [
+    "oscilloscope",
+    "electronics",
+    "signal measurement",
+    "debugging",
+    "waveform",
+    "arduino",
+    "circuits",
+    "test equipment"
+  ],
+  "materials": [
+    "electronic circuits",
+    "low-voltage signals",
+    "microcontroller boards"
+  ],
+  "ppeRequired": [
+    "safety glasses"
+  ],
+  "useRestrictions": "Use it only on circuits that are not connected directly to mains power (Measurement Category I), and never connect the probe ground lead to a high voltage.",
+  "manualUrl": "https://www.rigol.com/dam/global/downloads/brochures/en/user-manual/oscillosopes/DS1000Z_UserGuide_EN.pdf",
+  "sources": [
+    "https://www.rigol.com/dam/global/downloads/brochures/en/data-sheet/oscilloscopes/DS1000Z_DataSheet_EN.pdf",
+    "https://www.rigol.com/dam/global/downloads/brochures/en/user-manual/oscillosopes/DS1000Z_UserGuide_EN.pdf",
+    "https://www.rigol.com/europe/products/oscilloscope/DS1000Z.html",
+    "https://www.rigol-uk.co.uk/product/rigol-ds1054z-50mhz-digital-oscilloscope/"
+  ]
+}
