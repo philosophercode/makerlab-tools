@@ -26,7 +26,7 @@ export interface ReadableSkill {
   sources: SkillSource[];
 }
 
-export function readableSkill(row: ToolSkillRow): ReadableSkill {
+function readableSkill(row: ToolSkillRow): ReadableSkill {
   const sections = skillSectionsSchema.safeParse(row.sections);
   const sources = skillSourcesSchema.safeParse(row.sources);
   return {

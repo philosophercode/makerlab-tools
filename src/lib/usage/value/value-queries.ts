@@ -22,7 +22,7 @@ import { emptyCounts, median, type ValueCounts } from "./report.ts";
  */
 
 /** The MCP calls that are a visitor's question to the catalogue — the public reads. */
-export const MCP_LOOKUP_TOOLS = ["list_tools", "search_tools", "get_tool_details", "get_unit_details", "get_maintenance_history", "search_manual"] as const;
+const MCP_LOOKUP_TOOLS = ["list_tools", "search_tools", "get_tool_details", "get_unit_details", "get_maintenance_history", "search_manual"] as const;
 
 /** Most-asked tools the report lists. */
 export const TOP_TOOLS = 5;

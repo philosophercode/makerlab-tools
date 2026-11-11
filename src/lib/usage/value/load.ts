@@ -33,7 +33,7 @@ export interface ValueReportData {
 }
 
 /** The lab's assumptions: stored, else the defaults (staffed hours from the lab's hours text). */
-export async function readValueAssumptions(labHoursText: string, options: { db?: Db } = {}): Promise<ValueAssumptionsState> {
+async function readValueAssumptions(labHoursText: string, options: { db?: Db } = {}): Promise<ValueAssumptionsState> {
   const stored = await getLabSetting(VALUE_REPORT_SETTING, options);
   return {
     ...resolveAssumptions(stored?.value, labHoursText),

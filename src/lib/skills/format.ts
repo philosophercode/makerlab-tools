@@ -63,7 +63,7 @@ export const SKILL_SECTION_MAX: Readonly<Record<SkillSection | "notInSources", n
 };
 
 /** A source id as the prompt hands them out: one capital letter and a number. */
-export const SOURCE_ID_PATTERN = /^[TNLMRK][1-9][0-9]{0,2}$/;
+const SOURCE_ID_PATTERN = /^[TNLMRK][1-9][0-9]{0,2}$/;
 
 const ITEM_TEXT_MAX = 500;
 const CITES_MAX = 8;

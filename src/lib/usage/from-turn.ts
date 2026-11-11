@@ -28,7 +28,7 @@ import type { PassageUsage } from "./turn-log.ts";
  */
 
 /** `manual_cited.source` for a citation of another machine's document. */
-export const CROSS_TOOL_SOURCE = "cross_tool";
+const CROSS_TOOL_SOURCE = "cross_tool";
 
 /** The part of a step this reads: the tool results' names and outputs. */
 export interface TurnStep {
@@ -67,7 +67,7 @@ function outputsOf(steps: readonly TurnStep[], toolName: string): Record<string,
  * The passages (by URL) `text` links to as Markdown — by `](#cite-<ref>)` or
  * by `](url)` — each once, however many times or ways it is linked.
  */
-export function citedUrls(text: string, passages: ReadonlyMap<string, Pick<PassageUsage, "ref">>): string[] {
+function citedUrls(text: string, passages: ReadonlyMap<string, Pick<PassageUsage, "ref">>): string[] {
   return [...passages]
     .filter(([url, { ref }]) => (ref && linkPosition(text, `${CITE_HREF_PREFIX}${ref}`) >= 0) || linkPosition(text, url) >= 0)
     .map(([url]) => url);

@@ -46,7 +46,7 @@ export interface MyReports {
 }
 
 /** How many of each kind one call returns, newest first. */
-export const MY_REPORTS_LIMIT = 50;
+const MY_REPORTS_LIMIT = 50;
 
 export async function listMyReports(
   userId: string,

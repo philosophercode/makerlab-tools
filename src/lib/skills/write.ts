@@ -99,7 +99,7 @@ export interface WriteToolSkillOptions {
 }
 
 /** Output tokens a skill costs, reasoning included: a measured shape, not a promise (the Gateway's cost is the real figure). */
-export const ESTIMATED_SKILL_OUTPUT_TOKENS = 4_000;
+const ESTIMATED_SKILL_OUTPUT_TOKENS = 4_000;
 
 const TRANSIENT_KINDS: readonly ModelErrorKind[] = ["rate_limited", "provider_unavailable", "timeout"];
 const DAY_MS = 24 * 60 * 60_000;
@@ -240,7 +240,7 @@ async function storeSkill(
 }
 
 /** Store a failed attempt (§5.3). Its reason is one plain line, never a prompt. */
-export async function recordFailure(
+async function recordFailure(
   db: Db,
   row: { toolId: string; inputHash: string; model: string; trigger: ToolSkillTrigger; error: string; costUsd?: number }
 ): Promise<void> {
