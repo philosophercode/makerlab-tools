@@ -78,7 +78,7 @@ export function composeSkillSections(
 }
 
 /** Every id the skill cites. */
-export function citedIds(sections: SkillSections): Set<string> {
+function citedIds(sections: SkillSections): Set<string> {
   const ids = new Set<string>();
   const bullets = [
     sections.quickFacts,

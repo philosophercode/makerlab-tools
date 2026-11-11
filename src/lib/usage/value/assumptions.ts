@@ -49,9 +49,9 @@ export interface ValueAssumptions {
   mcpCallsPerQuestion: number;
 }
 
-export const DEFAULT_MINUTES_PER_QUESTION = 4;
-export const DEFAULT_HOURLY_COST = 40;
-export const DEFAULT_MCP_CALLS_PER_QUESTION = 2;
+const DEFAULT_MINUTES_PER_QUESTION = 4;
+const DEFAULT_HOURLY_COST = 40;
+const DEFAULT_MCP_CALLS_PER_QUESTION = 2;
 
 /**
  * Default terms: contiguous, so every day of the year belongs to one and
@@ -64,7 +64,7 @@ export const DEFAULT_TERMS: TermWindow[] = [
   { kind: "fall", start: "08-21", end: "12-31" },
 ];
 
-export const FALLBACK_STAFFED_HOURS: StaffedHours = { days: [0, 1, 2, 3, 4, 5, 6], openHour: 8, closeHour: 20 };
+const FALLBACK_STAFFED_HOURS: StaffedHours = { days: [0, 1, 2, 3, 4, 5, 6], openHour: 8, closeHour: 20 };
 
 const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 

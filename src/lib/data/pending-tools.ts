@@ -174,7 +174,7 @@ export interface ResearchWriteOptions extends PendingToolOptions {
 export const OPEN_PENDING_STATUSES = ["identified", "queued", "researching", "researched", "failed"] as const satisfies readonly PendingStatus[];
 
 /** Settled items `/admin/intake` shows, newest first, beneath the open work. */
-export const INTAKE_SETTLED_LIMIT = 100;
+const INTAKE_SETTLED_LIMIT = 100;
 
 /** One item as `identify_tools` hands it over. */
 export interface NewPendingTool {

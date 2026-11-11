@@ -61,7 +61,7 @@ import { isUuid } from "./uuid.ts";
 export const DUPLICATE_SIMILARITY_THRESHOLD = 0.5;
 
 /** `word_similarity`, either direction, at which a name is worth a "similar" hint. */
-export const SIMILAR_NAME_THRESHOLD = 0.35;
+const SIMILAR_NAME_THRESHOLD = 0.35;
 
 /** How many candidates the SQL hands to the classification — best first. */
 const CANDIDATE_LIMIT = 50;

@@ -267,7 +267,7 @@ export async function listUnitSerials(
 }
 
 /** A unit's serial for display: the serial number, else the asset tag, else "Unlisted". */
-export function unitSerialLabel(unit: Pick<UnitRow, "serialNumber" | "assetTag">): string {
+function unitSerialLabel(unit: Pick<UnitRow, "serialNumber" | "assetTag">): string {
   return unit.serialNumber || unit.assetTag || "Unlisted";
 }
 
@@ -277,7 +277,7 @@ export function unitSerialLabel(unit: Pick<UnitRow, "serialNumber" | "assetTag">
  * unit has neither ("Unlisted" is not a serial) or it is four characters or
  * fewer (`maskSerial`; data platform spec amendment 2026-10-06).
  */
-export function unitSerialMasked(unit: Pick<UnitRow, "serialNumber" | "assetTag">): string | undefined {
+function unitSerialMasked(unit: Pick<UnitRow, "serialNumber" | "assetTag">): string | undefined {
   return maskSerial(unit.serialNumber || unit.assetTag);
 }
 
@@ -449,7 +449,7 @@ export function indexAttachments(rows: AttachmentRow[]): AttachmentIndex {
   return index;
 }
 
-export function attachmentsFor(
+function attachmentsFor(
   index: AttachmentIndex,
   ownerType: string,
   ownerId: string
@@ -466,7 +466,7 @@ function toItemKind(value: string | null | undefined): ToolItemKind {
   return (TOOL_ITEM_KIND as readonly string[]).includes(value ?? "") ? (value as ToolItemKind) : "equipment";
 }
 
-export function toMakerLabTool(
+function toMakerLabTool(
   tool: ToolRow,
   unitRows: UnitRow[],
   resourceRows: ResourceRow[] = [],

@@ -24,7 +24,7 @@
 export const SCRUB_MAX_CHARS = 300;
 export const REDACTED = "[…]";
 /** How much of the question the patterns see; a few times the stored cap. */
-export const SCRUB_INPUT_CHARS = SCRUB_MAX_CHARS * 4;
+const SCRUB_INPUT_CHARS = SCRUB_MAX_CHARS * 4;
 
 const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[\p{L}]{2,}/gu;
 const URL_LIKE = /\b(?:https?:\/\/|www\.)[^\s<>"']+/giu;

@@ -19,7 +19,7 @@ export const toolSkillsSettingSchema = z.object({
 
 export type ToolSkillsSetting = z.infer<typeof toolSkillsSettingSchema>;
 
-export const TOOL_SKILLS_SETTING_DEFAULT: ToolSkillsSetting = { afterResearch: false };
+const TOOL_SKILLS_SETTING_DEFAULT: ToolSkillsSetting = { afterResearch: false };
 
 /** The stored value, or the default when there is none or it no longer parses. */
 export function readToolSkillsSetting(value: unknown): ToolSkillsSetting {
