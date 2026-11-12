@@ -10,7 +10,7 @@ import type { QrErrorLevel } from "./matrix.ts";
  * Client-safe and dependency-free.
  */
 
-export const MM_PER_IN = 25.4;
+const MM_PER_IN = 25.4;
 export const PT_PER_MM = 72 / MM_PER_IN;
 
 /**
@@ -118,7 +118,7 @@ export const QR_QUIET_MODULES = 2;
  * 76.13; its PNG is what the label draws). Until 2026-10-06 it was the
  * MakerLAB wordmark, 475 × 79.
  */
-export const BRAND_ASPECT = 277.68 / 76.13;
+const BRAND_ASPECT = 277.68 / 76.13;
 
 /**
  * Text width in points. The PDF passes Helvetica's real metrics; the browser
@@ -224,7 +224,7 @@ function blockHeight(block: Block, reserve = false): number {
  * smaller when it changed; only a custom label over 78.6 mm lets it grow past
  * 5.5 mm, since its two lines of type are each about a quarter of its height.
  */
-export function typeScale(shortMm: number) {
+function typeScale(shortMm: number) {
   const namePt = clamp(2.6 + 0.13 * shortMm, 5, 14);
   return {
     namePt,

@@ -39,14 +39,14 @@ export class FileCopyError extends Error {
 }
 
 /** Hosts whose URLs are known to be dead; skipped without a request. */
-export const STALE_FILE_HOSTS = ["airtableusercontent.com"];
+const STALE_FILE_HOSTS = ["airtableusercontent.com"];
 
 export function isStaleFileUrl(url: string): boolean {
   return STALE_FILE_HOSTS.some((host) => url.includes(host));
 }
 
 /** Larger than anything the catalogue holds; a guard against a stray video. */
-export const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 export interface FileCopier {
   copy(sourceUrl: string, destination: { pathname: string; access: "public" | "private" }): Promise<CopiedFile>;

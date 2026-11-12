@@ -27,7 +27,7 @@ import type { MirrorSetupError } from "./types.ts";
  */
 
 /** How long Test connection may take. A settings page that hangs is a broken settings page. */
-export const MIRROR_TEST_TIMEOUT_MS = 10_000;
+const MIRROR_TEST_TIMEOUT_MS = 10_000;
 
 /**
  * An internal-integration token as Notion issues them (`ntn_…`, and the older

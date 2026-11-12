@@ -36,7 +36,7 @@ export type SendResult =
   | { ok: false; retryable: false; code: "invalid_recipient" | "rejected"; status: number };
 
 /** How long one request may take before it counts as a network failure. */
-export const SEND_TIMEOUT_MS = 15_000;
+const SEND_TIMEOUT_MS = 15_000;
 
 /** `EMAIL_FROM` with the site's name as its display name, unless it already carries one. */
 export function fromHeader(from: string): string {
