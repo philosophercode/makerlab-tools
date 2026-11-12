@@ -36,7 +36,7 @@ export function formatLabelLocation(room?: string | null, zone?: string | null):
  * (a lab with one Trotec calls the unit "Trotec Speedy 400") says nothing the
  * name does not, so it is left off rather than printed twice.
  */
-export function unitLabelLine(toolName: string, unitName?: string | null): string {
+function unitLabelLine(toolName: string, unitName?: string | null): string {
   const unit = (unitName || "").trim();
   if (!unit) return "";
   return unit.toLowerCase() === (toolName || "").trim().toLowerCase() ? "" : unit;

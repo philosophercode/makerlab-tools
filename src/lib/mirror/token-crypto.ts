@@ -23,7 +23,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:cr
  * code decrypts the token from an esbuild bundle.
  */
 
-export const MIRROR_TOKEN_KEY_INFO = "makerlab-tools/notion-mirror-token/v1";
+const MIRROR_TOKEN_KEY_INFO = "makerlab-tools/notion-mirror-token/v1";
 
 const SALT = "makerlab-tools-mirror";
 const VERSION = 0x01;

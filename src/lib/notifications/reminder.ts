@@ -54,7 +54,7 @@ export type ReminderEnqueue =
  * named for their current due date: the tasks that came due since the last
  * email (a missed day, or a task set up already overdue, included).
  */
-export async function listNewlyDue(db: Db, labDate: string): Promise<Array<{ scheduleId: string; dueOn: string }>> {
+async function listNewlyDue(db: Db, labDate: string): Promise<Array<{ scheduleId: string; dueOn: string }>> {
   const rows = await rawRows<{ id: string; next_due_on: string | Date }>(
     db,
     sql`select s.id, s.next_due_on

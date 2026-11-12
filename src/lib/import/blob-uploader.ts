@@ -34,7 +34,7 @@ export function createVercelBlobUploader(): BlobUploader {
 }
 
 /** The same contract against `.blob-data/` (see `blob-local.ts`). */
-export function createLocalBlobUploader(): BlobUploader {
+function createLocalBlobUploader(): BlobUploader {
   const disk = createLocalBlobBackend();
   return {
     put(pathname, body, options) {

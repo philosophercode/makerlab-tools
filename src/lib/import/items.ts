@@ -211,7 +211,7 @@ export function isLabDocUrl(url: string): boolean {
 }
 
 /** "docs.google.com — Lab document": a lab document with no title of its own. */
-export function defaultLabDocTitle(url: string): string {
+function defaultLabDocTitle(url: string): string {
   let host = "";
   try {
     host = new URL(url).hostname.replace(/^www\./, "");
@@ -237,7 +237,7 @@ function labDocTitle(title: string | null | undefined, url: string): string {
 const GENERIC_DOC_WORDS = new Set(["doc", "docs", "document", "documents", "link", "links", "url", "urls", "google", "gdoc", "lab"]);
 
 /** Likely a consumable rather than equipment ("10 boxes of screws", "PLA filament"). */
-export function looksConsumable(name: string): boolean {
+function looksConsumable(name: string): boolean {
   return /\b(box(es)?|packs?|bags?|rolls?|spools?|sheets?|bottles?|cans?|tubes?|reams?) of\b/i.test(name) ||
     /\b(screws?|nails?|bolts?|nuts|washers?|rivets?|zip ?ties?|sandpaper|glue sticks?|superglue|epoxy|tape|filament|resin bottle|consumables?|batteries|drill bits? set)\b/i.test(name);
 }

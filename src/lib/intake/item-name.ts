@@ -35,7 +35,7 @@ export type ItemNameProblem = "empty" | "placeholder";
  * speaks (Spanish, French, Portuguese, Turkish), accents removed — model names
  * and makes are rarely written in other scripts.
  */
-export const GENERIC_WORDS: ReadonlySet<string> = new Set([
+const GENERIC_WORDS: ReadonlySet<string> = new Set([
   // What any item is.
   "equipment", "equipments", "tool", "tools", "item", "items", "thing", "things", "stuff", "object", "objects",
   "product", "products", "device", "devices", "machine", "machines", "machinery", "unit", "units", "gear",

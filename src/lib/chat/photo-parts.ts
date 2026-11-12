@@ -10,7 +10,7 @@ import type { FileUIPart, UIMessage } from "ai";
  */
 
 /** How many photos from earlier turns stay in the model's context. */
-export const RECENT_PHOTO_LIMIT = 4;
+const RECENT_PHOTO_LIMIT = 4;
 
 /** A photo waiting to be sent, as far as the model is concerned. */
 export interface VisionPhoto {

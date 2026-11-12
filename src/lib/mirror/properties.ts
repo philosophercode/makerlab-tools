@@ -42,12 +42,12 @@ import type {
  * yet mirrored and tries it again next time.
  */
 
-export const NOTION_TEXT_CHUNK = 2000;
-export const NOTION_MAX_RICH_TEXT_ITEMS = 100;
-export const NOTION_MAX_OPTION_LENGTH = 100;
-export const NOTION_MAX_URL_LENGTH = 2000;
-export const NOTION_MAX_FILE_NAME_LENGTH = 100;
-export const NOTION_MAX_ARRAY_ITEMS = 100;
+const NOTION_TEXT_CHUNK = 2000;
+const NOTION_MAX_RICH_TEXT_ITEMS = 100;
+const NOTION_MAX_OPTION_LENGTH = 100;
+const NOTION_MAX_URL_LENGTH = 2000;
+const NOTION_MAX_FILE_NAME_LENGTH = 100;
+const NOTION_MAX_ARRAY_ITEMS = 100;
 
 /** Page ids of already-mirrored rows, by target entity. */
 export interface MirrorRelations {

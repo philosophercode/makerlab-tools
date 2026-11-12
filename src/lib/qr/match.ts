@@ -38,7 +38,7 @@ function hostOf(url: string): string | null {
  * history, not branding, so a list in code (lab config spec §3.3). A fork's
  * own past hosts go here too.
  */
-export const LEGACY_QR_HOSTS: readonly string[] = ["https://makerlab-ai.vercel.app"];
+const LEGACY_QR_HOSTS: readonly string[] = ["https://makerlab-ai.vercel.app"];
 
 /**
  * The hosts a code of ours can name: the configured site (`qrSiteUrl`, the

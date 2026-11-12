@@ -29,10 +29,10 @@ export interface DecodeOptions {
   now?: () => number;
 }
 
-export const QR_DECODE_BUDGET_MS = 1500;
-export const QR_DECODE_MAX_BYTES = 15 * 1024 * 1024;
+const QR_DECODE_BUDGET_MS = 1500;
+const QR_DECODE_MAX_BYTES = 15 * 1024 * 1024;
 /** The long edges tried: a 1600 px view first (fast, and a label's modules resolve), a 1000 px one for a big soft code, 2400 px for a small far one. */
-export const QR_DECODE_SIZES = [1600, 1000, 2400] as const;
+const QR_DECODE_SIZES = [1600, 1000, 2400] as const;
 
 export async function decodeQrCodes(bytes: Uint8Array, options: DecodeOptions = {}): Promise<string[]> {
   const {

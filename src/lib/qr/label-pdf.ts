@@ -63,14 +63,14 @@ export function pdfSafeText(text: string, font: PDFFont): string {
 }
 
 /** Helvetica's real widths, for `layoutLabel`. */
-export function helveticaMeasure(fonts: HelveticaFonts): MeasureText {
+function helveticaMeasure(fonts: HelveticaFonts): MeasureText {
   return (text, sizePt, bold) => {
     const font = bold ? fonts.bold : fonts.regular;
     return font.widthOfTextAtSize(pdfSafeText(text, font), sizePt);
   };
 }
 
-export async function embedHelvetica(doc: PDFDocument): Promise<HelveticaFonts> {
+async function embedHelvetica(doc: PDFDocument): Promise<HelveticaFonts> {
   const [regular, bold] = await Promise.all([doc.embedFont(StandardFonts.Helvetica), doc.embedFont(StandardFonts.HelveticaBold)]);
   return { regular, bold };
 }

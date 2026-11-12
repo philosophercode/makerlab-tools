@@ -34,7 +34,7 @@ export function cleanReply(text: string): string {
 }
 
 /** What two replies are compared by: cleaned and case-insensitive. */
-export function replyKey(text: string): string {
+function replyKey(text: string): string {
   return cleanReply(text).toLowerCase();
 }
 

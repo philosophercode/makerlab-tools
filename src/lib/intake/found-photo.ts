@@ -25,7 +25,7 @@ import { CLEAN_NOTES, CLEANED_KINDS, imageCandidateSchema, type CleanedKind, typ
  * client-safe.
  */
 
-export const FOUND_PHOTO_STATUSES = ["searching", "found", "none", "failed"] as const;
+const FOUND_PHOTO_STATUSES = ["searching", "found", "none", "failed"] as const;
 export type FoundPhotoStatus = (typeof FOUND_PHOTO_STATUSES)[number];
 
 /** The longest `error` stored. */
