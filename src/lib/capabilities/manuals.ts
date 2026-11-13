@@ -61,13 +61,13 @@ import type { Capability, CapabilityTool, ManualOutlineForPrompt, PromptEnv } fr
 export const SEARCH_MANUAL_TOOL = "search_manual";
 
 /** Passages returned per search (spec §3.5: `limit = 8`). */
-export const SEARCH_MANUAL_LIMIT = 8;
+const SEARCH_MANUAL_LIMIT = 8;
 
 /** The manual outline given to the prompt on a tool page: ~2k tokens. */
 export const MANUAL_OUTLINE_MAX_CHARS = 8000;
 
 /** Machines one `compare_tools` call may name. */
-export const COMPARE_TOOLS_MAX = 6;
+const COMPARE_TOOLS_MAX = 6;
 
 interface SearchManualInput {
   query: string;
@@ -93,7 +93,7 @@ interface PassageForModel {
 }
 
 /** What a search compared: nothing (one machine), the named machines, or every machine. */
-export type Comparing = "none" | "tools" | "all";
+type Comparing = "none" | "tools" | "all";
 
 /** What every searched result records about its scope. */
 interface ScopeFields {

@@ -109,7 +109,7 @@ function refusal(code: string, refused?: RefusedItem[]): Record<string, unknown>
 }
 
 /** Where an MCP proposal waits for its creator (§3.8, §6). */
-export const PROPOSALS_INBOX_PATH = "/admin/proposals";
+const PROPOSALS_INBOX_PATH = "/admin/proposals";
 
 /** Appended to an action's description over MCP, where there is no card. */
 export const MCP_PROPOSAL_NOTE =
@@ -235,7 +235,7 @@ You can prepare changes the person could make themselves in the app — ${offere
 }
 
 /** The definitions MCP clients may propose: proposable, and `mcp: "propose"` (§3.8). */
-export function mcpProposableDefinitions(defs: readonly AnyActionDefinition[] = ACTION_DEFINITIONS): AnyActionDefinition[] {
+function mcpProposableDefinitions(defs: readonly AnyActionDefinition[] = ACTION_DEFINITIONS): AnyActionDefinition[] {
   return proposableDefinitions(defs).filter((def) => def.mcp === "propose");
 }
 

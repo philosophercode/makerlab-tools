@@ -40,9 +40,9 @@ export type QueueActionResult<E extends string> =
   | { ok: false; error: AdminGateError | E };
 
 /** What the data layer answers: `ok`, or a refusal naming its own reason. */
-export type QueueWriteOutcome<E extends string> = { ok: true } | { ok: false; reason: E };
+type QueueWriteOutcome<E extends string> = { ok: true } | { ok: false; reason: E };
 
-export interface QueueWrite<E extends string> {
+interface QueueWrite<E extends string> {
   /** The one permission this surface needs. Checked here, never by the page. */
   permission: Permission;
   /** The page to refresh once the change has landed. */

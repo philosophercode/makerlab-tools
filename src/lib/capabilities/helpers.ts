@@ -146,7 +146,7 @@ function flatLine(value: string, max = 160): string {
 /** The model sees a recap, not an archive — and the read is bounded to match. */
 const MAX_MAINTENANCE_ENTRIES = 10;
 
-export interface RecentMaintenanceOptions {
+interface RecentMaintenanceOptions {
   /** Include the reporter's name. The caller decides with `can(identity, "maintenance.manage")`. */
   includeReporter?: boolean;
 }

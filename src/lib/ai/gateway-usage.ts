@@ -9,7 +9,7 @@
  * Pure. Plain Node: step code imports this.
  */
 
-export interface GatewayCallReport {
+interface GatewayCallReport {
   /** Dollars, or null when the Gateway reported none. */
   cost: number | null;
   /** The tier the Gateway reports it served the call on, or null when it reported none. */

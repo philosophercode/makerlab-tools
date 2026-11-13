@@ -155,7 +155,7 @@ const DB_UNAVAILABLE =
  * "Unknown", "Item" (data platform spec amendment "No empty items"). Worded so
  * the model's next move is the right one: ask, and call again with real names.
  */
-export function placeholderNamesError(names: readonly string[]): string {
+function placeholderNamesError(names: readonly string[]): string {
   const shown = names.map((name) => (name.trim() ? `"${name.trim().slice(0, 80)}"` : "an entry with no name"));
   const list = shown.length === 1 ? shown[0] : `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
   return [
@@ -186,7 +186,7 @@ export function placeholderNamesError(names: readonly string[]): string {
  * that shows a photo claims it (`own`) and every later one gets its own copy
  * (`shared`, `sharePhotosWithItems`).
  */
-export function photosPerItem(
+function photosPerItem(
   items: readonly Pick<MergedItem, "attachmentIds">[],
   turnIds: readonly string[]
 ): { own: string[][]; shared: string[][]; unassigned: string[] } {

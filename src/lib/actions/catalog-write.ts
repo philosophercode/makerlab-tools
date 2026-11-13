@@ -65,7 +65,7 @@ export async function tellMirror(): Promise<undefined> {
 export const INVENTORY_REVALIDATE = [INVENTORY_PATH];
 
 /** The tool behind a model-written id or slug, drafts and archived tools included. */
-export interface ToolRef {
+interface ToolRef {
   id: string;
   slug: string;
   name: string;

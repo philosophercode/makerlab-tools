@@ -37,7 +37,7 @@ function staffed(data: ValueReportData): string {
   return `${days}, ${formatHour(hours.openHour)}–${formatHour(hours.closeHour)} ${data.timeZone}`;
 }
 
-export function valueReportSummary(data: ValueReportData) {
+function valueReportSummary(data: ValueReportData) {
   const r = data.report;
   const a = data.assumptions.assumptions;
   return {
