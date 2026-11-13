@@ -51,7 +51,7 @@ interface IntakeCandidate {
   reason: string;
 }
 
-export type IntakeItemResult =
+type IntakeItemResult =
   | { found: false; message: string }
   | {
       found: true;

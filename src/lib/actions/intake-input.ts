@@ -46,7 +46,7 @@ const imageChoice = z.discriminatedUnion("choice", [
   z.strictObject({ choice: z.literal("none") }),
 ]);
 
-export const approvalFields = z.strictObject({
+const approvalFields = z.strictObject({
   // The display name; over its 40-character cap the approval itself refuses (`invalid_field`).
   name: z.string().trim().min(1).max(MAX_LINE),
   // The official name (tool display names spec §5.3); blank is none.

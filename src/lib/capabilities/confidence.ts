@@ -70,13 +70,13 @@ function externalSource(e: IntakeEvidence): boolean {
  * identification card does not, and passes nothing: the cap below then never
  * applies.
  */
-export interface ConfidenceReads {
+interface ConfidenceReads {
   /** The pages read, video or not. */
   sourceUrls: readonly string[];
 }
 
 /** Why the grade is capped: only videos were read, or nothing was. */
-export type ReadCap = "videoOnly" | "nothingRead";
+type ReadCap = "videoOnly" | "nothingRead";
 
 /**
  * The cap on a grade whose research read no page (amendment "Search text
@@ -153,14 +153,14 @@ export type ConfidenceUnknownCode =
   | "specs";
 
 /** A single strip line: a stable code plus any interpolation values. */
-export interface ConfidenceLine<C extends string> {
+interface ConfidenceLine<C extends string> {
   code: C;
   /** ICU values for the localized message, e.g. `{ plate: "X1-Carbon" }`. */
   values?: Record<string, string>;
 }
 
 /** The strip's contents, as codes the UI localizes (confidence spec §6). */
-export interface ConfidenceLines {
+interface ConfidenceLines {
   basis: ConfidenceLine<ConfidenceBasisCode>[];
   unknowns: ConfidenceLine<ConfidenceUnknownCode>[];
 }

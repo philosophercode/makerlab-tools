@@ -4,7 +4,7 @@
  * model list on 2026-10-08. An estimate only: the Gateway's reported cost is the
  * real figure, and a flex call costs less than its list price.
  */
-export interface ListPrice {
+interface ListPrice {
   input: number;
   output: number;
 }
@@ -17,7 +17,7 @@ const LIST_PRICES: Readonly<Record<string, ListPrice>> = {
 };
 
 /** `modelId`'s list price, or null for a model not listed here. */
-export function listPriceFor(modelId: string): ListPrice | null {
+function listPriceFor(modelId: string): ListPrice | null {
   return LIST_PRICES[modelId] ?? null;
 }
 

@@ -20,7 +20,7 @@ import type { ActionPreview } from "./define";
  */
 
 /** The actions this view decides. Removal is destructive and never over MCP, so it never reaches the inbox. */
-export const TRIAGE_ACTIONS: ReadonlySet<string> = new Set(["resources.add", "resources.edit"]);
+const TRIAGE_ACTIONS: ReadonlySet<string> = new Set(["resources.add", "resources.edit"]);
 
 /** What a row does, as a label. A row can do several (a new link and a new kind). */
 export type TriageChange = "add_manual" | "add_link" | "replace_link" | "retype" | "retitle" | "hide" | "show" | "edit_notes" | "rearchive";
@@ -123,14 +123,14 @@ interface EditInput {
 }
 
 /** The tool a triage row is for, or null when it is not a triage row. */
-export function triageToolId(row: Pick<ActionProposalRecord, "actionId" | "input">): string | null {
+function triageToolId(row: Pick<ActionProposalRecord, "actionId" | "input">): string | null {
   if (!TRIAGE_ACTIONS.has(row.actionId)) return null;
   const toolId = (row.input as { toolId?: unknown } | null)?.toolId;
   return typeof toolId === "string" && toolId ? toolId : null;
 }
 
 /** The rows this view decides: open, unexpired, a triage action. */
-export function triageRows(rows: readonly ActionProposalRecord[]): ActionProposalRecord[] {
+function triageRows(rows: readonly ActionProposalRecord[]): ActionProposalRecord[] {
   return rows.filter((row) => row.status === "open" && !row.expired && triageToolId(row) !== null);
 }
 

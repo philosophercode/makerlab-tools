@@ -51,7 +51,7 @@ export type SelectionKind = (typeof SELECTION_KINDS)[number];
 export const MAX_SELECTION = 50;
 
 /** What the chat body may carry, validated before anything is read. */
-export const pageContextSchema = z.object({
+const pageContextSchema = z.object({
   path: z.string().max(300),
   selection: z
     .object({
@@ -207,7 +207,7 @@ export const PAGE_CONTEXTS: readonly PageEntry[] = [
   { pattern: /^\/projects(\/[^/]+)?$/, name: "the projects gallery (/projects)" },
 ];
 
-export interface PageContext {
+interface PageContext {
   /** The page's name, or null for a path no entry knows. */
   page: string | null;
   subject: string | null;

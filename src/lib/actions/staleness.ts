@@ -19,7 +19,7 @@ import type { ActionPreview } from "./define";
  */
 
 /** The drift entry's name for a changed `version` — never a row, so no card label. */
-export const VERSION_FIELD = "version";
+const VERSION_FIELD = "version";
 
 /** One field whose value changed between the card and the click. */
 export interface DriftedField {

@@ -36,7 +36,7 @@
 /** The actions whose write checks and returns the tool's revision atomically (`withTouchedTool`). */
 export const CHAINED_ACTIONS: ReadonlySet<string> = new Set(["resources.add", "resources.edit", "units.edit", "units.rename"]);
 
-export interface ToolRevisionRef {
+interface ToolRevisionRef {
   toolId: string;
   expectedRevision: string;
 }
@@ -51,7 +51,7 @@ export function toolRevisionOf(input: unknown): ToolRevisionRef | null {
 }
 
 /** What happened to a row that ran: confirmed with the tool's new revision, or not confirmed. */
-export type ChainOutcome = { confirmed: true; revision?: string } | { confirmed: false };
+type ChainOutcome = { confirmed: true; revision?: string } | { confirmed: false };
 
 interface Link {
   /** The revision the first confirmed row of this request started from. */
