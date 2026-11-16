@@ -67,7 +67,7 @@ interface ToolExportColumn {
 }
 
 /** Every column, in file order. The headers are the file's contract with whoever imports it. */
-export const TOOL_EXPORT_COLUMNS: readonly ToolExportColumn[] = [
+const TOOL_EXPORT_COLUMNS: readonly ToolExportColumn[] = [
   { header: "ID", cell: (r) => r.id },
   { header: "Slug", cell: (r) => r.slug },
   { header: "Name", cell: (r) => r.name },

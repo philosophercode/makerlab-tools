@@ -26,7 +26,7 @@ export const READ_PAGE_MAX_CHARS = 40_000;
 export const READ_PAGE_MAX_HTML_BYTES = 5 * 1024 * 1024;
 export const READ_PAGE_MAX_PDF_BYTES = 10 * 1024 * 1024;
 export const READ_PAGE_TIMEOUT_MS = 15_000;
-export const READ_PAGE_MAX_REDIRECTS = 3;
+const READ_PAGE_MAX_REDIRECTS = 3;
 
 /**
  * An image a page (or Exa) says shows the product, and where that was said.

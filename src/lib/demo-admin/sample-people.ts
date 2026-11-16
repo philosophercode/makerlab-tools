@@ -15,7 +15,7 @@ import type { UserRecord } from "../data/users";
  */
 
 /** Every sample id starts with this, so nothing can mistake one for a real row. */
-export const SAMPLE_PERSON_PREFIX = "sample-";
+const SAMPLE_PERSON_PREFIX = "sample-";
 
 const USERS: ReadonlyArray<readonly [string, string]> = [
   ["Maya Chen", "mchen"],

@@ -18,7 +18,7 @@ import { createHash, randomBytes } from "node:crypto";
 export const API_TOKEN_PREFIX = "mlt_";
 
 /** Characters of the random part kept for display (§4.1: "first 8 characters after `mlt_`"). */
-export const DISPLAY_PREFIX_LENGTH = 8;
+const DISPLAY_PREFIX_LENGTH = 8;
 
 /** base64url of 32 bytes, unpadded. */
 const TOKEN_BODY = /^[A-Za-z0-9_-]{43}$/;

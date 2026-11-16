@@ -29,7 +29,7 @@ const GENERIC_BRANDS = new Set(["mif1", "msf1"]);
  * a 50 MP Samsung one fit; a crafted file claiming more is refused before its
  * pixels are allocated.
  */
-export const HEIF_MAX_PIXELS = 64_000_000;
+const HEIF_MAX_PIXELS = 64_000_000;
 
 /** RGBA pixels, 4 bytes each, row by row. */
 export interface HeifPixels {

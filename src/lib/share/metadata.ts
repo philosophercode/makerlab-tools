@@ -15,7 +15,7 @@ import { lab } from "../lab/config";
  */
 
 /** The generated site card (`app/opengraph-image.tsx`), 1200×630. */
-export const SITE_SHARE_IMAGE = {
+const SITE_SHARE_IMAGE = {
   url: "/opengraph-image",
   width: 1200,
   height: 630,
@@ -29,7 +29,7 @@ export const SITE_DESCRIPTION = `${siteConfig.tagline}: the ${siteConfig.institu
 export const SHARE_DESCRIPTION_MAX = 160;
 
 /** The width a shared photo is served at: over WhatsApp's 300 px minimum, well under its ~600 KB ceiling. */
-export const SHARE_IMAGE_WIDTH = 640;
+const SHARE_IMAGE_WIDTH = 640;
 
 export function baseOpenGraph(): NonNullable<Metadata["openGraph"]> {
   return { siteName: siteConfig.name, type: "website", locale: "en_US" };

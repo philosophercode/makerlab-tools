@@ -26,7 +26,7 @@ const httpsUrl = z.url({ protocol: /^https?$/, error: "must be an http(s) URL" }
 const email = z.email("must be an email address");
 
 /** An IANA timezone the runtime's `Intl` knows. */
-export function isTimezone(value: string): boolean {
+function isTimezone(value: string): boolean {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: value });
     return true;
@@ -44,7 +44,7 @@ const locale = z.enum(LOCALE_CODES as [string, ...string[]], "must be one of the
  * language, or per-locale text with English required, which every locale it
  * does not give falls back to.
  */
-export const localizedTextSchema = z.union([
+const localizedTextSchema = z.union([
   nonEmpty,
   z
     .object({ en: nonEmpty })

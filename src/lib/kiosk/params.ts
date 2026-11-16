@@ -5,8 +5,8 @@
  * rule as the machine labels' `?src=qr`.
  */
 
-export const KIOSK_SOURCE_PARAM = "src";
-export const KIOSK_SOURCE_VALUE = "kiosk";
+const KIOSK_SOURCE_PARAM = "src";
+const KIOSK_SOURCE_VALUE = "kiosk";
 /** `ask=1` opens the assistant on arrival. */
 export const ASK_PARAM = "ask";
 

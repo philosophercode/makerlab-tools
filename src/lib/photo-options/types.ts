@@ -50,7 +50,7 @@ export interface PhotoOption {
 const box = z.tuple([z.number(), z.number(), z.number(), z.number()]);
 
 /** The stored `options`, read leniently per entry: a malformed one is dropped, never a failed page. */
-export const photoOptionSchema = z.object({
+const photoOptionSchema = z.object({
   url: z.string().url(),
   pageUrl: z.string().nullable(),
   source: z.enum(IMAGE_SOURCES),

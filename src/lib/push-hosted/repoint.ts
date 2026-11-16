@@ -87,7 +87,7 @@ function stringKind(column: PgColumn): Kind | null {
 }
 
 /** Every copied table's string-capable columns, with its primary key. */
-export function repointColumns(): { table: string; primaryKey: string[]; columns: { name: string; kind: Kind }[] }[] {
+function repointColumns(): { table: string; primaryKey: string[]; columns: { name: string; kind: Kind }[] }[] {
   const plans = new Map(planTables().tables.map((t) => [t.name, t]));
   const out = [];
   for (const table of schemaTables()) {

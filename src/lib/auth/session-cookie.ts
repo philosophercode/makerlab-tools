@@ -39,7 +39,7 @@ export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
  * Rolling refresh threshold: re-sign the cookie once it is older than this, so
  * an active user's 30 days keep sliding forward and an idle one's expires.
  */
-export const SESSION_REFRESH_AFTER_SECONDS = 24 * 60 * 60;
+const SESSION_REFRESH_AFTER_SECONDS = 24 * 60 * 60;
 
 export interface SessionPayload {
   /** Google `sub` — the stable user id. */
@@ -171,7 +171,7 @@ export interface CookieAttributes {
  * Attributes for the session cookie. `SameSite=Lax` so the OAuth redirect back
  * from Google still carries it; `Secure` everywhere except local development.
  */
-export function sessionCookieAttributes(
+function sessionCookieAttributes(
   maxAgeSeconds: number = SESSION_MAX_AGE_SECONDS
 ): CookieAttributes {
   return {

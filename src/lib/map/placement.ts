@@ -28,7 +28,7 @@ export interface ToolPlace {
   station: MapStation | null;
 }
 
-export function normalizePlaceName(value: string): string {
+function normalizePlaceName(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
