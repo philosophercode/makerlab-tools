@@ -36,7 +36,7 @@ import { thumbnailBlobPathnames } from "../images/thumbnail-urls";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** How long an upload may sit unclaimed. */
-export const ORPHAN_MAX_AGE_MS = DAY_MS;
+const ORPHAN_MAX_AGE_MS = DAY_MS;
 
 export interface CleanupResult {
   /** Rows that were unclaimed and past the window. */

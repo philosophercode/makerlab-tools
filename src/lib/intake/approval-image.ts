@@ -64,7 +64,7 @@ import { IMAGE_MAX_BYTES } from "./limits";
  */
 
 /** How long the chosen original may take to download, like a page read. */
-export const APPROVAL_IMAGE_TIMEOUT_MS = 15_000;
+const APPROVAL_IMAGE_TIMEOUT_MS = 15_000;
 
 /** Where a chosen original is stored — the prefix every tool photo uses. */
 const TOOL_PHOTO_PREFIX = "uploads/tool/";

@@ -12,7 +12,7 @@ import { BACKUP_PREFIX } from "./backup";
  */
 
 /** The job runs every 24 hours; 36 allows a late run without crying wolf. */
-export const BACKUP_STALE_AFTER_HOURS = 36;
+const BACKUP_STALE_AFTER_HOURS = 36;
 
 const BACKUP_PATHNAME = /^backups\/(\d{4}-\d{2}-\d{2})\.json$/;
 const HOUR_MS = 60 * 60 * 1000;

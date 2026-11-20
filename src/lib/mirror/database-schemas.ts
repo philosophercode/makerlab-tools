@@ -64,7 +64,7 @@ export const APP_ID_PROPERTY = "App ID";
 /** The property every database carries: the row's `updated_at`. */
 export const UPDATED_PROPERTY = "Updated";
 
-export const MIRROR_DATABASE_DESCRIPTION =
+const MIRROR_DATABASE_DESCRIPTION =
   "Mirrored one way from MakerLab Tools. Edits made here are overwritten by the next push.";
 
 /** The entity as a database title word. */
@@ -193,7 +193,7 @@ export function expectedProperties(entity: MirrorEntity, mapping: MirrorMapping)
 }
 
 /** The relation properties of `entity`, with their target entities. */
-export function relationProperties(entity: MirrorEntity): { name: string; target: MirrorEntity }[] {
+function relationProperties(entity: MirrorEntity): { name: string; target: MirrorEntity }[] {
   return SCHEMAS[entity]
     .filter((spec) => spec.type === "relation" && spec.target)
     .map((spec) => ({ name: spec.name, target: spec.target as MirrorEntity }));

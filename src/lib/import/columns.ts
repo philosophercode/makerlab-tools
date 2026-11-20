@@ -32,7 +32,7 @@ export type ImportField = (typeof IMPORT_FIELDS)[number];
 export type ColumnMap = (ImportField | null)[];
 
 /** Fields several columns may feed. */
-export const MULTI_COLUMN_FIELDS: readonly ImportField[] = ["notes", "links", "labDocs"];
+const MULTI_COLUMN_FIELDS: readonly ImportField[] = ["notes", "links", "labDocs"];
 
 /**
  * Header spellings, normalized (lower case, letters and digits, single spaces).
