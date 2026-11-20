@@ -13,7 +13,7 @@ export type ReportPeriod =
   | { kind: "custom"; key: "custom"; from: string; to: string };
 
 /** The longest custom range the report reads: a year and a day. */
-export const MAX_CUSTOM_DAYS = 366;
+const MAX_CUSTOM_DAYS = 366;
 
 export function termPeriod(term: TermKind, year: number, terms: TermWindow[]): ReportPeriod {
   const window = terms.find((t) => t.kind === term) ?? terms[0];

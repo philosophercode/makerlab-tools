@@ -27,7 +27,7 @@ export interface ActionProposalOptions {
 }
 
 /** How long a proposal stays open (§11 answer 7). */
-export const PROPOSAL_TTL_MINUTES: Record<ActionProposalSurface, number> = {
+const PROPOSAL_TTL_MINUTES: Record<ActionProposalSurface, number> = {
   assistant: 60,
   mcp: 7 * 24 * 60,
 };
@@ -246,7 +246,7 @@ export async function listChatActionProposals(
 }
 
 /** How long a decided MCP proposal stays listed in the inbox, for reference (§6). */
-export const INBOX_DECIDED_DAYS = 7;
+const INBOX_DECIDED_DAYS = 7;
 
 /**
  * `userId`'s MCP proposals for the **Assistant proposals** inbox

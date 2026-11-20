@@ -34,7 +34,7 @@ export { TOKEN_LIFETIME_DAYS, tokenExpiryFrom };
 export const MAX_ACTIVE_TOKENS = 20;
 
 /** Longest token name kept. */
-export const TOKEN_NAME_MAX = 80;
+const TOKEN_NAME_MAX = 80;
 
 /** `last_used_at` moves at most this often (§4.1). */
 const LAST_USED_RESOLUTION = sql`interval '1 minute'`;

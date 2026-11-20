@@ -14,7 +14,7 @@ import type { Db } from "../db/types.ts";
  * Bounded like every list a person reads (Article 4).
  */
 
-export const UNITS_DOWN_STATUSES = ["out_of_service", "under_maintenance"] as const;
+const UNITS_DOWN_STATUSES = ["out_of_service", "under_maintenance"] as const;
 export type UnitDownStatus = (typeof UNITS_DOWN_STATUSES)[number];
 
 export interface UnitDown {

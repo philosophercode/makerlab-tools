@@ -26,10 +26,6 @@ export type ResearchFocus = readonly ResearchFocusField[] | null;
 export const RESEARCH_FOCUS_CHOICES = [...RESEARCH_FOCUS_FIELDS, "everything"] as const;
 export type ResearchFocusChoice = (typeof RESEARCH_FOCUS_CHOICES)[number];
 
-export function isResearchFocusField(value: unknown): value is ResearchFocusField {
-  return typeof value === "string" && (RESEARCH_FOCUS_FIELDS as readonly string[]).includes(value);
-}
-
 /**
  * A request's `focus`, normalised: `null` (everything) when absent, empty, or
  * naming `"everything"` at all; otherwise its fields in canonical order, once

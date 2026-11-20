@@ -759,49 +759,6 @@ export type ProjectWriteFields = Partial<ProjectFields> & {
   author_email?: string;
 };
 
-export async function createProject(
-  fields: ProjectWriteFields
-): Promise<ProjectRecord> {
-  const dbId = getProjectsDbId();
-  if (!dbId) throw new Error("Missing NOTION_DB_PROJECTS");
-
-  const properties: Record<string, NotionWriteProperty> = {
-    title: titleProp(fields.title || "Untitled project"),
-    // Submissions always land unpublished; staff flip this in Notion.
-    published: { checkbox: false },
-  };
-  if (fields.author) properties.author = richTextProp(fields.author);
-  // Only ever set from a server-resolved session (projects spec §4). Requires
-  // the `author_email` Email property to exist in Notion; the route retries
-  // without it if it does not, so a missing column cannot lose a submission.
-  if (fields.author_email) {
-    properties.author_email = emailProp(fields.author_email);
-  }
-  if (fields.body) properties.body = richTextProp(fields.body);
-  if (fields.tools_used?.length) {
-    properties.tools_used = relationProp(fields.tools_used);
-  }
-  if (fields.link) properties.link = { url: fields.link };
-  if (fields.materials?.length) {
-    properties.materials = {
-      multi_select: fields.materials.map((name) => ({ name })),
-    };
-  }
-  if (fields.photo_uploads?.length) {
-    properties.photos = fileUploadsProp(fields.photo_uploads);
-  }
-
-  const page = await projectsRequest<NotionPage>("/pages", {
-    method: "POST",
-    body: JSON.stringify({
-      parent: { database_id: dbId },
-      properties,
-    }),
-  });
-
-  return pageToProject(page);
-}
-
 export function resolveTools(
   tools: ToolRecord[],
   categories: CategoryRecord[],

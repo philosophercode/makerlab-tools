@@ -43,7 +43,7 @@ import {
  */
 
 /** The manual topics searched, in the order their passages are given. */
-export const SKILL_MANUAL_TOPICS = [
+const SKILL_MANUAL_TOPICS = [
   { topic: "operating", query: "how to operate start a job procedure" },
   { topic: "setup", query: "setup preparation before use calibration" },
   { topic: "settings", query: "settings parameters speed power temperature limits" },
@@ -216,7 +216,7 @@ async function loadResearch(db: Db, toolId: string): Promise<SkillResearch | nul
 }
 
 /** The research summary the writer reads: what research found, and the pages it read. */
-export function researchText(result: ResearchResult, urls: readonly string[]): string {
+function researchText(result: ResearchResult, urls: readonly string[]): string {
   const lines: string[] = [];
   if (result.canonicalName) lines.push(`Official name: ${result.canonicalName}`);
   if (result.description) lines.push(`Description: ${result.description}`);

@@ -14,7 +14,7 @@
 const MAX_DEPTH = 5;
 
 /** True when `err` (or something it wraps) carries this SQLSTATE. */
-export function hasPgCode(err: unknown, code: string): boolean {
+function hasPgCode(err: unknown, code: string): boolean {
   for (let current: unknown = err, depth = 0; current && depth < MAX_DEPTH; depth += 1) {
     const candidate = current as { code?: unknown; cause?: unknown };
     if (candidate.code === code) return true;

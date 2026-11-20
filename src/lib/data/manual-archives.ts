@@ -104,7 +104,7 @@ export interface ManualsDueOptions {
  * link looks like (any case). Other types are archived when the link names a
  * PDF ({@link listManualsDueForArchive}).
  */
-export const ARCHIVED_RESOURCE_TYPES = ["manual", "sop", "safety"] as const;
+const ARCHIVED_RESOURCE_TYPES = ["manual", "sop", "safety"] as const;
 
 /**
  * PDF resources with a link and no PDF for it yet — the daily cron's

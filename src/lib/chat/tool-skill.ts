@@ -1,32 +1,7 @@
 import type { ToolSkillForPrompt } from "../capabilities/types";
-import { getDb } from "../db/client";
-import { readCurrentSkill, type ReadableSkill } from "../skills/read";
+import type { ReadableSkill } from "../skills/read";
 import { SKILL_PROMPT_MAX_CHARS } from "../skills/limits";
 import { renderSkillCompact } from "../skills/render";
-
-/**
- * The focused tool's skill for the chat's prompt on its page (tool skills spec
- * 2026-10-07 §5.6; the owner: "assistant should load it in chat if on tool").
- *
- * One indexed query, like the manual outlines beside it; the chat route reads
- * it through the per-tool cache (`focused-tool-context.ts`), the starter
- * answers through {@link loadToolSkillForChat}. The skill is re-rendered compactly from its stored sections within
- * {@link SKILL_PROMPT_MAX_CHARS}; a row whose sections no longer parse gives
- * its stored markdown, cut to the budget. Only the current (`ready`) skill:
- * a tool whose latest attempt failed keeps its last good skill, and a tool
- * with none gets nothing. **Never throws**: a failed read leaves the turn
- * without the skill and says so in the log, never fails the answer.
- */
-export async function loadToolSkillForChat(
-  tool: { id: string; name: string },
-  maxChars: number = SKILL_PROMPT_MAX_CHARS
-): Promise<ToolSkillForPrompt | null> {
-  try {
-    return toolSkillForPrompt(tool, await readCurrentSkill(await getDb(), tool.id), maxChars);
-  } catch (err) {
-    return noToolSkill(err);
-  }
-}
 
 /** A stored skill as the prompt carries it, within `maxChars`; null for none. */
 export function toolSkillForPrompt(

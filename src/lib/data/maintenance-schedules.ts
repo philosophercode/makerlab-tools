@@ -26,7 +26,7 @@ export const SCHEDULE_INSTRUCTIONS_MAX = 2000;
 export const COMPLETION_NOTE_MAX = 1000;
 
 /** How many of a task's latest check-offs a list shows. */
-export const RECENT_COMPLETIONS = 5;
+const RECENT_COMPLETIONS = 5;
 
 /** A list is for a person to read: bounded (Article 4). */
 const LIST_LIMIT = 500;
