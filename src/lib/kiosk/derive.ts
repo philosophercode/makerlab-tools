@@ -25,8 +25,6 @@ export interface UnitStatusCount {
   count: number;
 }
 
-const DOWN_STATUSES = new Set(["under_maintenance", "out_of_service"]);
-
 /**
  * The tools with at least one unit under maintenance or out of service, most
  * units down first. Retired units count toward neither side ("1 of 2 down"
@@ -66,11 +64,6 @@ export function downMachines(
   }
   down.sort((a, b) => b.unitsDown - a.unitsDown || a.toolName.localeCompare(b.toolName));
   return { down, unitsInService };
-}
-
-/** Whether a stored unit status reads as down on the kiosk. */
-export function isDownStatus(status: string): boolean {
-  return DOWN_STATUSES.has(status);
 }
 
 // ── Names ───────────────────────────────────────────────────────────

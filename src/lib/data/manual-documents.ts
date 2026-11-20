@@ -38,16 +38,6 @@ export interface ManualDocumentHead {
   extractorVersion: string;
 }
 
-/** The document already stored for `attachmentId`, if any. */
-export async function getManualDocumentHead(db: Db, attachmentId: string): Promise<ManualDocumentHead | null> {
-  if (!isUuid(attachmentId)) return null;
-  const [row] = await db
-    .select({ id: manualDocuments.id, status: manualDocuments.status, extractorVersion: manualDocuments.extractorVersion })
-    .from(manualDocuments)
-    .where(eq(manualDocuments.attachmentId, attachmentId));
-  return row ? { ...row, status: row.status as ManualDocumentStatus } : null;
-}
-
 export interface SaveManualDocumentInput {
   attachmentId: string;
   toolId: string | null;
