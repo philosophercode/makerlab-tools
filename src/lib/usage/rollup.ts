@@ -25,8 +25,8 @@ import type { Db } from "../db/types.ts";
  * A throw fails the stage; the cron route reports it like every other stage.
  */
 
-export const RAW_RETENTION_DAYS = 30;
-export const GAP_RETENTION_DAYS = 30;
+const RAW_RETENTION_DAYS = 30;
+const GAP_RETENTION_DAYS = 30;
 
 export interface UsageRollupResult {
   /** Hourly rows written this run. */

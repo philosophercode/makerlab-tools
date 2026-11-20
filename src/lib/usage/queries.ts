@@ -129,7 +129,7 @@ const n = (value: Num | undefined) => Number(value ?? 0);
  * Every counted event in the window as `(ts, kind, surface, audience, tool_id,
  * manual_document_id, page, source, question_kind, count)`.
  */
-export function usageSource(query: { days: number; includeStaff: boolean; now: Date }): SQL {
+function usageSource(query: { days: number; includeStaff: boolean; now: Date }): SQL {
   const now = query.now.toISOString();
   const from = sql`${now}::timestamptz - make_interval(days => ${query.days})`;
   return sourceWithin(from, sql`${now}::timestamptz`, true, query.includeStaff);
@@ -165,7 +165,7 @@ function sourceWithin(from: SQL, to: SQL, endInclusive: boolean, includeStaff: b
 }
 
 /** The lab's date strings for the last `days` days, oldest first. */
-export function labDays(days: number, now: Date, timeZone: string): string[] {
+function labDays(days: number, now: Date, timeZone: string): string[] {
   const fmt = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" });
   const out: string[] = [];
   for (let i = days - 1; i >= 0; i -= 1) out.push(fmt.format(new Date(now.getTime() - i * 86_400_000)));

@@ -122,6 +122,21 @@
     },
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.25.12"
+    },
+    "@oclif/core": {
+      "minimatch": "^11.0.8",
+      "filelist": {
+        "minimatch": "^5.1.9"
+      }
+    },
+    "@swc/cli": {
+      "minimatch": "^11.0.8"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.8"
+    },
+    "@vercel/queue": {
+      "minimatch": "^11.0.8"
     }
   }
 }

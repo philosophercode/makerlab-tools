@@ -33,7 +33,7 @@ export interface BlockedEmailOptions {
 }
 
 /** Trimmed and lower-cased; `""` for nothing usable. */
-export function normalizeBlockedEmail(email: string | null | undefined): string {
+function normalizeBlockedEmail(email: string | null | undefined): string {
   return (email ?? "").trim().toLowerCase();
 }
 

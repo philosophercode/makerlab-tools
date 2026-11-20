@@ -56,7 +56,7 @@ export interface RefreshOptions {
 }
 
 /** A run that has held a refresh this long is taken to have died (the same day intake uses). */
-export const REFRESH_ABANDONED_AFTER_MS = 24 * 60 * 60_000;
+const REFRESH_ABANDONED_AFTER_MS = 24 * 60 * 60_000;
 
 /** Why an abandoned refresh failed — what the review list says about it. */
 export const ABANDONED_REFRESH_MESSAGE = "Refresh did not finish within a day; the run was abandoned. Refresh again.";
@@ -409,7 +409,7 @@ export async function failRefreshStart(ids: readonly string[], message: string, 
  * Open refreshes nobody has written for a day — the run died — become
  * `failed`, so they stop blocking their tools. Scoped to `toolIds` when given.
  */
-export async function failAbandonedRefreshes(
+async function failAbandonedRefreshes(
   options: RefreshOptions & { toolIds?: readonly string[]; now?: Date } = {}
 ): Promise<number> {
   const db = options.db ?? (await getDb());
@@ -579,7 +579,7 @@ export async function listRefreshesForTool(toolId: string, options: RefreshOptio
 }
 
 /** Refresh rows with no tool left are impossible (cascade); kept for the type checker's sake. */
-export function isRefreshStatus(value: string): value is RefreshStatus {
+function isRefreshStatus(value: string): value is RefreshStatus {
   return isOneOf(REFRESH_STATUS, value);
 }
 

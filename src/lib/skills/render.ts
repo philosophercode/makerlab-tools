@@ -39,7 +39,7 @@ export interface SkillRenderMeta {
 }
 
 /** The note under the title, and what every reader of a skill is told. */
-export const SKILL_NOTE =
+const SKILL_NOTE =
   "AI-written from the lab's sources. Every fact cites one: [T1] the lab's catalogue record, [N…] the tool's lab notes, [L…] lab rules, [M…] manual pages, [R1] research, [K…] linked documents. Check the manual and lab staff for anything safety-related.";
 
 export function renderSkillMarkdown(meta: SkillRenderMeta, sections: SkillSections, sources: readonly SkillSource[]): string {
@@ -122,7 +122,7 @@ function flat(text: string): string {
 }
 
 /** A cited source in full, for the Sources list. */
-export function sourceLine(source: SkillSource): string {
+function sourceLine(source: SkillSource): string {
   switch (source.kind) {
     case "catalog":
       return `[${source.id}] The lab's catalogue record for the ${flat(source.toolName)}`;
@@ -142,7 +142,7 @@ export function sourceLine(source: SkillSource): string {
 }
 
 /** A cited source in a few words, for the compact form. */
-export function sourceShort(source: SkillSource): string {
+function sourceShort(source: SkillSource): string {
   switch (source.kind) {
     case "catalog":
       return `${source.id} lab record`;
