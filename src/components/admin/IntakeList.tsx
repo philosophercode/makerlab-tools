@@ -76,10 +76,10 @@ import { FoundPhotoThumb } from "../system/review/FoundPhoto";
  */
 
 /** The route both controls call. Never imported — it is Part A's endpoint. */
-export const RESEARCH_ENDPOINT = "/api/pending-tools/research";
+const RESEARCH_ENDPOINT = "/api/pending-tools/research";
 
 /** The table card's edit route, which Discard and "It's a different tool" reuse. */
-export function pendingToolEndpoint(id: string): string {
+function pendingToolEndpoint(id: string): string {
   return `/api/pending-tools/${id}`;
 }
 
@@ -137,7 +137,7 @@ async function answer(res: Response): Promise<PendingApiErrorCode | null> {
 }
 
 /** Discard one item, or decide its duplicate, through the table card's route. */
-export async function patchPendingTool(
+async function patchPendingTool(
   id: string,
   body:
     | { discard: true }
@@ -164,7 +164,7 @@ const SETTLED: ReadonlySet<PendingStatus> = new Set(["approved", "discarded"]);
  * start failed or stalled has nothing running for it, so it is not in flight;
  * it is waiting for somebody to press Retry.
  */
-export function isInFlight(
+function isInFlight(
   item: Pick<PendingToolView, "status" | "researchError" | "researchRequestedAt" | "hasWorkflowRun">,
   now: number = Date.now()
 ): boolean {
@@ -518,7 +518,7 @@ function ResearchButton({ id, name, kind }: { id: string; name: string; kind: "r
 }
 
 /** Can go to research from the queue: nothing running, nothing to decide first. */
-export function researchableFromQueue(item: PendingToolView): boolean {
+function researchableFromQueue(item: PendingToolView): boolean {
   const waiting = item.status === "identified" || item.status === "failed" || startFailed(item);
   return waiting && !(item.duplicateOf !== null && item.duplicateResolution === null);
 }

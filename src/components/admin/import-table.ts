@@ -18,7 +18,7 @@ export function isLive(item: ImportItemView): boolean {
 }
 
 /** The duplicate check matched something — decided or not. */
-export function isFlagged(item: ImportItemView): boolean {
+function isFlagged(item: ImportItemView): boolean {
   return item.duplicateOf !== null && item.duplicateResolution !== "discard";
 }
 
@@ -32,7 +32,7 @@ export function needsName(item: ImportItemView): boolean {
   return !/\d/.test(item.name);
 }
 
-export function isConsumable(item: ImportItemView): boolean {
+function isConsumable(item: ImportItemView): boolean {
   return (item.notes ?? "").includes(CONSUMABLE_NOTE);
 }
 

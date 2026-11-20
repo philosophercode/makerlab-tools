@@ -42,9 +42,9 @@ export const EXTRACTOR_VERSION = "unpdf-1/extract-2";
 /** The archive's own limit (`MAX_MANUAL_BYTES` in `archive.ts`). */
 export const MANUAL_EXTRACT_MAX_BYTES = 25 * 1024 * 1024;
 
-export const MANUAL_EXTRACT_MAX_PAGES = 1000;
+const MANUAL_EXTRACT_MAX_PAGES = 1000;
 
-export const MANUAL_EXTRACT_TIMEOUT_MS = 60_000;
+const MANUAL_EXTRACT_TIMEOUT_MS = 60_000;
 
 /** Below this many characters per page on average, a PDF is a scan (`no_text`). */
 export const NO_TEXT_MIN_AVG_CHARS = 100;

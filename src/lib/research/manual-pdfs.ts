@@ -31,7 +31,7 @@ import { isBrandHost, type PageSubject } from "./source-pages.ts";
  */
 
 /** At most this many cross the step boundary. */
-export const MAX_MANUAL_PDFS_CARRIED = 2;
+const MAX_MANUAL_PDFS_CARRIED = 2;
 
 export function isPdfUrl(raw: string): boolean {
   try {

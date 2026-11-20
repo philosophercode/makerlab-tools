@@ -28,7 +28,7 @@ import { rankToolsInPlace } from "./palette/palette-search";
  */
 
 export type Facet = "status" | "category" | "material" | "location" | "kind";
-export const FACETS: readonly Facet[] = ["status", "category", "material", "location", "kind"];
+const FACETS: readonly Facet[] = ["status", "category", "material", "location", "kind"];
 
 export function matchesFacet(tool: GalleryTool, facet: Facet, value: string): boolean {
   if (facet === "status") return tool.status === value;

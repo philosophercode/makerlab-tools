@@ -122,7 +122,7 @@ export async function buildDocumentPassages(
 }
 
 /** The passages a document's stored pages and outline produce. */
-export function chunksFor(doc: Pick<DocumentForPassages, "toolName" | "title" | "pages" | "outline">) {
+function chunksFor(doc: Pick<DocumentForPassages, "toolName" | "title" | "pages" | "outline">) {
   return chunkManual({ toolName: doc.toolName, documentTitle: doc.title, pages: doc.pages, outline: doc.outline });
 }
 

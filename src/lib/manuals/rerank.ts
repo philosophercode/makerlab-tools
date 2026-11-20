@@ -22,7 +22,7 @@ import { MODEL_JOBS, rerankingModelFor, type RerankingModelV3 } from "../ai/mode
  * Logs the error's name only. Plain Node: relative imports.
  */
 
-export const RERANK_TIMEOUT_MS = 2500;
+const RERANK_TIMEOUT_MS = 2500;
 
 /** The characters of each passage the reranker reads. */
 const RERANK_DOCUMENT_CHARS = 2000;

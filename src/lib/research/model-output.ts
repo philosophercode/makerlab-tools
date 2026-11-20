@@ -116,7 +116,7 @@ const evidencePartialSchema = z.object({
 export type EvidencePartial = Partial<IntakeEvidence>;
 
 /** How sure research is of its category (taxonomy v2 spec §4.2). */
-export const CATEGORY_CONFIDENCE = ["high", "medium", "low"] as const;
+const CATEGORY_CONFIDENCE = ["high", "medium", "low"] as const;
 export type CategoryConfidence = (typeof CATEGORY_CONFIDENCE)[number];
 
 /**
@@ -276,7 +276,7 @@ const DRAFT_QUOTE_MAX = 300;
  * keys with at most three `{ quote, url }` each. The model may use either the
  * JSON key (`useRestrictions`) or the proposal field name (`use_restrictions`).
  */
-export function readDraftCitations(value: unknown): Partial<Record<CitedField, DraftCitation[]>> {
+function readDraftCitations(value: unknown): Partial<Record<CitedField, DraftCitation[]>> {
   if (!isPlainObject(value)) return {};
   const out: Partial<Record<CitedField, DraftCitation[]>> = {};
   const byName = new Map<string, CitedField>();

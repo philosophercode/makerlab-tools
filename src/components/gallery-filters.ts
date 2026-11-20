@@ -15,7 +15,7 @@ import { TOOL_ITEM_KIND, type ToolItemKind } from "../lib/db/schema/vocabulary";
  * first value.
  */
 
-export const GALLERY_VIEWS = ["grid", "table"] as const;
+const GALLERY_VIEWS = ["grid", "table"] as const;
 export type GalleryView = (typeof GALLERY_VIEWS)[number];
 
 /**
