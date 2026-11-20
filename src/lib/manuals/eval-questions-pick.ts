@@ -23,13 +23,13 @@ import { looksEnglish } from "./language.ts";
  */
 
 export const DEFAULT_EVAL_QUESTIONS = 4;
-export const MAX_EVAL_QUESTIONS = 10;
+const MAX_EVAL_QUESTIONS = 10;
 /** Passages offered beyond the count, for the ones the model declines. */
 export const SPARE_PASSAGES = 2;
 /** A passage shorter than this has too little to ask about. */
-export const MIN_PASSAGE_CHARS = 250;
+const MIN_PASSAGE_CHARS = 250;
 /** A passage spanning more pages than this cannot pin its answer to a page. */
-export const MAX_PAGE_SPAN = 2;
+const MAX_PAGE_SPAN = 2;
 
 /**
  * Questions per manual: `MANUAL_EVAL_QUESTIONS` when it is a whole number from

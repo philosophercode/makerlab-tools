@@ -54,7 +54,7 @@ export const OCR_MAX_PAGES = 150;
 export const OCR_MAX_COST_USD = 1;
 
 /** Pages read at once. */
-export const OCR_CONCURRENCY = 4;
+const OCR_CONCURRENCY = 4;
 
 /**
  * What a page counts against the budget when the Gateway reports no cost: a
@@ -64,7 +64,7 @@ export const OCR_CONCURRENCY = 4;
 export const OCR_FALLBACK_PAGE_COST_USD = 0.01;
 
 /** Refused pages, with none read yet, after which the manual stops: the model, not the pages. */
-export const OCR_MAX_REFUSALS_BEFORE_READ = 3;
+const OCR_MAX_REFUSALS_BEFORE_READ = 3;
 
 /** What `manual_documents.ocr_version` records: `ocr-1:openai/gpt-6-luna`. */
 export function ocrKey(modelId: string = modelIdFor("ocr")): string {

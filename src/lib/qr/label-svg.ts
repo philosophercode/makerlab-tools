@@ -12,7 +12,7 @@ import { lab } from "../lab/config.ts";
  * the lines the layout measured with Helvetica's metrics fit as measured.
  */
 
-export const LABEL_FONT_FAMILY = "Helvetica, Arial, 'Liberation Sans', sans-serif";
+const LABEL_FONT_FAMILY = "Helvetica, Arial, 'Liberation Sans', sans-serif";
 
 export interface LabelSvgOptions {
   /**

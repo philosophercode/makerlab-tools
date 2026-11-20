@@ -643,7 +643,7 @@ export async function createMaintenanceLog(
 // avoid `getNotionEnv()` (which is strict about all catalog tables).
 // ---------------------------------------------------------------------------
 
-export function getProjectsDbId(): string | undefined {
+function getProjectsDbId(): string | undefined {
   return process.env.NOTION_DB_PROJECTS || undefined;
 }
 

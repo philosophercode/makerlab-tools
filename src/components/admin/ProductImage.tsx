@@ -141,7 +141,7 @@ export { initialImageChoice };
  * `version` (the copy's attachment id) changes the URL when **Find a different
  * image** replaces the copy, so the browser cannot show the old one from memory.
  */
-export function cleanedImagePath(pendingId: string, version?: string): string {
+function cleanedImagePath(pendingId: string, version?: string): string {
   const path = `/api/pending-tools/${encodeURIComponent(pendingId)}/cleaned-image`;
   return version ? `${path}?v=${encodeURIComponent(version)}` : path;
 }

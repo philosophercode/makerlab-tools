@@ -64,7 +64,7 @@ export interface SourceRowsView {
 }
 
 /** Raw rows the page shows at most — the review table covers the rest. */
-export const SOURCE_ROWS_SHOWN = 1000;
+const SOURCE_ROWS_SHOWN = 1000;
 
 /** Characters of one cell shown; a cell is a glance, not the record. */
 const CELL_MAX = 160;

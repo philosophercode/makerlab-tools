@@ -46,7 +46,7 @@ export const QR_UNIT_PARAM = "unit";
  * 28 characters and two QR versions, so smaller modules on a sticker that
  * gets scuffed. A token that matches no unit, or two, names none.
  */
-export const UNIT_TOKEN_LENGTH = 8;
+const UNIT_TOKEN_LENGTH = 8;
 
 /** The token a unit's label carries: its id's first eight hex characters. */
 export function unitQrToken(unitId: string): string {

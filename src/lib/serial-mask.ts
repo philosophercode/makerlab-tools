@@ -15,10 +15,10 @@
  */
 
 /** The mask shown in place of every character but the last four. */
-export const SERIAL_MASK = "••••";
+const SERIAL_MASK = "••••";
 
 /** How many characters of a serial a student sees. */
-export const SERIAL_SHOWN = 4;
+const SERIAL_SHOWN = 4;
 
 /**
  * `•••• 9831` for a serial longer than four characters (surrounding spaces

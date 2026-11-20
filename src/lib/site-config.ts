@@ -62,7 +62,7 @@ export interface SiteConfig {
 }
 
 /** An SVG's PNG twin: the same path ending in `.png`. Any other file is its own. */
-export function pngTwin(path: string): string {
+function pngTwin(path: string): string {
   return path.replace(/\.svg$/i, ".png");
 }
 

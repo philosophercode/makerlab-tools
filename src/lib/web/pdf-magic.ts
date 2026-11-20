@@ -10,7 +10,7 @@
 const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
 
 /** How far into the body `%PDF-` may appear. */
-export const PDF_MAGIC_WINDOW = 1024;
+const PDF_MAGIC_WINDOW = 1024;
 
 export function hasPdfMagic(bytes: Uint8Array): boolean {
   const window = Math.min(bytes.byteLength, PDF_MAGIC_WINDOW);

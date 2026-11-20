@@ -24,7 +24,7 @@ export function reportTitle(assistant: string, period: ReportPeriod, t: Translat
   return t("value.reportTitle", { assistant, period: periodName(period, t) });
 }
 
-export function staffedText(hours: StaffedHours, t: Translate): string {
+function staffedText(hours: StaffedHours, t: Translate): string {
   const days = [...hours.days].sort((a, b) => a - b);
   let dayText: string;
   if (days.length === 0) return t("value.staffed.none");
@@ -73,7 +73,7 @@ function formatChange(key: ComparedMetric, change: MetricChange, previousName: s
   return `${label}: ${t(change.delta > 0 ? "value.compare.up" : "value.compare.down", { change: `${amount}${rel}` })}`;
 }
 
-export function headlineCards(data: ValueReportData, t: Translate): HeadlineCard[] {
+function headlineCards(data: ValueReportData, t: Translate): HeadlineCard[] {
   const r = data.report;
   const a = data.assumptions.assumptions;
   const previousName = periodName(data.previous, t);
@@ -96,7 +96,7 @@ export function headlineCards(data: ValueReportData, t: Translate): HeadlineCard
 }
 
 /** The formulas in plain words, with this period's numbers in them. */
-export function formulaLines(data: ValueReportData, t: Translate): string[] {
+function formulaLines(data: ValueReportData, t: Translate): string[] {
   const r = data.report;
   const a = data.assumptions.assumptions;
   const kinds = a.unansweredKinds.length > 0 ? a.unansweredKinds.map((k) => t(`gaps.kind.${k}`).toLowerCase()).join(", ") : t("value.formulas.noKinds");
@@ -131,7 +131,7 @@ export interface BreakdownRow {
   value: string;
 }
 
-export function followUpRows(r: ValueReport, t: Translate): BreakdownRow[] {
+function followUpRows(r: ValueReport, t: Translate): BreakdownRow[] {
   return [
     { key: "citations", label: t("value.breakdown.citations"), value: formatCount(r.citations) },
     { key: "manualsCited", label: t("value.breakdown.manualsCited"), value: formatCount(r.manualsCited) },

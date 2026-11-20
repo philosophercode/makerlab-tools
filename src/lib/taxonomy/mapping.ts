@@ -166,7 +166,7 @@ export const TOOL_MOVES: Readonly<Record<string, ToolMove>> = {
 };
 
 /** Tools the review names whose slugs the saved listing did not have: matched on the name. */
-export const NAME_RULES: readonly { pattern: RegExp; move: ToolMove }[] = [
+const NAME_RULES: readonly { pattern: RegExp; move: ToolMove }[] = [
   { pattern: /\bimpact\s+driver\b/i, move: { category: "drills-drivers" } },
   { pattern: /\b(waveshare|e-?paper|e-?ink)\b/i, move: { category: "components-dev-boards" } },
   { pattern: /\bwallboard\b.*\bsaw\b|\bsaw\b.*\bwallboard\b/i, move: { category: "hand-saws" } },

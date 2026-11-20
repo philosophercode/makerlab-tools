@@ -21,7 +21,7 @@ function prefersReducedMotion(): boolean {
 }
 
 /** True when the visitor asked for less motion. False on the server and while hydrating. */
-export function useReducedMotion(): boolean {
+function useReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion, () => false);
 }
 

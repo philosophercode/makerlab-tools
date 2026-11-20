@@ -34,11 +34,11 @@ import { findPdfCandidates, isPdfPath } from "./pdf-links.ts";
 /** Pages followed beyond the first. */
 export const MAX_HOPS = 2;
 /** Candidates opened per page. */
-export const MAX_CANDIDATES_PER_PAGE = 5;
+const MAX_CANDIDATES_PER_PAGE = 5;
 /** Requests one resolution may make in all. */
-export const MAX_REQUESTS = 10;
+const MAX_REQUESTS = 10;
 /** Bytes read of each response: enough for a page's links, and for a PDF's magic. */
-export const PEEK_BYTES = 3 * 1024 * 1024;
+const PEEK_BYTES = 3 * 1024 * 1024;
 /** The archive's own limit (`archive.ts`), kept here so step code need not import the archiver. */
 export const MAX_MANUAL_BYTES = 25 * 1024 * 1024;
 const PER_REQUEST_TIMEOUT_MS = 10_000;
@@ -83,7 +83,7 @@ function mediaType(header: string | null | undefined): string {
 }
 
 /** Whether a response is the PDF (see the module comment). */
-export function isPdfResponse(result: Extract<GuardedFetchResult, { ok: true }>): boolean {
+function isPdfResponse(result: Extract<GuardedFetchResult, { ok: true }>): boolean {
   if (!hasPdfMagic(result.bytes)) return false;
   const type = mediaType(result.contentType);
   if (PDF_TYPES.has(type)) return true;

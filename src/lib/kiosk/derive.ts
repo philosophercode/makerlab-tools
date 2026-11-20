@@ -96,9 +96,9 @@ export function shortAuthorName(name: string | null | undefined): string | null 
 
 // ── Featured rotation ───────────────────────────────────────────────
 
-export const FEATURED_LIMIT = 12;
+const FEATURED_LIMIT = 12;
 /** Projects are few and tools are many; this keeps the student work on screen. */
-export const FEATURED_PROJECT_SHARE = 4;
+const FEATURED_PROJECT_SHARE = 4;
 
 /** A 32-bit FNV-1a hash, the shuffle's seed. */
 function hashSeed(text: string): number {

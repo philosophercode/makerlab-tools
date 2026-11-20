@@ -59,7 +59,7 @@ async function openMirror(mirrorId: string, options: MirrorDatabaseOptions, db: 
 }
 
 /** A Notion failure during setup, as the code the page shows. */
-export function setupErrorFor(error: unknown, notFound: MirrorSetupError): MirrorSetupError {
+function setupErrorFor(error: unknown, notFound: MirrorSetupError): MirrorSetupError {
   if (!(error instanceof NotionMirrorError)) return "notion_unavailable";
   switch (error.code) {
     case "unauthorized":

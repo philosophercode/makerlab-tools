@@ -58,53 +58,53 @@ import { borderBand, colourDistance, forEachBorderPixel, loadRgba, medianColour,
  */
 
 /** The cutout's working and output size (long edge, px). */
-export const CUTOUT_LONG_EDGE = 1024;
+const CUTOUT_LONG_EDGE = 1024;
 
 /**
  * RGB distance from the backdrop median that is backdrop outright, wherever
  * the fill meets it. Between this and {@link FILL_MAX_DRIFT} a pixel is taken
  * only as a gradient step.
  */
-export const FILL_CORE_TOLERANCE = 24;
+const FILL_CORE_TOLERANCE = 24;
 /**
  * RGB distance from the backdrop median that seeds the fill at the frame, and
  * the most a fringe pixel ({@link takeFringe}) may differ from the backdrop.
  */
-export const FILL_TOLERANCE = 40;
+const FILL_TOLERANCE = 40;
 /** RGB distance from the neighbour it came from that a gradient-following step may take. */
-export const FILL_STEP_TOLERANCE = 10;
+const FILL_STEP_TOLERANCE = 10;
 /** Gradient following never reaches a pixel further than this from the backdrop median. */
-export const FILL_MAX_DRIFT = 72;
+const FILL_MAX_DRIFT = 72;
 
 /** Rings of blended fringe the fringe pass may take beside the cut. */
-export const FRINGE_RINGS = 2;
+const FRINGE_RINGS = 2;
 /** A fringe pixel is at least this much closer to the backdrop than the product pixel inside it. */
-export const FRINGE_MARGIN = 6;
+const FRINGE_MARGIN = 6;
 
 /** A foreground island smaller than this share of the frame is noise. */
-export const SPECK_SHARE = 0.0005;
+const SPECK_SHARE = 0.0005;
 /** A cut that removed less than this share found no backdrop worth removing. */
-export const MIN_REMOVED_SHARE = 0.15;
+const MIN_REMOVED_SHARE = 0.15;
 /** A cut that removed more than this share took the product with it. */
 export const MAX_REMOVED_SHARE = 0.92;
 /**
  * A cut under {@link MIN_REMOVED_SHARE} is still kept when it is a margin: it
  * removed at least this share of the frame…
  */
-export const MIN_MARGIN_SHARE = 0.01;
+const MIN_MARGIN_SHARE = 0.01;
 /** …and no removed pixel lies further from the frame than this share of the short edge. */
-export const MARGIN_MAX_DEPTH = 0.08;
+const MARGIN_MAX_DEPTH = 0.08;
 /** A foreground piece at least this share of the frame is "large". */
-export const LARGE_PIECE_SHARE = 0.01;
+const LARGE_PIECE_SHARE = 0.01;
 /** More large pieces than this and the product fell apart. */
-export const MAX_LARGE_PIECES = 4;
+const MAX_LARGE_PIECES = 4;
 /** The product's box must cover at least this share of the frame… */
-export const MIN_PRODUCT_BOX_SHARE = 0.04;
+const MIN_PRODUCT_BOX_SHARE = 0.04;
 /** …and span at least this share of each side. */
-export const MIN_PRODUCT_SIDE_SHARE = 0.1;
+const MIN_PRODUCT_SIDE_SHARE = 0.1;
 
 /** The feather: alpha of the product's outermost ring, then the next. */
-export const FEATHER_ALPHA = [160, 224] as const;
+const FEATHER_ALPHA = [160, 224] as const;
 
 /**
  * Inside the product box the ranking model drew (when the caller passes one),
@@ -112,7 +112,7 @@ export const FEATHER_ALPHA = [160, 224] as const;
  * gradient — so a white base or panel a shade off the backdrop (240 on 254)
  * is kept, not eaten along with the floor.
  */
-export const PROTECTED_FILL_TOLERANCE = 12;
+const PROTECTED_FILL_TOLERANCE = 12;
 
 /** Alpha below this is see-through (an already-transparent pixel the fill may cross). */
 const CLEAR_ALPHA = 16;
@@ -325,7 +325,7 @@ export function validateCutout(cutout: Cutout, width: number, height: number): C
  * frame — at least {@link MIN_MARGIN_SHARE} removed, none of it deeper than
  * {@link MARGIN_MAX_DEPTH} of the short edge.
  */
-export function isMarginCut(cutout: Pick<Cutout, "removedShare" | "marginDepth">): boolean {
+function isMarginCut(cutout: Pick<Cutout, "removedShare" | "marginDepth">): boolean {
   return cutout.marginDepth !== undefined && cutout.removedShare >= MIN_MARGIN_SHARE && cutout.marginDepth <= MARGIN_MAX_DEPTH;
 }
 

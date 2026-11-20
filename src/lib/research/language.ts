@@ -205,7 +205,7 @@ const SCRIPTS: readonly (readonly [RegExp, string])[] = [
 ];
 
 /** The window size, in characters. */
-export const LANGUAGE_WINDOW_CHARS = 1000;
+const LANGUAGE_WINDOW_CHARS = 1000;
 /** A window needs this many stop-word hits on its side to be decided. */
 const MIN_HITS = 3;
 /** …and this many times the other side's. */

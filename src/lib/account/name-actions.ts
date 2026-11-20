@@ -25,7 +25,7 @@ export type UpdateOwnNameResult =
   | { ok: false; error: OwnNameError };
 
 /** Where the name is edited, and the path a change invalidates. */
-export const ACCOUNT_PATH = "/account";
+const ACCOUNT_PATH = "/account";
 
 export async function updateOwnName(input: { name: string }): Promise<UpdateOwnNameResult> {
   const gate = await authorizeAccountAction();

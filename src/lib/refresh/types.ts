@@ -44,7 +44,7 @@ export const SAFETY_FIELDS: readonly ProposalField[] = ["use_restrictions", "eme
  * (§4.2: "except resource/cover_photo, which carry their URL"), and the floor
  * check, which is an instruction to go and look, not a claim about the web.
  */
-export const QUOTE_EXEMPT_FIELDS: readonly ProposalField[] = ["resource", "cover_photo", "floor_check"];
+const QUOTE_EXEMPT_FIELDS: readonly ProposalField[] = ["resource", "cover_photo", "floor_check"];
 
 export const PROPOSAL_KINDS = ["differs", "new", "unverified"] as const;
 export type ProposalKind = (typeof PROPOSAL_KINDS)[number];
