@@ -105,11 +105,3 @@ export const mockTools: MakerLabTool[] = seeds.map((seed) => ({
   ...seed,
   shortDescription: seed.description,
 }));
-
-export function getToolBySlug(slug: string) {
-  return mockTools.find((tool) => tool.slug === slug);
-}
-
-export function getCategories() {
-  return Array.from(new Set(mockTools.map((tool) => tool.category)));
-}

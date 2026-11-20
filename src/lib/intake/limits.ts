@@ -31,9 +31,6 @@ export const RESEARCH_MAX_WEB_SEARCHES = 4;
  */
 export const RESEARCH_MAX_PAGE_READS = 4;
 
-/** @deprecated The read step no longer has a `web_fetch` tool; use {@link RESEARCH_MAX_PAGE_READS}. */
-export const RESEARCH_MAX_WEB_FETCHES = RESEARCH_MAX_PAGE_READS;
-
 /**
  * Manuals (PDFs), of those pages, the read model is given (gateway spec §3.3) —
  * as file parts when {@link RESEARCH_ATTACH_PDFS} is on, else as their text.

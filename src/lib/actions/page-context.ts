@@ -60,7 +60,6 @@ export const pageContextSchema = z.object({
     })
     .optional(),
 });
-export type PageContextInput = z.infer<typeof pageContextSchema>;
 
 /** One loaded row: its id and the line the prompt shows for it. */
 interface Line {

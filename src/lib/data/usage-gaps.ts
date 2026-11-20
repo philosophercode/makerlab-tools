@@ -39,26 +39,6 @@ export interface GapSubject {
   occurrences: number;
 }
 
-export async function getGapSubject(id: string, options: { db?: Db } = {}): Promise<GapSubject | null> {
-  if (!isUuid(id)) return null;
-  const db = options.db ?? (await getDb());
-  const rows = (await db.execute(
-    sql`select g.id, g.question, g.status, g.tool_id, t.name as tool_name, g.occurrences
-          from usage_gaps g left join tools t on t.id = g.tool_id
-         where g.id = ${id}`
-  )) as unknown as { rows: Record<string, unknown>[] };
-  const row = rows.rows[0];
-  if (!row) return null;
-  return {
-    id: String(row.id),
-    question: String(row.question),
-    status: String(row.status),
-    toolId: (row.tool_id as string | null) ?? null,
-    toolName: (row.tool_name as string | null) ?? null,
-    occurrences: Number(row.occurrences ?? 0),
-  };
-}
-
 export async function dismissGap(
   id: string,
   actorUserId: string | null,

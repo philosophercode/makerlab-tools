@@ -12,14 +12,3 @@ export function formatUsd(value: number, locale: string): string {
     return `$${cents.toFixed(2)}`;
   }
 }
-
-/** `Oct 21, 2026` — the day a pass ends, in the reader's locale. */
-export function formatPassDate(iso: string, locale: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
-  try {
-    return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
-  } catch {
-    return date.toISOString().slice(0, 10);
-  }
-}

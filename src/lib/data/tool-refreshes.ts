@@ -72,19 +72,6 @@ export async function getRefresh(id: string, options: RefreshOptions = {}): Prom
   return row ? toRefresh(row) : null;
 }
 
-/** The latest refresh of a tool, open or not — `null` when it was never refreshed. */
-export async function getLatestRefreshForTool(toolId: string, options: RefreshOptions = {}): Promise<ToolRefresh | null> {
-  if (!isUuid(toolId)) return null;
-  const db = options.db ?? (await getDb());
-  const [row] = await db
-    .select()
-    .from(toolRefreshes)
-    .where(eq(toolRefreshes.toolId, toolId))
-    .orderBy(desc(toolRefreshes.createdAt))
-    .limit(1);
-  return row ? toRefresh(row) : null;
-}
-
 /** One row of `/admin/refresh`: the refresh and the tool it is about. */
 /**
  * One row of the review list. Without the research itself: the list shows the
