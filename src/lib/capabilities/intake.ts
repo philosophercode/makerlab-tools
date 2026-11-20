@@ -452,7 +452,7 @@ const IMPORT_ERROR_TEXT: Record<StartImportError, string> = {
  * so "split it" comes with how big it is and how big a part may be
  * (bulk intake spec, amendment 2026-09-24).
  */
-export function importErrorText(refusal: StartImportRefusal): string {
+function importErrorText(refusal: StartImportRefusal): string {
   if (refusal.error === "too_many_items" && refusal.count !== undefined && refusal.limit !== undefined) {
     return `That list has ${refusal.count.toLocaleString("en-US")} items; one import takes at most ${refusal.limit.toLocaleString("en-US")}. Nothing was imported. Ask the person to split it into parts and import each.`;
   }

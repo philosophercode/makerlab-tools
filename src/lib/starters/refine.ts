@@ -145,7 +145,7 @@ export async function refineChips<G extends EvaluatedGrade>(
 
 // ── The writer ──────────────────────────────────────────────────────
 
-export const REFINE_SYSTEM_PROMPT = [
+const REFINE_SYSTEM_PROMPT = [
   `You write starter questions for a makerspace's AI assistant: clickable chips a student sees when they open the assistant. Each chip's answer is generated ahead of time from the lab's catalogue record and the tool's searchable manual passages, then graded; a question whose answer was weak must be replaced.`,
   `- ${STARTER_QUESTION_GUIDANCE}`,
   `- Only ask what the record or the manual passages listed below can answer well and specifically — a question the manual covers in a named section is ideal. Never ask about availability, which units are free, opening hours, bookings, prices, or anything that changes day to day.`,

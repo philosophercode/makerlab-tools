@@ -266,7 +266,7 @@ export const GATEWAY_MODEL_ID_PATTERN = /^[a-z0-9-]+\/[a-z0-9.-]+$/;
  * (`https://ai-gateway.vercel.sh/v3/ai` is the provider's default).
  * Production never sets it.
  */
-export const GATEWAY_BASE_URL_ENV = "AI_GATEWAY_BASE_URL";
+const GATEWAY_BASE_URL_ENV = "AI_GATEWAY_BASE_URL";
 
 const MARKER = Symbol.for("makerlab.ai.ModelConfigError");
 
@@ -386,7 +386,7 @@ export const CHAT_REASONING_ENV = "MODEL_CHAT_REASONING";
  * `MODEL_CHAT_REASONING=default` puts the provider default back without a
  * deploy.
  */
-export const CHAT_REASONING_DEFAULT: ChatReasoningSetting = "low";
+const CHAT_REASONING_DEFAULT: ChatReasoningSetting = "low";
 
 /** Overrides {@link CHAT_PROMPT_CACHE_KEY_DEFAULT}; `off` sends none. */
 export const CHAT_PROMPT_CACHE_KEY_ENV = "MODEL_CHAT_CACHE_KEY";
@@ -401,7 +401,7 @@ export const CHAT_PROMPT_CACHE_KEY_ENV = "MODEL_CHAT_CACHE_KEY";
 export const CHAT_PROMPT_CACHE_KEY_DEFAULT = "makerlab-chat-v1";
 
 /** The chat job's reasoning effort, or null for "send no hint". Throws {@link ModelConfigError} on a bad override. */
-export function chatReasoningEffort(): Exclude<ChatReasoningSetting, "default"> | null {
+function chatReasoningEffort(): Exclude<ChatReasoningSetting, "default"> | null {
   const override = process.env[CHAT_REASONING_ENV]?.trim().toLowerCase();
   let setting = CHAT_REASONING_DEFAULT;
   if (override) {
@@ -417,7 +417,7 @@ export function chatReasoningEffort(): Exclude<ChatReasoningSetting, "default"> 
 }
 
 /** The chat job's prompt-cache key, or null when `MODEL_CHAT_CACHE_KEY=off`. */
-export function chatPromptCacheKey(): string | null {
+function chatPromptCacheKey(): string | null {
   const override = process.env[CHAT_PROMPT_CACHE_KEY_ENV]?.trim();
   if (!override) return CHAT_PROMPT_CACHE_KEY_DEFAULT;
   return override.toLowerCase() === "off" ? null : override.slice(0, 64);

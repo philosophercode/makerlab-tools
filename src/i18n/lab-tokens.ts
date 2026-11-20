@@ -20,7 +20,7 @@ import type { Messages } from "./messages.ts";
  * `request.ts`, `kiosk-locale.ts`, and {@link ENGLISH} below. A test fails on a file outside
  * them (and tests) that imports `messages/*.json`.
  */
-export function labTokenValues(): Readonly<Record<LabToken, string>> {
+function labTokenValues(): Readonly<Record<LabToken, string>> {
   return {
     labName: lab.identity.labName,
     assistantName: siteConfig.chatAssistantName,
@@ -30,7 +30,7 @@ export function labTokenValues(): Readonly<Record<LabToken, string>> {
   };
 }
 
-export const LAB_TOKENS = ["labName", "assistantName", "siteName", "institution", "emailDomain"] as const;
+const LAB_TOKENS = ["labName", "assistantName", "siteName", "institution", "emailDomain"] as const;
 export type LabToken = (typeof LAB_TOKENS)[number];
 
 const TOKEN = new RegExp(`\\{(${LAB_TOKENS.join("|")})\\}`, "g");

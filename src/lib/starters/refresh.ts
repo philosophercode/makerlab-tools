@@ -85,7 +85,7 @@ interface Made {
 }
 
 /** Tries per question when the miss is the run's, not the question's (`StarterGrade.retryable`). */
-export const ANSWER_ATTEMPTS = 2;
+const ANSWER_ATTEMPTS = 2;
 
 const zero = (): CallUsage => ({ inputTokens: 0, outputTokens: 0, gatewayCost: null });
 
@@ -113,7 +113,7 @@ function failedGrade(error: unknown): StarterGrade {
 }
 
 /** What a stored row keeps of a grade. */
-export function storedGrade(grade: StarterGrade, round: number): StoredGrade {
+function storedGrade(grade: StarterGrade, round: number): StoredGrade {
   return {
     score: grade.score,
     reasons: grade.reasons,
@@ -309,8 +309,8 @@ export function totalUsage(reports: readonly ChipSetReport[]): { answer: CallUsa
  * run of 2026-09-29. The Gateway-reported cost came to about a third of that
  * (prompt caching), so this is an upper bound.
  */
-export const ESTIMATED_ANSWER_USD = 0.003;
-export const ESTIMATED_GRADE_USD = 0.0003;
+const ESTIMATED_ANSWER_USD = 0.003;
+const ESTIMATED_GRADE_USD = 0.0003;
 
 export function estimateUsd(chips: number): number {
   const asked = chips * (4 / 3);

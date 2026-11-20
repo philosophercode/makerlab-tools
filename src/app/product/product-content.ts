@@ -12,7 +12,7 @@
  */
 
 /** The running example: the Bambu Lab X1-Carbon's tool page, with the assistant opened on arrival. */
-export const EXAMPLE_TOOL_PATH = "/tools/bambu-lab-x1-carbon-combo-3d-printer";
+const EXAMPLE_TOOL_PATH = "/tools/bambu-lab-x1-carbon-combo-3d-printer";
 export const TRY_IT_HREF = `${EXAMPLE_TOOL_PATH}?ask=1`;
 export const QUICK_START_HREF = "/product/quick-start";
 export const PRODUCT_HREF = "/product";

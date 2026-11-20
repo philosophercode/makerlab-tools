@@ -33,7 +33,7 @@ import type { StarterAnswerRun, StarterToolCall } from "./answer.ts";
 export const PASSING_SCORE = 7;
 
 /** Tools whose results are live state: an answer built on them goes stale. */
-export const LIVE_STATE_TOOLS: readonly string[] = [
+const LIVE_STATE_TOOLS: readonly string[] = [
   "get_unit_details",
   "get_tool_units",
   "get_maintenance_history",
@@ -49,7 +49,7 @@ export const LIVE_STATE_TOOLS: readonly string[] = [
  * search came back empty — the answer may still be good from the catalogue
  * listing, so the judge decides.
  */
-export const FAILING_GAPS: readonly string[] = ["honest_absence", "not_in_catalog"];
+const FAILING_GAPS: readonly string[] = ["honest_absence", "not_in_catalog"];
 
 export interface AnswerChecks {
   /** Stubbed tools the answer called — a write, or a page read. */
@@ -160,7 +160,7 @@ export interface JudgeVerdict {
   reasons: string[];
 }
 
-export const GRADE_SYSTEM_PROMPT = [
+const GRADE_SYSTEM_PROMPT = [
   "You grade one answer from a makerspace's AI assistant to a suggested starter question — a clickable chip a student sees when they open the assistant. A good answer will be saved and shown instantly to every student who clicks the chip, so it must be correct, useful and stay correct.",
   "Judge each property strictly:",
   "- answered: it actually answers the question with substance. False if it mostly says it does not know, that the information is not available, or only tells the student to ask staff / check the manual without giving the answer.",
@@ -183,7 +183,7 @@ export interface GradeInput {
   run: Pick<StarterAnswerRun, "text" | "toolCalls" | "gap"> & { resourceUrls?: readonly string[] };
 }
 
-export function buildGradePrompt(input: GradeInput, checks: AnswerChecks): string {
+function buildGradePrompt(input: GradeInput, checks: AnswerChecks): string {
   const calls = input.run.toolCalls.map((call) => `- ${call.name}${describeInput(call.input)}`).join("\n") || "(none)";
   // Cited passages first, then the rest the searches returned — the answer may
   // rest on a passage it read without linking it.
