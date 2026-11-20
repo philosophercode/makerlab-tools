@@ -41,7 +41,7 @@ export function isStale(tool: PickerTool, now: Date): boolean {
   return now.getTime() - new Date(tool.lastRefreshedAt).getTime() >= STALE_AFTER_DAYS * 86_400_000;
 }
 
-export function matchesPreset(tool: PickerTool, preset: PickerPreset, now: Date): boolean {
+function matchesPreset(tool: PickerTool, preset: PickerPreset, now: Date): boolean {
   switch (preset) {
     case "neverReviewed":
       return tool.neverReviewed;

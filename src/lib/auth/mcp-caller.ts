@@ -154,7 +154,7 @@ function isLegacyToken(bearer: string): boolean {
 }
 
 /** `MCP_TOKEN`, read at call time. Deprecated for one release (§5.3). */
-export function legacyMcpToken(): string {
+function legacyMcpToken(): string {
   return (process.env.MCP_TOKEN || "").trim();
 }
 

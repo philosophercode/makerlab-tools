@@ -50,7 +50,7 @@ export function specScore(text: string): number {
 const SPEC_SECTION = /spec|technical data|technische daten|dimensions|capacit/i;
 
 /** How much a page in a specifications section counts for, on top of its own spec lines. */
-export const SPEC_SECTION_BONUS = 5;
+const SPEC_SECTION_BONUS = 5;
 
 /** The page each specifications section opens on, and the page after it. */
 export function specSectionPages(outline: readonly ManualOutlineEntry[]): Set<number> {

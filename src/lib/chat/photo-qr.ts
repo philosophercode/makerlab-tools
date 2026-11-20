@@ -30,9 +30,9 @@ import type { UploadedImage } from "../capabilities/types";
  * cannot be read goes on without hints.
  */
 
-export const PHOTO_QR_TURN_BUDGET_MS = 2500;
+const PHOTO_QR_TURN_BUDGET_MS = 2500;
 /** At most this many photos are read per turn. */
-export const PHOTO_QR_MAX_IMAGES = 4;
+const PHOTO_QR_MAX_IMAGES = 4;
 
 interface PublishedTool {
   slug: string;

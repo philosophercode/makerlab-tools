@@ -36,10 +36,10 @@ import { enqueueMaintenanceReminder } from "../notifications/reminder.ts";
  * and the route treats that as a failed stage, as it does for the mirror.
  */
 
-export const STUCK_AFTER_HOURS = 20;
-export const RESTART_AFTER_MINUTES = 15;
-export const RETRY_AFTER_MINUTES = 60;
-export const RETENTION_DAYS = 180;
+const STUCK_AFTER_HOURS = 20;
+const RESTART_AFTER_MINUTES = 15;
+const RETRY_AFTER_MINUTES = 60;
+const RETENTION_DAYS = 180;
 
 export interface NotificationStageOptions {
   db?: Db;

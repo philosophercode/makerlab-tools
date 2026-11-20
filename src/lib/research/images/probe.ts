@@ -35,7 +35,7 @@ import type { SharpLoader } from "./downscale.ts";
 export const PROBE_TIMEOUT_MS = 15_000;
 
 /** Candidates fetched at once. */
-export const PROBE_CONCURRENCY = 3;
+const PROBE_CONCURRENCY = 3;
 
 const ACCEPT = "image/webp,image/png,image/jpeg;q=0.9,image/*;q=0.5";
 

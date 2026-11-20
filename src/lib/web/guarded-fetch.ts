@@ -91,7 +91,7 @@ export interface GuardedFetchOptions {
 }
 
 export const RESOLVE_HOST_HOOK = Symbol.for("makerlab.web.resolveHost");
-export const TEST_ORIGIN_ENV = "READ_PAGE_TEST_ORIGIN";
+const TEST_ORIGIN_ENV = "READ_PAGE_TEST_ORIGIN";
 
 const DEFAULT_USER_AGENT = "MakerLabTools/5 (+research; server-side page reader)";
 

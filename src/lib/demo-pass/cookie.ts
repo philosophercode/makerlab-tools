@@ -11,7 +11,7 @@ import { requestOrigin } from "../request-origin";
  * there too). Its lifetime is the seconds left until the pass ends.
  */
 
-export const DEMO_PASS_COOKIE = "makerlab.demo_pass";
+const DEMO_PASS_COOKIE = "makerlab.demo_pass";
 
 /** The cookie's value in a request's `Cookie` header, or null. */
 export function readDemoPassCookie(headers: { get(name: string): string | null }): string | null {

@@ -27,10 +27,10 @@ import { DEMO_ACTOR_ID, DEMO_ADMIN_NAME, isDemoAdmin, isDemoOwned } from "./conf
  * admin removed comes back on the next demo write.
  */
 export { DEMO_ACTOR_ID, isDemoOwned };
-export const DEMO_ACTOR_EMAIL = "demo-admin@demo.invalid";
+const DEMO_ACTOR_EMAIL = "demo-admin@demo.invalid";
 
 /** Make sure the demo actor's row exists. Answers its id, or null when it could not. */
-export async function ensureDemoActor(): Promise<string | null> {
+async function ensureDemoActor(): Promise<string | null> {
   try {
     const db = await getDb();
     await db

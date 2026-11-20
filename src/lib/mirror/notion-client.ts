@@ -37,7 +37,7 @@ export const NOTION_API_VERSION = "2022-06-28";
 export const NOTION_DEFAULT_BASE_URL = "https://api.notion.com/v1";
 
 /** Every request is aborted after this long, deadline or not (a request never outlives it by the budget). */
-export const NOTION_REQUEST_TIMEOUT_MS = 30_000;
+const NOTION_REQUEST_TIMEOUT_MS = 30_000;
 
 /** How much of Notion's own message an error keeps. */
 const MAX_MESSAGE_LENGTH = 300;

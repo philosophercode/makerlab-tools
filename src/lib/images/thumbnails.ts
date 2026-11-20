@@ -20,7 +20,7 @@ import { plannedWidths, THUMBNAIL_CONTENT_TYPES, THUMBNAIL_FORMATS, type Thumbna
  * Bumped whenever the encoder settings change, so a re-run produces new
  * content-hashed names instead of reusing files made the old way.
  */
-export const THUMBNAIL_VERSION = 1;
+const THUMBNAIL_VERSION = 1;
 
 /** A decoded image larger than this (in pixels) is refused rather than resized. */
 const MAX_INPUT_PIXELS = 60_000_000;

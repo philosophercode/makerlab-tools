@@ -31,7 +31,7 @@ import { renderThumbnails, thumbnailHash } from "./thumbnails.ts";
  */
 
 /** A thumbnail never changes at its pathname, so it may be cached for a year. */
-export const THUMBNAIL_CACHE_SECONDS = 31_536_000;
+const THUMBNAIL_CACHE_SECONDS = 31_536_000;
 
 /** An original larger than this is not downloaded for thumbnails (uploads cap at 18 MB). */
 const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
@@ -154,7 +154,7 @@ export async function writeAttachmentThumbnails(row: ThumbnailCandidate, deps: T
  * photo's row (`/tool-images/…`, a relative URL) is not one — its thumbnails
  * are in the repository.
  */
-export function needsThumbnails(): SQL {
+function needsThumbnails(): SQL {
   return and(
     eq(attachments.access, "public"),
     isNotNull(attachments.publicUrl),

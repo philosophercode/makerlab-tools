@@ -32,7 +32,7 @@ interface SharedIdentityState {
  * tests (`test/setup.ts`) without importing this module — importing it there
  * would bind the real `fetchIdentity` before a test file mocks it.
  */
-export const SHARED_IDENTITY_KEY = "__makerlab_shared_identity__";
+const SHARED_IDENTITY_KEY = "__makerlab_shared_identity__";
 
 function state(): SharedIdentityState {
   const holder = globalThis as unknown as Record<string, SharedIdentityState | undefined>;

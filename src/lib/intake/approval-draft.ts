@@ -113,7 +113,7 @@ export function initialDraft(
  * a description says what the tool is and what it is for, touching on a spec
  * or two in prose. Research's specs still back its evidence and confidence.
  */
-export function proposedDescription(research: ResearchResult): string {
+function proposedDescription(research: ResearchResult): string {
   return research.description.trim();
 }
 
@@ -128,7 +128,7 @@ export function proposedDescription(research: ResearchResult): string {
  * slug, its name, or the name of the category it proposed, when one of those
  * is a live category, is the choice; otherwise none, as before.
  */
-export function proposedCategory(research: ResearchResult, categories: CategoryOption[]): string {
+function proposedCategory(research: ResearchResult, categories: CategoryOption[]): string {
   const { existingId, slug, name, group, proposal } = research.category;
   if (existingId && categories.some((category) => category.id === existingId)) return existingId;
   const again = matchCategory({ slug: slug ?? undefined, name, group }, categories).existingId;

@@ -119,7 +119,7 @@ export function effectiveFoundPhotoStatus(
 }
 
 /** Where a browser loads the private cleaned copy — behind `canActOnPendingTool`. */
-export function foundPhotoPath(pendingId: string): string {
+function foundPhotoPath(pendingId: string): string {
   return `/api/pending-tools/${pendingId}/found-photo`;
 }
 

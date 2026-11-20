@@ -15,7 +15,7 @@
 export type Delimiter = "," | "\t" | ";" | "|";
 
 /** The delimiters a list may use, tab first: pasted spreadsheet cells are TSV. */
-export const DELIMITERS: readonly Delimiter[] = ["\t", ",", ";", "|"];
+const DELIMITERS: readonly Delimiter[] = ["\t", ",", ";", "|"];
 
 /** The text without a leading UTF-8 byte-order mark. */
 export function stripBom(text: string): string {

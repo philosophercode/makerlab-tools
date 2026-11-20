@@ -18,7 +18,7 @@
  */
 
 /** Query parameters that pick a size, crop, format or cache version of the same image. */
-export const SIZE_PARAMS = new Set([
+const SIZE_PARAMS = new Set([
   "width", "height", "w", "h", "crop", "quality", "fit", "format", "fm", "auto", "dpr", "size", "resize", "v",
   // Alibaba Cloud OSS's image processing (bambulab.com: `?x-oss-process=image/format,webp`).
   "x-oss-process",

@@ -24,9 +24,9 @@ import type { Db } from "../db/types.ts";
  * standing for the same flag and category, so a second run writes nothing.
  */
 
-export const SPARSE_AT_MOST = 1;
+const SPARSE_AT_MOST = 1;
 export const CROWDED_OVER = 25;
-export const STALE_DAYS = 14;
+const STALE_DAYS = 14;
 
 export type AuditFlag = "sparse" | "crowded" | "duplicate_name";
 
@@ -103,7 +103,7 @@ export function auditCategories(categories: readonly AdminCategory[]): AuditFind
 }
 
 /** Proposals pending longer than {@link STALE_DAYS} days, oldest first. */
-export async function staleProposals(db: Db, now: Date = new Date()): Promise<StaleProposal[]> {
+async function staleProposals(db: Db, now: Date = new Date()): Promise<StaleProposal[]> {
   const cutoff = new Date(now.getTime() - STALE_DAYS * 86_400_000);
   const rows = await db
     .select({ id: categoryProposals.id, name: categoryProposals.name, createdAt: categoryProposals.createdAt })

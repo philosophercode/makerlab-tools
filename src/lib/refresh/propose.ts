@@ -81,7 +81,7 @@ export interface ProposeInput {
 }
 
 /** A description shorter than this is proposed for replacement whatever the admin chose. */
-export const SHORT_DESCRIPTION_CHARS = 120;
+const SHORT_DESCRIPTION_CHARS = 120;
 
 /** What a floor check asks staff to write down (§5.3). Stored as data, like a ticket, in English. */
 export const FLOOR_CHECK_TEXT = "Record the brand, model and serial number from the machine's nameplate.";
@@ -292,7 +292,7 @@ function unverified(field: ProposalField, current: unknown): FieldProposal {
 }
 
 /** Safety first, then differs before new before unverified, then the field order. */
-export function sortProposals(proposals: readonly FieldProposal[]): FieldProposal[] {
+function sortProposals(proposals: readonly FieldProposal[]): FieldProposal[] {
   return [...proposals].sort(
     (a, b) =>
       Number(b.safety) - Number(a.safety) ||

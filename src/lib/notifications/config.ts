@@ -9,10 +9,10 @@ import { lab } from "../lab/config.ts";
  * module under plain Node.
  */
 
-export const DEFAULT_RESEND_API_BASE_URL = "https://api.resend.com";
+const DEFAULT_RESEND_API_BASE_URL = "https://api.resend.com";
 
 /** At most this many `ticket.filed` notifications fan out per rolling hour (§5.3). */
-export const DEFAULT_TICKET_HOURLY_CAP = 12;
+const DEFAULT_TICKET_HOURLY_CAP = 12;
 
 export interface EmailConfig {
   apiKey: string;

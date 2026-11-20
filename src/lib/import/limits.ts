@@ -45,7 +45,7 @@ export const IMPORT_DOCUMENT_MAX_CHARS = 200_000;
  * Characters on a page of dense text, for saying a size in pages ("about 85
  * pages") rather than characters. An estimate, and the messages say "about".
  */
-export const IMPORT_CHARS_PER_PAGE = 3_300;
+const IMPORT_CHARS_PER_PAGE = 3_300;
 
 /** {@link IMPORT_DOCUMENT_MAX_CHARS} in pages: about 60. */
 export const IMPORT_DOCUMENT_MAX_PAGES = Math.floor(IMPORT_DOCUMENT_MAX_CHARS / IMPORT_CHARS_PER_PAGE);

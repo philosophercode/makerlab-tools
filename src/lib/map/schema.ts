@@ -25,7 +25,7 @@ const point = z
 
 const nonEmpty = z.string().trim().min(1, "must not be empty");
 
-export const mapZoneSchema = z
+const mapZoneSchema = z
   .object({
     id: nonEmpty.describe("Stable id within the plan: Z1, Z2, …"),
     number: nonEmpty.describe("The number printed for the zone on the lab's plan"),
@@ -42,7 +42,7 @@ export const mapZoneSchema = z
   })
   .strict();
 
-export const mapStationSchema = z
+const mapStationSchema = z
   .object({
     id: nonEmpty.describe("The label printed on the plan (1A, 4B); also the tool's locations.map_tag"),
     label: nonEmpty.describe('The legend\'s words for it: "Vinyl Cutting Station"'),
@@ -211,7 +211,7 @@ function onBoundary(p: MapPoint, polygon: readonly MapPoint[]): boolean {
 }
 
 /** Even-odd ray cast; a point on the boundary counts as inside. */
-export function insidePolygon(p: MapPoint, polygon: readonly MapPoint[]): boolean {
+function insidePolygon(p: MapPoint, polygon: readonly MapPoint[]): boolean {
   if (onBoundary(p, polygon)) return true;
   return strictlyInside(p, polygon);
 }

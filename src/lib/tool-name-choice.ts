@@ -92,7 +92,7 @@ function onlySpecProblem(name: string): boolean {
  * also carry ("Ah") is tried first — then the model's own answer with its
  * specs kept.
  */
-export function distinguishedName(
+function distinguishedName(
   base: string,
   candidate: NameCandidate,
   takenNames: readonly string[],
@@ -219,7 +219,7 @@ export function resolveDisplayNames(
  * ("STANLEY SharpTooth Heavy Duty Saw" → "Stanley SharpTooth Heavy Duty
  * Saw") — or "" when that breaks a rule or is only a brand.
  */
-export function ownLongName(candidate: NameCandidate): string {
+function ownLongName(candidate: NameCandidate): string {
   const cleaned = cleanDisplayName(candidate.sourceName);
   if (!cleaned) return "";
   const brand = brandWords(candidate.sourceName, candidate.brand);
