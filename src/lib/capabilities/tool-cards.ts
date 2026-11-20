@@ -34,7 +34,7 @@ import type { MakerLabTool, ToolStatus } from "../../components/catalog-types";
 export const SHOW_TOOL_TOOL = "show_tool";
 
 /** Tools one card row may show: a comparison of three is the most that reads well. */
-export const MAX_TOOL_CARDS = 3;
+const MAX_TOOL_CARDS = 3;
 
 const input = z.object({
   tools: z
@@ -70,7 +70,7 @@ interface Result {
   message: string;
 }
 
-export function toChatToolCard(tool: MakerLabTool): ChatToolCard {
+function toChatToolCard(tool: MakerLabTool): ChatToolCard {
   return {
     slug: tool.slug,
     name: tool.name,

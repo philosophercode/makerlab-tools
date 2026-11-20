@@ -343,7 +343,7 @@ export interface IntakeConfidence {
 }
 
 /** Zod schema for {@link IntakeEvidence}. */
-export const intakeEvidenceSchema: z.ZodType<IntakeEvidence> = z.object({
+const intakeEvidenceSchema: z.ZodType<IntakeEvidence> = z.object({
   userStatedModel: z.boolean(),
   modelPlateRead: z.string().nullable(),
   manufacturerPageFound: z.boolean(),
@@ -353,7 +353,7 @@ export const intakeEvidenceSchema: z.ZodType<IntakeEvidence> = z.object({
 });
 
 /** Zod schema for {@link IntakeConfidence}. */
-export const intakeConfidenceSchema: z.ZodType<IntakeConfidence> = z.object({
+const intakeConfidenceSchema: z.ZodType<IntakeConfidence> = z.object({
   level: z.enum(["high", "medium", "low"]),
   basis: z.array(z.string()),
   unknowns: z.array(z.string()),

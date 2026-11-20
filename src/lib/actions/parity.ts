@@ -47,7 +47,7 @@ const WRAPPER_ARGUMENT_CALLS = new Set(["resolveIdentityFromHeaders"]);
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 /** True when `file` (repo-relative, `src/...`) is a route handler module. */
-export function isRouteFile(file: string): boolean {
+function isRouteFile(file: string): boolean {
   return /^src\/app\/(.+\/)?route\.tsx?$/.test(file);
 }
 

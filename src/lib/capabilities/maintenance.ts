@@ -44,9 +44,9 @@ const PRIORITIES = ["Critical", "High", "Medium", "Low"] as const;
  * a real report — a title is a line, a description a few paragraphs — and a
  * ceiling for a script that would fill the queue with megabytes of text.
  */
-export const TICKET_TITLE_MAX = 200;
-export const TICKET_DESCRIPTION_MAX = 4_000;
-export const TICKET_REPORTER_MAX = 100;
+const TICKET_TITLE_MAX = 200;
+const TICKET_DESCRIPTION_MAX = 4_000;
+const TICKET_REPORTER_MAX = 100;
 const TICKET_PHOTOS_MAX = 8;
 
 /** The name `report_issue` is registered under, which the chat's per-turn cap is keyed on. */

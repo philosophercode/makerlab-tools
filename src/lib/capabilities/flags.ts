@@ -44,7 +44,7 @@ export const FLAG_FIELDS = [
 export const MAX_FLAG_TEXT = 2_000;
 
 /** Length cap on the free-text reporter name. */
-export const MAX_REPORTER_CHARS = 200;
+const MAX_REPORTER_CHARS = 200;
 
 /**
  * Every way a submission can fail. Surfaces map these to their own messages.
@@ -77,7 +77,7 @@ export interface CorrectionReport {
  * `reporter_email` is only ever written from a server-resolved session. Both
  * surfaces resolve one now; an anonymous caller simply has none.
  */
-export interface ReporterIdentity {
+interface ReporterIdentity {
   name?: string;
   email?: string;
   /** The signed-in user's id, recorded on the row so staff can follow up. */
@@ -88,9 +88,9 @@ export interface ReporterIdentity {
  * What gets written. The column shape of one `feedback` row, built by
  * {@link buildFeedbackRow} and inserted by `src/lib/data/feedback.ts`.
  */
-export type FeedbackRow = NewFeedback;
+type FeedbackRow = NewFeedback;
 
-export type SubmitCorrectionResult =
+type SubmitCorrectionResult =
   | { ok: true; id: string }
   | { ok: false; code: FlagErrorCode };
 
@@ -194,7 +194,7 @@ export function buildFeedbackRow(
 // ── Submission (shared by both surfaces) ───────────────────────────
 
 /** The tool a report is about. `id` is the catalogue id, a Postgres uuid. */
-export interface FlaggedTool {
+interface FlaggedTool {
   id: string;
   name: string;
 }

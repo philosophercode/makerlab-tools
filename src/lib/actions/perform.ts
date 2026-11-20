@@ -29,7 +29,7 @@ import type { ActionContext, ActionDefinition, ActionResult, ActionSurface } fro
  * (the cookie for the GUI), never the input's.
  */
 
-export interface PerformOptions<I = unknown> {
+interface PerformOptions<I = unknown> {
   surface: ActionSurface;
   /** Set when a stored proposal is being confirmed (phase 2). */
   proposalId?: string;

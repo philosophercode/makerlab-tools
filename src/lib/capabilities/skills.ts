@@ -130,7 +130,7 @@ const getToolSkill: CapabilityTool<GetToolSkillInput, GetToolSkillResult> = {
 };
 
 /** The chat's rules for the tool, in the stable prefix (no tool, page or caller in it). */
-export const SKILLS_PROMPT = `## Tool skills
+const SKILLS_PROMPT = `## Tool skills
 
 \`get_tool_skill\` returns the lab's operating guide for one machine: steps, settings, troubleshooting and safety, every fact citing the lab's sources, with the lab's own notes, training and PPE first. Call it before explaining how to operate, set up or troubleshoot a machine when the student is **not** on its page; on a machine's page its guide, when it has one, is already below under "Tool skill". A guide is AI-written: its bracketed ids ([M2], [N1]…) are its own sources, never \`search_manual\` refs, so never link them — cite a manual fact by its title and page in plain words, or search the manual and cite the passage. Where a guide says "not in the lab's sources", say so too. A machine with no guide is answered as usual, from its details and its manuals.`;
 

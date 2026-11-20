@@ -220,7 +220,7 @@ export interface AdminNavItem {
 }
 
 /** One section of the bar: where its link goes. */
-export interface AdminSectionLink {
+interface AdminSectionLink {
   section: AdminSection;
   href: string;
 }

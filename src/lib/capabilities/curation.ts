@@ -69,7 +69,7 @@ type ChatProposalField = (typeof CHAT_PROPOSAL_FIELDS)[number];
 export const PROPOSAL_VALUE_DESCRIPTION = `The proposed value: a string (name — the short display name people say, at most ${DISPLAY_NAME_MAX} characters, no part number; official_name — the full product name with model or part number; description, use_restrictions, emergency_stop, floor_check), the complete list of strings (materials, tags), true/false (training_required), or { title, url, type: Manual|Video|Other } (resource — an English page or manual only).`;
 
 /** The longest `reason` kept (§12.1: ≤ 200 characters, shown on the card). */
-export const REASON_MAX_CHARS = 200;
+const REASON_MAX_CHARS = 200;
 
 const subjectSchema = z.object({
   kind: z.enum(["tool", "pending"]),
@@ -80,7 +80,7 @@ interface GetRecordInput {
   subject: { kind: "tool" | "pending"; id: string };
 }
 
-export interface ProposeChangeInput {
+interface ProposeChangeInput {
   subject: { kind: "tool" | "pending"; id: string };
   field: string;
   value?: unknown;
@@ -90,7 +90,7 @@ export interface ProposeChangeInput {
 
 const getRecordSchema: z.ZodType<GetRecordInput> = z.object({ subject: subjectSchema });
 
-export const proposeChangeSchema: z.ZodType<ProposeChangeInput> = z.object({
+const proposeChangeSchema: z.ZodType<ProposeChangeInput> = z.object({
   subject: subjectSchema,
   field: z
     .string()
@@ -107,7 +107,7 @@ export const proposeChangeSchema: z.ZodType<ProposeChangeInput> = z.object({
   reason: z.string().max(1000).optional().describe("One short line on why, shown on the card."),
 });
 
-export type ToolResult = Record<string, unknown>;
+type ToolResult = Record<string, unknown>;
 
 function refuse(code: string, message: string): ToolResult {
   return { status: "refused", code, message };
@@ -151,7 +151,7 @@ const proposeChangeTool: CapabilityTool<ProposeChangeInput, ToolResult> = {
 };
 
 /** Where a proposal came from — decides the reply's wording, never what is stored. */
-export type ProposalSurface = "chat" | "mcp";
+type ProposalSurface = "chat" | "mcp";
 
 export { MCP_PROPOSAL_CHAT_ID };
 

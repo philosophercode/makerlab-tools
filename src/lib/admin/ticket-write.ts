@@ -20,7 +20,7 @@ import type { QueueActionResult } from "./queue-write";
 /** The page the change refreshes. */
 export const MAINTENANCE_PATH = "/admin/maintenance";
 
-export type TicketWriteError = "not_found" | "invalid_field";
+type TicketWriteError = "not_found" | "invalid_field";
 
 export async function writeTicket(
   input: { logId: string; patch: MaintenanceLogPatch },

@@ -46,7 +46,7 @@ import { typedMatches } from "./typed-confirm";
 
 // ── Propose ──────────────────────────────────────────────────────────
 
-export interface ProposeContext {
+interface ProposeContext {
   identity: Identity;
   surface: ActionProposalSurface;
   chatId: string | null;
@@ -68,7 +68,7 @@ export interface RefusedItem {
   error: string;
 }
 
-export type ProposeResult =
+type ProposeResult =
   | { ok: true; groupId: string; proposals: ActionProposalRecord[]; refused: RefusedItem[] }
   | { ok: false; error: string; refused?: RefusedItem[] };
 
@@ -145,7 +145,7 @@ export async function proposeAction(def: AnyActionDefinition, args: unknown, ctx
 
 // ── Confirm / cancel ─────────────────────────────────────────────────
 
-export type ProposalOutcomeStatus =
+type ProposalOutcomeStatus =
   | "confirmed"
   | "failed"
   | "conflict"
@@ -156,7 +156,7 @@ export type ProposalOutcomeStatus =
   /** Not reached before the request's time budget ran out; still open, nothing changed. */
   | "open";
 
-export interface ProposalOutcome {
+interface ProposalOutcome {
   id: string;
   status: ProposalOutcomeStatus;
   error?: string;
@@ -167,7 +167,7 @@ export interface ProposalOutcome {
   drifted?: DriftedField[];
 }
 
-export interface DecideRequest {
+interface DecideRequest {
   ids: readonly string[];
   decision: "confirm" | "cancel";
   /** For a destructive card: the subject's name as the person typed it (§5.4). */

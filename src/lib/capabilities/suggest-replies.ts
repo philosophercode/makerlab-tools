@@ -53,7 +53,7 @@ const input = z.object({
 type Input = z.infer<typeof input>;
 
 /** What the call returns: the replies as the chat will show them. */
-export interface SuggestRepliesResult {
+interface SuggestRepliesResult {
   ok: boolean;
   replies: string[];
 }
