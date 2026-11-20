@@ -199,7 +199,7 @@ export const TOOL_AREAS: Readonly<Record<string, AreaId>> = {
  * the People page (`superAdminPageOnly`, `lib/actions/people.ts`): the deny
  * list's first row, which is a rule on these two rather than an action of its own.
  */
-export const SUPER_ADMIN_GUARDED: readonly string[] = ["people.set_role", "people.add"];
+const SUPER_ADMIN_GUARDED: readonly string[] = ["people.set_role", "people.add"];
 
 /** The capability id whose tools are generated from the action registry. */
 const ACTIONS_CAPABILITY = "actions";

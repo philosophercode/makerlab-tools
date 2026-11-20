@@ -23,11 +23,11 @@ import { fenceUntrusted, inlineText } from "../web/fence";
  * written (§5.3). This function never throws.
  */
 
-export const REPORT_CATEGORIES = ["wont_start", "failed_job", "broken_part", "unsafe", "other"] as const;
+const REPORT_CATEGORIES = ["wont_start", "failed_job", "broken_part", "unsafe", "other"] as const;
 export type ReportCategory = (typeof REPORT_CATEGORIES)[number];
 
 /** The ticket priorities, in the display casing `report_issue` speaks. */
-export const REPORT_SEVERITIES = ["Critical", "High", "Medium", "Low"] as const;
+const REPORT_SEVERITIES = ["Critical", "High", "Medium", "Low"] as const;
 export type ReportSeverity = (typeof REPORT_SEVERITIES)[number];
 
 /** How a category reads on the ticket. English: tickets are always written in English. */
@@ -40,10 +40,10 @@ export const REPORT_CATEGORY_LABEL: Record<ReportCategory, string> = {
 };
 
 /** The longest title the triage may write. Well inside `report_issue`'s 200. */
-export const TRIAGE_TITLE_MAX = 90;
+const TRIAGE_TITLE_MAX = 90;
 
 /** How long a student waits for the guess before the report is filed as written. */
-export const TRIAGE_TIMEOUT_MS = 12_000;
+const TRIAGE_TIMEOUT_MS = 12_000;
 
 export interface TriageUnit {
   id: string;

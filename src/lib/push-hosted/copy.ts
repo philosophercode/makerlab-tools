@@ -27,7 +27,7 @@ export async function countRows(client: SqlClient, tables: string[]): Promise<Ma
 }
 
 /** Every row of one table, read a page at a time in primary-key order. */
-export async function* readTable(client: SqlClient, plan: TablePlan, pageSize = 500): AsyncGenerator<Row[]> {
+async function* readTable(client: SqlClient, plan: TablePlan, pageSize = 500): AsyncGenerator<Row[]> {
   const order = plan.primaryKey.length > 0 ? plan.primaryKey.map((c) => `t.${ident(c)}`).join(", ") : "t.ctid";
   for (let offset = 0; ; offset += pageSize) {
     const rows = await client.query<{ r: Row }>(
@@ -40,7 +40,7 @@ export async function* readTable(client: SqlClient, plan: TablePlan, pageSize = 
 }
 
 /** `insert … select … from jsonb_populate_recordset`, generated columns left to the target. */
-export function insertSql(plan: TablePlan): string {
+function insertSql(plan: TablePlan): string {
   const columns = plan.columns.map(ident).join(", ");
   return (
     `insert into ${ident(plan.name)} (${columns}) ` +
@@ -49,7 +49,7 @@ export function insertSql(plan: TablePlan): string {
 }
 
 /** The second pass: restore deferred foreign keys by primary key. */
-export function deferredUpdateSql(plan: TablePlan): string {
+function deferredUpdateSql(plan: TablePlan): string {
   const set = plan.deferred.map((c) => `${ident(c)} = s.${ident(c)}`).join(", ");
   const match = plan.primaryKey.map((c) => `t.${ident(c)} = s.${ident(c)}`).join(" and ");
   return (

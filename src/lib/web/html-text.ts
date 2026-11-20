@@ -36,13 +36,13 @@ export interface ExtractedPage {
 }
 
 /** At most this many gallery pictures are taken from one page. */
-export const GALLERY_MAX_PER_PAGE = 12;
+const GALLERY_MAX_PER_PAGE = 12;
 
 /** An `<img>` whose `width` or `height` attribute is below this is an icon, a swatch or a thumbnail. */
-export const GALLERY_MIN_ATTR_PX = 300;
+const GALLERY_MIN_ATTR_PX = 300;
 
 /** A `srcset` whose largest width descriptor is below this has no picture big enough to be a cover. */
-export const GALLERY_MIN_SRCSET_W = 400;
+const GALLERY_MIN_SRCSET_W = 400;
 
 /** File names that are page furniture, never a product photo. */
 const FURNITURE = /(?:^|[\W_])(?:logo|icon|icons|sprite|avatar|badge|payment|flag|placeholder|spinner|loader|loading|rating|stars?|arrow|social|favicon)(?:[\W_]|$)/i;

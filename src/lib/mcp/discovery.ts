@@ -13,7 +13,7 @@ import { siteConfig } from "../site-config";
  */
 
 /** The MCP paths that are protected resources. */
-export const MCP_RESOURCE_PATHS = ["/api/mcp", "/api/mcp/signed-in"] as const;
+const MCP_RESOURCE_PATHS = ["/api/mcp", "/api/mcp/signed-in"] as const;
 
 /** CORS for the discovery documents: a browser-based client reads them cross-origin. */
 export const DISCOVERY_HEADERS: Record<string, string> = {

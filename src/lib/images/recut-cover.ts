@@ -67,7 +67,7 @@ export type RecutReport =
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 /** The tool by slug or id, and its cover — the first image attachment it owns. */
-export async function findToolCover(
+async function findToolCover(
   db: Db,
   slugOrId: string
 ): Promise<{ tool: { id: string; slug: string; name: string }; cover: RecutCover | null } | null> {

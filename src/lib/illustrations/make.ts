@@ -71,7 +71,7 @@ export interface MakeIllustrationDeps {
 }
 
 /** The image route for one illustration. */
-export function illustrationUrl(id: string): string {
+function illustrationUrl(id: string): string {
   return `/api/chat/illustrations/${id}`;
 }
 

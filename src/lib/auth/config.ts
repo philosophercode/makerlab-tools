@@ -59,10 +59,10 @@ export const DOMAIN_REJECTED_PATH = "/auth/rejected";
 export const AUTH_BASE_PATH = "/api/auth";
 
 /** Where an MCP client's OAuth sign-in sends somebody who is not signed in yet. */
-export const OAUTH_LOGIN_PATH = "/oauth/sign-in";
+const OAUTH_LOGIN_PATH = "/oauth/sign-in";
 
 /** Where they approve (or refuse) the client, and choose read-only. */
-export const OAUTH_CONSENT_PATH = "/oauth/consent";
+const OAUTH_CONSENT_PATH = "/oauth/consent";
 
 /** The scope a read-only OAuth grant carries (MCP access spec §3.4). */
 export const READ_ONLY_SCOPE = "read_only";
@@ -71,7 +71,7 @@ export const READ_ONLY_SCOPE = "read_only";
 export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 /** Rolling refresh: an active session slides forward, an idle one expires. */
-export const SESSION_UPDATE_AGE_SECONDS = 24 * 60 * 60;
+const SESSION_UPDATE_AGE_SECONDS = 24 * 60 * 60;
 
 /**
  * True when database sessions can exist: `AUTH_SECRET` signs the session

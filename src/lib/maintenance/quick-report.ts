@@ -72,7 +72,7 @@ export function parseQuickReport(payload: unknown): { ok: true; report: QuickRep
 }
 
 /** The title a report gets with no triage: its first line, cut at a word. Pure. */
-export function fallbackTitle(text: string): string {
+function fallbackTitle(text: string): string {
   const firstLine = text.split("\n").find((line) => line.trim()) ?? text;
   const flat = cleanTitle(firstLine, 200);
   if (flat.length <= 80) return flat;
@@ -89,7 +89,7 @@ type UnitSource = "chosen" | "only" | "guessed" | null;
  * English (AGENTS.md: tickets are always written in English); the student's
  * own words stay in theirs. Pure.
  */
-export function describeQuickReport(text: string, triage: Triage | null, unitSource: UnitSource): string {
+function describeQuickReport(text: string, triage: Triage | null, unitSource: UnitSource): string {
   const notes = ["Sent with the quick report form."];
   if (triage) {
     notes.push(`${siteConfig.chatAssistantName} suggested the title, the category (${REPORT_CATEGORY_LABEL[triage.category]}) and the priority.`);

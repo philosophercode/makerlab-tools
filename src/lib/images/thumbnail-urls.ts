@@ -20,7 +20,7 @@
  */
 
 /** The widths every thumbnail set is rendered at, when the source is at least that wide. */
-export const THUMBNAIL_WIDTHS = [160, 320, 640] as const;
+const THUMBNAIL_WIDTHS = [160, 320, 640] as const;
 
 /** Both formats are written for every width; the browser takes the first it supports. */
 export const THUMBNAIL_FORMATS = ["avif", "webp"] as const;

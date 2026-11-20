@@ -14,7 +14,7 @@ import type { TablePlan } from "./tables.ts";
 export type Row = Record<string, unknown>;
 
 /** The path the dev server serves the local store under (`src/app/api/dev-blob`). */
-export const DEV_BLOB_PATH = "/api/dev-blob/";
+const DEV_BLOB_PATH = "/api/dev-blob/";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "0.0.0.0"]);
 

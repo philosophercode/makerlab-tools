@@ -29,7 +29,7 @@ import type { SeedBundle, SeedProject } from "./bundle.ts";
  * `dryRun` reads everything and writes nothing (no rows, no uploads).
  */
 
-export const SEED_SOURCE_PREFIX = "projects-seed";
+const SEED_SOURCE_PREFIX = "projects-seed";
 
 export interface SeedOptions {
   db: Db;
@@ -59,7 +59,7 @@ export interface SeedReport {
   projects: SeededProjectReport[];
 }
 
-export function photoSourceKey(notionPageId: string, bytes: Uint8Array): string {
+function photoSourceKey(notionPageId: string, bytes: Uint8Array): string {
   const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 16);
   return `${SEED_SOURCE_PREFIX}:${notionPageId}:${digest}`;
 }

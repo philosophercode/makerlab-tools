@@ -64,7 +64,7 @@ function yesNo(value: unknown): boolean | null {
 }
 
 /** Lower-cased and trimmed — the form the unique key compares. */
-export function normalizeDemoEmail(value: unknown): string {
+function normalizeDemoEmail(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
