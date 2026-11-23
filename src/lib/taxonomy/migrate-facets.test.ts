@@ -102,7 +102,9 @@ describe("taxonomy:migrate facets", () => {
       expect(await facetsBySlug(db)).toEqual(EXPECTED);
       expect(planIsEmpty(planTaxonomyMigration(await readTaxonomySnapshot(db)))).toBe(true);
     }
-  });
+    // Two fresh PGlite databases (migrations and all) in one test: over the
+    // 5 s default on a 4-core machine.
+  }, 30_000);
 
   it("says the facets that rode with a move, rather than '0 facet updates'", async () => {
     const db = await createPgliteDb();
