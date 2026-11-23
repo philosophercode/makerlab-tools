@@ -88,7 +88,7 @@ export type IntakeApprovalError =
   "not_found" | "not_editable" | "low_confidence" | "invalid_field" | "duplicate_serial" | "duplicate_name";
 
 /** What an approval answers. `slug` is where the tool now lives. */
-export type IntakeApprovalResult =
+type IntakeApprovalResult =
   | {
       ok: true;
       toolId: string;
@@ -105,13 +105,13 @@ export type IntakeApprovalResult =
   | { ok: false; error: IntakeApprovalError };
 
 /** Who is approving. Always a signed-in person — the gate saw to that. */
-export interface IntakeApprover {
+interface IntakeApprover {
   userId: string;
   /** The surface and the confirmed proposal, for the audit events (assistant–GUI parity spec §3.7). */
   trail?: AuditTrail;
 }
 
-export interface IntakeApprovalOptions {
+interface IntakeApprovalOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /** The Blob seam for the product image; see `approval-image.ts`. Tests pass a stub. */

@@ -50,7 +50,7 @@ import type { ResearchResult } from "./result.ts";
 
 const MAX_SOURCE_URLS = 20;
 
-export interface MergeInput {
+interface MergeInput {
   /** The stored result the redo replaces; null when the item had none. */
   previous: ResearchResult | null;
   /** What this run produced, whole. */

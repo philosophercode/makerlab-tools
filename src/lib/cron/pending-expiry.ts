@@ -48,14 +48,14 @@ import {
  * the orphan sweep that runs next deletes them.
  */
 
-export interface PendingExpiryOptions {
+interface PendingExpiryOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /** Clock injection, so a test can stage the 14-day window without waiting. */
   now?: Date;
 }
 
-export interface PendingExpiryResult {
+interface PendingExpiryResult {
   discarded: number;
   releasedAttachments: number;
   /** Items an abandoned research run was holding, now `failed`. */

@@ -87,7 +87,7 @@ export type PreparedApprovalImage =
     }
   | { ok: false; reason: "invalid_field" };
 
-export interface ApprovalImageOptions {
+interface ApprovalImageOptions {
   /** Who is approving — recorded as the uploader of a stored original. */
   uploadedBy: string;
   db?: Db;

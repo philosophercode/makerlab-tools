@@ -48,7 +48,7 @@ const MAX_LABELS = 15;
 const MAX_SPECS = 30;
 const MAX_SOURCE_URLS = 20;
 
-export interface AssembleInput {
+interface AssembleInput {
   draft: FetchDraft;
   /** Links that passed `verifyResourceLinks`. */
   verified: ModelLink[];

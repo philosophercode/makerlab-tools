@@ -18,7 +18,7 @@ import { trainingAtApproval } from "./training";
  */
 
 /** What the draft reads from the pending item. */
-export interface DraftItem {
+interface DraftItem {
   name: string;
   locationHint: string | null;
   serialNumber: string | null;

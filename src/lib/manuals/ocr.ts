@@ -98,7 +98,7 @@ export type OcrManualResult =
       transient: boolean;
     } & OcrStats);
 
-export interface OcrManualOptions {
+interface OcrManualOptions {
   maxPages?: number;
   maxCost?: number;
   concurrency?: number;

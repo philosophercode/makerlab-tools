@@ -41,13 +41,13 @@ const RESTART_AFTER_MINUTES = 15;
 const RETRY_AFTER_MINUTES = 60;
 const RETENTION_DAYS = 180;
 
-export interface NotificationStageOptions {
+interface NotificationStageOptions {
   db?: Db;
   /** The lab's today, for the reminder; tests pass one. */
   today?: string;
 }
 
-export interface NotificationStageResult {
+interface NotificationStageResult {
   /** Deliveries given up as `stuck`. */
   stuck: number;
   /** Outbox rows whose delivery was started again. */

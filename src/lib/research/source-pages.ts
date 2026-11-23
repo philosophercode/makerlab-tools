@@ -34,7 +34,7 @@ export interface PageSubject {
 }
 
 /** `product` — the brand's product/specs page; `brand` — another page of the brand's; `manual` — a manual, wiki, support or forum page anywhere; `video`; `other`. */
-export type PageKind = "product" | "brand" | "manual" | "video" | "other";
+type PageKind = "product" | "brand" | "manual" | "video" | "other";
 
 const VIDEO_HOSTS = ["youtube.com", "youtu.be", "youtube-nocookie.com", "vimeo.com", "player.vimeo.com"];
 

@@ -66,7 +66,7 @@ const LOCALE_PARAMS = ["lang", "language", "locale", "hl", "lng", "lc"];
 /** `de`, `de-de`, `de_DE`, `zh-hans`, `pt-br` — a locale-shaped path segment. */
 const LOCALE_SEGMENT = /^([a-z]{2})(?:[-_]([a-z]{2}|hans|hant|latn|cyrl))?$/i;
 
-export interface UrlLanguages {
+interface UrlLanguages {
   /** Primary subtags, each once, in the order found. */
   langs: string[];
   where: "path" | "subdomain" | "query" | "file";
@@ -215,7 +215,7 @@ const MAX_TEXT_CHARS = 2_000_000;
 /** At most this many windows are judged, spread evenly across the text. */
 const MAX_WINDOWS = 400;
 
-export interface TextLanguageOptions {
+interface TextLanguageOptions {
   /**
    * A manual: one English window is enough, because a multilingual manual has
    * one section per language and any of them may be the English one.
@@ -333,7 +333,7 @@ export function titleLanguage(title: string | null | undefined): LanguageJudgeme
 
 // ── Together ────────────────────────────────────────────────────────
 
-export interface PageLanguageInput {
+interface PageLanguageInput {
   url?: string | null;
   /** The page's declared language (`<html lang>`), when it had one. */
   lang?: string | null;

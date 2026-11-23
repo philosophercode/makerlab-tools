@@ -116,7 +116,7 @@ export interface ReadPagesResult {
   languages?: PageLanguageRecord[];
 }
 
-export interface ReadCandidatePagesOptions {
+interface ReadCandidatePagesOptions {
   signal: AbortSignal;
   /** The hosts every hop must stay on — the hosts of the search's candidates and sources. */
   allowedHosts: readonly string[];

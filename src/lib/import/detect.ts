@@ -19,7 +19,7 @@ import { detectDelimiter, parseDelimited, type Delimiter } from "./table.ts";
  * Pure and client-safe.
  */
 
-export interface SourceShape {
+interface SourceShape {
   format: ImportFormat;
   /** Set when `format` is `table`. */
   delimiter: Delimiter | null;

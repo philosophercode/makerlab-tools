@@ -28,7 +28,7 @@ import { titleLanguage, urlLanguage } from "../research/language.ts";
  * are `resolve-pdf.ts`'s. Plain Node: step code imports it.
  */
 
-export interface PdfCandidate {
+interface PdfCandidate {
   url: string;
   reason: string;
   score: number;

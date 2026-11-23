@@ -40,12 +40,12 @@ import type { PendingApiError, PendingApiErrorCode, ResearchStartedResponse } fr
  */
 
 /** What a start answers: the route's status and body, success or refusal. */
-export type ResearchAnswer =
+type ResearchAnswer =
   | { status: 200 | 202; body: ResearchStartedResponse }
   | { status: number; body: PendingApiError };
 
 /** The request, once its shape is checked (ids are uuids, note and focus raw). */
-export interface ResearchRequest {
+interface ResearchRequest {
   ids: string[];
   note?: string | null;
   focus?: string[] | null;

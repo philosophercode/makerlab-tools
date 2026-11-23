@@ -61,7 +61,7 @@ function safeHost(url: string): string {
   }
 }
 
-export interface OpenedTarget {
+interface OpenedTarget {
   db: Db;
   close(): Promise<void>;
 }

@@ -86,7 +86,7 @@ export function selectSearchTexts(texts: readonly SearchPageText[], urls: readon
 }
 
 /** What the server's own read of a page came to, as far as the fallback cares. */
-export interface ReadOutcome {
+interface ReadOutcome {
   status: "ok" | "blocked" | "failed" | "too_large" | "unsupported";
   text: string | null;
   pdf: Uint8Array | null;

@@ -38,7 +38,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** How long an upload may sit unclaimed. */
 const ORPHAN_MAX_AGE_MS = DAY_MS;
 
-export interface CleanupResult {
+interface CleanupResult {
   /** Rows that were unclaimed and past the window. */
   orphans: number;
   /** Blobs actually removed from the store. */

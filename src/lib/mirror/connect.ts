@@ -44,17 +44,17 @@ export const mirrorTokenSchema = z
 /** A page URL or id, as a browser's address bar shows it. Bounded before it is parsed. */
 const pageRefSchema = z.string().trim().min(1).max(2048);
 
-export interface MirrorConnectOptions {
+interface MirrorConnectOptions {
   db?: Db;
   /** Test seams for the one Notion read (base URL, clock). Never the token. */
   client?: Partial<Omit<NotionClientOptions, "token">>;
 }
 
-export type MirrorTestConnectionResult =
+type MirrorTestConnectionResult =
   | { ok: true; pageId: string; title: string | null }
   | { ok: false; code: MirrorSetupError };
 
-export type MirrorConnectResult =
+type MirrorConnectResult =
   | { ok: true; mirror: MirrorRecord; created: boolean; pageId: string; title: string | null }
   | { ok: false; code: MirrorSetupError };
 

@@ -57,7 +57,7 @@ import type { MirrorErrorCode, MirrorLastError, MirrorMapping } from "./types.ts
  * Relative imports with `.ts` extensions, no `server-only`: this is step code.
  */
 
-export interface PushMirrorOptions {
+interface PushMirrorOptions {
   db?: Db;
   budgetMs?: number;
   client?: Partial<Omit<NotionClientOptions, "token">>;

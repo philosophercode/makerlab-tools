@@ -33,7 +33,7 @@ export const EVAL_QUESTIONS_SYSTEM_PROMPT = [
   'Answer with exactly one JSON object and nothing else: {"questions": [{"passage": "P1", "question": "…", "answer": "…", "answerable_from_passage": true}]}. At most one question per passage. Leave out a passage you skip.',
 ].join("\n");
 
-export interface QuestionPromptInput {
+interface QuestionPromptInput {
   toolName: string | null;
   documentTitle: string;
   passages: readonly PassageForQuestions[];
@@ -65,7 +65,7 @@ export function buildQuestionPrompt(input: QuestionPromptInput): string {
 }
 
 /** One question the model wrote, checked and tied to its passage. */
-export interface GeneratedQuestion {
+interface GeneratedQuestion {
   passage: PassageForQuestions;
   question: string;
   answer: string;
@@ -82,7 +82,7 @@ export type RejectReason =
   | "duplicate"
   | "passage_used";
 
-export interface ParsedQuestions {
+interface ParsedQuestions {
   /** Null when the answer could not be read as the JSON asked for. */
   questions: GeneratedQuestion[] | null;
   rejected: { reason: RejectReason; question: string }[];

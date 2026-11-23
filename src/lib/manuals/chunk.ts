@@ -43,12 +43,12 @@ const MIN_CHUNK_CHARS = 25;
 /** Section titles are capped in the path, so a runaway bookmark cannot bloat every header. */
 const MAX_TITLE_CHARS = 120;
 
-export interface ChunkPage {
+interface ChunkPage {
   pageNumber: number;
   text: string;
 }
 
-export interface ChunkInput {
+interface ChunkInput {
   /** The catalogue name of the tool the manual belongs to, when it has one. */
   toolName: string | null;
   /** The document's title (the resource's title, usually). */
@@ -57,7 +57,7 @@ export interface ChunkInput {
   outline: readonly ManualOutlineEntry[];
 }
 
-export interface ManualChunk {
+interface ManualChunk {
   /** 0-based position in the document. */
   ordinal: number;
   sectionPath: string[];

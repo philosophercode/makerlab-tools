@@ -47,7 +47,7 @@ export interface ProbedImage {
   background: BackgroundClass | null;
 }
 
-export type ProbeRejection =
+type ProbeRejection =
   | "blocked"
   | "failed"
   | "too_large"
@@ -57,7 +57,7 @@ export type ProbeRejection =
   | "not_an_image"
   | "too_small";
 
-export type ProbeResult =
+type ProbeResult =
   | { ok: true; image: ProbedImage }
   | { ok: false; hint: ImageHint; reason: ProbeRejection; detail?: string };
 

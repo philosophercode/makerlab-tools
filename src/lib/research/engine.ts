@@ -47,7 +47,7 @@ import { resolveManualLinks } from "./resolve-manual-links.ts";
  * it. Plain Node: relative imports only.
  */
 
-export interface SearchRun {
+interface SearchRun {
   findings: SearchFindings;
   exaImages: ImageHint[];
   searchTexts: SearchPageText[];
@@ -126,7 +126,7 @@ export interface ToolManualPage {
   urls: string[];
 }
 
-export interface ReadRun {
+interface ReadRun {
   result: ResearchResult;
   imageHints: ImageHint[];
 }

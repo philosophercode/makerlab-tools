@@ -31,7 +31,7 @@ import { describeDropped } from "./verify-links.ts";
  * Pure. Plain Node: step code imports it.
  */
 
-export interface LinkLanguageEvidence {
+interface LinkLanguageEvidence {
   /** The read step's verdicts, by the URL read and the URL asked for. */
   languages?: readonly PageLanguageRecord[];
   /** The search's captured page texts. */

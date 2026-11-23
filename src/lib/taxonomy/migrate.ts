@@ -20,7 +20,7 @@ import { flattenTree, TAXONOMY_TREE, type FlatTaxonomyNode, type TaxonomyNode } 
  * Relative imports with `.ts` extensions: `scripts/` runs this under plain Node.
  */
 
-export interface SnapshotCategory {
+interface SnapshotCategory {
   id: string;
   slug: string;
   name: string;
@@ -32,7 +32,7 @@ export interface SnapshotCategory {
   retiredAt: Date | null;
 }
 
-export interface SnapshotTool {
+interface SnapshotTool {
   id: string;
   slug: string;
   name: string;
@@ -42,12 +42,12 @@ export interface SnapshotTool {
   archived: boolean;
 }
 
-export interface TaxonomySnapshot {
+interface TaxonomySnapshot {
   categories: SnapshotCategory[];
   tools: SnapshotTool[];
 }
 
-export interface PlannedCategory extends FlatTaxonomyNode {
+interface PlannedCategory extends FlatTaxonomyNode {
   /** `create` a new row, `update` the existing one's tree columns (and blank text), or nothing to do. */
   action: "create" | "update" | "keep";
   existingId: string | null;
@@ -55,7 +55,7 @@ export interface PlannedCategory extends FlatTaxonomyNode {
   changes: string[];
 }
 
-export interface PlannedMove {
+interface PlannedMove {
   toolId: string;
   toolSlug: string;
   toolName: string;
@@ -66,13 +66,13 @@ export interface PlannedMove {
   parentToolSlug: string | null;
 }
 
-export interface PlannedRetirement {
+interface PlannedRetirement {
   categoryId: string;
   label: string;
   mergedIntoSlug: string | null;
 }
 
-export interface TaxonomyPlan {
+interface TaxonomyPlan {
   /** Pre-v2 rows holding a tree slug, renamed out of the way first. */
   legacySlugRenames: { categoryId: string; from: string; to: string }[];
   categories: PlannedCategory[];
@@ -259,7 +259,7 @@ export function planIsEmpty(plan: TaxonomyPlan): boolean {
   );
 }
 
-export interface ApplyReport {
+interface ApplyReport {
   created: number;
   updated: number;
   moved: number;

@@ -19,7 +19,7 @@ import { importFileKind } from "./upload-policy.ts";
  * each caller words a refusal as it did before.
  */
 
-export type ImportUploadResult =
+type ImportUploadResult =
   | { ok: true; attachmentId: string; name: string }
   | { ok: false; status: number; code?: string; error?: string };
 

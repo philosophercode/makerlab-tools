@@ -57,7 +57,7 @@ export interface MirrorRelations {
   pageId(entity: MirrorEntity, id: string): string | null;
 }
 
-export interface BuiltProperties {
+interface BuiltProperties {
   properties: Record<string, unknown>;
   /** A relation target that should exist in Notion does not yet. */
   missingRelation: boolean;

@@ -87,7 +87,7 @@ export type EvalQuestionsOutcome =
       transient: boolean;
     };
 
-export interface EvalQuestionsOptions {
+interface EvalQuestionsOptions {
   /** Questions wanted; default `MANUAL_EVAL_QUESTIONS` (4). */
   count?: number;
   /** Write new questions even when the text has not changed (the backfill's `--force`). */

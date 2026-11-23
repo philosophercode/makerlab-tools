@@ -53,7 +53,7 @@ export interface ResearchItemInput {
   locationHint: string | null;
 }
 
-export type ResearchStagePrompt = "search" | "read";
+type ResearchStagePrompt = "search" | "read";
 
 /** A page the server read, as the read prompt shows it. */
 export interface ReadPromptPage {

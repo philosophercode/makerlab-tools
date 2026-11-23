@@ -19,14 +19,14 @@ import type { CategoryOption } from "../data/taxonomy.ts";
  * approval records a proposal (`category_proposals`) instead.
  */
 
-export interface ProposedCategory {
+interface ProposedCategory {
   name: string;
   group: string | null;
   /** Taxonomy v2: the slug research chose. */
   slug?: string;
 }
 
-export interface MatchedCategory {
+interface MatchedCategory {
   name: string;
   group: string | null;
   existingId: string | null;

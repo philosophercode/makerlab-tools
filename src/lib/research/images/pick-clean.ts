@@ -32,7 +32,7 @@ export interface PickHints {
   productBox?: readonly number[] | null;
 }
 
-export interface PickedImage {
+interface PickedImage {
   bytes: Uint8Array;
   info: ImageInfo;
   /** The kind of copy made, or null when these are the original bytes. */

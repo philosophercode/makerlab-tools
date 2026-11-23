@@ -19,19 +19,19 @@ import { resolveManualPdf, type ResolvedManual } from "../manuals/resolve-pdf.ts
 
 export const MAX_MANUALS_RESOLVED = 2;
 
-export interface LinkLike {
+interface LinkLike {
   title: string;
   url: string;
   type: string;
 }
 
-export interface ResolveLinksOptions {
+interface ResolveLinksOptions {
   signal?: AbortSignal;
   /** Injected in tests; the real resolver otherwise. */
   resolve?: (url: string, signal?: AbortSignal) => Promise<ResolvedManual>;
 }
 
-export interface ResolveLinksResult<T extends LinkLike> {
+interface ResolveLinksResult<T extends LinkLike> {
   links: T[];
   /** One line per link that moved: "Manual … → PDF … (via …)". For the log, hosts only. */
   notes: string[];

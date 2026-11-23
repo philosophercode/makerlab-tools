@@ -50,7 +50,7 @@ export function defaultEmbeddingTarget(): EmbeddingTarget {
   };
 }
 
-export interface EmbedBatchResult {
+interface EmbedBatchResult {
   embeddings: number[][];
   /** Tokens the Gateway reported, summed over the calls. */
   tokens: number;

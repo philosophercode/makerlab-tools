@@ -20,7 +20,7 @@ import { researchLimitFor } from "../data/research-allowances";
  * Research press whose start failed stays spent: the ledger counts presses.
  */
 
-export type ImageRetryRequestResult =
+type ImageRetryRequestResult =
   | { ok: true; requestId: string }
   | { ok: false; error: "not_found" | "not_editable" | "image_retry_running" | "daily_limit" | "start_failed" };
 

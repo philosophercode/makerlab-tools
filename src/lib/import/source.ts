@@ -43,7 +43,7 @@ export interface NotionSnapshot {
   projects: ProjectRecord[];
 }
 
-export interface ReadSnapshotOptions {
+interface ReadSnapshotOptions {
   /** Pause between Notion requests; 350 ms keeps under 3 requests per second. */
   throttleMs?: number;
   log?: (line: string) => void;

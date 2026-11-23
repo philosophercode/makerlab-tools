@@ -62,7 +62,7 @@ export interface RenderedPages {
   labels: (string | null)[];
 }
 
-export interface RenderPageImagesOptions {
+interface RenderPageImagesOptions {
   /** Draw at most this many pages, from the first. */
   maxPages: number;
   timeoutMs?: number;
@@ -105,7 +105,7 @@ type OpsTable = Record<string, number>;
 export type Matrix = [number, number, number, number, number, number];
 
 /** The decoded samples of one image and the matrix it was painted at (unit square → device, at scale 1). */
-export interface PlacedImage {
+interface PlacedImage {
   width: number;
   height: number;
   channels: 1 | 3 | 4;
@@ -178,7 +178,7 @@ async function collectImages(
 }
 
 /** One image painted by an operator: what to decode, and its matrix inside the current one. */
-export interface ImagePaint {
+interface ImagePaint {
   image: unknown;
   isMask: boolean;
   matrix: Matrix;

@@ -51,7 +51,7 @@ export function notionApiBaseUrl(): string {
   return (override || NOTION_DEFAULT_BASE_URL).replace(/\/+$/, "");
 }
 
-export type NotionErrorCode =
+type NotionErrorCode =
   | "unauthorized"
   | "restricted"
   | "page_not_found"

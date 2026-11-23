@@ -60,9 +60,9 @@ export type ResolvedManual =
     }
   | { status: "not_found"; reason: string; tried: string[] };
 
-export type Fetcher = (url: string, signal: AbortSignal) => Promise<GuardedFetchResult>;
+type Fetcher = (url: string, signal: AbortSignal) => Promise<GuardedFetchResult>;
 
-export interface ResolveOptions {
+interface ResolveOptions {
   signal?: AbortSignal;
   /** The GET; defaults to the SSRF-guarded one. Tests pass their own only to count requests. */
   fetcher?: Fetcher;

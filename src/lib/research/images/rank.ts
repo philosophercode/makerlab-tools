@@ -80,10 +80,10 @@ export const RANK_SYSTEM_PROMPT = [
 
 /** What an image shows, as the ranking model judged it. Only `product` is ever offered. */
 const IMAGE_SUBJECTS = ["product", "accessory", "consumable", "part", "packaging", "other_model", "not_product"] as const;
-export type ImageSubject = (typeof IMAGE_SUBJECTS)[number];
+type ImageSubject = (typeof IMAGE_SUBJECTS)[number];
 
 /** What the ranking model said about one image besides its place. */
-export interface ImageAssessment {
+interface ImageAssessment {
   /** What the image shows; only `product` passes {@link acceptedImages}. */
   subject: ImageSubject;
   composite: boolean;

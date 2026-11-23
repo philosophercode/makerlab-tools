@@ -28,7 +28,7 @@ export const IMPORT_TEXT_TYPES = new Set([
   "application/octet-stream",
 ]);
 
-export type ImportFileKind = "text" | "pdf";
+type ImportFileKind = "text" | "pdf";
 
 /** What an import upload is — text or a PDF — or null when it is neither. */
 export function importFileKind(type: string, name: string): ImportFileKind | null {

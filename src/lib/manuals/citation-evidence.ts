@@ -16,7 +16,7 @@ import type { DocumentEvidence } from "./citation-check.ts";
  * are the lab's own store, not the web.
  */
 
-export interface GatherOptions {
+interface GatherOptions {
   db: Db;
   fetchImpl?: typeof fetch;
   /** Bodies larger than this are not parsed for a page count. Default 30 MB. */
