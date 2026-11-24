@@ -59,7 +59,7 @@ export interface MirrorFile {
   name: string | null;
 }
 
-export interface SourceRowBase {
+interface SourceRowBase {
   id: string;
   /** `updated_at::text` — opaque; written back as `source_updated_at` and used as the cursor. */
   revision: string;
@@ -186,7 +186,7 @@ export interface SourceCursor {
   id: string;
 }
 
-export interface SourceQuery {
+interface SourceQuery {
   mirrorId: string;
   /** `last_synced_at::text`, or null for every row. */
   since: string | null;

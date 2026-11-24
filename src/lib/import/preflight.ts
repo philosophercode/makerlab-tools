@@ -12,7 +12,7 @@ import { CHECKED_PROPERTIES, toStoredValue, type CheckedProperty } from "./vocab
  * a missing property, and the mappers fall back to the column default.
  */
 
-export interface PreflightProblem {
+interface PreflightProblem {
   table: CheckedProperty["table"];
   property: string;
   option: string;
@@ -26,7 +26,7 @@ export interface PreflightWarning {
   reason: string;
 }
 
-export interface PreflightResult {
+interface PreflightResult {
   problems: PreflightProblem[];
   warnings: PreflightWarning[];
 }

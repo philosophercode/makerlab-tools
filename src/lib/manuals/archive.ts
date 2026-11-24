@@ -103,7 +103,7 @@ export type ArchiveManualResult =
   | { status: "skipped"; reason: ArchiveSkipReason }
   | { status: "failed"; reason: ArchiveFailReason; transient: boolean; httpStatus?: number };
 
-export interface ArchiveManualOptions {
+interface ArchiveManualOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /** Cancels the download along with the 30-second timeout. */

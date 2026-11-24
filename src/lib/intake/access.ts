@@ -39,7 +39,7 @@ export function canActOnPendingTool(subject: Subject, item: { createdBy: string 
   return can(subject, "tools.approve");
 }
 
-export interface ResearchableItem {
+interface ResearchableItem {
   status: PendingStatus;
   workflowRunId: string | null;
   duplicateResolution: DuplicateResolution | null;
@@ -50,7 +50,7 @@ export interface ResearchableItem {
 }
 
 /** What {@link hasStalledStart} needs — a stored row or a browser's view of one. */
-export interface StartState {
+interface StartState {
   status: PendingStatus;
   /** Whether a workflow run holds the item. */
   hasWorkflowRun: boolean;

@@ -42,7 +42,7 @@ export const BACKUP_PREFIX = "backups/";
 const BACKUP_PATHNAME = /^backups\/(\d{4}-\d{2}-\d{2})\.json$/;
 
 /** Serialized file format. `version` is here so a future reader can tell what it has. */
-export interface BackupFile {
+interface BackupFile {
   version: 2;
   /** `notion` was version 1's; a restore has to know which shape it holds. */
   source: "postgres";
@@ -50,14 +50,14 @@ export interface BackupFile {
   tables: Record<string, { rowCount: number; rows: unknown[] }>;
 }
 
-export interface BackupResult {
+interface BackupResult {
   pathname: string;
   bytes: number;
   tables: Record<string, number>;
   pruned: string[];
 }
 
-export interface BackupOptions {
+interface BackupOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /** Clock injection, so a test can stage retention without waiting for it. */

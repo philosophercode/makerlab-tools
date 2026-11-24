@@ -40,7 +40,7 @@ import { parseTicketDescription } from "./ticket-description.ts";
  * failure mode this whole import is designed against.
  */
 
-export interface Mapped<T> {
+interface Mapped<T> {
   row: T;
   warnings: string[];
 }
@@ -101,7 +101,7 @@ export function toLocationRow(record: LocationRecord): Mapped<typeof locations.$
   };
 }
 
-export interface ToolRefs {
+interface ToolRefs {
   slug: string;
   categoryId: string | null;
   locationId: string | null;
@@ -186,7 +186,7 @@ export function toResourceRow(
   };
 }
 
-export interface MaintenanceRefs {
+interface MaintenanceRefs {
   unitId: string | null;
   toolId: string | null;
   toolName: string | null;

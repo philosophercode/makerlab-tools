@@ -117,7 +117,7 @@ export type EvidencePartial = Partial<IntakeEvidence>;
 
 /** How sure research is of its category (taxonomy v2 spec §4.2). */
 const CATEGORY_CONFIDENCE = ["high", "medium", "low"] as const;
-export type CategoryConfidence = (typeof CATEGORY_CONFIDENCE)[number];
+type CategoryConfidence = (typeof CATEGORY_CONFIDENCE)[number];
 
 /**
  * The category research chose (taxonomy v2 spec §4.2): **the slug of one of
@@ -146,7 +146,7 @@ const categorySchema = z
   });
 
 /** A new category research proposes when none of the lab's fits (taxonomy v2 spec §4.2). */
-export interface CategoryProposalDraft {
+interface CategoryProposalDraft {
   name: string;
   parentSlug: string | null;
   description: string | null;

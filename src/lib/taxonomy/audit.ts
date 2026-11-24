@@ -28,9 +28,9 @@ const SPARSE_AT_MOST = 1;
 export const CROWDED_OVER = 25;
 const STALE_DAYS = 14;
 
-export type AuditFlag = "sparse" | "crowded" | "duplicate_name";
+type AuditFlag = "sparse" | "crowded" | "duplicate_name";
 
-export interface AuditFinding {
+interface AuditFinding {
   flag: AuditFlag;
   categoryId: string;
   categoryName: string;
@@ -40,7 +40,7 @@ export interface AuditFinding {
   suggestedTargetId: string | null;
 }
 
-export interface StaleProposal {
+interface StaleProposal {
   id: string;
   name: string;
   days: number;
@@ -114,7 +114,7 @@ async function staleProposals(db: Db, now: Date = new Date()): Promise<StaleProp
     .sort((a, b) => b.days - a.days || a.name.localeCompare(b.name, "en"));
 }
 
-export interface AuditRun {
+interface AuditRun {
   findings: AuditFinding[];
   stale: StaleProposal[];
   /** How many findings became a new proposal (the rest were already waiting). Zero on a dry run. */

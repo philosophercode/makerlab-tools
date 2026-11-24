@@ -36,7 +36,7 @@ export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export interface LinkMentionOptions {
+interface LinkMentionOptions {
   /**
    * Link a mention only at a page the PDF has (the chat's rule: an
    * out-of-range page stays plain words). The eval's check turns every

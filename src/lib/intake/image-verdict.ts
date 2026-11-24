@@ -26,7 +26,7 @@ import type { ResearchImages } from "../research/result";
 /** The shortest side, in pixels, a photo approved without a look may have. */
 const MIN_IMAGE_SIDE = 400;
 
-export type ImageVerdict =
+type ImageVerdict =
   | { verdict: "good"; reasons: string[] }
   | { verdict: "check"; reasons: string[] }
   | { verdict: "none"; reasons: string[] };

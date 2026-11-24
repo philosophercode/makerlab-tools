@@ -19,7 +19,7 @@ import {
  * - `token_unreadable` — the stored value does not decrypt under the current
  *   key, which is what rotating `AUTH_SECRET` does. Connect again.
  */
-export type MirrorClientResult =
+type MirrorClientResult =
   | { ok: true; client: NotionClient }
   | { ok: false; code: "not_connected" | "key_unavailable" | "token_unreadable" };
 

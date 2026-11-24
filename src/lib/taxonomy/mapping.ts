@@ -29,7 +29,7 @@ import type { ToolItemKind } from "../db/schema/vocabulary.ts";
  * Pure data, no runtime imports: `scripts/` loads it under plain Node.
  */
 
-export interface ToolMove {
+interface ToolMove {
   /** The taxonomy v2 slug the tool goes into. */
   category: string;
   itemKind?: ToolItemKind;

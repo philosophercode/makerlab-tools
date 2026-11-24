@@ -22,14 +22,14 @@ import { requestManualArchive } from "../manuals/trigger.ts";
 /** Manuals handed to the archive per night. */
 export const MANUALS_PER_NIGHT = 10;
 
-export interface ManualArchiveStageOptions {
+interface ManualArchiveStageOptions {
   /** A handle to use instead of `getDb()` — tests pass an isolated one. */
   db?: Db;
   /** The clock, for the moving window. */
   now?: Date;
 }
 
-export interface ManualArchiveStageResult {
+interface ManualArchiveStageResult {
   /** Manual resources still without a copy of their link. */
   due: number;
   /** Handed to tonight's run. */

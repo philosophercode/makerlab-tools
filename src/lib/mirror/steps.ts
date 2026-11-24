@@ -50,7 +50,7 @@ export interface MirrorPushSummary {
 }
 
 /** Which door the push came in through, for the log line. */
-export type MirrorPushTrigger = "run" | "change";
+type MirrorPushTrigger = "run" | "change";
 
 /** A step error's own reason is kept, but only this much of it. */
 const MAX_DETAIL_LENGTH = 200;

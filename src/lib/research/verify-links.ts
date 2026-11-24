@@ -36,7 +36,7 @@ export const DEFAULT_MAX_LINKS = 8;
 /** The reason a link past {@link DEFAULT_MAX_LINKS} carries. */
 export const NOT_CHECKED_REASON = "not checked (limit)";
 
-export interface VerifyOptions {
+interface VerifyOptions {
   /**
    * The caller's own deadline. Each fetch still has its own 8-second timeout;
    * this one is the step's, and when it fires the call **throws** rather than
@@ -53,7 +53,7 @@ export interface VerifyOptions {
   englishOnly?: boolean;
 }
 
-export interface VerifyLinksOptions extends VerifyOptions {
+interface VerifyLinksOptions extends VerifyOptions {
   /** Links beyond this many are dropped unopened. Default {@link DEFAULT_MAX_LINKS}. */
   maxLinks?: number;
 }

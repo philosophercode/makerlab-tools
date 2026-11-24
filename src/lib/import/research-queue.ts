@@ -38,7 +38,7 @@ export interface ChunkProgress {
   waiting: number;
 }
 
-export interface ChunkedResearchOutcome {
+interface ChunkedResearchOutcome {
   queued: string[];
   readyAsUnit: string[];
   /** Not sent because the allowance ran out — in the order given. */
@@ -47,7 +47,7 @@ export interface ChunkedResearchOutcome {
   refused: { ids: string[]; code: PendingApiErrorCode | "failed" }[];
 }
 
-export interface QueueOptions {
+interface QueueOptions {
   onProgress?: (progress: ChunkProgress) => void;
   sleep?: (ms: number) => Promise<void>;
   /** Times one chunk is sent again after `rate_limited` before it counts as refused. */

@@ -117,14 +117,14 @@ const PROTECTED_FILL_TOLERANCE = 12;
 /** Alpha below this is see-through (an already-transparent pixel the fill may cross). */
 const CLEAR_ALPHA = 16;
 
-export interface CleanedImage {
+interface CleanedImage {
   bytes: Uint8Array;
   info: ImageInfo;
   /** Where the trimmed result sits in the working-size image — for tests and diagnostics. */
   crop: { left: number; top: number; width: number; height: number };
 }
 
-export type CleanOutcome = { ok: true; image: CleanedImage } | { ok: false; note: CleanNote };
+type CleanOutcome = { ok: true; image: CleanedImage } | { ok: false; note: CleanNote };
 
 /** The fill's verdict for every pixel, before feathering. */
 export interface Cutout {

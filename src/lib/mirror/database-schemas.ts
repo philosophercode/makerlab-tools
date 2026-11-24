@@ -30,7 +30,7 @@ import type { MappingProblem, MirrorMapping } from "./types.ts";
  * loads this module.
  */
 
-export type MirrorPropertyType =
+type MirrorPropertyType =
   | "title"
   | "rich_text"
   | "select"
@@ -173,7 +173,7 @@ const SCHEMAS: Readonly<Record<MirrorEntity, readonly MirrorPropertySpec[]>> = {
 };
 
 /** An expected property, with the database id a relation must point at when its target is mapped. */
-export interface ExpectedProperty extends MirrorPropertySpec {
+interface ExpectedProperty extends MirrorPropertySpec {
   /** Dashed lower-case database id of the relation's target, or null when the target is not mapped. */
   targetDatabaseId?: string | null;
 }

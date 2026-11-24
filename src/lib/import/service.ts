@@ -84,7 +84,7 @@ export interface StartImportInput {
 }
 
 /** Starts `importRows` for an import already `identifying`. */
-export type RowsStarter = (importId: string) => Promise<{ runId: string }>;
+type RowsStarter = (importId: string) => Promise<{ runId: string }>;
 
 /**
  * A refusal carries the numbers its message needs: `too_many_items` the count
@@ -101,7 +101,7 @@ export interface StartImportRefusal {
   limitChars?: number;
 }
 
-export type StartImportOutcome = { ok: true; import: BulkImportRecord } | StartImportRefusal;
+type StartImportOutcome = { ok: true; import: BulkImportRecord } | StartImportRefusal;
 
 export async function startImport(input: StartImportInput): Promise<StartImportOutcome> {
   const source = await resolveSource(input);
@@ -164,7 +164,7 @@ export async function startImport(input: StartImportInput): Promise<StartImportO
   return { ok: true, import: (await getBulkImport(created.id, { db })) ?? created };
 }
 
-export type ConfirmMappingOutcome =
+type ConfirmMappingOutcome =
   | { ok: true; itemCount: number; duplicateCount: number }
   | { ok: false; error: ColumnMapProblem | "not_found" | "not_editable" | "too_many_items" };
 

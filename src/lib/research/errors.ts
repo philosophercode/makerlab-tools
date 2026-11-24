@@ -39,7 +39,7 @@ import { ModelOutputError } from "./model-output.ts";
  * step bundle loads this under plain Node.
  */
 
-export type ResearchStage = "search" | "read" | "verify" | "assemble";
+type ResearchStage = "search" | "read" | "verify" | "assemble";
 
 const STAGE_LABEL: Record<ResearchStage, string> = {
   search: "Research (search)",

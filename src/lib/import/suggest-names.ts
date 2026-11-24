@@ -19,7 +19,7 @@ import type { NameSuggestion, SuggestionConfidence } from "./types.ts";
  * Plain Node, relative imports: the Suggest names workflow's step calls it.
  */
 
-export interface SuggestInput {
+interface SuggestInput {
   name: string;
   brand: string | null;
   categoryHint: string | null;
@@ -46,7 +46,7 @@ export function buildSuggestPrompt(item: SuggestInput): string {
   ].join("\n");
 }
 
-export interface SuggestRun {
+interface SuggestRun {
   suggestion: NameSuggestion;
   cost: number | null;
   searches: number;

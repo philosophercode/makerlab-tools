@@ -115,7 +115,7 @@ export function shouldCrop(
   return signals.composite || signals.background === "busy" || boxArea(box) < CROP_WHEN_BOX_BELOW;
 }
 
-export interface CroppedImage {
+interface CroppedImage {
   /** PNG: lossless, so the cutout reads the same pixels the original had (and keeps any alpha). */
   bytes: Uint8Array;
   info: ImageInfo;

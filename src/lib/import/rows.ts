@@ -16,7 +16,7 @@ import type { ImportItem, SkippedRow } from "./types.ts";
  */
 
 /** What the rows are read from — the fields of an import record this needs. */
-export interface ImportSource {
+interface ImportSource {
   format: "table" | "list" | "document";
   sourceText: string;
   sourceName: string | null;

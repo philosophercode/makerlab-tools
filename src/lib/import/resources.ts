@@ -14,7 +14,7 @@ import type { ImportLink, LabDoc } from "./types.ts";
  * Pure and client-safe: the preliminary page shows the same titles and types.
  */
 
-export interface ApprovalResource {
+interface ApprovalResource {
   title: string;
   url: string;
   type: string;

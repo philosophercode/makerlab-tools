@@ -21,12 +21,12 @@ import { startMirrorPush } from "../mirror/start.ts";
  * the cron exists to prevent. What each push then did is on its mirror row.
  */
 
-export interface MirrorBackstopOptions {
+interface MirrorBackstopOptions {
   /** A handle to use instead of `getDb()` — tests pass an isolated one. */
   db?: Db;
 }
 
-export interface MirrorBackstopResult {
+interface MirrorBackstopResult {
   /** Mirrors the backstop found behind. */
   due: number;
   /** Pushes started. */

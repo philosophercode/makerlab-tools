@@ -72,7 +72,7 @@ export interface DocumentEvidence {
   pages: ReadonlyMap<number, string>;
 }
 
-export type CitationProblem =
+type CitationProblem =
   | "not_from_tool"
   | "does_not_resolve"
   | "not_a_pdf"
@@ -81,7 +81,7 @@ export type CitationProblem =
   | "label_mismatch"
   | "other_machine";
 
-export interface CitationVerdict {
+interface CitationVerdict {
   /** The address as the answer wrote it. */
   href: string;
   /** The tool's URL it stands for, when it stands for one. */
@@ -91,13 +91,13 @@ export interface CitationVerdict {
   detail: string[];
 }
 
-export interface CitationReport {
+interface CitationReport {
   ok: boolean;
   citations: CitationVerdict[];
 }
 
 /** One link in an answer, with its words (empty for a bare address). */
-export interface AnswerLink {
+interface AnswerLink {
   href: string;
   words: string;
 }

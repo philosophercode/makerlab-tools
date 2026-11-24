@@ -82,7 +82,7 @@ export interface ExtractedManual {
   title: string | null;
 }
 
-export interface ExtractManualOptions {
+interface ExtractManualOptions {
   maxBytes?: number;
   maxPages?: number;
   timeoutMs?: number;
@@ -183,7 +183,7 @@ async function read(pdf: PdfDocument, maxPages: number, deadline: number): Promi
 // ── Lines ───────────────────────────────────────────────────────────
 
 /** A pdf.js text item, or a marked-content marker (no `str`). */
-export interface RawTextItem {
+interface RawTextItem {
   str?: string;
   transform?: number[];
   width?: number;

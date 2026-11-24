@@ -84,7 +84,7 @@ export function rerankMinScore(): number {
   return value;
 }
 
-export type SearchMode = "hybrid" | "fts" | "vector";
+type SearchMode = "hybrid" | "fts" | "vector";
 
 /** Who is searching: anything carrying a role (an `Identity`), or nobody. */
 export type ManualSearchViewer = { role: Role | null | undefined } | null | undefined;
@@ -94,7 +94,7 @@ export function canSearchPrivateManuals(viewer: ManualSearchViewer): boolean {
   return can(viewer, "tools.edit");
 }
 
-export interface SearchManualsInput {
+interface SearchManualsInput {
   query: string;
   /** Only these tools' manuals (catalogue ids). Absent: every manual the viewer may see. */
   toolIds?: readonly string[];
@@ -153,7 +153,7 @@ export interface ManualPassage {
   resourceType: string | null;
 }
 
-export interface SearchManualsResult {
+interface SearchManualsResult {
   passages: ManualPassage[];
   /** True when the query could not be embedded and only full text was searched. */
   vectorFailed: boolean;

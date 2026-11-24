@@ -59,7 +59,7 @@ export interface PageTranscript {
   cost: number | null;
 }
 
-export interface TranscribeOptions {
+interface TranscribeOptions {
   /** The model; the deployment's `ocr` job by default. */
   model?: LanguageModel;
   providerOptions?: ReturnType<typeof providerOptionsFor>;

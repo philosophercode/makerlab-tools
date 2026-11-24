@@ -78,7 +78,7 @@ export function resetBackupFreshnessCache(): void {
   cached = null;
 }
 
-export type BackupNotice = { key: `backupNotice.${Exclude<BackupFreshness["state"], "fresh">}`; date: string };
+type BackupNotice = { key: `backupNotice.${Exclude<BackupFreshness["state"], "fresh">}`; date: string };
 
 /**
  * The `/admin` warning, or null. Super admins only (`users.manage`), and only

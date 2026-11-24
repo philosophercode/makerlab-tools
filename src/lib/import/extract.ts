@@ -42,7 +42,7 @@ export function buildExtractPrompt(chunk: string, part: number, parts: number, s
   return [`List the equipment in this part of the document.`, fenceUntrusted(label, chunk), `Answer with the JSON object only.`].join("\n\n");
 }
 
-export interface ExtractRun {
+interface ExtractRun {
   items: RawImportItem[];
   /** Dollars, as the Gateway reported, or null. */
   cost: number | null;

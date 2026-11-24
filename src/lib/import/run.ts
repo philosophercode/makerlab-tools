@@ -65,7 +65,7 @@ export interface ImportReport {
   preflightWarnings: PreflightWarning[];
 }
 
-export interface RunImportOptions {
+interface RunImportOptions {
   db: Db;
   snapshot: NotionSnapshot;
   /** Null skips file copying entirely (a dry run). */

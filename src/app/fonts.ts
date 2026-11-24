@@ -40,7 +40,7 @@ import localFont from "next/font/local";
 // Latin faces:    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2190-2199, U+21BB, U+21E7, U+2212, U+2215, U+2318, U+25A0-25FF, U+2713, U+2715, U+FEFF, U+FFFD
 // Extended faces: U+0100-02FF, U+0400-04FF, U+1E00-1EFF, U+2070-209F, U+20A0-20CF, U+2100-214F, U+2190-23FF, U+2C60-2C7F, U+A720-A7FF (broad on purpose: the Latin face is consulted first)
 
-export const spaceGroteskLatin = localFont({
+const spaceGroteskLatin = localFont({
   src: "../fonts/SpaceGrotesk-Latin.woff2",
   weight: "400 700",
   style: "normal",
@@ -51,7 +51,7 @@ export const spaceGroteskLatin = localFont({
   adjustFontFallback: false,
 });
 
-export const spaceGrotesk = localFont({
+const spaceGrotesk = localFont({
   src: "../fonts/SpaceGrotesk-Extended.woff2",
   weight: "400 700",
   style: "normal",
@@ -62,7 +62,7 @@ export const spaceGrotesk = localFont({
   fallback: ["Arial Narrow", "Arial", "sans-serif"],
 });
 
-export const interLatin = localFont({
+const interLatin = localFont({
   src: "../fonts/Inter-Latin.woff2",
   weight: "400 700",
   style: "normal",
@@ -73,7 +73,7 @@ export const interLatin = localFont({
   adjustFontFallback: false,
 });
 
-export const inter = localFont({
+const inter = localFont({
   src: "../fonts/Inter-Extended.woff2",
   weight: "400 700",
   style: "normal",
@@ -84,7 +84,7 @@ export const inter = localFont({
   fallback: ["Arial", "sans-serif"],
 });
 
-export const jetBrainsMonoLatin = localFont({
+const jetBrainsMonoLatin = localFont({
   src: "../fonts/JetBrainsMono-Latin.woff2",
   weight: "400 700",
   style: "normal",
@@ -95,7 +95,7 @@ export const jetBrainsMonoLatin = localFont({
   adjustFontFallback: false,
 });
 
-export const jetBrainsMono = localFont({
+const jetBrainsMono = localFont({
   src: "../fonts/JetBrainsMono-Extended.woff2",
   weight: "400 700",
   style: "normal",

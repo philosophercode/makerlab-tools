@@ -34,16 +34,16 @@ import type { MappingProblem, MirrorMapping, MirrorSetupError } from "./types.ts
  * step code.
  */
 
-export interface MirrorDatabaseOptions {
+interface MirrorDatabaseOptions {
   db?: Db;
   client?: Partial<Omit<NotionClientOptions, "token">>;
 }
 
-export type EnsureDatabasesResult =
+type EnsureDatabasesResult =
   | { ok: true; created: MirrorEntity[]; kept: MirrorEntity[]; mapping: MirrorMapping }
   | { ok: false; code: MirrorSetupError; created: MirrorEntity[]; entity: MirrorEntity | null };
 
-export type ApplyMappingResult =
+type ApplyMappingResult =
   | { ok: true; mapping: MirrorMapping }
   | { ok: false; code: MirrorSetupError; problems: MappingProblem[] };
 

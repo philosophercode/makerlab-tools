@@ -29,14 +29,14 @@ import type { SharpLoader } from "./downscale.ts";
  * Never throws. Plain Node: step code imports this.
  */
 
-export interface CleanCopySource {
+interface CleanCopySource {
   bytes: Uint8Array;
   background: BackgroundClass | null;
   composite: boolean;
   productBox: ProductBox | null;
 }
 
-export type CleanCopy =
+type CleanCopy =
   | { made: true; kind: CleanedKind; bytes: Uint8Array; info: ImageInfo; note: CleanNote | null }
   | { made: false; note: CleanNote | null };
 

@@ -21,7 +21,7 @@
  * sections that were recognised still fill their columns.
  */
 
-export interface ParsedTicketDescription {
+interface ParsedTicketDescription {
   description: string | null;
   reportedBy: string | null;
   dateReported: string | null;

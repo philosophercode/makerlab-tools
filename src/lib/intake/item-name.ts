@@ -25,7 +25,7 @@
  */
 
 /** Why a name was refused. */
-export type ItemNameProblem = "empty" | "placeholder";
+type ItemNameProblem = "empty" | "placeholder";
 
 /**
  * Words that say nothing about which item this is. A name made only of these

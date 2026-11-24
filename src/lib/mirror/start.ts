@@ -32,7 +32,7 @@ export async function startMirrorPush(mirrorId: string): Promise<{ ok: true; run
   }
 }
 
-export type SyncNowResult =
+type SyncNowResult =
   | { ok: true }
   | {
       ok: false;
