@@ -179,7 +179,7 @@ interface DecideRequest {
  * leaves the rest open. Well inside the route's `maxDuration` (30 s), so the
  * function is never killed between claiming a row and settling it.
  */
-export const CONFIRM_BUDGET_MS = 20_000;
+const CONFIRM_BUDGET_MS = 20_000;
 
 /**
  * Decide `request.ids` as `identity`. The identity is the route's — the

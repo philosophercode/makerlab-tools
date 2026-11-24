@@ -68,14 +68,14 @@ export const PUBLIC_CLIENT_MESSAGES = [
   "auth.switchFailed",
 ] as const;
 
-export const ADMIN_CLIENT_MESSAGES = ["admin"] as const;
+const ADMIN_CLIENT_MESSAGES = ["admin"] as const;
 
 // The "On shift" control on /account is staff-only and worded as admin
 // strings, like the rest of it on the admin overview (on-shift spec 2026-10-07).
-export const ACCOUNT_CLIENT_MESSAGES = ["account", "admin.onShift"] as const;
+const ACCOUNT_CLIENT_MESSAGES = ["account", "admin.onShift"] as const;
 
 /** The demo pass sign-up form (`app/interest`, demo pass spec 2026-10-07 §6). */
-export const DEMO_CLIENT_MESSAGES = ["demoPass"] as const;
+const DEMO_CLIENT_MESSAGES = ["demoPass"] as const;
 
 export type ClientMessagesScope = "admin" | "account" | "demo";
 

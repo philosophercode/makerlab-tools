@@ -9,7 +9,7 @@ import { ENGLISH as en } from "../../i18n/lab-tokens";
  * a message change (and a translation pass) for the owner, never written by
  * the script.
  */
-export const GENERAL_CHIP_KEYS = ["starterOperate", "starterDebug", "starterCreate"] as const;
+const GENERAL_CHIP_KEYS = ["starterOperate", "starterDebug", "starterCreate"] as const;
 
 export function generalChipQuestions(): string[] {
   return GENERAL_CHIP_KEYS.map((key) => en.chat[key]);
