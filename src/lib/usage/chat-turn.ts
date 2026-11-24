@@ -50,7 +50,7 @@ export function recordChatTurnUsage(input: {
 }
 
 /** The text of the conversation's last user message. */
-export function lastUserText(messages: readonly UIMessage[]): string {
+function lastUserText(messages: readonly UIMessage[]): string {
   const last = [...messages].reverse().find((message) => message.role === "user");
   if (!last) return "";
   return (last.parts ?? [])

@@ -42,7 +42,7 @@ const SERVER_ERROR = -32000;
 const INVALID_REQUEST = -32600;
 
 /** The most messages one JSON-RPC batch may carry. */
-export const MAX_BATCH = 10;
+const MAX_BATCH = 10;
 
 /** What a refused bearer is told (§3.1 names the categories). */
 const REFUSAL_MESSAGES: Record<McpAuthRefusal, string> = {

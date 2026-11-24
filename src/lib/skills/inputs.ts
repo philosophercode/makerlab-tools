@@ -239,7 +239,7 @@ function researchText(result: ResearchResult, urls: readonly string[]): string {
 // ── Linked documents ────────────────────────────────────────────────
 
 /** A link a skill may print: the manufacturer's address, never a stored file's. */
-export function portableUrl(link: { href: string; sourceHref?: string }): string | null {
+function portableUrl(link: { href: string; sourceHref?: string }): string | null {
   const url = (link.sourceHref ?? link.href ?? "").trim();
   if (!/^https?:\/\//i.test(url)) return null;
   if (/\/api\/dev-blob\//i.test(url) || /\.blob\.vercel-storage\.com\//i.test(url)) return null;

@@ -18,7 +18,7 @@ const MAX_DESCRIPTION = 20_000;
 /** The "I've checked this" note (§5.4 step 12). */
 const MAX_OVERRIDE_NOTE = 1000;
 
-export const pendingId = z.string().refine(isUuid);
+const pendingId = z.string().refine(isUuid);
 
 /** Trimmed, capped, and "" becomes null — an empty box means "not set". */
 function optionalText(max: number) {

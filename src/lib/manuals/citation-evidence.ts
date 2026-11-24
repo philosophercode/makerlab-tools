@@ -51,8 +51,6 @@ async function evidenceFor(url: string, options: GatherOptions): Promise<Documen
   return { status: 200, contentType, pdfMagic, pageCount, pages };
 }
 
-export { countPages };
-
 /** The stored text of each page of the document whose attachment is at `url`. */
 async function storedPages(db: Db, url: string): Promise<Map<number, string>> {
   const rows = await rawRows<{ page_number: number; text: string }>(

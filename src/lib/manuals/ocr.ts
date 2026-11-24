@@ -48,7 +48,7 @@ import { transcribePage, type PageTranscript } from "./transcribe.ts";
 export const OCR_VERSION = "ocr-1";
 
 /** Pages read per manual, from the first. */
-export const OCR_MAX_PAGES = 150;
+const OCR_MAX_PAGES = 150;
 
 /** Dollars per manual, by the Gateway's reported cost; no page starts past it. */
 export const OCR_MAX_COST_USD = 1;

@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * "A phone on its side"). `globals.css` repeats this query for the short
  * bar's rules (CSS has no shared custom media); keep the two the same.
  */
-export const SHORT_VIEWPORT_QUERY = "(orientation: landscape) and (max-height: 500px)";
+const SHORT_VIEWPORT_QUERY = "(orientation: landscape) and (max-height: 500px)";
 
 /**
  * The header's MENU button and the links it shows on a short viewport.

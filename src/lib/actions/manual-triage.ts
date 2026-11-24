@@ -275,7 +275,7 @@ export function safeUrl(url: string | null | undefined): string | null {
   }
 }
 
-export function hostOf(url: string | null | undefined): string | null {
+function hostOf(url: string | null | undefined): string | null {
   if (!url) return null;
   try {
     return new URL(url).hostname.replace(/^www\./, "") || null;

@@ -34,7 +34,7 @@
  */
 
 /** The actions whose write checks and returns the tool's revision atomically (`withTouchedTool`). */
-export const CHAINED_ACTIONS: ReadonlySet<string> = new Set(["resources.add", "resources.edit", "units.edit", "units.rename"]);
+const CHAINED_ACTIONS: ReadonlySet<string> = new Set(["resources.add", "resources.edit", "units.edit", "units.rename"]);
 
 interface ToolRevisionRef {
   toolId: string;

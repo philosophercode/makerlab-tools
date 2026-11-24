@@ -153,8 +153,6 @@ const proposeChangeTool: CapabilityTool<ProposeChangeInput, ToolResult> = {
 /** Where a proposal came from — decides the reply's wording, never what is stored. */
 type ProposalSurface = "chat" | "mcp";
 
-export { MCP_PROPOSAL_CHAT_ID };
-
 /**
  * Validate one proposed change to `own` and store it as a `chat_proposals`
  * row — the half the chat's `propose_change` and MCP's share. **It writes no

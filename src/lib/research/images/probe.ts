@@ -32,7 +32,7 @@ import type { SharpLoader } from "./downscale.ts";
  */
 
 /** One image's budget, inside the step's own 240 s. */
-export const PROBE_TIMEOUT_MS = 15_000;
+const PROBE_TIMEOUT_MS = 15_000;
 
 /** Candidates fetched at once. */
 const PROBE_CONCURRENCY = 3;

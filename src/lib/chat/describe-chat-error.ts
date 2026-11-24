@@ -82,7 +82,7 @@ function clip(message: string): string {
  * does not pull the Workflow SDK into the chat route; plus the Gateway's own
  * key prefix and a bare JWT (the OIDC token's shape).
  */
-export function scrub(message: string): string {
+function scrub(message: string): string {
   return message
     .replace(/sk-[A-Za-z0-9_-]{8,}/g, "[redacted]")
     .replace(/vck_[A-Za-z0-9_-]{8,}/g, "[redacted]")
