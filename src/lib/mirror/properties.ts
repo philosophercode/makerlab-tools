@@ -137,7 +137,7 @@ function dateProp(value: string | null | undefined): Properties[string] {
 }
 
 /** A URL, trimmed; null when empty or longer than Notion takes. */
-export function urlValue(value: string | null | undefined): string | null {
+function urlValue(value: string | null | undefined): string | null {
   const url = (value ?? "").trim();
   if (!url || url.length > NOTION_MAX_URL_LENGTH) return null;
   return url;

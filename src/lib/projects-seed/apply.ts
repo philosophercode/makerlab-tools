@@ -65,7 +65,7 @@ function photoSourceKey(notionPageId: string, bytes: Uint8Array): string {
 }
 
 /** The markdown stored in `projects.body`: the enriched write-up, then the partner. */
-export function projectBody(project: SeedProject): string {
+function projectBody(project: SeedProject): string {
   const partner = project.partnerOrg.url
     ? `[${project.partnerOrg.label}](${project.partnerOrg.url})`
     : project.partnerOrg.label;

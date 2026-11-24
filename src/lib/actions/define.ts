@@ -45,7 +45,7 @@ export type ActionSurface = "gui" | "assistant" | "mcp";
 export type McpExposure = "never" | "propose" | "direct";
 
 /** The only actions allowed `mcp: "direct"` (§11 answer 4): today's `update_ticket`, kept working. */
-export const DIRECT_OVER_MCP: readonly string[] = ["tickets.update"];
+const DIRECT_OVER_MCP: readonly string[] = ["tickets.update"];
 
 /**
  * What the assistant may never do, on any surface — chat or MCP — whatever the

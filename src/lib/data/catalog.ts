@@ -657,7 +657,7 @@ export function toMakerLabUnit(
   };
 }
 
-export function deriveStatus(
+function deriveStatus(
   tool: Pick<ToolRow, "trainingRequired">,
   units: MakerLabUnit[]
 ): ToolStatus {

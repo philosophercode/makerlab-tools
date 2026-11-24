@@ -18,7 +18,7 @@ import { cachedManualPdf } from "./manual-pdf-cache";
  * `citations_resolve` check resolves `#cite-<ref>-<page>` against.
  */
 
-export const MAX_PDFS_PER_CHAT = 3;
+const MAX_PDFS_PER_CHAT = 3;
 const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB ceiling
 const PDF_FETCH_UA = "Mozilla/5.0 (compatible; MakerLabBot/1.0)";
 const PDF_FETCH_TIMEOUT_MS = 8000;

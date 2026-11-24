@@ -90,7 +90,7 @@ export interface GuardedFetchOptions {
   stopAfterBytes?: number;
 }
 
-export const RESOLVE_HOST_HOOK = Symbol.for("makerlab.web.resolveHost");
+const RESOLVE_HOST_HOOK = Symbol.for("makerlab.web.resolveHost");
 const TEST_ORIGIN_ENV = "READ_PAGE_TEST_ORIGIN";
 
 const DEFAULT_USER_AGENT = "MakerLabTools/5 (+research; server-side page reader)";

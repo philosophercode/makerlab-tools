@@ -9,7 +9,7 @@ import type { LabConfig } from "./schema.ts";
  */
 
 /** Every `public/` path the config names: the logo, the wordmark, the photos. */
-export function publicPaths(config: LabConfig): Array<{ field: string; path: string }> {
+function publicPaths(config: LabConfig): Array<{ field: string; path: string }> {
   return [
     { field: "brand.logo", path: config.brand.logo },
     { field: "brand.wordmark", path: config.brand.wordmark },

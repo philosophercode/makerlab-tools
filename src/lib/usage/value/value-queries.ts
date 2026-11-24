@@ -25,7 +25,7 @@ import { emptyCounts, median, type ValueCounts } from "./report.ts";
 const MCP_LOOKUP_TOOLS = ["list_tools", "search_tools", "get_tool_details", "get_unit_details", "get_maintenance_history", "search_manual"] as const;
 
 /** Most-asked tools the report lists. */
-export const TOP_TOOLS = 5;
+const TOP_TOOLS = 5;
 
 type Num = number | string | null;
 const n = (value: Num | undefined) => Number(value ?? 0);

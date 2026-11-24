@@ -20,7 +20,7 @@ export function periodName(period: ReportPeriod, t: Translate): string {
   return t("value.customPeriod", { from: formatLabDate(period.from), to: formatLabDate(period.to) });
 }
 
-export function reportTitle(assistant: string, period: ReportPeriod, t: Translate): string {
+function reportTitle(assistant: string, period: ReportPeriod, t: Translate): string {
   return t("value.reportTitle", { assistant, period: periodName(period, t) });
 }
 
@@ -148,7 +148,7 @@ function followUpRows(r: ValueReport, t: Translate): BreakdownRow[] {
   ];
 }
 
-export function kindRows(r: ValueReport, t: Translate): BreakdownRow[] {
+function kindRows(r: ValueReport, t: Translate): BreakdownRow[] {
   const total = QUESTION_KINDS.reduce((sum, k) => sum + r.questionKinds[k], 0);
   return QUESTION_KINDS.map((k) => ({
     key: k,
@@ -157,7 +157,7 @@ export function kindRows(r: ValueReport, t: Translate): BreakdownRow[] {
   }));
 }
 
-export function toolRows(r: ValueReport, t: Translate): BreakdownRow[] {
+function toolRows(r: ValueReport, t: Translate): BreakdownRow[] {
   return r.topTools.map((tool, i) => ({
     key: tool.toolId ?? `deleted-${i}`,
     label: tool.name ?? t("value.breakdown.deletedTool"),
@@ -166,7 +166,7 @@ export function toolRows(r: ValueReport, t: Translate): BreakdownRow[] {
 }
 
 /** The assumptions line under the report, printed with it. */
-export function assumptionsLine(data: ValueReportData, t: Translate): string {
+function assumptionsLine(data: ValueReportData, t: Translate): string {
   const a = data.assumptions.assumptions;
   return t("value.assumptionsLine", {
     minutes: formatMinutes(a.minutesPerQuestion),

@@ -28,7 +28,7 @@ export interface RosterEntry extends ShiftRow {
   endsAt: string;
 }
 
-export async function getShiftRoster(): Promise<RosterEntry[]> {
+async function getShiftRoster(): Promise<RosterEntry[]> {
   "use cache";
   cacheTag(ON_SHIFT_TAG);
   cacheLife(ON_SHIFT_CACHE);
