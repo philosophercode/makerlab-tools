@@ -57,7 +57,7 @@ import { isUuid } from "./uuid.ts";
  * description, no reporter leaves this function, which is what lets a public
  * screen show it.
  */
-export interface OpenTicketCounts {
+interface OpenTicketCounts {
   open: number;
   inProgress: number;
   /** Open or in progress, at `high` or `critical` priority. */
@@ -83,7 +83,7 @@ export async function countOpenTickets(db?: Db): Promise<OpenTicketCounts> {
 }
 
 /** One maintenance log, flattened and translated into display text. */
-export interface MaintenanceHistoryEntry {
+interface MaintenanceHistoryEntry {
   id: string;
   title: string;
   /** `"Issue Report"`, `"Repair"`, … — empty when the log has none. */
@@ -100,7 +100,7 @@ export interface MaintenanceHistoryEntry {
   reportedByName: string;
 }
 
-export interface MaintenanceQueryOptions {
+interface MaintenanceQueryOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /** How many of the most recent logs to read. */
@@ -214,7 +214,7 @@ export async function listMaintenanceHistoryForTool(
 }
 
 /** The columns {@link listMaintenanceHistoryForUnit} selects, before translation. */
-export interface MaintenanceLogRow {
+interface MaintenanceLogRow {
   id: string;
   title: string;
   type: string | null;
@@ -339,7 +339,7 @@ export interface CreatedMaintenanceLog {
   notificationId: string | null;
 }
 
-export interface MaintenanceWriteOptions {
+interface MaintenanceWriteOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
@@ -649,7 +649,7 @@ export interface MaintenanceLogPatch {
   resolution?: string | null;
 }
 
-export type MaintenanceWriteResult =
+type MaintenanceWriteResult =
   | { ok: true }
   | { ok: false; reason: "not_found" | "invalid_field" };
 
@@ -724,7 +724,7 @@ export async function updateMaintenanceLog(
 
 export { COMPLETED_MAINTENANCE_TYPES, type CompletedMaintenanceType } from "../db/schema/vocabulary.ts";
 
-export interface CompletedMaintenanceLog {
+interface CompletedMaintenanceLog {
   toolId: string;
   toolName: string;
   /** A unit of that tool, already checked to belong to it; null for the tool as a whole. */

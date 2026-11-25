@@ -19,7 +19,7 @@ import { RESEARCH_DAILY_ITEM_LIMIT } from "../intake/limits.ts";
  * `"server-only"`, like every other module under `src/lib/data/`.
  */
 
-export interface AllowanceRecord {
+interface AllowanceRecord {
   id: string;
   userId: string;
   extraItems: number;

@@ -68,7 +68,7 @@ import { cleanLink } from "../web/tracking-params.ts";
 // ── Shapes ──────────────────────────────────────────────────────────
 
 /** One row, with `research` already validated. */
-export interface PendingToolRecord {
+interface PendingToolRecord {
   id: string;
   batchId: string;
   status: PendingStatus;
@@ -155,13 +155,13 @@ export interface PendingTool extends PendingToolRecord {
 /** Where a person may still change the name, the hints or the duplicate decision. */
 export const EDITABLE_PENDING_STATUSES = ["identified", "researched", "failed"] as const;
 
-export interface PendingToolOptions {
+interface PendingToolOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
 
 /** The research-step writes, which only touch a row their own request queued. */
-export interface ResearchWriteOptions extends PendingToolOptions {
+interface ResearchWriteOptions extends PendingToolOptions {
   /**
    * The request that queued the row (`research_request_id`). When given, the
    * write happens only while the row is still that request's: a run whose
@@ -205,7 +205,7 @@ export interface NewPendingTool {
   };
 }
 
-export interface CreatePendingBatchOptions extends PendingToolOptions {
+interface CreatePendingBatchOptions extends PendingToolOptions {
   /** The batch id to use — an import's own. A fresh one when absent. */
   batchId?: string;
   /**
@@ -216,7 +216,7 @@ export interface CreatePendingBatchOptions extends PendingToolOptions {
   checkWithinBatch?: boolean;
 }
 
-export interface CreatedPendingBatch {
+interface CreatedPendingBatch {
   batchId: string;
   /** In the order the items were given. */
   items: { id: string; photosSubmitted: number; photosAttached: number }[];
@@ -235,7 +235,7 @@ export interface PendingToolPatch {
   clearNameSuggestion?: true;
 }
 
-export type PendingToolWriteResult =
+type PendingToolWriteResult =
   | { ok: true; item: PendingTool }
   | Refused<"not_found" | "not_editable" | "invalid_field" | "placeholder_name">;
 
@@ -256,7 +256,7 @@ export class PlaceholderItemNameError extends Error {
   }
 }
 
-export type DiscardResult =
+type DiscardResult =
   | { ok: true; item: PendingTool; released: number }
   | Refused<"not_found" | "not_editable">;
 
@@ -334,7 +334,7 @@ export interface ApprovePendingInput {
   coverAttachmentId?: string | null;
 }
 
-export type ApprovePendingResult =
+type ApprovePendingResult =
   | {
       ok: true;
       toolId: string;
@@ -359,7 +359,7 @@ export type ApprovePendingResult =
     }
   | Refused<"not_found" | "not_editable" | "low_confidence" | "invalid_field" | "duplicate_name">;
 
-export type ApproveAsUnitResult =
+type ApproveAsUnitResult =
   | {
       ok: true;
       toolId: string;
@@ -866,7 +866,7 @@ export async function queueForResearch(
   return db.transaction((tx) => queueRows(tx, candidates, { requestedBy: by.requestedBy, requestId }));
 }
 
-export type QueueWithinAllowanceResult =
+type QueueWithinAllowanceResult =
   | { ok: true; queued: string[] }
   | { ok: false; reason: "daily_limit"; remaining: number };
 

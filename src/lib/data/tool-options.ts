@@ -12,7 +12,7 @@ import type { Db } from "../db/types.ts";
  * Two statements whatever the size of the inventory.
  */
 
-export interface ToolUnitOption {
+interface ToolUnitOption {
   id: string;
   name: string;
   units: { id: string; label: string }[];

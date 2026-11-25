@@ -26,7 +26,7 @@ export const CATEGORY_NAME_MAX = 60;
 export const CATEGORY_DESCRIPTION_MAX = 600;
 export const PROPOSAL_REASON_MAX = 600;
 
-export type TaxonomyWriteError =
+type TaxonomyWriteError =
   | "not_found"
   | "invalid_field"
   | "duplicate_name"
@@ -36,9 +36,9 @@ export type TaxonomyWriteError =
   | "retired_target"
   | "invalid_decision";
 
-export type TaxonomyResult<T extends object = object> = ({ ok: true } & T) | { ok: false; reason: TaxonomyWriteError };
+type TaxonomyResult<T extends object = object> = ({ ok: true } & T) | { ok: false; reason: TaxonomyWriteError };
 
-export interface TaxonomyDbOptions {
+interface TaxonomyDbOptions {
   db?: Db;
 }
 
@@ -60,7 +60,7 @@ export interface AdminCategory {
   toolCount: number;
 }
 
-export interface AdminCategoryProposal {
+interface AdminCategoryProposal {
   id: string;
   kind: CategoryProposalKind;
   name: string;
@@ -247,7 +247,7 @@ export async function matchExistingCategory(
 
 // ── Proposing ───────────────────────────────────────────────────────
 
-export interface NewCategoryProposal {
+interface NewCategoryProposal {
   kind?: CategoryProposalKind;
   name: string;
   parentId?: string | null;
@@ -325,7 +325,7 @@ export async function createCategoryProposal(
 
 export type ProposalDecision = "accept" | "merge" | "reject";
 
-export interface DecideProposalInput {
+interface DecideProposalInput {
   proposalId: string;
   decision: ProposalDecision;
   /** For `merge`: the existing category the tool goes to (or the flagged category merges into). */
@@ -337,7 +337,7 @@ export interface DecideProposalInput {
   actorUserId?: string | null;
 }
 
-export interface DecideProposalValue {
+interface DecideProposalValue {
   status: CategoryProposalStatus;
   /** The category created (accept) or chosen (merge). */
   categoryId: string | null;

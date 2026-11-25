@@ -22,7 +22,7 @@ import { isUuid } from "./uuid.ts";
  * Relative imports with `.ts` extensions, like every module under `data/`.
  */
 
-export interface ActionProposalOptions {
+interface ActionProposalOptions {
   db?: Db;
 }
 

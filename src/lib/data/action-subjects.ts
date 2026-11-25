@@ -17,7 +17,7 @@ import { isUuid } from "./uuid.ts";
  * Relative imports with `.ts` extensions, like every module under `data/`.
  */
 
-export interface SubjectReadOptions {
+interface SubjectReadOptions {
   db?: Db;
 }
 
@@ -76,7 +76,7 @@ export async function ticketSubjects(ids: readonly string[], options: SubjectRea
 
 // ── Corrections ─────────────────────────────────────────────────────
 
-export interface CorrectionSubject {
+interface CorrectionSubject {
   id: string;
   toolName: string;
   fieldFlagged: string | null;
@@ -105,7 +105,7 @@ export async function correctionSubjects(ids: readonly string[], options: Subjec
 
 // ── Projects ────────────────────────────────────────────────────────
 
-export interface ProjectSubject {
+interface ProjectSubject {
   id: string;
   title: string;
   authorName: string;
@@ -125,7 +125,7 @@ export async function projectSubjects(ids: readonly string[], options: SubjectRe
 
 // ── Tools and units ─────────────────────────────────────────────────
 
-export interface ToolSubject {
+interface ToolSubject {
   id: string;
   slug: string;
   name: string;

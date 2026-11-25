@@ -113,12 +113,12 @@ export type ToolWriteResult =
   | { ok: true; revision: Revision }
   | Refused<"conflict" | "not_found" | "invalid_field" | "duplicate_name">;
 
-export interface ToolReadOptions {
+interface ToolReadOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
 
-export interface ToolWriteOptions extends ToolReadOptions {
+interface ToolWriteOptions extends ToolReadOptions {
   /**
    * The signed-in person, stamped onto `updated_by`. Null is accepted so the
    * import and the demo seed can use these functions, but every request path

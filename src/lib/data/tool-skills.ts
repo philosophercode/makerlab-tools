@@ -90,7 +90,7 @@ export async function currentSkillVersions(db: Db, toolIds: readonly string[]): 
   return new Map(rows.map((row) => [row.toolId, Number(row.version)]));
 }
 
-export interface NewToolSkill {
+interface NewToolSkill {
   toolId: string;
   status: ToolSkillStatus;
   content?: string;

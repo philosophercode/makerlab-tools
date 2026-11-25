@@ -47,12 +47,12 @@ export interface LocationOption {
   mapTag: string | null;
 }
 
-export interface TaxonomyQueryOptions {
+interface TaxonomyQueryOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
 
-export interface ListCategoriesOptions extends TaxonomyQueryOptions {
+interface ListCategoriesOptions extends TaxonomyQueryOptions {
   /** Include retired (and merged) categories — `/admin/taxonomy` only. */
   includeRetired?: boolean;
 }

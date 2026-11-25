@@ -44,7 +44,7 @@ export function isManualArchiveKey(sourceKey: string | null | undefined): boolea
 }
 
 /** A PDF the resource already holds, as the archiver needs to see it. */
-export interface ResourcePdf {
+interface ResourcePdf {
   id: string;
   sourceKey: string | null;
 }
@@ -87,7 +87,7 @@ export async function releaseStaleManualArchives(db: Db, resourceId: string, cur
   return rows.length;
 }
 
-export interface ManualsDueOptions {
+interface ManualsDueOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /** How many to return. */

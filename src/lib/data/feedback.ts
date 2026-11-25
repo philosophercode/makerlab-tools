@@ -40,7 +40,7 @@ export interface NewFeedback {
   reporterUserId?: string | null;
 }
 
-export interface FeedbackWriteOptions {
+interface FeedbackWriteOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
@@ -124,7 +124,7 @@ export interface FeedbackQueueEntry {
   createdAt: Date;
 }
 
-export interface FeedbackQueryOptions {
+interface FeedbackQueryOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /** How many corrections to read. */
@@ -197,7 +197,7 @@ export async function listFeedbackQueue(
 }
 
 /** Triaging one correction: what the page may set it to. */
-export type FeedbackWriteResult =
+type FeedbackWriteResult =
   | { ok: true }
   | { ok: false; reason: "not_found" | "invalid_field" };
 

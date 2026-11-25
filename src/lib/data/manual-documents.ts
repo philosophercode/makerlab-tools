@@ -38,7 +38,7 @@ export interface ManualDocumentHead {
   extractorVersion: string;
 }
 
-export interface SaveManualDocumentInput {
+interface SaveManualDocumentInput {
   attachmentId: string;
   toolId: string | null;
   title: string;
@@ -197,7 +197,7 @@ export async function listCurrentPdfsForResource(db: Db, resourceId: string): Pr
   return rows.map(toPdf);
 }
 
-export interface IndexableQuery {
+interface IndexableQuery {
   /** Only these resources (the backfill's `--ids`). */
   resourceIds?: readonly string[];
   /** Only PDFs with no document at `version` (default: every current PDF). */

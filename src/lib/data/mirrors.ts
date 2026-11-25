@@ -39,7 +39,7 @@ import { isUuid } from "./uuid.ts";
 
 // ── Shapes ──────────────────────────────────────────────────────────
 
-export interface MirrorDataOptions {
+interface MirrorDataOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
@@ -84,11 +84,11 @@ export interface ClaimedMirror extends MirrorRecord {
   generation: number;
 }
 
-export type ClaimMirrorRunResult =
+type ClaimMirrorRunResult =
   | ClaimedMirror
   | { skipped: "not_found" | "paused" | "not_connected" | "owner_not_allowed" | "running" };
 
-export type ClaimManualSyncResult =
+type ClaimManualSyncResult =
   | { ok: true; mirrorId: string }
   | {
       ok: false;
@@ -96,7 +96,7 @@ export type ClaimManualSyncResult =
       retryAfterSeconds?: number;
     };
 
-export interface FinishMirrorRunInput {
+interface FinishMirrorRunInput {
   status: MirrorStatus;
   error: MirrorLastError | null;
   /** The claim's `watermark`, or null to leave `last_synced_at` where it is. */

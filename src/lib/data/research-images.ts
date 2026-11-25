@@ -76,7 +76,7 @@ export async function releaseCleanedImage(db: Db, pendingId: string, attachmentI
   return rows.length > 0;
 }
 
-export interface CleanedImageRecord {
+interface CleanedImageRecord {
   pendingId: string;
   /** The pathname the store chose, random suffix included. */
   blobPathname: string;
@@ -117,7 +117,7 @@ export async function recordCleanedImage(db: Db, record: CleanedImageRecord): Pr
   });
 }
 
-export interface UploadCutoutRecord {
+interface UploadCutoutRecord {
   pendingId: string;
   /** The public pathname the store chose, random suffix included. */
   blobPathname: string;

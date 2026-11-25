@@ -40,11 +40,11 @@ export interface ChatProposalRow {
   expired: boolean;
 }
 
-export interface ChatProposalOptions {
+interface ChatProposalOptions {
   db?: Db;
 }
 
-export interface NewChatProposal {
+interface NewChatProposal {
   subjectKind: ProposalSubjectKind;
   subjectId: string;
   proposal: FieldProposal;
@@ -74,7 +74,7 @@ export async function createChatProposal(input: NewChatProposal, options: ChatPr
 export const MCP_PROPOSAL_CHAT_ID = "mcp";
 
 /** An open proposal an assistant made over MCP, as `/admin/refresh` lists it. */
-export interface AssistantProposalRow {
+interface AssistantProposalRow {
   id: string;
   toolId: string;
   toolName: string;
@@ -187,7 +187,7 @@ export async function saveChatProposal(
 
 // ── The pending item's draft ────────────────────────────────────────
 
-export interface PendingDraft {
+interface PendingDraft {
   id: string;
   name: string;
   status: string;
@@ -219,7 +219,7 @@ export async function loadPendingDraft(id: string, options: ChatProposalOptions 
   };
 }
 
-export type PendingDraftWrite = { ok: true; revision: Revision } | { ok: false; reason: "conflict" | "not_found" | "not_editable" };
+type PendingDraftWrite = { ok: true; revision: Revision } | { ok: false; reason: "conflict" | "not_found" | "not_editable" };
 
 /**
  * Write `research` over a **researched** pending item's result, only while the

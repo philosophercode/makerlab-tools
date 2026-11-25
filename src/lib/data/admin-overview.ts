@@ -78,7 +78,7 @@ export interface OverviewCounts {
  */
 export type AdminOverview = { [K in CountLoader]?: OverviewCounts[K] | null };
 
-export interface OverviewContext {
+interface OverviewContext {
   db: Db;
   /** The viewer — the mirror tile is their own mirror, found by owner (§8). */
   userId: string | null;

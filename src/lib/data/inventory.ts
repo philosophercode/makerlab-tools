@@ -102,7 +102,7 @@ export interface UnlinkedUnit {
   status: string;
 }
 
-export interface InventoryQueryOptions {
+interface InventoryQueryOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
@@ -303,7 +303,7 @@ export function worseOf(current: UnitStatus | null, candidate: string): UnitStat
 }
 
 /** The inventory's counts, as the `/admin` home's tile shows them. */
-export interface InventoryCounts {
+interface InventoryCounts {
   total: number;
   published: number;
   draft: number;

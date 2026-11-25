@@ -67,12 +67,12 @@ const SIMILAR_NAME_THRESHOLD = 0.35;
 const CANDIDATE_LIMIT = 50;
 
 /** How strong a match is: a duplicate asks before research; a similar name only hints. */
-export type DuplicateStrength = "duplicate" | "similar";
+type DuplicateStrength = "duplicate" | "similar";
 
 /** A match and its strength. */
-export type DuplicateMatch = DuplicateOf & { strength: DuplicateStrength };
+type DuplicateMatch = DuplicateOf & { strength: DuplicateStrength };
 
-export interface DuplicateSearchOptions {
+interface DuplicateSearchOptions {
   /** A handle to use instead of {@link getDb} — a caller's transaction, or a test's database. */
   db?: Db;
   /** Pending items that are not candidates — the item being edited, for one. */
@@ -83,7 +83,7 @@ export interface DuplicateSearchOptions {
   excludeToolIds?: string[];
 }
 
-export interface DuplicateQuery {
+interface DuplicateQuery {
   name: string;
   brand?: string | null;
 }

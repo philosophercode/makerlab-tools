@@ -75,7 +75,7 @@ const MAX_ERROR = 500;
 
 // ── Creating and reading ────────────────────────────────────────────
 
-export interface NewBulkImport {
+interface NewBulkImport {
   createdBy: string;
   sourceKind: ImportSourceKind;
   format: ImportFormat;
@@ -171,19 +171,19 @@ export async function listBulkImports(query: { limit?: number } = {}, options: O
 
 // ── Rows ────────────────────────────────────────────────────────────
 
-export type AddImportItemsResult =
+type AddImportItemsResult =
   | { ok: true; itemCount: number; duplicateCount: number; itemIds: string[] }
   | Refused<"not_found" | "not_editable">;
 
 /** What the rows are written from: the validated items, the source's row count, the skipped rows. */
-export interface ImportRowsInput {
+interface ImportRowsInput {
   items: ImportItem[];
   rowCount: number;
   columnMap?: ColumnMap | null;
   skipped?: SkippedRow[];
 }
 
-export type BeginImportRowsResult =
+type BeginImportRowsResult =
   | { ok: true; status: "identifying" | "failed"; total: number }
   | Refused<"not_found" | "not_editable">;
 
@@ -234,7 +234,7 @@ export async function beginImportRows(importId: string, input: ImportRowsInput, 
   });
 }
 
-export type ImportSliceResult =
+type ImportSliceResult =
   | { ok: true; finished: boolean; written: string[]; done: number; total: number }
   | Refused<"not_found" | "not_editable">;
 
@@ -382,7 +382,7 @@ export async function setImportWorkflowRun(importId: string, runId: string, opti
 
 // ── The review table's bulk writes ──────────────────────────────────
 
-export interface ImportHints {
+interface ImportHints {
   categoryHint?: string | null;
   locationHint?: string | null;
 }
@@ -419,7 +419,7 @@ export async function setImportHints(
   return rows.map((row) => row.id);
 }
 
-export type MergeResult = { ok: true; quantity: number } | Refused<"not_found" | "not_editable" | "invalid_field">;
+type MergeResult = { ok: true; quantity: number } | Refused<"not_found" | "not_editable" | "invalid_field">;
 
 /**
  * **Merge into row N** — a row that duplicates an earlier row of the same
@@ -508,7 +508,7 @@ export async function getSuggestionInput(
 
 // ── The Suggest names charge ────────────────────────────────────────
 
-export type SuggestChargeResult = { ok: true; charged: number } | { ok: false; reason: "daily_limit"; remaining: number };
+type SuggestChargeResult = { ok: true; charged: number } | { ok: false; reason: "daily_limit"; remaining: number };
 
 /**
  * Charge a Suggest names pass against the research allowance (§3.3: "a quarter
