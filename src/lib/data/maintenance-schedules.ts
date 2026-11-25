@@ -69,7 +69,7 @@ export interface DueItem extends ScheduleView {
   overdueDays: number;
 }
 
-export interface ScheduleReadOptions {
+interface ScheduleReadOptions {
   db?: Db;
 }
 
@@ -195,7 +195,7 @@ export async function listDueSchedules(
 }
 
 /** The numbers the `/admin` maintenance tile and the page header show. */
-export interface DueCounts {
+interface DueCounts {
   overdue: number;
   dueToday: number;
   /** Due after today and within {@link DUE_SOON_DAYS} days. */
@@ -283,7 +283,7 @@ export async function createSchedules(
   return inserted.map((row) => row.id);
 }
 
-export interface SchedulePatch {
+interface SchedulePatch {
   toolId: string | null;
   unitId: string | null;
   title: string;
@@ -292,7 +292,7 @@ export interface SchedulePatch {
   nextDueOn: string;
 }
 
-export type ScheduleWriteResult = { ok: true } | { ok: false; error: "not_found" };
+type ScheduleWriteResult = { ok: true } | { ok: false; error: "not_found" };
 
 /** Replace a schedule's fields. Its log stays; the next check-off uses the new interval. */
 export async function updateSchedule(
@@ -337,7 +337,7 @@ export async function setScheduleStatus(
   return updated.length > 0 ? { ok: true } : { ok: false, error: "not_found" };
 }
 
-export interface CompleteScheduleInput {
+interface CompleteScheduleInput {
   id: string;
   note: string | null;
   /**
@@ -351,7 +351,7 @@ export interface CompleteScheduleInput {
   actor: ScheduleActor;
 }
 
-export type CompleteScheduleResult =
+type CompleteScheduleResult =
   | { ok: true; completionId: string; doneOn: string; nextDueOn: string }
   | { ok: false; error: "not_found" | "conflict" };
 

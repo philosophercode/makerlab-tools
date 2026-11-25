@@ -45,12 +45,12 @@ export type NewUnit = Partial<UnitFields> & Pick<UnitFields, "unitLabel">;
 export type UnitPatch = Partial<UnitFields>;
 
 /** Which unit, and which tool it has to belong to. */
-export interface UnitScope {
+interface UnitScope {
   toolId: string;
   unitId: string;
 }
 
-export type UnitWriteResult =
+type UnitWriteResult =
   | { ok: true; unitId: string }
   | Refused<"not_found" | "invalid_field" | "duplicate_serial" | "unit_has_history">;
 

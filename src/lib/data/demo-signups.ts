@@ -45,7 +45,7 @@ export interface DemoPassLedger {
 }
 
 /** One sign-up as the super-admin page and its CSV show it. */
-export interface DemoSignupRecord extends DemoPassLedger {
+interface DemoSignupRecord extends DemoPassLedger {
   name: string;
   email: string;
   institution: string;
@@ -59,7 +59,7 @@ export interface DemoSignupRecord extends DemoPassLedger {
   passActive: boolean;
 }
 
-export interface DemoSignupOptions {
+interface DemoSignupOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }

@@ -48,9 +48,9 @@ import { insertBlockedEmail } from "./blocked-emails.ts";
  * like every other module under `src/lib/data/`.
  */
 
-export type RemovalRefusal = "unknown_user" | "last_super_admin";
+type RemovalRefusal = "unknown_user" | "last_super_admin";
 
-export interface RemovedPerson {
+interface RemovedPerson {
   id: string;
   name: string;
   email: string;
@@ -58,18 +58,18 @@ export interface RemovedPerson {
 }
 
 /** How many of each credential the removal revoked. */
-export interface RevokedCounts {
+interface RevokedCounts {
   sessions: number;
   tokens: number;
   /** Distinct OAuth clients the person had granted or consented to. */
   grants: number;
 }
 
-export type RemovalResult =
+type RemovalResult =
   | { ok: true; removed: RemovedPerson; blocked: boolean; revoked: RevokedCounts }
   | { ok: false; error: RemovalRefusal };
 
-export interface RemoveUserInput {
+interface RemoveUserInput {
   userId: string;
   /** Who is removing them — the audit actor and the blocker. */
   actorUserId: string | null;
@@ -79,7 +79,7 @@ export interface RemoveUserInput {
   trail?: AuditTrail;
 }
 
-export interface RemovalOptions {
+interface RemovalOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }

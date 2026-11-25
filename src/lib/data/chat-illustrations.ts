@@ -25,7 +25,7 @@ interface Options {
 /** One lock for every reservation: the budget is lab-wide. */
 const LOCK_KEY = "chat-illustrations";
 
-export type ReserveResult =
+type ReserveResult =
   | { ok: true; id: string }
   | { ok: false; reason: "person_limit"; used: number }
   | { ok: false; reason: "lab_budget"; spentUsd: number };
@@ -113,7 +113,7 @@ export async function failIllustration(id: string, costUsd = 0, options: Options
 }
 
 /** A stored illustration as the image route serves it. */
-export interface ReadyIllustration {
+interface ReadyIllustration {
   id: string;
   blobPathname: string;
   contentType: string | null;

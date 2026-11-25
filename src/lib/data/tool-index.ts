@@ -17,7 +17,7 @@ import type { Db } from "../db/types.ts";
  * Relative imports with `.ts` extensions and no `"server-only"`, like every
  * module under `src/lib/data/`.
  */
-export interface ToolIndexEntry {
+interface ToolIndexEntry {
   id: string;
   slug: string;
   name: string;

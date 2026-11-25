@@ -49,7 +49,7 @@ export interface UserRecord {
   createdAt: Date;
 }
 
-export interface UserQueryOptions {
+interface UserQueryOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }

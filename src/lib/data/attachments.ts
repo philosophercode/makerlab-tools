@@ -271,7 +271,7 @@ export async function markAttachmentPublic(
 }
 
 /** One uploaded file, before anything owns it. */
-export interface NewAttachment {
+interface NewAttachment {
   /** The pathname the store actually chose, random suffix included. */
   blobPathname: string;
   access: AttachmentAccess;
@@ -297,7 +297,7 @@ export interface NewAttachment {
   height?: number | null;
 }
 
-export interface AttachmentReadOptions {
+interface AttachmentReadOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
@@ -359,7 +359,7 @@ export async function findAttachmentByPathname(
 }
 
 /** An attachment as the cleanup and the delete paths need to see it. */
-export interface StoredAttachment {
+interface StoredAttachment {
   id: string;
   blobPathname: string;
   access: string;

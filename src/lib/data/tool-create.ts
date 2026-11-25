@@ -62,7 +62,7 @@ export interface NewToolRecord {
   resources?: { title: string; url: string; type: string; origin?: ResourceOrigin | null }[];
 }
 
-export interface CreatedToolRecord {
+interface CreatedToolRecord {
   toolId: string;
   slug: string;
   /** In the order the units were given. */

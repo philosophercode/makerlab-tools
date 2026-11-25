@@ -84,7 +84,7 @@ export async function listStarterAnswerSummaries(db: Db): Promise<Omit<StarterAn
   return rows as Omit<StarterAnswerRow, "message" | "usageEvents">[];
 }
 
-export interface StarterAnswerWrite {
+interface StarterAnswerWrite {
   toolId: string | null;
   locale: string;
   question: string;

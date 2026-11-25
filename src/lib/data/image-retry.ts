@@ -33,12 +33,12 @@ import { isUuid } from "./uuid.ts";
  * Plain Node: the retry step calls this. Relative imports only.
  */
 
-export type StartImageRetryResult =
+type StartImageRetryResult =
   | { ok: true }
   | { ok: false; reason: "not_found" | "not_editable" | "image_retry_running" }
   | { ok: false; reason: "daily_limit"; remaining: number };
 
-export interface StartImageRetryInput {
+interface StartImageRetryInput {
   /** Who pressed it — whose allowance it costs. */
   requestedBy: string;
   /** The run's id, recorded on the result and in the ledger. */
@@ -84,7 +84,7 @@ export async function startImageRetry(
   });
 }
 
-export type FinishImageRetryResult =
+type FinishImageRetryResult =
   | { ok: true; previousCleanedId: string | null }
   | { ok: false };
 

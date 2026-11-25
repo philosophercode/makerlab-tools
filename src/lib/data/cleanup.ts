@@ -12,7 +12,7 @@ import type { ResearchResult } from "../research/result.ts";
  * Relative `.ts` imports and no `"server-only"`, like the rest of `data/`.
  */
 
-export interface UncategorizedTool {
+interface UncategorizedTool {
   id: string;
   slug: string;
   name: string;
@@ -61,7 +61,7 @@ export async function listUncategorizedTools(options: { db?: Db } = {}): Promise
   return [...byId.values()];
 }
 
-export interface ToolUnitLabels {
+interface ToolUnitLabels {
   toolId: string;
   toolSlug: string;
   toolName: string;

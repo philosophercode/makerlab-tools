@@ -37,12 +37,12 @@ interface Options {
   db?: Db;
 }
 
-export type StartPhotoSearchResult =
+type StartPhotoSearchResult =
   | { ok: true; searchId: string }
   | { ok: false; reason: "not_found" | "photo_search_running" }
   | { ok: false; reason: "daily_limit"; remaining: number };
 
-export interface StartPhotoSearchInput {
+interface StartPhotoSearchInput {
   /** Who pressed it — whose allowance it costs. */
   requestedBy: string;
   /** The note, already cleaned and capped, or null. */
@@ -123,7 +123,7 @@ async function settle(
 }
 
 /** One search, with its tool — what the step and a pick read. */
-export interface PhotoSearchRow {
+interface PhotoSearchRow {
   id: string;
   toolId: string;
   status: PhotoSearchStatus;

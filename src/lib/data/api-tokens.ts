@@ -23,7 +23,7 @@ import { TOKEN_LIFETIME_DAYS, tokenExpiryFrom } from "../account/token-lifetime.
  * like every other module under `src/lib/data/`.
  */
 
-export interface ApiTokenOptions {
+interface ApiTokenOptions {
   db?: Db;
 }
 
@@ -51,13 +51,13 @@ export interface ApiTokenSummary {
   createdAt: Date;
 }
 
-export interface NewApiToken {
+interface NewApiToken {
   userId: string;
   name: string;
   readOnly: boolean;
 }
 
-export type CreateApiTokenResult =
+type CreateApiTokenResult =
   | { ok: true; token: string; summary: ApiTokenSummary }
   | { ok: false; reason: "invalid_field" | "too_many_tokens" };
 
@@ -120,7 +120,7 @@ async function countActiveTokens(userId: string, options: ApiTokenOptions): Prom
   return row?.n ?? 0;
 }
 
-export type RevokeApiTokenResult =
+type RevokeApiTokenResult =
   | { ok: true; summary: ApiTokenSummary }
   | { ok: false; reason: "not_found" | "already_revoked" };
 
@@ -161,7 +161,7 @@ export interface BearerUser {
   banned: boolean | null;
 }
 
-export type TokenLookup =
+type TokenLookup =
   | { found: false }
   | {
       found: true;
@@ -222,7 +222,7 @@ export async function touchApiToken(tokenId: string, options: ApiTokenOptions = 
   }
 }
 
-export type OAuthLookup =
+type OAuthLookup =
   | { found: false }
   | { found: true; clientId: string; scopes: string[]; expired: boolean; user: BearerUser | null };
 

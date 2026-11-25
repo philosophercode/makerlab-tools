@@ -19,7 +19,7 @@ import { recordAuditEvent, type AuditTrail } from "./audit.ts";
  * plain-Node loadable).
  */
 
-export interface BlockedEmailRecord {
+interface BlockedEmailRecord {
   email: string;
   reason: string | null;
   /** Who blocked it, when that account still exists. */
@@ -27,7 +27,7 @@ export interface BlockedEmailRecord {
   createdAt: Date;
 }
 
-export interface BlockedEmailOptions {
+interface BlockedEmailOptions {
   /** A handle to use instead of {@link getDb} — tests and transactions pass one. */
   db?: Db;
 }

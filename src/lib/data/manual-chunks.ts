@@ -21,7 +21,7 @@ import { isUuid } from "./uuid.ts";
  */
 
 /** The versions a set of passages is built at. */
-export interface PassageVersions {
+interface PassageVersions {
   chunkerVersion: string;
   embeddingModel: string;
 }
@@ -83,7 +83,7 @@ export interface DocumentNeedingPassages {
   embeddingModel: string | null;
 }
 
-export interface PassagesQuery {
+interface PassagesQuery {
   resourceIds?: readonly string[];
   limit?: number;
   /** Every ready current document, whatever its versions (the backfill's `--force`). */
@@ -133,7 +133,7 @@ export async function listDocumentsNeedingPassages(
 }
 
 /** One passage to write. */
-export interface ChunkToSave {
+interface ChunkToSave {
   ordinal: number;
   sectionPath: string[];
   pageStart: number;

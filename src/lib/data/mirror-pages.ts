@@ -22,7 +22,7 @@ import { isUuid } from "./uuid.ts";
  * workflow step code loads this module.
  */
 
-export interface MirrorPageOptions {
+interface MirrorPageOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }

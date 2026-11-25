@@ -33,7 +33,7 @@ import { isUuid } from "./uuid.ts";
  * workflow's steps load it under plain Node.
  */
 
-export interface ToolRefresh {
+interface ToolRefresh {
   id: string;
   toolId: string;
   status: RefreshStatus;
@@ -51,7 +51,7 @@ export interface ToolRefresh {
   updatedAt: Date;
 }
 
-export interface RefreshOptions {
+interface RefreshOptions {
   db?: Db;
 }
 
@@ -77,7 +77,7 @@ export async function getRefresh(id: string, options: RefreshOptions = {}): Prom
  * One row of the review list. Without the research itself: the list shows the
  * proposals' counts, and every open tab polls it while research runs.
  */
-export interface RefreshQueueRow extends Omit<ToolRefresh, "research"> {
+interface RefreshQueueRow extends Omit<ToolRefresh, "research"> {
   toolName: string;
   toolSlug: string;
   toolPublished: boolean;
@@ -182,7 +182,7 @@ export async function lastRefreshedByTool(options: RefreshOptions = {}): Promise
  * the tool's own fields, its category's name (a research *hint*), its
  * resources' URLs, whether it has a cover photo, and its revision.
  */
-export interface RefreshSubject {
+interface RefreshSubject {
   id: string;
   slug: string;
   /** The display name. */
@@ -486,7 +486,7 @@ export async function failRefresh(id: string, requestId: string, message: string
 
 // ── Decisions ───────────────────────────────────────────────────────
 
-export interface SaveDecisionsInput {
+interface SaveDecisionsInput {
   proposals: FieldProposal[];
   /** The tool's revision after this decision's writes (or after a conflict, the one to decide against). */
   baseRevision: Revision;

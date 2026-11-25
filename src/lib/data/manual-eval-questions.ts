@@ -20,7 +20,7 @@ import { isUuid } from "./uuid.ts";
  */
 
 /** One stored passage of a document, as the question picker reads it. */
-export interface DocumentPassageRow {
+interface DocumentPassageRow {
   ordinal: number;
   sectionPath: string[];
   pageStart: number;
@@ -29,7 +29,7 @@ export interface DocumentPassageRow {
 }
 
 /** A searchable document, with what its questions are written from. */
-export interface DocumentForQuestions {
+interface DocumentForQuestions {
   documentId: string;
   toolId: string | null;
   toolName: string | null;
@@ -102,7 +102,7 @@ export async function loadDocumentForQuestions(db: Db, documentId: string): Prom
 }
 
 /** One question to store. */
-export interface EvalQuestionToSave {
+interface EvalQuestionToSave {
   question: string;
   expectedPages: number[];
   chunkOrdinal: number;

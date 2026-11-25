@@ -78,7 +78,7 @@ export async function listPublishedProjectsForTool(toolId: string): Promise<Make
 // ── Submitting a project (spec §4.10, Article 5) ────────────────────
 
 /** A validated submission, as `POST /api/projects` hands one over. */
-export interface NewProjectSubmission {
+interface NewProjectSubmission {
   title: string;
   body: string;
   /**
@@ -101,7 +101,7 @@ export interface NewProjectSubmission {
   photoAttachmentIds?: readonly string[];
 }
 
-export interface CreatedProject {
+interface CreatedProject {
   id: string;
   slug: string;
   /** How many of the submitted tool ids matched a real tool. */
@@ -110,7 +110,7 @@ export interface CreatedProject {
   photosAttached: number;
 }
 
-export interface ProjectWriteOptions {
+interface ProjectWriteOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
@@ -315,7 +315,7 @@ export interface ProjectModerationEntry {
   createdAt: Date;
 }
 
-export interface ProjectModerationOptions {
+interface ProjectModerationOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /** How many submissions to read. */
@@ -378,7 +378,7 @@ export async function listProjectsForModeration(
   }));
 }
 
-export type ProjectModerationResult =
+type ProjectModerationResult =
   | { ok: true; publishedAt: Date | null }
   | { ok: false; reason: "not_found" };
 

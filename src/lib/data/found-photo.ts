@@ -29,7 +29,7 @@ interface Options {
   db?: Db;
 }
 
-export interface StartFoundPhotoInput {
+interface StartFoundPhotoInput {
   /** Who identified the items — whose allowance the lookups cost. */
   requestedBy: string;
   /** The run's id, recorded on each row and in the ledger. */
@@ -40,7 +40,7 @@ export interface StartFoundPhotoInput {
   now?: Date;
 }
 
-export interface StartFoundPhotoResult {
+interface StartFoundPhotoResult {
   /** The items now `searching`, in the order given. */
   started: string[];
   /** Items left out because the allowance could not cover them. */
@@ -100,7 +100,7 @@ export async function startFoundPhotoSearch(
 }
 
 /** The lookup's answer: `found` with its picture, or `none`. */
-export type FoundPhotoAnswer = Pick<FoundPhoto, "candidate" | "cleaned" | "cleanNote"> & { status: "found" | "none" };
+type FoundPhotoAnswer = Pick<FoundPhoto, "candidate" | "cleaned" | "cleanNote"> & { status: "found" | "none" };
 
 /**
  * Write the run's answer — only while the row's lookup is this request's and

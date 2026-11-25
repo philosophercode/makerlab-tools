@@ -44,7 +44,7 @@ export type AddPersonResult =
   | { ok: true; person: UserRecord }
   | { ok: false; error: "duplicate_email" };
 
-export interface AddPersonOptions {
+interface AddPersonOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }

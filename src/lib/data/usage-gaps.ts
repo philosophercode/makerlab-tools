@@ -20,7 +20,7 @@ import { isUuid } from "./uuid.ts";
  * `decided_by` is the staff member, never the student.
  */
 
-export type GapDecisionError = "not_found";
+type GapDecisionError = "not_found";
 
 /**
  * How a correction filed from the Unanswered queue begins. The value report

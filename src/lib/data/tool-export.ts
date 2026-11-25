@@ -30,7 +30,7 @@ const parentCategory = alias(categories, "parent_category");
 /** The tool an accessory belongs to. */
 const parentTool = alias(tools, "parent_tool");
 
-export interface ToolExportQueryOptions {
+interface ToolExportQueryOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
   /**

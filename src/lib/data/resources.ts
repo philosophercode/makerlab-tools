@@ -46,7 +46,7 @@ export interface ToolResource {
   archivedUrl: string | null;
 }
 
-export interface ResourceQueryOptions {
+interface ResourceQueryOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
@@ -189,17 +189,17 @@ export type NewResource = Partial<ResourceFields> & Pick<ResourceFields, "title"
 export type ResourcePatch = Partial<ResourceFields>;
 
 /** Which resource, and which tool it has to belong to. */
-export interface ResourceScope {
+interface ResourceScope {
   toolId: string;
   resourceId: string;
 }
 
-export type ResourceWriteResult =
+type ResourceWriteResult =
   | { ok: true; resourceId: string }
   | Refused<"not_found" | "invalid_field">;
 
 /** The same, plus how many of the submitted files actually attached. */
-export type ResourceCreateResult =
+type ResourceCreateResult =
   | { ok: true; resourceId: string; filesAttached: number }
   | Refused<"not_found" | "invalid_field">;
 
@@ -298,7 +298,7 @@ export async function deleteResource(
     : { ok: false, reason: "not_found" };
 }
 
-export interface ResourceWriteContext {
+interface ResourceWriteContext {
   /** Stamped onto `created_by` / `updated_by`; a real `user.id` or null. */
   actorUserId?: string | null;
   /** `attachments.id`s uploaded for this resource — its manual, usually. */

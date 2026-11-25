@@ -45,7 +45,7 @@ export interface ToolEditorData {
   photos: EditorPhoto[];
 }
 
-export interface ToolEditorReadOptions {
+interface ToolEditorReadOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
