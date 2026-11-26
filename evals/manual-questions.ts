@@ -110,7 +110,7 @@ export interface AnswerCheck {
 }
 
 /** How far from an expected page a cited page may be: a passage often starts on the page before. */
-export const PAGE_TOLERANCE = 1;
+const PAGE_TOLERANCE = 1;
 
 /**
  * Judge one answer: it cites the question's document, at an expected page
@@ -161,7 +161,7 @@ export interface EndToEndResult {
 export type AnswerJudge = (question: StoredEvalQuestion, answer: string) => Promise<Judgement>;
 
 /** Ask each public question once, in turn, and judge it. A private document's question is skipped. */
-export async function runEndToEnd(
+async function runEndToEnd(
   questions: readonly StoredEvalQuestion[],
   answer: (question: StoredEvalQuestion) => Promise<AnswerRun>,
   fixture: EvalFixture,
@@ -220,7 +220,7 @@ export interface EndToEndTotals {
   judgeCost: number | null;
 }
 
-export function endToEndTotals(results: readonly EndToEndResult[]): EndToEndTotals {
+function endToEndTotals(results: readonly EndToEndResult[]): EndToEndTotals {
   const asked = results.filter((r) => r.status === "pass" || r.status === "fail");
   const byCheck = { cites_document: 0, cites_expected_page: 0, cites_only_tool: 0 };
   for (const r of asked) for (const c of r.checks) if (c.ok) byCheck[c.kind] += 1;
@@ -318,7 +318,7 @@ export function formatManualQuestionReport(report: ManualQuestionReport): string
 }
 
 /** Write the run's report as JSON in `dir`, one file per run; returns its path. */
-export function writeReport(report: ManualQuestionReport, dir: string): string {
+function writeReport(report: ManualQuestionReport, dir: string): string {
   mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${report.startedAt.replace(/[:.]/g, "-")}.json`);
   writeFileSync(file, `${JSON.stringify(report, null, 2)}\n`);

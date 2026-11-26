@@ -59,14 +59,14 @@ export const emailProp = (email: string | null) => ({
 });
 
 /** External file (URL-hosted, e.g. a manufacturer link). */
-export const externalFile = (name: string, url: string) => ({
+const externalFile = (name: string, url: string) => ({
   name,
   type: "external" as const,
   external: { url },
 });
 
 /** Notion-hosted file (the `file.url` form). */
-export const hostedFile = (name: string, url: string) => ({
+const hostedFile = (name: string, url: string) => ({
   name,
   type: "file" as const,
   file: { url },

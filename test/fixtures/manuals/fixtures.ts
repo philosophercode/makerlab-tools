@@ -53,7 +53,7 @@ const CARE = [
 ];
 
 /** Four pages with bookmarks: Introduction, Specifications › Electrical, Maintenance. */
-export function outlinePdf(): Uint8Array {
+function outlinePdf(): Uint8Array {
   return buildPdf({
     title: "Acme Laser 40 User Manual",
     pages: [
@@ -71,7 +71,7 @@ export function outlinePdf(): Uint8Array {
 }
 
 /** Three pages, no bookmarks: 20 pt chapter headings and 15 pt section headings over 11 pt body text, and a 24 pt title used once. */
-export function noOutlinePdf(): Uint8Array {
+function noOutlinePdf(): Uint8Array {
   return buildPdf({
     pages: [
       framed(1, [{ text: "Acme Laser 40", y: 730, size: 24 }, { text: "Getting started", y: 700, size: 20 }, ...body(INTRO, 670)]),
@@ -90,7 +90,7 @@ export function noOutlinePdf(): Uint8Array {
 }
 
 /** Four pages labelled i, ii, 3-1, 3-2. */
-export function pageLabelsPdf(): Uint8Array {
+function pageLabelsPdf(): Uint8Array {
   return buildPdf({
     pages: [
       framed(1, body(INTRO, 700)),
@@ -106,7 +106,7 @@ export function pageLabelsPdf(): Uint8Array {
 }
 
 /** Three pages that are pictures with a scanner's stamp — no text layer to speak of. */
-export function scannedPdf(): Uint8Array {
+function scannedPdf(): Uint8Array {
   return buildPdf({
     pages: [1, 2, 3].map((n) => ({ picture: true, lines: [{ text: `Scan ${n}`, y: 40, size: 8 }] })),
   });
@@ -119,7 +119,7 @@ export function scannedPdf(): Uint8Array {
  * picture painted a quarter turn clockwise, black on its top half (so black
  * lands on the right); page 3 paints nothing.
  */
-export function scannedImagePdf(): Uint8Array {
+function scannedImagePdf(): Uint8Array {
   const grey = new Uint8Array(60 * 40).map((_, i) => (i % 60 < 30 ? 0 : 255));
   const rowBytes = Math.ceil(64 / 8);
   const bits = new Uint8Array(rowBytes * 32).map((_, i) => (Math.floor(i / rowBytes) < 16 ? 0x00 : 0xff));
@@ -142,12 +142,12 @@ export function scannedImagePdf(): Uint8Array {
 }
 
 /** A Standard-security PDF whose user password is not empty. */
-export function encryptedPdf(): Uint8Array {
+function encryptedPdf(): Uint8Array {
   return buildPdf({ pages: [framed(1, body(INTRO, 700))], encrypted: true });
 }
 
 /** A PDF header and then nothing a parser can use. */
-export function corruptPdf(): Uint8Array {
+function corruptPdf(): Uint8Array {
   return new Uint8Array(Buffer.from("%PDF-1.7\n1 0 obj\n<< /Type /Catalog /Pages 9 0 R\nthis is not a pdf\n", "latin1"));
 }
 

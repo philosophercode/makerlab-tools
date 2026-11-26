@@ -42,7 +42,7 @@ import { startLocalBlobServer, type LocalBlobServer } from "./local-blob-server"
  */
 
 export const EVAL_MANUAL_TITLE = "Form 4 Manual";
-export const EVAL_MANUAL_PATHNAME = "manuals/form-4-manual.pdf";
+const EVAL_MANUAL_PATHNAME = "manuals/form-4-manual.pdf";
 
 /** Page number → text. Pages not listed are blank. */
 const PAGES: Record<number, string> = {
@@ -67,7 +67,7 @@ const OUTLINE = [
 const PAGE_COUNT = 50;
 
 export const EVAL_SCAN_TITLE = "Form Wash Guide (scanned)";
-export const EVAL_SCAN_PATHNAME = "manuals/form-wash-guide.pdf";
+const EVAL_SCAN_PATHNAME = "manuals/form-wash-guide.pdf";
 
 /** The scan's pages, as OCR read them. */
 const SCAN_PAGES: Record<number, string> = {
@@ -94,7 +94,7 @@ const SCAN_PAGE_COUNT = 6;
  * page numbers, so no spec case can take a figure from it.
  */
 export const EVAL_ATTACHED_TITLE = "Trotec Speedy 400 Operator Guide";
-export const EVAL_ATTACHED_PATHNAME = "manuals/trotec-speedy-400-operator-guide.pdf";
+const EVAL_ATTACHED_PATHNAME = "manuals/trotec-speedy-400-operator-guide.pdf";
 
 const ATTACHED_PAGES: Record<number, string> = {
   1: "Trotec Speedy 400 Operator Guide\nFor lab members who have completed laser training",
@@ -117,8 +117,8 @@ const ATTACHED_PAGE_COUNT = 10;
  * audit 2026-10-06, F2). Written for the eval, not copied from Prusa or
  * Epilog, and free of figures.
  */
-export const EVAL_PRUSA_TITLE = "Original Prusa i3 MK3S+ Handbook";
-export const EVAL_PRUSA_PATHNAME = "manuals/prusa-i3-mk3s-plus-handbook.pdf";
+const EVAL_PRUSA_TITLE = "Original Prusa i3 MK3S+ Handbook";
+const EVAL_PRUSA_PATHNAME = "manuals/prusa-i3-mk3s-plus-handbook.pdf";
 
 const PRUSA_PAGES: Record<number, string> = {
   1: "Original Prusa i3 MK3S+ Handbook",
@@ -133,8 +133,8 @@ const PRUSA_OUTLINE = [
 
 const PRUSA_PAGE_COUNT = 44;
 
-export const EVAL_EPILOG_TITLE = "Epilog Helix Laser System Manual";
-export const EVAL_EPILOG_PATHNAME = "manuals/epilog-helix-manual.pdf";
+const EVAL_EPILOG_TITLE = "Epilog Helix Laser System Manual";
+const EVAL_EPILOG_PATHNAME = "manuals/epilog-helix-manual.pdf";
 
 const EPILOG_PAGES: Record<number, string> = {
   1: "Epilog Helix Laser System Manual",
@@ -264,7 +264,7 @@ export async function stopEvalManualServer(): Promise<void> {
 }
 
 /** A PDF with `pageCount` pages carrying the fixture's words, a line per text line. */
-export function fixturePdf(pageCount: number, pages: Record<number, string>): Uint8Array {
+function fixturePdf(pageCount: number, pages: Record<number, string>): Uint8Array {
   const pdfPages: PdfPage[] = Array.from({ length: pageCount }, (_, i) => ({
     lines: (pages[i + 1] ?? "")
       .split("\n")

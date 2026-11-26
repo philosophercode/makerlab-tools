@@ -23,7 +23,7 @@ export interface Judgement {
   cost: number | null;
 }
 
-export const JUDGE_SYSTEM_PROMPT = [
+const JUDGE_SYSTEM_PROMPT = [
   "You grade a makerspace assistant's answer to a student's question about a machine.",
   "You are given the question, the answer the machine's manual gives (the reference), and the assistant's answer.",
   "Verdicts:",
