@@ -17,7 +17,7 @@ import type { SetupServer } from "msw/node";
  * `vi.mock` does not.
  */
 
-export const RESEND_BASE = "https://api.resend.com";
+const RESEND_BASE = "https://api.resend.com";
 
 export interface RecordedEmail {
   headers: Record<string, string>;

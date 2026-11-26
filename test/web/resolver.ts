@@ -22,7 +22,7 @@ import { isIP } from "node:net";
  */
 
 export const RESOLVE_HOST_HOOK = Symbol.for("makerlab.web.resolveHost");
-export const DEFAULT_PUBLIC_ADDRESS = "93.184.216.34";
+const DEFAULT_PUBLIC_ADDRESS = "93.184.216.34";
 
 let overrides: Record<string, string[]> = {};
 

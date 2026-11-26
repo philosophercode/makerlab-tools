@@ -243,7 +243,7 @@ export interface WireError {
   headers?: Record<string, string>;
 }
 
-export const STUB_USAGE: WireUsage = {
+const STUB_USAGE: WireUsage = {
   inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 },
   outputTokens: { total: 20, text: 20, reasoning: 0 },
 };

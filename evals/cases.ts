@@ -69,7 +69,7 @@ export interface EvalCaseContext {
   catalog?: EvalCatalog;
 }
 
-export const EVAL_CATALOGS = ["demo", "lab"] as const;
+const EVAL_CATALOGS = ["demo", "lab"] as const;
 export type EvalCatalog = (typeof EVAL_CATALOGS)[number];
 
 export const EVAL_CALLERS = ["student", "staff", "super_admin"] as const;
@@ -563,7 +563,7 @@ export function parseCaseFile(source: string, file: string): EvalCase[] {
  * `path.dirname` rather than `new URL("./cases", import.meta.url)` — Vite
  * rewrites that exact pattern into an asset URL, which is not a filesystem path.
  */
-export const CASES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "cases");
+const CASES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "cases");
 
 /** Where a case's `photos` live. */
 export const PHOTOS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "photos");

@@ -36,7 +36,7 @@ export interface LabFixtureTool {
   trainingRequired?: boolean;
 }
 
-export const LAB_FIXTURE_TOOLS: readonly LabFixtureTool[] = [
+const LAB_FIXTURE_TOOLS: readonly LabFixtureTool[] = [
   {
     slug: "bambu-lab-x1-carbon",
     name: "Bambu Lab X1-Carbon",

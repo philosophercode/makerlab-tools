@@ -170,5 +170,3 @@ export const mockCatalog: MakerLabTool[] = [
   offlineTool,
   toolWithLinks,
 ];
-
-export { availableUnit, inUseUnit, offlineUnit };

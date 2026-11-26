@@ -318,7 +318,7 @@ const DONE_NOT_A_CLAIM = [/\b(can|could|must|should|has to|have to|needs to)( on
 const PENDING_CUES = ["confirm", "card", "once you", "when you", "after you", "until", "nothing has changed", "not yet", "won't", "will not"];
 
 /** `not_claimed_done` — no sentence says the change happened (§10.1). */
-export function notClaimedDone(text: string): Check {
+function notClaimedDone(text: string): Check {
   for (const segment of splitSegments(text)) {
     const low = DONE_NOT_A_CLAIM.reduce((acc, phrase) => acc.replace(phrase, " "), normalize(segment));
     if (PENDING_CUES.some((cue) => low.includes(cue))) continue;
@@ -618,7 +618,7 @@ function identifyingNames(fixture: EvalFixture): { slug: string; name: string }[
  * the longest ("Ultimaker 3 Extended" is not also an "Ultimaker 3"), and a
  * markdown link counts once, at its label.
  */
-export function toolMentions(text: string, fixture: EvalFixture): ToolMention[] {
+function toolMentions(text: string, fixture: EvalFixture): ToolMention[] {
   const low = normalize(text);
   const hits: { slug: string; start: number; end: number }[] = [];
   for (const { slug, name } of identifyingNames(fixture)) {
@@ -682,7 +682,7 @@ const UNDECIDED =
  *    is the Dremel 3000"), and the answer says the lab does not have it.
  *    Suggesting a catalog machine as an alternative is fine.
  */
-export function identifiedTool(text: string, fixture: EvalFixture, value: string): Check {
+function identifiedTool(text: string, fixture: EvalFixture, value: string): Check {
   if (value === "none") {
     for (const segment of splitSegments(text)) {
       if (isDenial(segment)) continue;
@@ -719,7 +719,7 @@ interface IdentifiedEntry {
 }
 
 /** The items of the last `identify_tools` call, or null when there was none. */
-export function identifiedEntries(toolCalls: RecordedToolCall[]): IdentifiedEntry[] | null {
+function identifiedEntries(toolCalls: RecordedToolCall[]): IdentifiedEntry[] | null {
   const call = [...toolCalls].reverse().find((c) => c.name === "identify_tools");
   if (!call) return null;
   const items = (call.input as { items?: unknown } | undefined)?.items;
@@ -732,7 +732,7 @@ export function identifiedEntries(toolCalls: RecordedToolCall[]): IdentifiedEntr
  * the item's brand and name ("cricut|maker 3"), and may end in ` xN`: that item
  * must carry a quantity of at least N ("battery x2").
  */
-export function identifiedItemsMatch(toolCalls: RecordedToolCall[], wanted: string[]): Check {
+function identifiedItemsMatch(toolCalls: RecordedToolCall[], wanted: string[]): Check {
   const items = identifiedEntries(toolCalls);
   if (!items) return { ok: false, detail: "identify_tools was never called" };
   const used = new Set<number>();
@@ -758,7 +758,7 @@ export function identifiedItemsMatch(toolCalls: RecordedToolCall[], wanted: stri
 }
 
 /** `identified_count` — the last identify_tools call recorded N items, or N–M. */
-export function identifiedCount(toolCalls: RecordedToolCall[], range: string): Check {
+function identifiedCount(toolCalls: RecordedToolCall[], range: string): Check {
   const items = identifiedEntries(toolCalls);
   if (!items) return { ok: false, detail: "identify_tools was never called" };
   const [low, high = low] = range.split("-").map(Number);

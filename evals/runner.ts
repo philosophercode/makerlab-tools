@@ -24,7 +24,7 @@ import type { EvalFixture } from "./fixtures";
  */
 
 /** Attempts per case: the first run plus one retry. */
-export const MAX_ATTEMPTS = 2;
+const MAX_ATTEMPTS = 2;
 
 /** Token usage for a single case, when the executor reports it. */
 export interface TokenUsage {
