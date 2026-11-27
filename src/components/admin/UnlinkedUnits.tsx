@@ -16,7 +16,7 @@ import type { UnlinkedUnit } from "../../lib/data/inventory";
  * empty list is noise on the page a reviewer uses every week.
  */
 
-export interface UnlinkedUnitsProps {
+interface UnlinkedUnitsProps {
   units: UnlinkedUnit[];
 }
 

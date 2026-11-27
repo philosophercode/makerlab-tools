@@ -202,7 +202,7 @@ function attachedPassages(parts: readonly { type: string }[], manuals: readonly 
 }
 
 /** What one link in an answer is, and so how it is drawn. */
-export type LinkKind =
+type LinkKind =
   | { kind: "citation"; passage: ManualPassageRef }
   | { kind: "document"; url: string; title: string }
   | { kind: "internal"; href: string }

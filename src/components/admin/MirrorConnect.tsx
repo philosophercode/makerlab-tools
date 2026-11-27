@@ -36,7 +36,7 @@ import { useRefreshNudge } from "./use-refresh-nudge";
 
 export type MirrorConnectActions = Pick<MirrorActions, "testConnection" | "connect">;
 
-export interface MirrorConnectProps {
+interface MirrorConnectProps {
   actions: MirrorConnectActions;
   /** A page to start from — the mirror's current page when reconnecting. */
   initialPageUrl?: string;

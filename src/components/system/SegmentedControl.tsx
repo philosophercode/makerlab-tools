@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * segment is its own tab stop and acts on Enter or Space, like every other
  * button in the bar, and a choice that loads a URL is not a form value.
  */
-export interface SegmentOption<V extends string> {
+interface SegmentOption<V extends string> {
   value: V;
   /** The segment's accessible name (and tooltip). */
   label: string;
@@ -23,7 +23,7 @@ export interface SegmentOption<V extends string> {
   content: ReactNode;
 }
 
-export interface SegmentedControlProps<V extends string> {
+interface SegmentedControlProps<V extends string> {
   /** The group's accessible name ("View"). */
   label: string;
   value: V;

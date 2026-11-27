@@ -26,9 +26,9 @@ import { Glyph } from "../StatusGlyph";
  * Layout only; the caller owns the decision and its state.
  */
 
-export type ReviewTone = "default" | "safety" | "warn" | "settled";
+type ReviewTone = "default" | "safety" | "warn" | "settled";
 
-export interface ReviewCardProps {
+interface ReviewCardProps {
   /** The card's name: its heading's text and the article's accessible name. */
   label: string;
   /** The heading's content when it is more than the label (a link to the item). Defaults to `label`. */
@@ -94,7 +94,7 @@ export function ReviewCard({
   );
 }
 
-export interface ReviewValue {
+interface ReviewValue {
   label: string;
   content: ReactNode;
   /** A line under the value: what the proposal adds. */
@@ -125,7 +125,7 @@ export function ReviewValues({ before, after }: { before?: ReviewValue; after: R
   );
 }
 
-export interface ReviewSource {
+interface ReviewSource {
   quote: string;
   url: string;
   host: string;

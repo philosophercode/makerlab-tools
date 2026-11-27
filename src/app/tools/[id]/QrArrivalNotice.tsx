@@ -13,7 +13,7 @@ import { ReportProblemButton } from "../../../components/tool/report/ReportProbl
 import { QR_SOURCE_PARAM, QR_SOURCE_VALUE, QR_UNIT_PARAM, parseUnitToken, unitForToken } from "../../../lib/qr/urls";
 
 /** One of the tool's units, as the notice needs it: already on the page. */
-export interface ArrivalUnit {
+interface ArrivalUnit {
   id: string;
   name: string;
   status: ToolStatus;

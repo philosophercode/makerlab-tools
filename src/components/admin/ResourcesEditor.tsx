@@ -28,7 +28,7 @@ import { AsyncButton } from "../system/AsyncButton";
  * editor is exactly where somebody goes to look at the manual they hid.
  */
 
-export interface ResourcesEditorProps {
+interface ResourcesEditorProps {
   resources: EditorResource[];
   pending: boolean;
   onAdd: (resource: NewResource, fileAttachmentIds: string[]) => void;

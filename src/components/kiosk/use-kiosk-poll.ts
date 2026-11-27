@@ -6,7 +6,7 @@ import type { KioskSnapshot } from "@/lib/kiosk/types";
 
 const KIOSK_ENDPOINT = "/api/kiosk";
 
-export interface KioskPollState {
+interface KioskPollState {
   /** The last good snapshot, or null when there has never been one. */
   snapshot: KioskSnapshot | null;
   /** When this screen last got a good answer (its own clock). */

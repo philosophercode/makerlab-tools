@@ -23,7 +23,7 @@ import { PageSection } from "../system/PublicPage";
  * anonymous caller.
  */
 
-export interface McpTryItProps {
+interface McpTryItProps {
   /** The runnable tools: public reads, as `tryItToolNames` derives them. */
   tools: McpToolSummary[];
   runAction: (input: { tool: string; arguments: TryItArguments }) => Promise<TryItResult>;

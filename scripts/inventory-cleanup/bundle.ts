@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-export const DEFAULT_BUNDLE_DIR = fileURLToPath(new URL("../../data/inventory-cleanup-2026-09-28/", import.meta.url));
+const DEFAULT_BUNDLE_DIR = fileURLToPath(new URL("../../data/inventory-cleanup-2026-09-28/", import.meta.url));
 
 const toolRename = z.object({
   slug: z.string().min(1),

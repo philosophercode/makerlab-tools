@@ -14,7 +14,7 @@ import type { PaletteTool } from "./palette-types";
  * and the viewer's admin pages at once, with no request. Only the drafts: the
  * published list is the root layout's, already on the page.
  */
-export interface PaletteScopeValue {
+interface PaletteScopeValue {
   role: Role;
   /** The read-only public demo (`Identity.readOnly`): the palette offers it no action. */
   readOnly?: boolean;

@@ -35,7 +35,7 @@ const STATUS_TONE: Record<TriageRowStatus, StatusTone> = {
   not_found: "bad",
 };
 
-export interface ManualTriageRowProps {
+interface ManualTriageRowProps {
   proposal: TriageProposal;
   state: TriageRowState;
   busy: boolean;

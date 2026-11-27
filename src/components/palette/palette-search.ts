@@ -9,7 +9,7 @@ import { paletteScore } from "./palette-match";
  */
 
 /** A tool as either search sees it. */
-export interface SearchableTool {
+interface SearchableTool {
   name: string;
   officialName?: string | null;
   slug: string;
@@ -75,7 +75,7 @@ export function rankByPaletteScore<T>(
 }
 
 /** A tool as the home page's in-place search sees it: the palette's words, then what the list shows of it. */
-export interface CatalogueSearchableTool extends SearchableTool {
+interface CatalogueSearchableTool extends SearchableTool {
   materials?: readonly string[];
   tags?: readonly string[];
   location?: string | null;

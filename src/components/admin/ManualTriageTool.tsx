@@ -20,7 +20,7 @@ import { confirmableIds, isBusy, isDecided, type TriageRows } from "./manual-tri
  * view moves focus here with j/k and after a decision. Presentational.
  */
 
-export interface ManualTriageToolProps {
+interface ManualTriageToolProps {
   tool: TriageTool;
   /** Today's documents: refreshed after a confirm, while the rows keep their own state. */
   documents: readonly TriageDocument[];

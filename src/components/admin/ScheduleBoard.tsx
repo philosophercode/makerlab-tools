@@ -35,7 +35,7 @@ import { useRefreshNudge } from "./use-refresh-nudge";
  * mounts it.
  */
 
-export interface ScheduleBoardProps {
+interface ScheduleBoardProps {
   schedules: ScheduleView[];
   tools: ScheduleToolOption[];
   today: string;

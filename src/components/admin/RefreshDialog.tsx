@@ -17,7 +17,7 @@ import { RowStatus } from "./RowStatus";
  * allowance would be passed — with a link to the Refresh page.
  */
 
-export interface RefreshDialogProps {
+interface RefreshDialogProps {
   toolIds: string[];
   action: QueueRefreshAction;
   onClose: () => void;

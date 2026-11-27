@@ -38,7 +38,7 @@ interface Common {
   as?: "p" | "span";
 }
 
-export interface RowStatusCodeProps extends Common {
+interface RowStatusCodeProps extends Common {
   pending: boolean;
   /** True once a change has landed and nothing has qualified it. */
   saved: boolean;
@@ -48,12 +48,12 @@ export interface RowStatusCodeProps extends Common {
   warning: AdminActionWarning | null;
 }
 
-export interface RowStatusMessageProps extends Common {
+interface RowStatusMessageProps extends Common {
   tone: RowStatusTone;
   children?: ReactNode;
 }
 
-export type RowStatusProps = RowStatusCodeProps | RowStatusMessageProps;
+type RowStatusProps = RowStatusCodeProps | RowStatusMessageProps;
 
 const INK: Record<RowStatusTone, string> = {
   muted: "text-muted-foreground",

@@ -37,7 +37,7 @@ import { isLockReason, LockNote } from "./LockNote";
  * hydrated, and the action arrives as a prop so the server stays the control.
  */
 
-export interface RemoveUserControlProps {
+interface RemoveUserControlProps {
   userId: string;
   personName: string;
   email: string;

@@ -53,7 +53,7 @@ export interface TaxonomyProposalRow {
   resultingCategoryId: string | null;
 }
 
-export interface TaxonomyBoardProps {
+interface TaxonomyBoardProps {
   categories: TaxonomyCategoryRow[];
   tools: TaxonomyToolRow[];
   proposals: TaxonomyProposalRow[];

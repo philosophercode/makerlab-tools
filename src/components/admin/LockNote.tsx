@@ -18,13 +18,13 @@ import type { AdminActionError } from "../../app/admin/users/action-result";
  */
 
 /** The reasons that have a short label (`admin.locks.<reason>`). */
-export type LockReason = Extract<AdminActionError, "protected_floor" | "last_super_admin" | "self_remove">;
+type LockReason = Extract<AdminActionError, "protected_floor" | "last_super_admin" | "self_remove">;
 
 export function isLockReason(reason: AdminActionError | null | undefined): reason is LockReason {
   return reason === "protected_floor" || reason === "last_super_admin" || reason === "self_remove";
 }
 
-export interface LockNoteProps {
+interface LockNoteProps {
   reason: LockReason;
   /** The hidden explanation's id, for the control's `aria-describedby`. */
   descriptionId: string;

@@ -21,7 +21,7 @@ import { useHydrated } from "./use-hydrated";
  * due list when the page re-renders.
  */
 
-export interface TaskDoneControlProps {
+interface TaskDoneControlProps {
   scheduleId: string;
   title: string;
   /** The task's next due date as shown — the click's conflict check. */

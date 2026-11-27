@@ -26,14 +26,14 @@ import { Glyph, StatusGlyph } from "../StatusGlyph";
  * saved (or pending) value back.
  */
 
-export interface DuplicateChoiceOption<V extends string = string> {
+interface DuplicateChoiceOption<V extends string = string> {
   value: V;
   label: string;
   /** A fuller name for the radio when the label alone would repeat across rows ("Add Form 4 as another unit"). */
   ariaLabel?: string;
 }
 
-export interface DuplicateChoiceProps<V extends string = string> {
+interface DuplicateChoiceProps<V extends string = string> {
   /** The group's accessible name ("What to do about Form 4's match"). */
   label: string;
   /** What it matched, as a sentence (may hold a link to the matched tool). */

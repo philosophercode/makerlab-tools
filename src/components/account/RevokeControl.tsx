@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
  * `/account/tokens` tables. The owner keeps which row is confirming, so only
  * one asks at a time.
  */
-export interface RevokeControlProps {
+interface RevokeControlProps {
   /** The thing's name, for the labels ("Revoke Old laptop"). */
   name: string;
   /** The confirmation sentence, translated. */

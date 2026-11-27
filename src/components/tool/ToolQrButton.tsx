@@ -24,7 +24,7 @@ import { displayUrl, qrFileName, qrImagePath } from "../../lib/qr/urls";
  * The page is a cached prerender, so the URLs arrive as props from the server
  * (`qrSiteUrl`) and nothing here asks who is looking.
  */
-export interface ToolQrButtonProps {
+interface ToolQrButtonProps {
   slug: string;
   toolName: string;
   /** `<site>/tools/<slug>` — copied and shared. */

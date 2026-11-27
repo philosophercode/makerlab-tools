@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { SkeletonBlock, SkeletonFilterBar, SkeletonHeader, SkeletonTable, SkeletonTiles } from "../system/Skeleton";
 
 /** The shape of the page that is on its way. */
-export type AdminLoadingShape = "tiles" | "table" | "detail" | "page";
+type AdminLoadingShape = "tiles" | "table" | "detail" | "page";
 
 /**
  * What an admin page shows between a click in the section bar and its data

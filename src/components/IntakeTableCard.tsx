@@ -180,7 +180,7 @@ function reasonId(row: PendingToolView): string {
   return `intake-row-${row.id}-duplicate`;
 }
 
-export interface IntakeTableCardProps {
+interface IntakeTableCardProps {
   payload: IntakeTablePayload;
 }
 

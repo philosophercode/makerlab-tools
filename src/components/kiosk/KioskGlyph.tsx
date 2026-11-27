@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 const GLYPH = { ok: "●", warn: "▲", bad: "■" } as const;
 const INK = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
 
-export type KioskTone = keyof typeof GLYPH;
+type KioskTone = keyof typeof GLYPH;
 
 export function KioskGlyph({ tone, className }: { tone: KioskTone; className?: string }) {
   return (

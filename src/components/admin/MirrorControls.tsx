@@ -38,7 +38,7 @@ import { useRefreshNudge } from "./use-refresh-nudge";
 
 export type MirrorControlActions = Pick<MirrorActions, "syncNow" | "setPaused" | "disconnect">;
 
-export interface MirrorControlsProps {
+interface MirrorControlsProps {
   view: MirrorView;
   actions: MirrorControlActions;
 }

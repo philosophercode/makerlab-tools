@@ -22,7 +22,7 @@ import { personLabel } from "./person-label";
  * the write-up, the link and the materials — what the gallery would show.
  */
 
-export interface ProjectQueueProps {
+interface ProjectQueueProps {
   projects: ProjectModerationEntry[];
   action: SetProjectPublishedAction;
 }

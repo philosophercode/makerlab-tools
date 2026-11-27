@@ -40,7 +40,7 @@ import {
  * its words. A tool whose refresh is open cannot be ticked.
  */
 
-export interface RefreshPickerProps {
+interface RefreshPickerProps {
   /** The tools to offer, when the page already has them. */
   tools?: readonly PickerTool[];
   /**

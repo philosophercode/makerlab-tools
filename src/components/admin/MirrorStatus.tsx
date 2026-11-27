@@ -31,7 +31,7 @@ import { usePoll } from "./use-poll";
  * browser's agree, and "last synced" means the same hour to everyone reading it.
  */
 
-export interface MirrorStatusProps {
+interface MirrorStatusProps {
   view: MirrorView;
   /** An IANA zone (`LAB_TIMEZONE`), so server and browser render the same time. */
   timeZone: string;

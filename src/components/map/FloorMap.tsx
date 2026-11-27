@@ -33,7 +33,7 @@ export interface FloorMapLabels {
   zoneCount?: (count: number) => string;
 }
 
-export interface FloorMapProps {
+interface FloorMapProps {
   plan: FloorPlan;
   labels: FloorMapLabels;
   mode: "thumbnail" | "full";

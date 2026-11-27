@@ -70,7 +70,7 @@ function fromDraft(d: Draft): ValueAssumptions {
 
 const CLIENT_ERRORS = ["terms_overlap", "term_backwards", "not_a_date", "hours_backwards"] as const;
 
-export interface ValueAssumptionsFormProps {
+interface ValueAssumptionsFormProps {
   assumptions: ValueAssumptions;
   defaults: ValueAssumptions;
   canEdit: boolean;

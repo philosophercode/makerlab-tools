@@ -26,7 +26,7 @@ import { useRowAction } from "./use-row-action";
  * The action arrives as a prop and re-checks `projects.moderate` itself (§8).
  */
 
-export interface PublishToggleProps {
+interface PublishToggleProps {
   projectId: string;
   title: string;
   published: boolean;

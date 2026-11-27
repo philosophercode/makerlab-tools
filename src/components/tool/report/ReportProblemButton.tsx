@@ -48,7 +48,7 @@ export interface ReportUnit {
   status: ToolStatus;
 }
 
-export interface ReportProblemButtonProps {
+interface ReportProblemButtonProps {
   toolSlug: string;
   toolName: string;
   units: readonly ReportUnit[];

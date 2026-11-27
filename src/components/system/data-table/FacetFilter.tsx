@@ -30,7 +30,7 @@ export interface FacetOption {
   count: number;
 }
 
-export interface FacetFilterProps {
+interface FacetFilterProps {
   /** The dimension, translated ("State"). Also the button's accessible name. */
   label: string;
   value: string | null;

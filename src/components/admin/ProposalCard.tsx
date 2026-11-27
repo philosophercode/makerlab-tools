@@ -22,7 +22,7 @@ import { ReviewCard, ReviewNote, ReviewSources, ReviewValues } from "../system/r
  * Presentational: the parent owns the action and the busy state.
  */
 
-export interface ProposalCardProps {
+interface ProposalCardProps {
   proposal: FieldProposal;
   onAccept?: () => void;
   onReject?: () => void;

@@ -15,7 +15,7 @@ import { useSearchParams } from "next/navigation";
  *
  * `kind: "kiosk_view"` is an arrival from the kiosk's QR code (`?src=kiosk`).
  */
-export interface UsageBeaconProps {
+interface UsageBeaconProps {
   kind: "tool_view" | "kiosk_view";
   toolId?: string;
 }

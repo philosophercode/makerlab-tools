@@ -113,7 +113,7 @@ const CLEANED_COPY: Record<
 };
 
 /** What approval will do to a picked candidate's background — `admin.intake.image.pickClean.*`, or already clean. */
-export type PlannedClean = "cut" | "crop" | "busy" | "already";
+type PlannedClean = "cut" | "crop" | "busy" | "already";
 
 /**
  * What approval's clean (`research/images/pick-clean.ts`) will make of a

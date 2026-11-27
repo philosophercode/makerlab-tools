@@ -18,7 +18,7 @@ import { PageHeader } from "../system/PageHeader";
  * renderable in a test with the ordinary `NextIntlClientProvider` wrapper.
  */
 
-export type AdminNoticeKind = "signedOut" | "forbidden";
+type AdminNoticeKind = "signedOut" | "forbidden";
 
 export function AdminNotice({ kind }: { kind: AdminNoticeKind }) {
   const t = useTranslations("admin");

@@ -38,7 +38,7 @@ import { useHydrated } from "./use-hydrated";
  * stands in until Google's name replaces it (`lib/auth/provider-name.ts`).
  */
 
-export interface AddPersonFormProps {
+interface AddPersonFormProps {
   /** The `addPerson` server action, passed down by the page. */
   action: AddPersonAction;
 }

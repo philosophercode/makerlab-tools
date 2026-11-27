@@ -28,7 +28,7 @@ export interface BlockedEmailRow {
   blockedOn: string;
 }
 
-export interface BlockedEmailsListProps {
+interface BlockedEmailsListProps {
   rows: BlockedEmailRow[];
   unblock: UnblockEmailAction;
 }

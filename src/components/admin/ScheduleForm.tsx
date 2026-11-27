@@ -35,7 +35,7 @@ export interface ScheduleToolOption {
 
 export type ScheduleFormResult = { ok: true; created?: number; unaudited: boolean } | { ok: false; error: ScheduleActionError };
 
-export interface ScheduleFormProps {
+interface ScheduleFormProps {
   tools: ScheduleToolOption[];
   /** The lab's today, `YYYY-MM-DD`. */
   today: string;

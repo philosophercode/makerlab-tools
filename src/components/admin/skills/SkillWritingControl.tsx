@@ -15,7 +15,7 @@ import { useRefreshNudge } from "../use-refresh-nudge";
  * new value. A button rather than a save-on-change switch, so hydration can
  * never replay a stale change; disabled until hydrated all the same.
  */
-export interface SkillWritingControlProps {
+interface SkillWritingControlProps {
   on: boolean;
   set: SetSkillWritingAction;
 }

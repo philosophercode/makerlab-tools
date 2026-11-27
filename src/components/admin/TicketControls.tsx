@@ -50,7 +50,7 @@ interface TicketDraft {
   assignedToUserId: string | null;
 }
 
-export interface TicketControlsProps {
+interface TicketControlsProps {
   ticket: MaintenanceQueueEntry;
   /** Who a ticket can be handed to — admin roles only, by name. */
   staff: ReadonlyArray<{ id: string; name: string }>;

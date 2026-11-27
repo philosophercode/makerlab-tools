@@ -12,9 +12,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * Blob store): the report can still be sent without a photo.
  */
 
-export type ReportPhotoError = "unavailable" | "failed" | "notImage";
+type ReportPhotoError = "unavailable" | "failed" | "notImage";
 
-export interface ReportPhoto {
+interface ReportPhoto {
   id: string;
   name: string;
   previewUrl: string | null;

@@ -17,7 +17,7 @@ import { InlineTextEditor } from "../system/InlineTextEditor";
  * (the address) differently from a real one.
  */
 
-export interface NameEditorProps {
+interface NameEditorProps {
   userId: string;
   /** The stored name — the address, for somebody added without one. */
   name: string;

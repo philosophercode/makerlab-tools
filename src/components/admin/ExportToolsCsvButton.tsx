@@ -24,7 +24,7 @@ export const TOOLS_EXPORT_ENDPOINT = "/api/admin/tools/export";
 
 type ExportError = "forbidden" | "rate_limited" | "failed";
 
-export interface ExportToolsCsvButtonProps {
+interface ExportToolsCsvButtonProps {
   /** The tools to export; absent means every tool. */
   ids?: readonly string[];
   /** The button's words ("Export CSV", "Export CSV (3)"). */

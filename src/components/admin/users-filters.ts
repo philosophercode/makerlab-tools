@@ -31,7 +31,7 @@ export interface UserFilterState {
 export const NO_USER_FILTERS: UserFilterState = { query: "", role: null, signedIn: null, title: null };
 
 /** The fields the facets read. `shownTitle` is the title as the Title column displays it. */
-export interface FilterableUser {
+interface FilterableUser {
   role: Role;
   /** The first sign-in as an ISO date, or null for "Not signed in yet". */
   joined: string | null;

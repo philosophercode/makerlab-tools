@@ -6,7 +6,7 @@ import { catalogueView, type CatalogueView } from "./catalogue-view";
 import { parseGalleryState, toGallerySearchParams, type GalleryState } from "./gallery-filters";
 import { useUrlSearch, type UrlWriteOptions } from "./use-url-state";
 
-export interface CatalogueState<T extends GalleryTool = GalleryTool> {
+interface CatalogueState<T extends GalleryTool = GalleryTool> {
   /** What the URL asks for: the search, the view, the filters, the sort and the grouping. */
   state: GalleryState;
   /** Change some of it; written to the URL (`history.replaceState`, or a new entry with `push`). */

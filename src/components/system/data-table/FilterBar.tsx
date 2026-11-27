@@ -26,7 +26,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
  * The facets exist once in the page (the sheet mounts its copy only while
  * open), and so does the search box `/` jumps to.
  */
-export interface FilterBarProps {
+interface FilterBarProps {
   /** The search landmark's name, translated ("Filter the inventory"). */
   label: string;
   search?: { value: string; onChange: (value: string) => void; label: string; placeholder?: string };

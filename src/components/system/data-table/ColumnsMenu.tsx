@@ -19,7 +19,7 @@ import {
  * the `DataTable` is given, so the two cannot disagree. The menu stays open
  * while columns are toggled — hiding three columns is one trip, not three.
  */
-export interface ColumnsMenuProps<T> {
+interface ColumnsMenuProps<T> {
   columns: ColumnDef<T, unknown>[];
   visibility: VisibilityState;
   onChange: (next: VisibilityState) => void;
