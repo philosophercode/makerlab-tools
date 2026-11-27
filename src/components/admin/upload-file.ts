@@ -37,7 +37,7 @@ export type UploadFailure =
   | "wrong_type"
   | "failed";
 
-export type UploadResult =
+type UploadResult =
   | { ok: true; attachmentId: string; previewUrl: string | null }
   | { ok: false; reason: UploadFailure };
 

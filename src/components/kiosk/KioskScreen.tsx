@@ -15,7 +15,7 @@ import { TicketCount } from "./TicketCount";
 import { useKioskPoll } from "./use-kiosk-poll";
 import { useForcedDarkTheme, useNightlyReload, useNow, useOnline, useWakeLock } from "./use-screen-care";
 
-export interface KioskScreenProps {
+interface KioskScreenProps {
   /** The first snapshot, rendered on the server; null when the database could not be read. */
   initial: KioskSnapshot | null;
   /** The server's clock when it rendered (ms). */

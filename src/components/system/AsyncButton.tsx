@@ -28,9 +28,9 @@ import { RowStatus } from "../admin/RowStatus";
 /** How long "Done" shows before the label returns. */
 export const DONE_MS = 1500;
 
-export type AsyncButtonOutcome = true | false | string;
+type AsyncButtonOutcome = true | false | string;
 
-export interface AsyncButtonProps extends Omit<ButtonProps, "onClick" | "children" | "asChild"> {
+interface AsyncButtonProps extends Omit<ButtonProps, "onClick" | "children" | "asChild"> {
   children: ReactNode;
   onRun: () => Promise<AsyncButtonOutcome>;
   /** The flash after success ("Done"). */

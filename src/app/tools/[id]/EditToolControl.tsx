@@ -31,7 +31,7 @@ import { CurateChatStarter } from "../../../components/CurateChatStarter";
  * absent for exactly as long as nobody calls the endpoint directly (§8).
  */
 
-export interface EditToolControlProps {
+interface EditToolControlProps {
   /** The tool's slug — what the panel's own read looks it up by. */
   slug: string;
   toolName: string;

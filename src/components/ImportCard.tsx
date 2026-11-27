@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
  * while the tab is hidden. Nothing here writes.
  */
 
-export interface ImportCardProps {
+interface ImportCardProps {
   payload: ImportCardPayload;
   /** For tests: the progress read. */
   load?: (input: { importId: string; since?: string }) => Promise<ProgressResult>;

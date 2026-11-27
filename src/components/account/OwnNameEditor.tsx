@@ -12,7 +12,7 @@ import { InlineTextEditor } from "../system/InlineTextEditor";
  * component never imports the server's graph and a test can pass a `vi.fn`.
  */
 
-export interface OwnNameEditorProps {
+interface OwnNameEditorProps {
   name: string;
   action: (input: { name: string }) => Promise<UpdateOwnNameResult>;
 }

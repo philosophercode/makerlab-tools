@@ -26,7 +26,7 @@ import { EmptyState } from "../system/EmptyState";
  * working (Article 4).
  */
 
-export interface PhotoEditorProps {
+interface PhotoEditorProps {
   photos: EditorPhoto[];
   pending: boolean;
   onAttach: (attachmentIds: string[]) => void;

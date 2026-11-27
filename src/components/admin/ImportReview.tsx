@@ -61,7 +61,7 @@ import { usePoll } from "./use-poll";
  * as props and each re-checks its own permission.
  */
 
-export interface ImportReviewProps {
+interface ImportReviewProps {
   initialImport: ImportView;
   initialItems: ImportItemView[];
   preview: TablePreview | null;

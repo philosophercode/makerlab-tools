@@ -24,7 +24,7 @@ import { EmptyState } from "../system/EmptyState";
  * *does* work is always on screen next to the one that usually does not.
  */
 
-export interface UnitsEditorProps {
+interface UnitsEditorProps {
   units: UnitRecord[];
   pending: boolean;
   onAdd: (unitLabel: string) => void;

@@ -25,7 +25,7 @@ function useReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion, () => false);
 }
 
-export interface RotatingLine {
+interface RotatingLine {
   /** Which line shows. */
   index: number;
   /** False during the fade out, while the next line waits to come in. */

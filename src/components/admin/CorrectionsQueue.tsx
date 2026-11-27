@@ -25,7 +25,7 @@ import { personLabel } from "./person-label";
  * of linking somewhere plausible.
  */
 
-export interface CorrectionsQueueProps {
+interface CorrectionsQueueProps {
   corrections: FeedbackQueueEntry[];
   action: SetCorrectionStatusAction;
 }

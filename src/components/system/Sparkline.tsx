@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * in the last 30 days, 3 today"). An empty series draws nothing but keeps the
  * sentence.
  */
-export interface SparklineProps {
+interface SparklineProps {
   values: readonly number[];
   /** What the picture says, in words (translated). */
   label: string;

@@ -192,7 +192,7 @@ const LEVEL_KEYS: Record<IntakeConfidenceLevel, string> = {
   low: "confidenceLow",
 };
 
-export interface IntakeListProps {
+interface IntakeListProps {
   items: PendingToolView[];
   /** The viewer's research allowance left, for the confirmation; null or absent when unknown. */
   researchLeft?: number | null;

@@ -28,7 +28,7 @@ import { personLabel } from "./person-label";
  * Everything is a prop (the action included), so a component test mounts it.
  */
 
-export interface MaintenanceQueueProps {
+interface MaintenanceQueueProps {
   tickets: MaintenanceQueueEntry[];
   /** Who a ticket can be handed to — admin roles only (`listAssignableStaff`). */
   staff: ReadonlyArray<{ id: string; name: string }>;

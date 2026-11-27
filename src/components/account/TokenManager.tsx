@@ -45,7 +45,7 @@ import { Glyph, StatusGlyph, type StatusTone } from "../system/StatusGlyph";
  * column, so neither juts out of the other.
  */
 
-export interface TokenManagerProps {
+interface TokenManagerProps {
   initialTokens: TokenRow[];
   /** The deployment's origin, for the snippets. */
   baseUrl: string;

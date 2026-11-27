@@ -30,7 +30,7 @@ import { ReviewNote } from "../system/review/ReviewCard";
  * same thing unless it is changed.
  */
 
-export interface DifferentImageControlProps {
+interface DifferentImageControlProps {
   pendingId: string;
   /** `research.imageRetry` — the latest run, if any. */
   retry: ImageRetryState | null | undefined;

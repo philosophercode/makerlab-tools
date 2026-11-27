@@ -12,7 +12,7 @@ import { PageHeader, type PageHeaderProps } from "./PageHeader";
  * default (880px) is a reading column with room for a table; `wide` is the
  * page width, for a grid of cards (the projects gallery).
  */
-export interface PublicPageProps extends Omit<PageHeaderProps, "as"> {
+interface PublicPageProps extends Omit<PageHeaderProps, "as"> {
   children: ReactNode;
   width?: "default" | "narrow" | "wide";
   mainClassName?: string;

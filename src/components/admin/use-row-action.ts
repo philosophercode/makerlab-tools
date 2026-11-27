@@ -35,7 +35,7 @@ export type RowActionResult =
   | { ok: true; warning?: AdminActionWarning }
   | { ok: false; error: string };
 
-export interface RowAction<T> {
+interface RowAction<T> {
   /** What to show: the optimistic value while in flight, the truth otherwise. */
   value: T;
   pending: boolean;

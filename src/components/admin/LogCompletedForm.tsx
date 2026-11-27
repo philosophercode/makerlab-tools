@@ -32,7 +32,7 @@ export interface LogCompletedTool {
   units: { id: string; label: string }[];
 }
 
-export interface LogCompletedFormProps {
+interface LogCompletedFormProps {
   tools: LogCompletedTool[];
   action: LogCompletedAction;
 }

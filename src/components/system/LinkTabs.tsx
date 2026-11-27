@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  * that differ only by a query (`/admin/proposals?view=manuals`) cannot be
  * told apart by the path, so that page names the `current` href itself.
  */
-export interface LinkTab {
+interface LinkTab {
   href: string;
   label: string;
 }

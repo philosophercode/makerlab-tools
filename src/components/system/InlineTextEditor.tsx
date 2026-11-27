@@ -32,11 +32,11 @@ import { useHydrated } from "../admin/use-hydrated";
  * reads (`describe`), because the codes belong to the action that raised them.
  */
 
-export type InlineSaveResult =
+type InlineSaveResult =
   | { ok: true; value: string | null; warning?: string }
   | { ok: false; error: string };
 
-export interface InlineTextEditorProps {
+interface InlineTextEditorProps {
   /** What the server last stored. Null only for a value that may be empty (a title). */
   value: string | null;
   /** How the stored value reads when not editing. */

@@ -83,7 +83,7 @@ export interface RosterRow {
 /** A row with its title as the Title column shows it — what the Title facet, search and sort use. */
 type ShownRow = RosterRow & { shownTitle: string };
 
-export interface UsersRosterProps {
+interface UsersRosterProps {
   rows: RosterRow[];
   initial?: UserFilterState;
   setRole: (input: { userId: string; role: string }) => Promise<AdminActionResult>;

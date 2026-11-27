@@ -29,7 +29,7 @@ import type {
  * as a client island.
  */
 
-export interface ConfidenceStripProps {
+interface ConfidenceStripProps {
   confidence: IntakeConfidence;
   evidence: IntakeEvidence;
   /** Pages research actually read. Only http(s) links are ever rendered. */

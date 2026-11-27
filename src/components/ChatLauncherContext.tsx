@@ -24,7 +24,7 @@ interface ChatSeed {
  * page. `keys` are the path segments that page answers to — its slug and its
  * id — so `ChatFab` uses them only while the path still names this tool.
  */
-export interface ToolStarters {
+interface ToolStarters {
   keys: string[];
   questions: string[];
 }
@@ -53,7 +53,7 @@ interface ChatLauncher {
   setCurate: (value: CurateTarget | null) => void;
 }
 
-export interface CurateTarget {
+interface CurateTarget {
   keys: string[];
 }
 

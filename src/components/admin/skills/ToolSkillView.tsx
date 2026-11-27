@@ -9,7 +9,7 @@ import { Markdown } from "../../system/Markdown";
  * its sources, and what the checks removed. Presentational: the page reads
  * the row and hands the parts over. No client code.
  */
-export interface ToolSkillViewProps {
+interface ToolSkillViewProps {
   content: string;
   sources: readonly SkillSource[];
   removed: readonly RemovedItem[];

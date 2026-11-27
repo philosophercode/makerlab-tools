@@ -17,7 +17,7 @@ const HOME_SEARCH_CATEGORY_LIMIT = 3;
 /** cmdk's value for the "Ask MakerLAB AI" row. */
 const ASK_VALUE = "ask";
 
-export interface HomeSearchProps {
+interface HomeSearchProps {
   /** The text, which lives in the URL (`?q=`): the list below shows its matches. */
   value: string;
   onChange: (value: string) => void;

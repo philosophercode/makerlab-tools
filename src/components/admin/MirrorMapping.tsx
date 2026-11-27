@@ -42,7 +42,7 @@ import { DataTable } from "../system/data-table/DataTable";
 
 export type MirrorMappingActions = Pick<MirrorActions, "createDatabases" | "saveMapping">;
 
-export interface MirrorMappingProps {
+interface MirrorMappingProps {
   mapping: MirrorMappingValue;
   editable: boolean;
   actions: MirrorMappingActions;

@@ -76,7 +76,7 @@ export function turnHasOutput(message: UIMessage | undefined): boolean {
  * (demo pass spec 2026-10-07 §5.3) — thanked, never offered a sign-in their
  * address cannot use.
  */
-export type Ceiling = "sign-in" | "wait" | "demo-pass";
+type Ceiling = "sign-in" | "wait" | "demo-pass";
 
 /**
  * Recognize the rate-limit ceiling in a chat error.

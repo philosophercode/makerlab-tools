@@ -111,7 +111,7 @@ function byKind(a: GalleryTool, b: GalleryTool): number {
   return KIND_ORDER.indexOf(a.itemKind ?? "equipment") - KIND_ORDER.indexOf(b.itemKind ?? "equipment");
 }
 
-export interface CategoryChip {
+interface CategoryChip {
   /** The top-level category, as the Category filter names it. */
   name: string;
   /** Its tools the other filters leave. */

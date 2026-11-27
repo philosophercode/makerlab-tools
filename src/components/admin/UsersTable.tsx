@@ -31,7 +31,7 @@ import type { UserFilterState } from "./users-filters";
  * them before it writes.
  */
 
-export interface UsersTableProps {
+interface UsersTableProps {
   users: UserRecord[];
   /** The viewer, so their own row can be marked and its removal refused. */
   currentUserId: string | null;

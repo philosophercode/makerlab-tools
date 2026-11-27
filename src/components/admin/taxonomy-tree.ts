@@ -34,7 +34,7 @@ export interface TaxonomyNodeView {
   total: number;
 }
 
-export interface TaxonomyTreeView {
+interface TaxonomyTreeView {
   /** Live top-level categories (v2) in order, each with its live children. */
   roots: TaxonomyNodeView[];
   /** Live pre-v2 rows still carrying a free-text group — what `taxonomy:migrate` has not retired yet. */

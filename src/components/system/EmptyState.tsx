@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  * filters). It replaces `td-empty`, `admin-empty`, `empty-state` and
  * `project-empty`.
  */
-export interface EmptyStateProps {
+interface EmptyStateProps {
   /** The sentence, translated. */
   children: React.ReactNode;
   /** The next action — usually one `Button` or link. */

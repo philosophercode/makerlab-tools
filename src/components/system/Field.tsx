@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  *   a brief accent wash (off under reduced motion), and the caller puts the
  *   words ("Updated just now") in `marks`.
  */
-export interface FieldProps {
+interface FieldProps {
   /** The control's id. */
   id: string;
   label: ReactNode;

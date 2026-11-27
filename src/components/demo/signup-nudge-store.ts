@@ -25,7 +25,7 @@ export const SIGNUP_NUDGE_KEY = "makerlab.signup-nudge";
 export const SIGNUP_NUDGE_SINCE_KEY = "makerlab.signup-nudge.since";
 export const SIGNUP_NUDGE_DELAY_MS = 60_000;
 
-export type SignupNudgeOutcome = "dismissed" | "signed-up";
+type SignupNudgeOutcome = "dismissed" | "signed-up";
 
 const listeners = new Set<() => void>();
 let settledThisVisit = false;

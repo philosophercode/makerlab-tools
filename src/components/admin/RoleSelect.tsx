@@ -36,7 +36,7 @@ import type {
  * Supermaker, Student…) is their title, a separate column.
  */
 
-export interface RoleSelectProps {
+interface RoleSelectProps {
   userId: string;
   /** Whose role this is — for the control's accessible name. */
   personName: string;

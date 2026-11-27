@@ -28,7 +28,7 @@ export interface ChoiceOption<V extends string> {
   label: string;
 }
 
-export interface ChoiceMenuProps<V extends string> {
+interface ChoiceMenuProps<V extends string> {
   /** The dimension, translated ("Sort"). */
   label: string;
   value: V;

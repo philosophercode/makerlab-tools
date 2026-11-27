@@ -23,12 +23,12 @@ import type { TileFact, TileProps } from "../system/Tile";
  * a request.
  */
 
-export type TileContent = Pick<TileProps, "value" | "unit" | "waiting" | "facts" | "series" | "note" | "size">;
+type TileContent = Pick<TileProps, "value" | "unit" | "waiting" | "facts" | "series" | "note" | "size">;
 
 type Translate = (key: string, values?: Record<string, string | number>) => string;
 
 /** The surfaces the tiles home showed, before the admin sections spec. */
-export type TiledSurfaceKey =
+type TiledSurfaceKey =
   | "intake"
   | "inventory"
   | "refresh"
@@ -50,11 +50,11 @@ type LoaderOf<K extends TiledSurfaceKey> = K extends "research" ? "manuals" : K 
  * Intake's imports. Absent when the viewer may not read them, `null` when the
  * loader failed.
  */
-export interface ExtraCounts {
+interface ExtraCounts {
   imports?: OverviewCounts["imports"] | null;
 }
 
-export interface TileResult {
+interface TileResult {
   content: TileContent;
   /** The loader failed (or was not run): the number is missing, not zero. */
   unreadable: boolean;

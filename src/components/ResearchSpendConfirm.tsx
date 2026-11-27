@@ -20,7 +20,7 @@ import { ReviewNote } from "./system/review/ReviewCard";
 
 const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export interface ResearchSpendConfirmProps {
+interface ResearchSpendConfirmProps {
   /** Items that cost research — add-unit items are free and not counted. */
   count: number;
   /** Items left in today's allowance, or null when it could not be read. */

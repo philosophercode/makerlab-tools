@@ -33,7 +33,7 @@ export interface ToolWriteInput {
 }
 
 /** The context the `src/lib/inventory/` writes take, once the gate has run. */
-export interface ToolWriteActor extends ToolWriteInput {
+interface ToolWriteActor extends ToolWriteInput {
   actorUserId: string | null;
 }
 

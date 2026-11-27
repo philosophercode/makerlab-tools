@@ -32,7 +32,7 @@ import { PENDING_STATUS_TONE } from "./pending-status-tone";
  * `updatedAt`, so a change the server answered with replaces what it shows.
  */
 
-export interface ImportTableProps {
+interface ImportTableProps {
   rows: ImportItemView[];
   byId: ReadonlyMap<string, ImportItemView>;
   selected: ReadonlySet<string>;

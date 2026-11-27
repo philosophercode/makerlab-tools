@@ -23,7 +23,7 @@ import { AsyncButton } from "../system/AsyncButton";
  * absent for exactly as long as nobody calls the endpoint directly (§8).
  */
 
-export interface ToolStateControlsProps {
+interface ToolStateControlsProps {
   tool: EditableTool;
   /** Whether the viewer holds `tools.publish`, as the server reported it. */
   canPublish: boolean;

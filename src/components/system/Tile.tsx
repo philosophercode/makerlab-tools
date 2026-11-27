@@ -178,7 +178,7 @@ export function factGlyph(fact: Pick<TileFact, "value" | "tone">): StatusTone | 
  * One cell of a group: a tile, or two half tiles sharing one (DESIGN.md §8.2).
  * Consecutive halves pair in order; a lone half keeps a cell of its own.
  */
-export type TileCellOf<T> = { kind: "one"; item: T } | { kind: "pair"; items: [T, T] };
+type TileCellOf<T> = { kind: "one"; item: T } | { kind: "pair"; items: [T, T] };
 
 export function pairHalves<T>(items: readonly T[], isHalf: (item: T) => boolean): TileCellOf<T>[] {
   const cells: TileCellOf<T>[] = [];

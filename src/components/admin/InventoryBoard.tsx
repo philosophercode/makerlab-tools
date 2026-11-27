@@ -62,7 +62,7 @@ import {
  * by the two or three people who read this table.
  */
 
-export interface InventoryBoardProps {
+interface InventoryBoardProps {
   rows: InventoryRow[];
   /** The filters the URL arrived with, already validated. */
   initial: InventoryFilterState;

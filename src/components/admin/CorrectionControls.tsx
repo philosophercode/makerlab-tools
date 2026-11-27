@@ -27,7 +27,7 @@ import { useRowAction } from "./use-row-action";
  * for itself (§8).
  */
 
-export interface CorrectionControlsProps {
+interface CorrectionControlsProps {
   feedbackId: string;
   /** One of `FEEDBACK_STATUS`. */
   status: string;

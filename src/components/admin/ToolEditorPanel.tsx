@@ -56,7 +56,7 @@ import type { ToolEditorData } from "../../lib/data/tool-editor";
  * confirmation hostage to a whole server re-render.
  */
 
-export interface ToolEditorPanelProps {
+interface ToolEditorPanelProps {
   /** A slug or a uuid — whatever the surface that opened the panel has. */
   idOrSlug: string;
   /** The name to show while it loads, from the row or page that opened it. */

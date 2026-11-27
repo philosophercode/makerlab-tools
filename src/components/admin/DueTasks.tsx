@@ -31,7 +31,7 @@ import { useRefreshNudge } from "./use-refresh-nudge";
  * leaves the list when the page re-renders.
  */
 
-export interface DueTasksProps {
+interface DueTasksProps {
   items: DueItem[];
   /** The lab's today, `YYYY-MM-DD`. */
   today: string;

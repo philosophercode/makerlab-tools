@@ -50,7 +50,7 @@ export interface QrLabelRow {
 }
 
 /** What the list prints labels for: each tool, or each unit of each tool. */
-export type QrLabelKind = "tools" | "units";
+type QrLabelKind = "tools" | "units";
 
 /**
  * One row of the list: a tool, or one unit of a tool. `key` is the tool's

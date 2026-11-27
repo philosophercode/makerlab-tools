@@ -30,7 +30,7 @@ import { LAB_NOTES_PATH } from "../../app/admin/inventory/lab-notes/action-resul
  * nothing is overwritten unseen (§6, States).
  */
 
-export interface ToolFieldsFormProps {
+interface ToolFieldsFormProps {
   values: EditableTool;
   categories: CategoryOption[];
   locations: LocationOption[];

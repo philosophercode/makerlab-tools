@@ -19,7 +19,7 @@ import { InlineTextEditor } from "../system/InlineTextEditor";
  * super admin only, so every viewer may edit.
  */
 
-export interface TitleEditorProps {
+interface TitleEditorProps {
   userId: string;
   personName: string;
   role: Role;

@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
  * Display only: the parent holds the rows and does the polling.
  */
 
-export interface ImportProgressProps {
+interface ImportProgressProps {
   view: ImportView;
   items: readonly ImportItemView[];
   /** The raw rows, for the Source panel; null for a document or at compact density. */

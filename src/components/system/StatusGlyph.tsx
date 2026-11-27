@@ -38,7 +38,7 @@ const INK: Record<StatusTone, string> = {
   muted: "text-muted-foreground",
 };
 
-export interface StatusGlyphProps {
+interface StatusGlyphProps {
   tone: StatusTone;
   /** The status word, translated. Always rendered: visibly, or `sr-only` when compact. */
   label: string;
